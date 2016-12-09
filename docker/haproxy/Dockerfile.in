@@ -1,0 +1,20 @@
+FROM hyperledger/fabric-baseimage:_TAG_
+
+RUN apt-get update && apt-get -qq -y install libpcre3-dev libssl-dev
+RUN wget http://www.haproxy.org/download/1.5/src/haproxy-1.5.4.tar.gz
+RUN tar zxfv haproxy-1.5.4.tar.gz
+
+WORKDIR haproxy-1.5.4/
+RUN make TARGET=custom CPU=native USE_PCRE=1 USE_LIBCRYPT=1 USE_LINUX_SPLICE=1 USE_LINUX_TPROXY=1 USE_OPENSSL=yes
+RUN make install
+RUN useradd -M haproxy
+
+WORKDIR /etc/init.d
+COPY haproxy.initd /etc/init.d/haproxy
+RUN chmod u+x /etc/init.d/haproxy
+
+WORKDIR /etc/default
+COPY haproxy.default /etc/default/haproxy
+
+COPY haproxy.conf /usr/local/etc/haproxy/haproxy.cfg
+EXPOSE 8888
