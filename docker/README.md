@@ -1,6 +1,6 @@
 # To build a docker image with fabric-ca
 ```sh
-$ docker build fabric-ca -t fabric-ca:latest
+$ cd /path/to/fabric-cop; make docker
 ```
 
 # Setup environment variables (optional)
@@ -28,7 +28,6 @@ $ export FABRIC_CA_CONFIG=<Fabric CA configuration file>
 default value: csr.json
 ```sh
 $ export CSR_CONFIG=<CSR configuration file>
-```
 ```
 
 # Certificate private and public files
