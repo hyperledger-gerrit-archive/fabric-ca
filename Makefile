@@ -55,11 +55,13 @@ SAMPLECONFIG = $(shell git ls-files images/fabric-ca/config)
 CERTFILES = $(shell git ls-files images/fabric-ca/certs)
 
 DOCKER_ORG = hyperledger
-IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-fvt
+IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-fvt postgres haproxy
 
 path-map.fabric-ca := ./
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
 path-map.fabric-ca-server := ./cmd/fabric-ca-server
+path-map.postgres := postgres
+path-map.haproxy := haproxy
 
 include docker-env.mk
 
@@ -114,12 +116,26 @@ build/docker/busybox:
 		hyperledger/fabric-baseimage:$(BASE_DOCKER_TAG) \
 		make -f busybox/Makefile install BINDIR=$(@D)
 
+build/image/haproxy/$(DUMMY): build/image/haproxy/payload
+
+build/image/postgres/$(DUMMY): build/image/postgres/payload
+
 # payload definitions
 build/image/$(PROJECT_NAME)/payload:	build/docker/bin/fabric-ca \
 					build/sampleconfig.tar.bz2 \
 					build/certfiles.tar.bz2
 
 build/image/$(PROJECT_NAME)-fvt/payload: images/fabric-ca-fvt/start.sh
+
+build/image/haproxy/payload:
+	mkdir -p $@
+	cp images/haproxy/haproxy.conf $@/haproxy.conf
+	cp images/haproxy/docker-entrypoint.sh $@/docker-entrypoint.sh
+
+build/image/postgres/payload:
+	mkdir -p $@
+	cp images/postgres/pg_hba.conf $@/pg_hba.conf
+	cp images/postgres/postgresql.conf $@/postgresql.conf
 
 build/image/%/payload:
 	mkdir -p $@

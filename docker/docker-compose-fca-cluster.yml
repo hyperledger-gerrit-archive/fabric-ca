@@ -1,0 +1,114 @@
+version: '2'
+
+services:
+  db:
+    #build: ./postgres
+    image: hyperledger/postgres
+    environment:
+      - POSTGRES_PASSWORD=mysecretpassword
+      - POSTGRES_USER=fca_admin
+    ports:
+      - "5432:5432"
+    container_name: db
+
+  fca0:
+    image: hyperledger/fabric-ca
+    ports:
+      - "7054:7054"
+    environment:
+      - CA_CERTIFICATE=${CA_CERTIFICATE}
+      - CA_KEY_CERTIFICATE=${CA_KEY_CERTIFICATE}
+      - FABRIC_CA_CONFIG=${FCA_PSQL_CONFIG}
+    volumes:
+      - /etc/hyperledger/fabric-ca:/var/hyperledger/fca_config
+      - /.fabric-ca:/var/hyperledger/fabric/.fabric-ca
+    command: sh -c 'sleep 10; fabric-ca server start -ca /.fabric-ca/$$CA_CERTIFICATE -ca-key /.fabric-ca/$$CA_KEY_CERTIFICATE -config /etc/hyperledger/fabric-ca/$$FABRIC_CA_CONFIG -address "0.0.0.0"'
+    links:
+      - db:db
+    volumes_from:
+      - db
+    container_name: fca0
+
+  fca1:
+    image: hyperledger/fabric-ca
+    ports:
+      - "7064:7054"
+    environment:
+      - CA_CERTIFICATE=${CA_CERTIFICATE}
+      - CA_KEY_CERTIFICATE=${CA_KEY_CERTIFICATE}
+      - FABRIC_CA_CONFIG=${FCA_PSQL_CONFIG}
+    volumes:
+      - /etc/hyperledger/fabric-ca:/var/hyperledger/fca_config
+      - /.fabric-ca:/var/hyperledger/fabric/.fabric-ca
+    command: sh -c 'sleep 10; fabric-ca server start -ca /.fabric-ca/$$CA_CERTIFICATE -ca-key /.fabric-ca/$$CA_KEY_CERTIFICATE -config /etc/hyperledger/fabric-ca/$$FABRIC_CA_CONFIG -address "0.0.0.0"'
+    links:
+      - db:db
+    volumes_from:
+      - db
+    container_name: fca1
+
+  fca2:
+    image: hyperledger/fabric-ca
+    ports:
+      - "7074:7054"
+    environment:
+      - CA_CERTIFICATE=${CA_CERTIFICATE}
+      - CA_KEY_CERTIFICATE=${CA_KEY_CERTIFICATE}
+      - FABRIC_CA_CONFIG=${FCA_PSQL_CONFIG}
+    volumes:
+      - /var/hyperledger/fca_config:/etc/hyperledger/fabric-ca
+      - /var/hyperledger/fabric/.fabric-ca:/.fabric-ca
+    command: sh -c 'sleep 10; fabric-ca server start -ca /.fabric-ca/$$CA_CERTIFICATE -ca-key /.fabric-ca/$$CA_KEY_CERTIFICATE -config /etc/hyperledger/fabric-ca/$$FABRIC_CA_CONFIG -address "0.0.0.0"'
+    links:
+      - db:db
+    volumes_from:
+      - db
+    container_name: fca2
+
+  haproxy:
+    #build: ./haproxy
+    image: hyperledger/haproxy
+    ports:
+      - "7094:7054"
+    links:
+      - fca0:fca0
+      - fca1:fca1
+      - fca2:fca2
+    command: sh -c '/etc/init.d/haproxy start; sleep 50000000000'
+    container_name: haproxy
+
+  admin-client:
+    image: hyperledger/fabric-ca
+    environment:
+      - CSR_CONFIG=${CSR_CONFIG}
+    volumes:
+      - /etc/hyperledger/fabric-ca:/var/hyperledger/fca_config
+      - /.fabric-ca:/var/hyperledger/fabric/.fabric-ca
+    command: sh -c "sleep 15;fabric-ca client enroll admin adminpw http://haproxy:7054 /etc/hyperledger/fabric-ca/$$CSR_CONFIG"
+    links:
+      - haproxy:haproxy
+    container_name: admin-client
+
+  bob-client:
+    image: hyperledger/fabric-ca
+    environment:
+      - CSR_CONFIG=${CSR_CONFIG}
+    volumes:
+      - /etc/hyperledger/fabric-ca:/var/hyperledger/fca_config
+      - /.fabric-ca:/var/hyperledger/fabric/.fabric-ca
+    command: sh -c "sleep 16;fabric-ca client enroll admin adminpw http://haproxy:7054 /etc/hyperledger/fabric-ca/$$CSR_CONFIG"
+    links:
+      - haproxy:haproxy
+    container_name: bob-client
+
+  sdk-client:
+    image: hyperledger/fabric-ca
+    environment:
+      - CSR_CONFIG=${CSR_CONFIG}
+    volumes:
+      - /etc/hyperledger/fabric-ca:/var/hyperledger/fca_config
+      - /.fabric-ca:/var/hyperledger/fabric/.fabric-ca
+    command: sh -c "sleep 17;fabric-ca client enroll admin adminpw http://haproxy:7054 /etc/hyperledger/fabric-ca/$$CSR_CONFIG"
+    links:
+      - haproxy:haproxy
+    container_name: sdk-client

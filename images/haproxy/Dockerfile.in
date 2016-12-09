@@ -1,0 +1,7 @@
+FROM hyperledger/fabric-baseimage:_BASE_TAG_
+
+RUN apt update && apt -y install haproxy
+COPY payload/docker-entrypoint.sh /.
+COPY payload/haproxy.conf /etc/haproxy/.
+ENTRYPOINT /docker-entrypoint.sh
+CMD haproxy -f /etc/haproxy/haproxy.conf
