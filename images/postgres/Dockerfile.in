@@ -1,0 +1,22 @@
+FROM hyperledger/fabric-baseimage:_BASE_TAG_
+
+RUN apt-get update \
+&& add-apt-repository "deb http://apt.postgresql.org/pub/repos/apt/ trusty-pgdg main" \
+&& wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add - \
+&& sudo apt-get update \
+&& sudo apt-get -qq -y install postgresql-9.6
+
+WORKDIR /usr/local/pgsql/data
+WORKDIR /var/run/postgresql/9.6-main.pg_stat_tmp
+COPY payload/postgresql.conf /etc/postgresql/9.6/main/postgresql.conf
+COPY payload/pg_hba.conf /etc/postgresql/9.6/main/pg_hba.conf
+RUN chown -R postgres:postgres /usr/local/pgsql/data
+RUN chown -R postgres:postgres /var/run/postgresql/9.6-main.pg_stat_tmp
+
+EXPOSE 5432
+USER postgres
+RUN /etc/init.d/postgresql start \
+&& psql --command "CREATE USER fca_admin WITH SUPERUSER PASSWORD 'mysecretpassword';" \
+&& createdb -O fca_admin fca_admin
+
+CMD /usr/lib/postgresql/9.6/bin/postgres -D /etc/postgresql/9.6/main
