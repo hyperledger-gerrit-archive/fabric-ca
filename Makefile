@@ -124,6 +124,12 @@ build/image/%/$(DUMMY): Makefile build/image/%/payload
 		| sed -e 's/_BASE_TAG_/$(BASE_DOCKER_TAG)/g' \
 		| sed -e 's/_TAG_/$(DOCKER_TAG)/g' \
 		> $(@D)/Dockerfile
+	@cat docker/haproxy/Dockerfile.in \
+		| sed -e 's/_TAG_/$(BASE_DOCKER_TAG)/g' \
+		> docker/haproxy/Dockerfile
+	@cat docker/postgres/Dockerfile.in \
+		| sed -e 's/_TAG_/$(BASE_DOCKER_TAG)/g' \
+		> docker/postgres/Dockerfile
 	$(DBUILD) -t $(DOCKER_NAME) $(@D)
 	docker tag $(DOCKER_NAME) $(DOCKER_NAME):$(DOCKER_TAG)
 	@touch $@

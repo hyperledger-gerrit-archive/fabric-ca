@@ -4,3 +4,4 @@ coverage.xml
 fabric-ca
 *.csr
 *.der
+*.sw*
