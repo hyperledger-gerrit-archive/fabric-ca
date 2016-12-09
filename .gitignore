@@ -3,3 +3,4 @@ build
 coverage.xml
 *.csr
 *.der
+*.sw*

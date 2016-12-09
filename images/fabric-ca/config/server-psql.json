@@ -1,0 +1,77 @@
+{
+ "tls_disable":true,
+ "driver":"postgres",
+ "data_source":"dbname=fabric_ca host=db port=5432 user=fca_admin password=mysecretpassword sslmode=disable",
+ "user_registry": {
+   "max_enrollments": 1
+ },
+ "users": {
+    "admin": {
+      "pass": "adminpw",
+      "type": "client",
+      "group": "bank_a",
+      "attrs": [{"name":"hf.Registrar.Roles","value":"client,user,peer,validator,auditor"},
+                {"name":"hf.Registrar.DelegateRoles", "value": "client,user,validator,auditor"},
+                {"name":"hf.Revoker", "value": "true"}]
+    },
+    "admin2": {
+      "pass": "adminpw2",
+      "type": "client",
+      "group": "bank_a",
+      "attrs": [{"name":"hf.Registrar.Roles","value":"client,peer,validator,auditor"},
+                {"name":"hf.Registrar.DelegateRoles", "value": "client"},
+                {"name":"hf.Revoker", "value": "true"}]
+    },
+    "admin2": {
+      "pass": "adminpw2",
+      "type": "client",
+      "group": "bank_a",
+      "attrs": [{"name":"hf.Registrar.Roles","value":"client,peer,validator,auditor"},
+                {"name":"hf.Registrar.DelegateRoles", "value": "client"},
+                {"name":"hf.Revoker", "value": "true"}]
+    },
+    "revoker": {
+      "pass": "revokerpw",
+      "type": "client",
+      "group": "bank_a",
+      "attrs": [{"name":"hf.Revoker", "value": "true"}]
+    },
+    "notadmin": {
+      "pass": "pass",
+      "type": "client",
+      "group": "bank_a",
+      "attrs": [{"name":"hf.Registrar.Roles","value":"client,peer,validator,auditor"},
+                {"name":"hf.Registrar.DelegateRoles", "value": "client"}]
+    },
+    "testUser": {
+      "pass": "user1",
+      "type": "client",
+      "group": "bank_b",
+      "attrs": []
+    },
+    "testUser2": {
+      "pass": "user2",
+      "type": "client",
+      "group": "bank_c",
+      "attrs": []
+    },
+    "testUser3": {
+      "pass": "user3",
+      "type": "client",
+      "group": "bank_a",
+      "attrs": []
+    }
+ },
+ "groups": {
+   "banks_and_institutions": {
+     "banks": ["bank_a", "bank_b", "bank_c"],
+     "institutions": ["institution_a"]
+   }
+ },
+ "signing": {
+    "default": {
+       "usages": ["cert sign"],
+       "expiry": "8000h"
+    }
+ }
+}

@@ -47,5 +47,5 @@ $ fabric-ca server init /path/to/fabric-ca/config/csr.json
 
 # To execute the fabric-ca server and fabric-ca clients
 ```sh
-$ docker-compose -f docker-compose-fabric-ca-cluster.yml up --force-recreate -d
+$ docker-compose -f docker-compose-fca-cluster.yml up --force-recreate -d
 ```
