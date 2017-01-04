@@ -24,13 +24,13 @@ import "github.com/hyperledger/fabric-ca/api"
 
 // UserInfo contains information about a user
 type UserInfo struct {
-	Name           string
-	Pass           string
-	Type           string
-	Group          string
-	Attributes     []api.Attribute
-	State          int
-	MaxEnrollments int
+	Name            string
+	Pass            string
+	Type            string
+	AffiliationPath string
+	Attributes      []api.Attribute
+	State           int
+	MaxEnrollments  int
 }
 
 // GroupInfo defines a group name and its parent

@@ -99,6 +99,7 @@ func testEverything(ta TestAccessor, t *testing.T) {
 	testUpdateUser(ta, t)
 	testInsertAndGetGroup(ta, t)
 	testDeleteGroup(ta, t)
+	testGetRootGroup(ta, t)
 }
 
 func testInsertAndGetUser(ta TestAccessor, t *testing.T) {
@@ -225,4 +226,28 @@ func testDeleteGroup(ta TestAccessor, t *testing.T) {
 	if err == nil {
 		t.Error("Should have errored, and not returned any results")
 	}
+}
+
+func testGetRootGroup(ta TestAccessor, t *testing.T) {
+	ta.Truncate()
+
+	err := ta.Accessor.InsertGroup("Banks", "")
+	if err != nil {
+		t.Errorf("Error occured during insert query of group: %s, error: %s", "Bank1", err)
+	}
+
+	err = ta.Accessor.InsertGroup("Bank2", "Banks")
+	if err != nil {
+		t.Errorf("Error occured during insert query of group: %s, error: %s", "Bank2", err)
+	}
+
+	rootGroup, err := ta.Accessor.GetRootGroup()
+	if err != nil {
+		t.Errorf("Error occured during retreival of rootGroup, error: %s", err)
+	}
+
+	if rootGroup.GetName() != "Banks" {
+		t.Error("Failed to get root group")
+	}
+
 }

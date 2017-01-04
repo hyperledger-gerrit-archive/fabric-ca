@@ -156,13 +156,38 @@ func (r *Register) registerUserID(id string, userType string, group string, attr
 		tok = util.RandomString(12)
 	}
 
+	var affiliationPath string
+	if group != "" {
+		rootGroup, err := userRegistry.GetRootGroup()
+		if err != nil {
+			return "", errors.New("Failed to get root group")
+		}
+
+		Group, err := userRegistry.GetGroup(group)
+		if err != nil {
+			return "", fmt.Errorf("Failed to find group %s", group)
+		}
+
+		affiliationPath = group
+		for Group.GetParent() != rootGroup.GetName() {
+			affiliationPath = Group.GetParent() + "/" + affiliationPath
+			Group, err = userRegistry.GetGroup(Group.GetParent())
+			if err != nil {
+				return "", fmt.Errorf("Failed to find group %s", Group.GetParent())
+			}
+		}
+
+		affiliationPath = rootGroup.GetName() + "/" + affiliationPath
+		log.Debugf("Affiliation Path: %s", affiliationPath)
+	}
+
 	insert := spi.UserInfo{
-		Name:           id,
-		Pass:           tok,
-		Type:           userType,
-		Group:          group,
-		Attributes:     attributes,
-		MaxEnrollments: CFG.UsrReg.MaxEnrollments,
+		Name:            id,
+		Pass:            tok,
+		Type:            userType,
+		AffiliationPath: affiliationPath,
+		Attributes:      attributes,
+		MaxEnrollments:  CFG.UsrReg.MaxEnrollments,
 	}
 
 	_, err := userRegistry.GetUser(id, nil)
