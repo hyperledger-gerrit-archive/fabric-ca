@@ -23,6 +23,7 @@ import (
 	"io/ioutil"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/util"
 )
 
 // ClientTLSConfig defines the root ca and client certificate and key files
@@ -55,7 +56,7 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 	caCertPool := x509.NewCertPool()
 
 	if len(cfg.CACertFiles) == 0 {
-		log.Error("No CA cert files provided, TLS connection cannot be established")
+		log.Error("No CA cert files provided. If server requires TLS, connection will fail")
 	}
 
 	for _, cacert := range cfg.CACertFiles {
@@ -75,4 +76,13 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 	}
 
 	return config, nil
+}
+
+// AbsTLSClient makes TLS client files absolute
+func AbsTLSClient(cfg *ClientTLSConfig, configDir string) {
+	for i := 0; i < len(cfg.CACertFiles); i++ {
+		cfg.CACertFiles[i] = util.Abs(cfg.CACertFiles[i], configDir)
+	}
+	cfg.Client.CertFile = util.Abs(cfg.Client.CertFile, configDir)
+	cfg.Client.KeyFile = util.Abs(cfg.Client.KeyFile, configDir)
 }
