@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -32,8 +31,8 @@ import (
 )
 
 const (
-	ClientTLSConfig = "client-config.json"
-	FCADB           = "../testdata/fabric-ca.db"
+	FCADB        = "../testdata/fabric-ca.db"
+	clientConfig = "../testdata/client-config.json"
 )
 
 var serverStarted bool
@@ -42,9 +41,6 @@ var dir string
 
 func TestAllClient(t *testing.T) {
 	startServer()
-
-	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../testdata/client-config.json", clientConfig)
 
 	c := getClient()
 
@@ -219,8 +215,7 @@ func TestSendBadPost(t *testing.T) {
 }
 
 func getClient() *Client {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
-	c, err := NewClient(fcaServer)
+	c, err := NewClient(clientConfig)
 	if err != nil {
 		log.Errorf("getClient failed: %s", err)
 	}

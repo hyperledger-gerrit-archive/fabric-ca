@@ -40,6 +40,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cloudflare/cfssl/log"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -355,7 +356,31 @@ func HTTPResponseToString(resp *http.Response) string {
 		resp.StatusCode, resp.Status, string(body))
 }
 
-// GetDefaultHomeDir returns the default fabric-ca home
+// CreateHome will create a home directory if it does not exist
+func CreateHome() (string, error) {
+	log.Debug("CreateHome")
+	home := os.Getenv("FABRIC_CA_HOME")
+	if home == "" {
+		home = os.Getenv("HOME")
+		if home != "" {
+			home = path.Join(home, "/fabric-cop")
+		} else {
+			home = "/var/hyperledger/fabric/dev/fabric-cop"
+		}
+	}
+
+	if _, err := os.Stat(home); err != nil {
+		if os.IsNotExist(err) {
+			err := os.MkdirAll(home, 0755)
+			if err != nil {
+				return "", err
+			}
+		}
+	}
+	return home, nil
+}
+
+// GetDefaultHomeDir returns the default fabric-cas home
 func GetDefaultHomeDir() string {
 	home := os.Getenv("FABRIC_CA_HOME")
 	if home == "" {
@@ -409,4 +434,13 @@ func MakeFileAbs(file, dir string) (string, error) {
 		return "", fmt.Errorf("Failed making '%s' absolute based on '%s'", file, dir)
 	}
 	return path, nil
+}
+
+// Abs makes 'file' absolute relative to the configuration directory
+func Abs(file, configDir string) string {
+	path, err := MakeFileAbs(file, configDir)
+	if err != nil {
+		panic(err)
+	}
+	return path
 }

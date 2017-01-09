@@ -19,6 +19,7 @@ package util
 import (
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -139,6 +140,30 @@ func TestRemoveQuotesNone(t *testing.T) {
 	}
 }
 
+func TestCreateHome(t *testing.T) {
+	t.Log("Test Creating Home Directory")
+	os.Unsetenv("COP_HOME")
+	tempDir, err := ioutil.TempDir("", "test")
+	if err != nil {
+		t.Errorf("Failed to create temp directory [error: %s]", err)
+	}
+	os.Setenv("HOME", tempDir)
+
+	_, err = CreateHome()
+	if err != nil {
+		t.Errorf("Failed to create home directory, error: %s", err)
+	}
+
+	dir := filepath.Join(tempDir, "fabric-cop")
+
+	if _, err = os.Stat(dir); err != nil {
+		if os.IsNotExist(err) {
+			t.Error("Failed to create home directory")
+		}
+	}
+
+}
+
 func TestGetDefaultHomeDir(t *testing.T) {
 	os.Setenv("FABRIC_CA_HOME", "")
 	os.Setenv("HOME", "")
@@ -233,5 +258,15 @@ func makeFileAbs(t *testing.T, file, dir, expect string) {
 	}
 	if path != expect {
 		t.Errorf("Absolute of file=%s with dir=%s expected %s but was %s", file, dir, expect, path)
+	}
+}
+func TestAbs(t *testing.T) {
+	configDir := "../testdata"
+	file := "client-config.json"
+	path := Abs(file, configDir)
+
+	isAbs := filepath.IsAbs(path)
+	if !isAbs {
+		t.Error("Failed to get absolute path")
 	}
 }
