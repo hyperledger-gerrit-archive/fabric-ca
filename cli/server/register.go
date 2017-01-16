@@ -58,6 +58,7 @@ func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	// Parse request body
 	var req api.RegistrationRequestNet
+
 	err = json.Unmarshal(body, &req)
 	if err != nil {
 		return err
@@ -65,7 +66,7 @@ func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	// Register User
 	callerID := r.Header.Get(enrollmentIDHdrName)
-	tok, err := reg.RegisterUser(req.Name, req.Type, req.Group, req.Attributes, callerID)
+	tok, err := reg.RegisterUser(req.Name, req.Type, req.Group, req.Attributes, callerID, req.MaxEnrollments)
 	if err != nil {
 		return err
 	}
@@ -94,7 +95,7 @@ func NewRegisterUser() *Register {
 }
 
 // RegisterUser will register a user
-func (r *Register) RegisterUser(id string, userType string, group string, attributes []api.Attribute, registrar string, opt ...string) (string, error) {
+func (r *Register) RegisterUser(id string, userType string, group string, attributes []api.Attribute, registrar string, maxEnrollments int, opt ...string) (string, error) {
 	log.Debugf("Received request to register user with id: %s, group: %s, attributes: %s, registrar: %s\n",
 		id, group, attributes, registrar)
 
@@ -114,7 +115,7 @@ func (r *Register) RegisterUser(id string, userType string, group string, attrib
 		return "", err
 	}
 
-	tok, err = r.registerUserID(id, userType, group, attributes, opt...)
+	tok, err = r.registerUserID(id, userType, group, attributes, maxEnrollments, opt...)
 
 	if err != nil {
 		return "", err
@@ -146,7 +147,7 @@ func (r *Register) validateID(id string, userType string, group string) error {
 }
 
 // registerUserID registers a new user and its enrollmentID, role and state
-func (r *Register) registerUserID(id string, userType string, group string, attributes []api.Attribute, opt ...string) (string, error) {
+func (r *Register) registerUserID(id string, userType string, group string, attributes []api.Attribute, maxEnrollments int, opt ...string) (string, error) {
 	log.Debugf("Registering user id: %s\n", id)
 
 	var tok string
@@ -156,13 +157,23 @@ func (r *Register) registerUserID(id string, userType string, group string, attr
 		tok = util.RandomString(12)
 	}
 
+	if (maxEnrollments > CFG.UsrReg.MaxEnrollments && CFG.UsrReg.MaxEnrollments != 0) || (maxEnrollments < 0) {
+		log.Infof("Invalid max enrollment value specified, defaulting to: %d", CFG.UsrReg.MaxEnrollments)
+		maxEnrollments = CFG.UsrReg.MaxEnrollments
+	}
+
+	if maxEnrollments == 0 && CFG.UsrReg.MaxEnrollments != 0 {
+		log.Infof("Unlimited enrollments not allowed, defaulting to: %d", CFG.UsrReg.MaxEnrollments)
+		maxEnrollments = CFG.UsrReg.MaxEnrollments
+	}
+
 	insert := spi.UserInfo{
 		Name:           id,
 		Pass:           tok,
 		Type:           userType,
 		Group:          group,
 		Attributes:     attributes,
-		MaxEnrollments: CFG.UsrReg.MaxEnrollments,
+		MaxEnrollments: maxEnrollments,
 	}
 
 	_, err := userRegistry.GetUser(id, nil)

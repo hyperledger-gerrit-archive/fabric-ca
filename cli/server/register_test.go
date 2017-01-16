@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -27,16 +26,17 @@ import (
 )
 
 type Admin struct {
-	Name       string
-	Pass       []byte
-	Type       string
-	Group      string
-	Attributes []api.Attribute
+	Name          string
+	Pass          []byte
+	Type          string
+	Group         string
+	Attributes    []api.Attribute
+	MaxEnrollment int
 }
 
 var (
-	NotRegistrar = Admin{Name: "testUser2", Pass: []byte("pass"), Type: "User", Group: "bank_b", Attributes: []api.Attribute{api.Attribute{Name: "role", Value: "client"}}}
-	Registrar    = Admin{Name: "admin", Pass: []byte("adminpw"), Type: "User", Group: "bank_a", Attributes: []api.Attribute{api.Attribute{Name: "hf.Registrar.DelegateRoles", Value: "client,user,auditor"}}}
+	NotRegistrar = Admin{Name: "testUser2", Pass: []byte("pass"), Type: "User", Group: "bank_b", Attributes: []api.Attribute{api.Attribute{Name: "role", Value: "client"}}, MaxEnrollment: 3}
+	Registrar    = Admin{Name: "admin", Pass: []byte("adminpw"), Type: "User", Group: "bank_a", Attributes: []api.Attribute{api.Attribute{Name: "hf.Registrar.DelegateRoles", Value: "client,user,auditor"}}, MaxEnrollment: 3}
 	testUser     = api.RegistrationRequest{Name: "testUser1", Type: "user", Group: "bank_a", Attributes: []api.Attribute{api.Attribute{Name: "test", Value: "testValue"}}}
 	testAuditor  = api.RegistrationRequest{Name: "testAuditor", Type: "Auditor", Attributes: []api.Attribute{api.Attribute{Name: "role", Value: "auditor"}}}
 	testClient1  = api.RegistrationRequest{Name: "testClient1", Type: "Client", Group: "bank_a", Attributes: []api.Attribute{api.Attribute{Name: "test", Value: "testValue"}}}
@@ -76,22 +76,10 @@ func prepRegister() error {
 	return nil
 }
 
-func bootstrapUsers() error {
-	r := NewRegisterUser()
-	if r == nil {
-		return errors.New("Failed to get register object")
-	}
-	r.RegisterUser(Registrar.Name, Registrar.Type, Registrar.Group, Registrar.Attributes, "", string(Registrar.Pass))
-
-	r.RegisterUser(NotRegistrar.Name, NotRegistrar.Type, NotRegistrar.Group, NotRegistrar.Attributes, "", string(NotRegistrar.Pass))
-
-	return nil
-}
-
 func registerUser(registrar Admin, user *api.RegistrationRequest) (string, error) {
 	r := NewRegisterUser()
 
-	tok, err := r.RegisterUser(user.Name, user.Type, user.Group, user.Attributes, registrar.Name)
+	tok, err := r.RegisterUser(user.Name, user.Type, user.Group, user.Attributes, registrar.Name, user.MaxEnrollments)
 	if err != nil {
 		return "", err
 	}

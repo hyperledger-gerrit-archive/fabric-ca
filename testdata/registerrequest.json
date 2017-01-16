@@ -2,5 +2,6 @@
   "id": "test_user",
   "type": "client",
   "group": "bank_a",
-  "attrs": [{"name":"test","value":"testValue"}]
+  "attrs": [{"name":"test","value":"testValue"}],
+  "max_enrollments": 2
 }

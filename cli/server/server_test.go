@@ -245,12 +245,13 @@ func TestMaxEnrollment(t *testing.T) {
 		return
 	}
 
-	CFG.UsrReg.MaxEnrollments = 2
+	CFG.UsrReg.MaxEnrollments = 5
 
 	regReq := &api.RegistrationRequest{
-		Name:  "MaxTestUser",
-		Type:  "Client",
-		Group: "bank_a",
+		Name:           "MaxTestUser",
+		Type:           "Client",
+		Group:          "bank_a",
+		MaxEnrollments: 2,
 	}
 
 	resp, err := id.Register(regReq)
@@ -287,6 +288,65 @@ func TestMaxEnrollment(t *testing.T) {
 		return
 	}
 
+}
+
+func TestCustomizableMaxEnroll(t *testing.T) {
+	c := getClient(t)
+	if c == nil {
+		return
+	}
+
+	id, err := c.LoadMyIdentity()
+	if err != nil {
+		t.Errorf("TestMisc.LoadMyIdentity failed: %s", err)
+		return
+	}
+
+	CFG.UsrReg.MaxEnrollments = 5
+
+	// Test with invalid max enrollment value specified by a registrar (greater than 5)
+	regReq := &api.RegistrationRequest{
+		Name:           "InvalidMaxEnroll",
+		Type:           "Client",
+		Group:          "bank_a",
+		MaxEnrollments: 6,
+	}
+
+	_, err = id.Register(regReq)
+	if err != nil {
+		t.Error(err)
+	}
+
+	user, err := userRegistry.GetUserInfo(regReq.Name)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if user.MaxEnrollments != 5 {
+		t.Error("Failed to update correct value for max enrollments")
+	}
+
+	// Test with invalid max enrollment value specified by a registrar (0 - unlimited enrollments not allowed)
+	regReq2 := &api.RegistrationRequest{
+		Name:           "InvalidMaxEnroll2",
+		Type:           "Client",
+		Group:          "bank_a",
+		MaxEnrollments: 0,
+	}
+
+	_, err = id.Register(regReq2)
+	if err != nil {
+		t.Error(err)
+	}
+
+	user2, err := userRegistry.GetUserInfo(regReq2.Name)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if user2.MaxEnrollments != 5 {
+		t.Error("Failed to update correct value for max enrollments, cannot be set to unlimited")
+	}
 }
 
 func TestEnroll(t *testing.T) {
@@ -415,7 +475,6 @@ func TestUserRegistry(t *testing.T) {
 	if err == nil {
 		t.Error("Trying to LDAP with no URL; it should have failed but passed")
 	}
-
 }
 
 func TestCreateHome(t *testing.T) {

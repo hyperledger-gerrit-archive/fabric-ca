@@ -22,7 +22,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 	"time"
 
@@ -32,10 +32,11 @@ import (
 	"github.com/hyperledger/fabric-ca/util"
 )
 
-const (
-	ClientTLSConfig = "client-config.json"
-	FCADB           = "../testdata/fabric-ca.db"
-	CFGFile         = "testconfig.json"
+var (
+	tdDir           = "../testdata"
+	clientTLSConfig = "client-config.json"
+	fcaDB           = path.Join(tdDir, "fabric-ca.db")
+	testCfgFile     = "testconfig.json"
 )
 
 var serverStarted bool
@@ -45,8 +46,8 @@ var dir string
 func TestAllClient(t *testing.T) {
 	startServer()
 
-	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../testdata/client-config.json", clientConfig)
+	clientConfig := path.Join(dir, clientTLSConfig)
+	os.Link(path.Join(tdDir, "client-config.json"), clientConfig)
 
 	c := getClient()
 
@@ -189,7 +190,7 @@ func testRevocation(c *Client, t *testing.T, user, secret string, ecertOnly, sho
 }
 
 func testLoadCSRInfo(c *Client, t *testing.T) {
-	_, err := c.LoadCSRInfo("../testdata/csr.json")
+	_, err := c.LoadCSRInfo(path.Join(tdDir, "csr.json"))
 	if err != nil {
 		t.Errorf("testLoadCSRInfo failed: %s", err)
 	}
@@ -203,7 +204,7 @@ func testLoadNoCSRInfo(c *Client, t *testing.T) {
 }
 
 func testLoadBadCSRInfo(c *Client, t *testing.T) {
-	_, err := c.LoadCSRInfo("../testdata/config.json")
+	_, err := c.LoadCSRInfo(path.Join(tdDir, "config.json"))
 	if err == nil {
 		t.Error("testLoadBadCSRInfo passed but should have failed")
 	}
@@ -238,7 +239,7 @@ func startServer() int {
 	}
 
 	if !serverStarted {
-		os.Remove(FCADB)
+		os.Remove(fcaDB)
 		os.RemoveAll(dir)
 		serverStarted = true
 		fmt.Println("starting fabric-ca server ...")
@@ -255,14 +256,14 @@ func runServer() {
 	os.Setenv("FABRIC_CA_DEBUG", "true")
 	os.Setenv("FABRIC_CA_HOME", dir)
 	s := new(server.Server)
-	s.ConfigDir = "../testdata"
-	s.ConfigFile = CFGFile
+	s.ConfigDir = tdDir
+	s.ConfigFile = testCfgFile
 	s.StartFromConfig = true
 	s.Start()
 }
 
 func TestLast(t *testing.T) {
 	// Cleanup
-	os.Remove(FCADB)
+	os.Remove(fcaDB)
 	os.RemoveAll(dir)
 }

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"testing"
 	"time"
@@ -33,10 +34,13 @@ var serverStarted bool
 var serverExitCode = 0
 var dir string
 
-const (
-	ClientTLSConfig = "client-config.json"
-	FabricCADB      = "../../testdata/fabric-ca.db"
-	CFGFile         = "testconfig.json"
+var (
+	tdDir         = "../../testdata"
+	testCfgFile   = "testconfig.json"
+	clientCfgFile = "client-config.json"
+	fabricCADB    = path.Join(tdDir, "fabric-ca.db")
+	rrFile        = path.Join(tdDir, "registerrequest.json")
+	csrFile       = path.Join(tdDir, "csr.json")
 )
 
 // TestNewClient tests constructing a client
@@ -50,8 +54,8 @@ func TestNewClient(t *testing.T) {
 func TestEnrollCLI(t *testing.T) {
 	startServer()
 
-	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../../testdata/client-config2.json", clientConfig)
+	clientConfig := filepath.Join(dir, clientCfgFile)
+	os.Link(path.Join(tdDir, "client-config2.json"), clientConfig)
 
 	c := new(cli.Config)
 
@@ -80,7 +84,7 @@ func TestRegister(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"../../testdata/registerrequest.json", util.GetServerURL()}
+	args := []string{rrFile, util.GetServerURL()}
 
 	err := registerMain(args, *c)
 	if err != nil {
@@ -92,7 +96,7 @@ func TestRegister(t *testing.T) {
 func TestRegisterNotEnoughArgs(t *testing.T) {
 	c := new(cli.Config)
 
-	args := []string{"../../testdata/registerrequest.json"}
+	args := []string{rrFile}
 
 	err := registerMain(args, *c)
 	if err == nil {
@@ -155,7 +159,7 @@ func TestEnrollCLIWithCSR(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"notadmin", "pass", util.GetServerURL(), "../../testdata/csr.json"}
+	args := []string{"notadmin", "pass", util.GetServerURL(), csrFile}
 
 	err := enrollMain(args, *c)
 	if err != nil {
@@ -168,7 +172,7 @@ func TestReenrollCLIWithCSR(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{util.GetServerURL(), "../../testdata/csr.json"}
+	args := []string{util.GetServerURL(), csrFile}
 
 	err := reenrollMain(args, *c)
 	if err != nil {
@@ -210,15 +214,15 @@ func TestBogusCommand(t *testing.T) {
 
 func TestLast(t *testing.T) {
 	// Cleanup
-	os.Remove(FabricCADB)
+	os.Remove(fabricCADB)
 	os.RemoveAll(dir)
 }
 
 func runServer() {
 	os.Setenv("FABRIC_CA_DEBUG", "true")
 	s := new(server.Server)
-	s.ConfigDir = "../../testdata"
-	s.ConfigFile = CFGFile
+	s.ConfigDir = tdDir
+	s.ConfigFile = testCfgFile
 	s.StartFromConfig = false
 	s.Start()
 }
@@ -232,7 +236,7 @@ func startServer() {
 	}
 
 	if !serverStarted {
-		os.Remove(FabricCADB)
+		os.Remove(fabricCADB)
 		os.RemoveAll(dir)
 		serverStarted = true
 		fmt.Println("starting fabric-ca server ...")
