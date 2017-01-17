@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/fabric-ca/cli/server/dbutil"
 	"github.com/hyperledger/fabric-ca/cli/server/ldap"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 )
 
 const (
@@ -83,8 +84,13 @@ func TestPostgresFail(t *testing.T) {
 
 func TestRegisterUser(t *testing.T) {
 	startServer()
+
 	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../../testdata/client-config2.json", clientConfig)
+	config, _ := filepath.Abs("../../testdata/client-config2.json")
+	err := util.CopyFile(config, clientConfig)
+	if err != nil {
+		t.Error("Failed to create client config file link, err: ", err)
+	}
 
 	c := getClient(t)
 	if c == nil {

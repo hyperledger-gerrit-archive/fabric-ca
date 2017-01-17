@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudflare/cfssl/cli"
 	"github.com/hyperledger/fabric-ca/cli/server"
+	"github.com/hyperledger/fabric-ca/util"
 )
 
 var serverStarted bool
@@ -33,6 +34,7 @@ var serverExitCode = 0
 var dir string
 
 const (
+	CFGFile         = "testconfig.json"
 	ClientTLSConfig = "client-config.json"
 	FabricCADB      = "../../testdata/fabric-ca.db"
 )
@@ -49,13 +51,17 @@ func TestEnrollCLI(t *testing.T) {
 	startServer()
 
 	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../../testdata/client-config2.json", clientConfig)
+	config, _ := filepath.Abs("../../testdata/client-config2.json")
+	err := util.CopyFile(config, clientConfig)
+	if err != nil {
+		t.Error("Failed to create client config file link, err: ", err)
+	}
 
 	c := new(cli.Config)
 
 	args := []string{"admin", "adminpw", "https://localhost:8888"}
 
-	err := enrollMain(args, *c)
+	err = enrollMain(args, *c)
 	if err != nil {
 		t.Error("Failed to register, err: ", err)
 	}
@@ -216,7 +222,7 @@ func TestLast(t *testing.T) {
 
 func runServer() {
 	os.Setenv("FABRIC_CA_DEBUG", "true")
-	server.Start("../../testdata", "testconfig.json")
+	server.Start("../../testdata", CFGFile)
 }
 
 func startServer() {

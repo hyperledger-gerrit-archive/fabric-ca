@@ -240,3 +240,13 @@ func makeFileAbs(t *testing.T, file, dir, expect string) {
 		t.Errorf("Absolute of file=%s with dir=%s expected %s but was %s", file, dir, expect, path)
 	}
 }
+
+// very minimal smoke test
+func TestCopyFile(t *testing.T) {
+	src := "util.go"
+	dst := filepath.Join("/tmp", src)
+	err := CopyFile(src, dst)
+	if err != nil {
+		t.Errorf("CopyFile from %s to %s failed with error: %v", src, dst, err)
+	}
+}
