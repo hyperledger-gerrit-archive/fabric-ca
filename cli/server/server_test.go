@@ -29,6 +29,7 @@ import (
 	"github.com/hyperledger/fabric-ca/cli/server/dbutil"
 	"github.com/hyperledger/fabric-ca/cli/server/ldap"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 )
 
 const (
@@ -212,7 +213,7 @@ func TestRevoke(t *testing.T) {
 }
 
 func TestGetTCerts(t *testing.T) {
-	fcaServer := `{"serverURL": lib.DefaultServerURL}`
+	fcaServer := fmt.Sprintf(`{"serverURL": "%s"}`, util.GetServerURL())
 	c, err := lib.NewClient(fcaServer)
 	if err != nil {
 		t.Errorf("TestGetTCerts.NewClient failed: %s", err)
@@ -466,7 +467,7 @@ func testWithoutAuthHdr(c *lib.Client, t *testing.T) {
 }
 
 func getClient(t *testing.T) *lib.Client {
-	fcaServer := `{"serverURL":` + lib.DefaultServerURL + "}"
+	fcaServer := fmt.Sprintf(`{"serverURL":"%s"}`, util.GetServerURL())
 	c, err := lib.NewClient(fcaServer)
 	if err != nil {
 		t.Fatalf("TestMisc.NewClient failed: %s", err)
