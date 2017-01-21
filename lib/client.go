@@ -41,10 +41,6 @@ import (
 )
 
 const (
-	// DefaultServerPort is the default fabric-ca server's listening port
-	DefaultServerPort = "7054"
-	// DefaultServerURL is the default fabric-ca server's URL
-	DefaultServerURL = "https://127.0.0.1:7054"
 	clientConfigFile = "client-config.json"
 )
 
@@ -52,7 +48,7 @@ const (
 func NewClient(config string) (*Client, error) {
 	c := new(Client)
 	// Set defaults
-	c.ServerURL = DefaultServerURL
+	c.ServerURL = util.GetServerURL()
 	c.HomeDir = util.GetDefaultHomeDir()
 	if config != "" {
 		// Override any defaults
@@ -352,7 +348,7 @@ func normalizeURL(addr string) (*url.URL, error) {
 		u.Host = net.JoinHostPort(u.Scheme, u.Opaque)
 		u.Opaque = ""
 	} else if u.Path != "" && !strings.Contains(u.Path, ":") {
-		u.Host = net.JoinHostPort(u.Path, DefaultServerPort)
+		u.Host = net.JoinHostPort(u.Path, util.GetServerPort())
 		u.Path = ""
 	} else if u.Scheme == "" {
 		u.Host = u.Path
@@ -363,7 +359,7 @@ func normalizeURL(addr string) (*url.URL, error) {
 	}
 	_, port, err := net.SplitHostPort(u.Host)
 	if err != nil {
-		_, port, err = net.SplitHostPort(u.Host + ":" + DefaultServerPort)
+		_, port, err = net.SplitHostPort(u.Host + ":" + util.GetServerPort())
 		if err != nil {
 			return nil, err
 		}
