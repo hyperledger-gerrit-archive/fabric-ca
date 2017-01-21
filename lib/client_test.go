@@ -219,7 +219,7 @@ func TestSendBadPost(t *testing.T) {
 }
 
 func getClient() *Client {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
+	fcaServer := `{"serverURL": DefaultServerURL}`
 	c, err := NewClient(fcaServer)
 	if err != nil {
 		log.Errorf("getClient failed: %s", err)

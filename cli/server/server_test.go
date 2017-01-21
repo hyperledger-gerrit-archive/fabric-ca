@@ -212,7 +212,7 @@ func TestRevoke(t *testing.T) {
 }
 
 func TestGetTCerts(t *testing.T) {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
+	fcaServer := `{"serverURL": lib.DefaultServerURL}`
 	c, err := lib.NewClient(fcaServer)
 	if err != nil {
 		t.Errorf("TestGetTCerts.NewClient failed: %s", err)
@@ -293,8 +293,10 @@ func TestEnroll(t *testing.T) {
 }
 
 func testUnregisteredUser(t *testing.T) {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
-	c, _ := lib.NewClient(fcaServer)
+	c := getClient(t)
+	if c == nil {
+		return
+	}
 
 	req := &api.EnrollmentRequest{
 		Name:   "Unregistered",
@@ -309,8 +311,10 @@ func testUnregisteredUser(t *testing.T) {
 }
 
 func testIncorrectToken(t *testing.T) {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
-	c, _ := lib.NewClient(fcaServer)
+	c := getClient(t)
+	if c == nil {
+		return
+	}
 
 	req := &api.EnrollmentRequest{
 		Name:   "notadmin",
@@ -325,8 +329,10 @@ func testIncorrectToken(t *testing.T) {
 }
 
 func testEnrollingUser(t *testing.T) {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
-	c, _ := lib.NewClient(fcaServer)
+	c := getClient(t)
+	if c == nil {
+		return
+	}
 
 	req := &api.EnrollmentRequest{
 		Name:   "testUser2",
@@ -360,9 +366,10 @@ func TestRevokeCertificatesByID(t *testing.T) {
 }
 
 func TestExpiration(t *testing.T) {
-
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
-	c, _ := lib.NewClient(fcaServer)
+	c := getClient(t)
+	if c == nil {
+		return
+	}
 
 	// Enroll this user using the "expiry" profile which is configured
 	// to expire after 1 second
@@ -459,7 +466,7 @@ func testWithoutAuthHdr(c *lib.Client, t *testing.T) {
 }
 
 func getClient(t *testing.T) *lib.Client {
-	fcaServer := `{"serverURL":"https://localhost:8888"}`
+	fcaServer := `{"serverURL":` + lib.DefaultServerURL + "}"
 	c, err := lib.NewClient(fcaServer)
 	if err != nil {
 		t.Fatalf("TestMisc.NewClient failed: %s", err)

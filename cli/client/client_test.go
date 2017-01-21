@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudflare/cfssl/cli"
 	"github.com/hyperledger/fabric-ca/cli/server"
+	"github.com/hyperledger/fabric-ca/lib"
 )
 
 var serverStarted bool
@@ -39,7 +40,7 @@ const (
 
 // TestNewClient tests constructing a client
 func TestNewClient(t *testing.T) {
-	_, err := NewClient("https://127.0.0.1:8888")
+	_, err := NewClient(lib.DefaultServerURL)
 	if err != nil {
 		t.Errorf("Failed to create a client: %s", err)
 	}
@@ -53,7 +54,7 @@ func TestEnrollCLI(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"admin", "adminpw", "https://localhost:8888"}
+	args := []string{"admin", "adminpw", lib.DefaultServerURL}
 
 	err := enrollMain(args, *c)
 	if err != nil {
@@ -65,7 +66,7 @@ func TestEnrollCLI(t *testing.T) {
 func TestReenrollCLI(t *testing.T) {
 	c := new(cli.Config)
 
-	args := []string{"https://localhost:8888"}
+	args := []string{lib.DefaultServerURL}
 
 	err := reenrollMain(args, *c)
 	if err != nil {
@@ -78,7 +79,7 @@ func TestRegister(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"../../testdata/registerrequest.json", "https://localhost:8888"}
+	args := []string{"../../testdata/registerrequest.json", lib.DefaultServerURL}
 
 	err := registerMain(args, *c)
 	if err != nil {
@@ -102,7 +103,7 @@ func TestRegisterNotEnoughArgs(t *testing.T) {
 func TestRegisterNoJSON(t *testing.T) {
 	c := new(cli.Config)
 
-	args := []string{"", "admin", "https://localhost:8888"}
+	args := []string{"", "admin", lib.DefaultServerURL}
 
 	err := registerMain(args, *c)
 	if err == nil {
@@ -115,7 +116,7 @@ func TestRegisterMissingRegistrar(t *testing.T) {
 	c := new(cli.Config)
 
 	// os.Setenv("FABRIC_CA_HOME", "/tmp")
-	args := []string{"", "", "https://localhost:8888"}
+	args := []string{"", "", lib.DefaultServerURL}
 
 	err := registerMain(args, *c)
 	if err == nil {
@@ -128,7 +129,7 @@ func TestRevoke(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"https://localhost:8888", "admin"}
+	args := []string{lib.DefaultServerURL, "admin"}
 
 	err := revokeMain(args, *c)
 	if err != nil {
@@ -154,7 +155,7 @@ func TestEnrollCLIWithCSR(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"notadmin", "pass", "https://localhost:8888", "../../testdata/csr.json"}
+	args := []string{"notadmin", "pass", lib.DefaultServerURL, "../../testdata/csr.json"}
 
 	err := enrollMain(args, *c)
 	if err != nil {
@@ -167,7 +168,7 @@ func TestReenrollCLIWithCSR(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"https://localhost:8888", "../../testdata/csr.json"}
+	args := []string{lib.DefaultServerURL, "../../testdata/csr.json"}
 
 	err := reenrollMain(args, *c)
 	if err != nil {
@@ -179,7 +180,7 @@ func TestRevokeNoArg(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"https://localhost:8888"}
+	args := []string{lib.DefaultServerURL}
 
 	err := revokeMain(args, *c)
 	if err == nil {
@@ -191,7 +192,7 @@ func TestRevokeNotAdmin(t *testing.T) {
 
 	c := new(cli.Config)
 
-	args := []string{"https://localhost:8888", "admin"}
+	args := []string{lib.DefaultServerURL, "admin"}
 
 	err := revokeMain(args, *c)
 	if err == nil {
