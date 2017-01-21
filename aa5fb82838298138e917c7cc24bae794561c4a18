@@ -1,0 +1,9 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Code-Review+1: Volodymyr Paprotski <vpaprots@ca.ibm.com>
+Code-Review+2: Srinivasan Muralidharan <muralisr@us.ibm.com>
+Submitted-by: Srinivasan Muralidharan <muralisr@us.ibm.com>
+Submitted-at: Sat, 21 Jan 2017 16:58:36 +0000
+Reviewed-on: http://gerrit.hyperledger.org/r/4665
+Project: fabric-ca
+Branch: refs/heads/master
