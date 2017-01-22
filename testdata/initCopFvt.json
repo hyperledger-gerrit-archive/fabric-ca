@@ -1,0 +1,28 @@
+{
+ "hosts": [
+     "eca@hyperledger-server",
+     "127.0.0.1",
+     "hyperledger-server.example.com"
+ ],
+ "CN": "FVT COP Enrollment CA(rsa 2048)",
+ "key": {
+     "algo": "rsa",
+     "size": 2048
+ },
+ "names": [
+     {
+         "SN": "admin",
+         "O": "Hyperledger",
+         "O": "Fabric",
+         "OU": "COP",
+         "OU": "FVT",
+         "STREET": "Miami Blvd.",
+         "DC": "peer",
+         "UID": "admin",
+         "L": "Raleigh",
+         "L": "RTP",
+         "ST": "North Carolina",
+         "C": "US"
+     }
+ ]
+}
