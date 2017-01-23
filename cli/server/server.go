@@ -49,13 +49,9 @@ import (
 	"github.com/cloudflare/cfssl/signer/universal"
 	"github.com/cloudflare/cfssl/ubiquity"
 	"github.com/hyperledger/fabric-ca/cli/server/spi"
-<<<<<<< a569df930f0ea810ca3ecc251ef4c6675b25325c
 	libcsp "github.com/hyperledger/fabric-ca/lib/csp"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
-=======
-	"github.com/hyperledger/fabric-ca/util"
->>>>>>> COP Client Configuration File
 	"github.com/jmoiron/sqlx"
 )
 
@@ -137,7 +133,6 @@ func bootstrapDB() error {
 func startMain(args []string, c cli.Config) error {
 	log.Debug("server.startMain")
 	var err error
-
 
 	homeDir, err = util.CreateHome()
 	if err != nil {

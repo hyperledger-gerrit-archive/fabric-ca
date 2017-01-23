@@ -27,6 +27,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -299,6 +300,9 @@ func (c *Client) SendPost(req *http.Request) (interface{}, error) {
 		return nil, fmt.Errorf("Failed to parse client config file [%s]; not sending\n%s", err, reqStr)
 	}
 
+	configDir := filepath.Dir(c.ConfigFile)
+	tls.AbsTLSClient(cfg, configDir)
+
 	tlsConfig, err := tls.GetClientTLSConfig(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get client TLS config [%s]; not sending\n%s", err, reqStr)
@@ -358,7 +362,6 @@ func (c *Client) getURL(endpoint string) (string, error) {
 
 func (c *Client) getClientConfig(path string) ([]byte, error) {
 	log.Debug("Retrieving client config")
-	// fcaClient := filepath.Join(path, clientConfigFile)
 	fileBytes, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
