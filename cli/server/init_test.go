@@ -19,6 +19,7 @@ package server
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -79,6 +80,9 @@ func TestInitCA(t *testing.T) {
 		req.CA = ca
 		if req.CA != nil {
 			err = errors.New("ca section only permitted in initca")
+			if err != nil {
+				fmt.Println("Error is not nil")
+			}
 			return
 		}
 
@@ -110,6 +114,9 @@ func TestInitNOTCA(t *testing.T) {
 	req.CA = ca
 	if req.CA != nil {
 		err = errors.New("ca section only permitted in initca")
+		if err != nil {
+			fmt.Println("error is not nil")
+		}
 		return
 	}
 

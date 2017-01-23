@@ -26,7 +26,7 @@ func TestGetUnecnryptedAttrFromCert(t *testing.T) {
 
 	certBuff, err := ioutil.ReadFile("../../testdata/tcertwithunencryptedattr.pem")
 	if err != nil {
-		t.Errorf("Reading Cert file from directory failed with error : [%v]", err)
+		t.Errorf("Reading Cert file from directory failed with error : %s", err)
 	}
 
 	performTests(certBuff, nil, t)
@@ -37,13 +37,13 @@ func TestGetEcnryptedAttrFromCert(t *testing.T) {
 
 	tcertJSONResponse, err := ioutil.ReadFile("../../testdata/tcert_response_enc_attr.json")
 	if err != nil {
-		t.Errorf("Reading TCert JSON response from directory failed with error : [%v]", err)
+		t.Errorf("Reading TCert JSON response from directory failed with error : %s", err)
 	}
 
 	batchResponse := &GetBatchResponse{}
 	error := json.Unmarshal(tcertJSONResponse, batchResponse)
 	if error != nil {
-		t.Errorf("JOSN Unmarshalling failed with error : [%v]", error)
+		t.Errorf("JOSN Unmarshalling failed with error : %s", error)
 	}
 
 	tcerts := batchResponse.TCerts
@@ -67,7 +67,7 @@ func performTests(certBuff []byte, keys map[string][]byte, t *testing.T) {
 		t.Errorf("GetAttributeManagerInstance failed")
 	}
 	if error != nil {
-		t.Errorf("GetAttributeManagerInstance instantiation failed with error : [%v]", error)
+		t.Errorf("GetAttributeManagerInstance instantiation failed with error : %s", error)
 	}
 
 	//Test for retrieving attribute names
