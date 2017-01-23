@@ -42,7 +42,7 @@ func (b *Bootstrap) PopulateUsersTable() error {
 	for name, info := range CFG.Users {
 
 		reg := NewRegisterUser()
-		reg.RegisterUser(name, info.Type, info.Group, info.Attributes, "", info.Pass, strconv.Itoa(CFG.UsrReg.MaxEnrollments))
+		reg.RegisterUser(name, info.Type, info.Affiliation, info.Attributes, "", info.Pass, strconv.Itoa(CFG.UserRegistry.MaxEnrollments))
 	}
 	return nil
 }
@@ -85,10 +85,10 @@ func (b *Bootstrap) PopulateGroupsTable() {
 		log.Errorf("Fatal error when reading fabric-ca config file: %s", err)
 	}
 
-	key := "groups"
+	key := "affiliations"
 	affiliationGroups := viper.GetStringMapString(key)
 	if len(affiliationGroups) == 0 {
-		log.Info("No groups specified in configuration file")
+		log.Info("No affiliations specified in configuration file")
 	}
 	for name := range affiliationGroups {
 		b.populateGroup(name, "", key, 1)

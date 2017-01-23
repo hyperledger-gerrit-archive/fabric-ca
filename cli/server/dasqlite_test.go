@@ -18,6 +18,7 @@ package server
 
 import (
 	"os"
+	"path"
 	"strings"
 	"testing"
 
@@ -56,10 +57,10 @@ func TestSQLite(t *testing.T) {
 		os.MkdirAll(dbPath, 0755)
 	}
 	var cfg = new(Config)
-	cfg.DBdriver = "sqlite3"
-	cfg.DataSource = dbPath + "/fabric-ca.db"
+	cfg.Database.Type = "sqlite3"
+	cfg.Database.Datasource = path.Join(dbPath, "/fabric-ca.db")
 
-	db, _, err := dbutil.NewUserRegistrySQLLite3(cfg.DataSource)
+	db, _, err := dbutil.NewUserRegistrySQLLite3(cfg.Database.Datasource)
 	if err != nil {
 		t.Error("Failed to open connection to DB")
 	}

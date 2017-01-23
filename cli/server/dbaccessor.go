@@ -255,7 +255,7 @@ func (d *Accessor) GetUserInfo(id string) (spi.UserInfo, error) {
 	userInfo.Name = userRec.Name
 	userInfo.Pass = userRec.Pass
 	userInfo.Type = userRec.Type
-	userInfo.Group = userRec.Group
+	userInfo.AffiliationPath = userRec.AffiliationPath
 	userInfo.State = userRec.State
 	userInfo.MaxEnrollments = userRec.MaxEnrollments
 	userInfo.Attributes = attributes

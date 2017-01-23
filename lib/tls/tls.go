@@ -28,15 +28,9 @@ import (
 
 // ClientTLSConfig defines the root ca and client certificate and key files
 type ClientTLSConfig struct {
-	// The filenames of pem files for CA certificates
-	CACertFiles []string     `json:"ca_certfiles"`
-	Client      KeyCertFiles `json:"client,omitempty"`
-}
-
-// KeyCertFiles defines the files need for client on TLS
-type KeyCertFiles struct {
-	KeyFile  string `json:"keyfile"`
-	CertFile string `json:"certfile"`
+	CAFiles  []string `mapstructure:"caFiles"` // The filenames of pem files for CA certificates
+	CertFile string   `mapstructure:"certFile"`
+	KeyFile  string   `mapstructure:"keyFile"`
 }
 
 // GetClientTLSConfig creates a tls.Config object from certs and roots
@@ -44,9 +38,9 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 	log.Debug("Get Client TLS Configuration")
 	var certs []tls.Certificate
 
-	log.Debugf("Client Cert File: %s\n", cfg.Client.CertFile)
-	log.Debugf("Client Key File: %s\n", cfg.Client.KeyFile)
-	clientCert, err := tls.LoadX509KeyPair(cfg.Client.CertFile, cfg.Client.KeyFile)
+	log.Infof("Client Cert File: %s\n", cfg.CertFile)
+	log.Infof("Client Key File: %s\n", cfg.KeyFile)
+	clientCert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		log.Warningf("Client Cert or Key not provided, if server requires mutual TLS, the connection will fail [error: %s]", err)
 	}
@@ -55,11 +49,11 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 
 	caCertPool := x509.NewCertPool()
 
-	if len(cfg.CACertFiles) == 0 {
+	if len(cfg.CAFiles) == 0 {
 		log.Error("No CA cert files provided. If server requires TLS, connection will fail")
 	}
 
-	for _, cacert := range cfg.CACertFiles {
+	for _, cacert := range cfg.CAFiles {
 		caCert, err := ioutil.ReadFile(cacert)
 		if err != nil {
 			return nil, err
@@ -80,9 +74,9 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 
 // AbsTLSClient makes TLS client files absolute
 func AbsTLSClient(cfg *ClientTLSConfig, configDir string) {
-	for i := 0; i < len(cfg.CACertFiles); i++ {
-		cfg.CACertFiles[i] = util.Abs(cfg.CACertFiles[i], configDir)
+	for i := 0; i < len(cfg.CAFiles); i++ {
+		cfg.CAFiles[i] = util.Abs(cfg.CAFiles[i], configDir)
 	}
-	cfg.Client.CertFile = util.Abs(cfg.Client.CertFile, configDir)
-	cfg.Client.KeyFile = util.Abs(cfg.Client.KeyFile, configDir)
+	cfg.CertFile = util.Abs(cfg.CertFile, configDir)
+	cfg.KeyFile = util.Abs(cfg.KeyFile, configDir)
 }

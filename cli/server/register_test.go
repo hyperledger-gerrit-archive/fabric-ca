@@ -60,15 +60,15 @@ func prepRegister() error {
 	var err error
 
 	cfg := new(cli.Config)
-	cfg.ConfigFile = "../../testdata/testconfig.json"
+	configFile = "../../testdata/testconfig.json"
 	configInit(cfg)
 
 	regCFG := CFG
 	homeDir = regPath
 	datasource := filepath.Join(homeDir, "fabric-ca.db")
-	regCFG.DataSource = datasource
+	regCFG.Database.Datasource = datasource
 
-	err = InitUserRegistry(regCFG)
+	err = InitUserRegistry(&regCFG)
 	if err != nil {
 		return err
 	}

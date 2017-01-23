@@ -154,7 +154,7 @@ func TestCreateHome(t *testing.T) {
 		t.Errorf("Failed to create home directory, error: %s", err)
 	}
 
-	dir := filepath.Join(tempDir, "fabric-cop")
+	dir := filepath.Join(tempDir, "fabric-ca")
 
 	if _, err = os.Stat(dir); err != nil {
 		if os.IsNotExist(err) {

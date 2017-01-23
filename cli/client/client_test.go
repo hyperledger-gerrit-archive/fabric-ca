@@ -31,6 +31,7 @@ var serverExitCode = 0
 var dir string
 
 const (
+	serverConfig = "testconfig.json"
 	FabricCADB   = "../../testdata/fabric-ca.db"
 	clientConfig = "../../testdata/client-config.json"
 )
@@ -60,7 +61,7 @@ func TestEnrollCLI(t *testing.T) {
 
 	err := Command()
 	if err != nil {
-		t.Error("Failed to register, err: ", err)
+		t.Error("Failed to enroll, err: ", err)
 	}
 
 }
@@ -89,7 +90,7 @@ func TestRegister(t *testing.T) {
 
 func TestRegisterNotEnoughArgs(t *testing.T) {
 
-	os.Args = []string{"client", "register", "-config", clientConfig, "../../testdata/registerrequest.json"}
+	os.Args = []string{"client", "register", "-config", clientConfig}
 
 	err := Command()
 	if err == nil {
@@ -216,7 +217,7 @@ func TestLast(t *testing.T) {
 
 func runServer() {
 	os.Setenv("FABRIC_CA_DEBUG", "true")
-	server.Start("../../testdata", "testconfig.json")
+	server.Start("../../testdata", serverConfig)
 }
 
 func startServer() {

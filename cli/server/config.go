@@ -17,59 +17,81 @@ limitations under the License.
 package server
 
 import (
-	"encoding/json"
-	"fmt"
-	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 
 	"github.com/cloudflare/cfssl/cli"
+	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/log"
+	ocspConfig "github.com/cloudflare/cfssl/ocsp/config"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/cli/server/ldap"
 	libcsp "github.com/hyperledger/fabric-ca/lib/csp"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/spf13/viper"
 
 	_ "github.com/mattn/go-sqlite3" // Needed to support sqlite
 )
 
 // Config is the fabric-ca config structure
 type Config struct {
-	Debug          bool             `json:"debug,omitempty"`
-	Authentication bool             `json:"authentication,omitempty"`
-	Users          map[string]*User `json:"users,omitempty"`
-	DBdriver       string           `json:"driver"`
-	DataSource     string           `json:"data_source"`
-	UsrReg         UserReg          `json:"user_registry"`
-	LDAP           *ldap.Config     `json:"ldap,omitempty"`
-	CAFile         string           `json:"ca_cert"`
-	KeyFile        string           `json:"ca_key"`
-	TLSConf        TLSConfig        `json:"tls,omitempty"`
-	TLSDisable     bool             `json:"tls_disable,omitempty"`
-	CSP            *libcsp.Config   `json:"csp,omitempty"`
+	Debug          bool                      `mapstructure:"debug,omitempty"`
+	Authentication bool                      `mapstructure:"authentication,omitempty"`
+	CA             CAConfig                  `mapstructure:"ca"`
+	UserRegistry   UserReg                   `mapstructure:"userRegistry"`
+	Database       DatabaseConfig            `mapstructure:"database"`
+	TLS            TLSConfig                 `mapstructure:"tls,omitempty"`
+	Users          map[string]*User          `mapstructure:"users,omitempty"`
+	Affiliations   map[string]interface{}    `mapstructure:"affiliations"`
+	Signing        config.Signing            `mapstructure:"signing"`
+	OCSP           ocspConfig.Config         `mapstructure:"ocsp"`
+	AuthKeys       map[string]config.AuthKey `mapstructure:"auth_keys"`
+	Remotes        map[string]string         `mapstructure:"remotes"`
+	CSP            *libcsp.Config            `mapstructure:"csp,omitempty"`
+}
+
+// CAConfig is storing certificate and key
+type CAConfig struct {
+	CertFile string `mapstructure:"certFile"`
+	KeyFile  string `mapstructure:"keyFile"`
+}
+
+// DatabaseConfig stores database configuration
+type DatabaseConfig struct {
+	Type       string              `mapstructure:"type"`
+	Datasource string              `mapstructure:"datasource"`
+	TLS        tls.ClientTLSConfig `mapstructure:"tls,omitempty"`
 }
 
 // UserReg defines the user registry properties
 type UserReg struct {
-	MaxEnrollments int `json:"max_enrollments"`
+	MaxEnrollments int          `mapstructure:"maxEnrollments"`
+	LDAP           *ldap.Config `mapstructure:"ldap,omitempty"`
 }
 
 // TLSConfig defines the files needed for a TLS connection
 type TLSConfig struct {
-	TLSCertFile     string              `json:"tls_cert,omitempty"`
-	TLSKeyFile      string              `json:"tls_key,omitempty"`
-	MutualTLSCAFile string              `json:"mutual_tls_ca,omitempty"`
-	DBClient        tls.ClientTLSConfig `json:"db_client,omitempty"`
+	Enabled  bool   `mapstructure:"enabled,omitempty"`
+	CAFile   string `mapstructure:"cafile,omitempty"` // Needed to support mutual TLS
+	CertFile string `mapstructure:"certFile,omitempty"`
+	KeyFile  string `mapstructure:"keyFile,omitempty"`
 }
 
 // User information
 type User struct {
-	Pass       string          `json:"pass"` // enrollment secret
-	Type       string          `json:"type"`
-	Group      string          `json:"group"`
-	Attributes []api.Attribute `json:"attrs,omitempty"`
+	// Name        string
+	Pass        string          `mapstructure:"pass"` // enrollment secret
+	Type        string          `mapstructure:"type"`
+	Affiliation string          `mapstructure:"affiliation"`
+	Attributes  []api.Attribute `mapstructure:"attrs,omitempty"`
 }
+
+const (
+	serverConfigFile = "server-config.yaml"
+)
 
 // Constructor for fabric-ca config
 func newConfig() *Config {
@@ -79,75 +101,103 @@ func newConfig() *Config {
 }
 
 // CFG is the fabric-ca specific config
-var CFG *Config
+var CFG Config
 
 // Init initializes the fabric-ca config given the CFSSL config
-func configInit(cfg *cli.Config) {
+func configInit(cfg *cli.Config) error {
 	var err error
-	configFile, err = filepath.Abs(cfg.ConfigFile)
-	if err != nil {
-		panic(err.Error())
-	}
-	configDir = filepath.Dir(configFile)
-	log.Debugf("Initializing config file at %s", configFile)
-	log.Debugf("Inbound CFSSL server config is: %+v", cfg)
 
-	CFG = new(Config)
 	CFG.Authentication = true
 
-	body, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		panic(err.Error())
-	}
-	err = json.Unmarshal(body, CFG)
-	if err != nil {
-		panic(fmt.Sprintf("error parsing %s: %s", configFile, err.Error()))
+	if configFile == "" {
+		log.Infof("No server config file provided. Looking in home directory: %s", util.GetDefaultHomeDir())
+		configFile = path.Join(util.GetDefaultHomeDir(), serverConfigFile)
 	}
 
-	CFG.CAFile = util.Abs(CFG.CAFile, configDir)
-	CFG.KeyFile = util.Abs(CFG.KeyFile, configDir)
-	CFG.TLSConf.TLSCertFile = util.Abs(CFG.TLSConf.TLSCertFile, configDir)
-	CFG.TLSConf.TLSKeyFile = util.Abs(CFG.TLSConf.TLSKeyFile, configDir)
-	CFG.TLSConf.MutualTLSCAFile = util.Abs(CFG.TLSConf.MutualTLSCAFile, configDir)
-	tls.AbsTLSClient(&CFG.TLSConf.DBClient, configDir)
+	cfg.ConfigFile = configFile
+	log.Debugf("Initializing config file at %s", configFile)
+
+	if cfg.ConfigFile != "" {
+		file := strings.Split(filepath.Base(cfg.ConfigFile), ".")
+		fileName := file[0]
+		fileExt := file[1]
+
+		configFile, err = filepath.Abs(cfg.ConfigFile)
+		if err != nil {
+			return err
+		}
+
+		configDir = filepath.Dir(configFile)
+
+		viper.SetConfigName(fileName) // name of config file (without extension)
+		viper.SetConfigType(fileExt)
+
+		viper.AddConfigPath(configDir) // path to look for the config file in
+
+		err := viper.ReadInConfig()
+		if err != nil {
+			return err
+		}
+
+		err = viper.Unmarshal(&CFG)
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("Inbound CFSSL server config is: %+v", cfg)
+
+		var config = &config.Config{}
+		config.Signing = &CFG.Signing
+		config.OCSP = &CFG.OCSP
+		config.Remotes = CFG.Remotes
+		config.AuthKeys = CFG.AuthKeys
+
+		cfg.CFG = config
+	}
+
+	CFG.CA.CertFile = util.Abs(CFG.CA.CertFile, configDir)
+	CFG.CA.KeyFile = util.Abs(CFG.CA.KeyFile, configDir)
+	CFG.TLS.CertFile = util.Abs(CFG.TLS.CertFile, configDir)
+	CFG.TLS.KeyFile = util.Abs(CFG.TLS.KeyFile, configDir)
+	CFG.TLS.CAFile = util.Abs(CFG.TLS.CAFile, configDir)
 
 	if cfg.CAFile == "" {
-		cfg.CAFile = CFG.CAFile
+		cfg.CAFile = CFG.CA.CertFile
 	}
 
 	if cfg.KeyFile == "" {
-		cfg.CAKeyFile = CFG.KeyFile
+		cfg.CAKeyFile = CFG.CA.KeyFile
 	}
 
 	if cfg.DBConfigFile == "" {
 		cfg.DBConfigFile = cfg.ConfigFile
 	}
 
-	if CFG.TLSConf.TLSCertFile != "" {
-		cfg.TLSCertFile = CFG.TLSConf.TLSCertFile
+	if CFG.TLS.CertFile != "" {
+		cfg.TLSCertFile = CFG.TLS.CertFile
 	} else {
-		cfg.TLSCertFile = CFG.CAFile
+		cfg.TLSCertFile = CFG.CA.CertFile
 	}
 
-	if CFG.TLSConf.TLSKeyFile != "" {
-		cfg.TLSKeyFile = CFG.TLSConf.TLSKeyFile
+	if CFG.TLS.KeyFile != "" {
+		cfg.TLSKeyFile = CFG.TLS.KeyFile
 	} else {
-		cfg.TLSKeyFile = CFG.KeyFile
+		cfg.TLSKeyFile = CFG.CA.KeyFile
 	}
 
-	if CFG.TLSConf.MutualTLSCAFile != "" {
-		cfg.MutualTLSCAFile = CFG.TLSConf.MutualTLSCAFile
+	if CFG.TLS.CAFile != "" {
+		cfg.MutualTLSCAFile = CFG.TLS.CAFile
 	}
 
-	if CFG.DBdriver == "" {
+	if CFG.Database.Type == "" {
 		msg := "No database specified, a database is needed to run fabric-ca server. Using default - Type: SQLite, Name: fabric-ca.db"
 		log.Info(msg)
-		CFG.DBdriver = sqlite
-		CFG.DataSource = "fabric-ca.db"
+		CFG.Database.Type = sqlite
+		CFG.Database.Datasource = "fabric-ca.db"
 	}
 
-	if CFG.DBdriver == sqlite {
-		CFG.DataSource = util.Abs(CFG.DataSource, configDir)
+	if CFG.Database.Type == sqlite {
+		CFG.Database.Datasource = util.Abs(CFG.Database.Datasource, configDir)
 	}
 
 	dbg := os.Getenv("FABRIC_CA_DEBUG")
@@ -160,4 +210,6 @@ func configInit(cfg *cli.Config) {
 
 	log.Debugf("CFSSL server config is: %+v", cfg)
 	log.Debugf("Fabric CA server config is: %+v", CFG)
+
+	return nil
 }

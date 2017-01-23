@@ -32,7 +32,7 @@ import (
 
 const (
 	FCADB        = "../testdata/fabric-ca.db"
-	clientConfig = "../testdata/client-config.json"
+	clientConfig = "../testdata/client-config.yaml"
 )
 
 var serverStarted bool
@@ -87,7 +87,7 @@ func testRegister(c *Client, t *testing.T) {
 func testEnrollIncorrectPassword(c *Client, t *testing.T) {
 
 	req := &api.EnrollmentRequest{
-		Name:   "testUser",
+		Name:   "testuser",
 		Secret: "incorrect",
 	}
 
@@ -100,7 +100,7 @@ func testEnrollIncorrectPassword(c *Client, t *testing.T) {
 func testEnroll(c *Client, t *testing.T) {
 
 	req := &api.EnrollmentRequest{
-		Name:   "testUser",
+		Name:   "testuser",
 		Secret: "user1",
 	}
 
@@ -109,7 +109,7 @@ func testEnroll(c *Client, t *testing.T) {
 		t.Errorf("Enroll failed: %s", err)
 	}
 
-	if id.GetName() != "testUser" {
+	if id.GetName() != "testuser" {
 		t.Error("Incorrect name retrieved")
 	}
 
@@ -132,7 +132,7 @@ func testEnroll(c *Client, t *testing.T) {
 func testDoubleEnroll(c *Client, t *testing.T) {
 
 	req := &api.EnrollmentRequest{
-		Name:   "testUser",
+		Name:   "testuser",
 		Secret: "user1",
 	}
 
