@@ -19,6 +19,7 @@ package tls
 import (
 	"encoding/json"
 	"io/ioutil"
+	"path/filepath"
 	"testing"
 )
 
@@ -32,6 +33,9 @@ func TestGetClientTLSConfig(t *testing.T) {
 
 	var cfg = new(ClientTLSConfig)
 	json.Unmarshal(tlsConfig, cfg)
+
+	configDir := filepath.Dir(clientConfig)
+	AbsTLSClient(cfg, configDir)
 
 	_, err = GetClientTLSConfig(cfg)
 	if err != nil {

@@ -264,3 +264,14 @@ func makeFileAbs(t *testing.T, file, dir, expect string) {
 		t.Errorf("Absolute of file=%s with dir=%s expected %s but was %s", file, dir, expect, path)
 	}
 }
+
+func TestAbs(t *testing.T) {
+	configDir := "../testdata"
+	file := "client-config.json"
+	path := Abs(file, configDir)
+
+	isAbs := filepath.IsAbs(path)
+	if !isAbs {
+		t.Error("Failed to get absolute path")
+	}
+}
