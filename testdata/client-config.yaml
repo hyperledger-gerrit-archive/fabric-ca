@@ -1,0 +1,13 @@
+#####################################
+# Client Configuration
+#####################################
+
+serverURL: https://localhost:8888
+
+#####################################
+#    TLS section
+#####################################
+tls:
+  caFile: root.pem
+  certFile: tls-cert.pem
+  keyFile: tls-key.pem

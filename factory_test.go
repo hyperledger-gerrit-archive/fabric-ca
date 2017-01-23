@@ -19,7 +19,7 @@ package main
 import "testing"
 
 // TestNewClient tests constructing a client
-const clientConfig = "./testdata/client-config.json"
+const clientConfig = "./testdata/client-config.yaml"
 
 func TestNewClient(t *testing.T) {
 	_, err := NewClient(clientConfig)

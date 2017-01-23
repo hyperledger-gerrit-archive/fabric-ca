@@ -38,10 +38,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
-)
-
-const (
-	clientConfigFile = "client-config.json"
+	"github.com/spf13/viper"
 )
 
 // NewClient is the constructor for the fabric-ca client API
@@ -52,18 +49,33 @@ func NewClient(configFile string) (*Client, error) {
 		if _, err := os.Stat(configFile); err != nil {
 			log.Info("Fabric-ca client configuration file not found. Using Defaults...")
 		} else {
-			c.ConfigFile = configFile
-			var config []byte
 			var err error
-			config, err = ioutil.ReadFile(configFile)
+
+			file := strings.Split(filepath.Base(configFile), ".")
+			fileName := file[0]
+			fileExt := file[1]
+
+			configFile, err = filepath.Abs(configFile)
 			if err != nil {
 				return nil, err
 			}
-			// Override any defaults
-			err = util.Unmarshal([]byte(config), c, "NewClient")
+			configDir := filepath.Dir(configFile)
+
+			viper.SetConfigName(fileName) // name of config file (without extension)
+			viper.SetConfigType(fileExt)
+			viper.AddConfigPath(configDir) // path to look for the config file in
+
+			err = viper.ReadInConfig()
 			if err != nil {
 				return nil, err
 			}
+
+			err = viper.Unmarshal(&c)
+			if err != nil {
+				return nil, fmt.Errorf("Failed to parse client config file [%s]", err)
+			}
+
+			c.ConfigFile = configFile
 		}
 	}
 
@@ -75,13 +87,9 @@ func NewClient(configFile string) (*Client, error) {
 		c.HomeDir = util.GetDefaultHomeDir()
 	}
 
-	if _, err := os.Stat(c.HomeDir); err != nil {
-		if os.IsNotExist(err) {
-			_, err := util.CreateHome()
-			if err != nil {
-				return nil, err
-			}
-		}
+	_, err := util.CreateHome()
+	if err != nil {
+		return nil, err
 	}
 
 	return c, nil
@@ -288,16 +296,9 @@ func (c *Client) SendPost(req *http.Request) (interface{}, error) {
 	reqStr := util.HTTPRequestToString(req)
 	log.Debugf("Sending request\n%s", reqStr)
 
-	configFile, err := c.getClientConfig(c.ConfigFile)
+	cfg, err := c.getClientConfig(c.ConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load client config file [%s]; not sending\n%s", err, reqStr)
-	}
-
-	var cfg = new(tls.ClientTLSConfig)
-
-	err = json.Unmarshal(configFile, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse client config file [%s]; not sending\n%s", err, reqStr)
 	}
 
 	configDir := filepath.Dir(c.ConfigFile)
@@ -360,13 +361,17 @@ func (c *Client) getURL(endpoint string) (string, error) {
 	return rtn, nil
 }
 
-func (c *Client) getClientConfig(path string) ([]byte, error) {
+func (c *Client) getClientConfig(path string) (*tls.ClientTLSConfig, error) {
 	log.Debug("Retrieving client config")
-	fileBytes, err := ioutil.ReadFile(path)
+
+	var cfg tls.ClientTLSConfig
+
+	err := viper.Unmarshal(&cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to parse client config file [%s]", err)
 	}
-	return fileBytes, nil
+
+	return &cfg, nil
 }
 
 func normalizeURL(addr string) (*url.URL, error) {

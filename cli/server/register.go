@@ -76,7 +76,6 @@ func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 // Register for registering a user
 type Register struct {
-	cfg *Config
 }
 
 const (
@@ -89,7 +88,6 @@ const (
 // NewRegisterUser is a constructor
 func NewRegisterUser() *Register {
 	r := new(Register)
-	r.cfg = CFG
 	return r
 }
 
@@ -160,12 +158,12 @@ func (r *Register) registerUserID(id string, userType string, group string, attr
 	if group != "" {
 		rootGroup, err := userRegistry.GetRootGroup()
 		if err != nil {
-			return "", cop.NewError(cop.RegisteringUserError, "Failed to get root group")
+			return "", errors.New("Failed to get root group")
 		}
 
 		Group, err := userRegistry.GetGroup(group)
 		if err != nil {
-			return "", cop.NewError(cop.RegisteringUserError, "Failed to find group %s", group)
+			return "", fmt.Errorf("Failed to find group %s", group)
 		}
 
 		affiliationPath = group
@@ -173,7 +171,7 @@ func (r *Register) registerUserID(id string, userType string, group string, attr
 			affiliationPath = Group.GetParent() + "/" + affiliationPath
 			Group, err = userRegistry.GetGroup(Group.GetParent())
 			if err != nil {
-				return "", cop.NewError(cop.RegisteringUserError, "Failed to find group %s", Group.GetParent())
+				return "", fmt.Errorf("Failed to find group %s", Group.GetParent())
 			}
 		}
 
@@ -187,7 +185,7 @@ func (r *Register) registerUserID(id string, userType string, group string, attr
 		Type:            userType,
 		AffiliationPath: affiliationPath,
 		Attributes:      attributes,
-		MaxEnrollments:  CFG.UsrReg.MaxEnrollments,
+		MaxEnrollments:  CFG.UserRegistry.MaxEnrollments,
 	}
 
 	_, err := userRegistry.GetUser(id, nil)

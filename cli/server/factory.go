@@ -33,9 +33,9 @@ func InitUserRegistry(cfg *Config) error {
 	log.Debug("Initialize User Registry")
 	var err error
 
-	if cfg.LDAP != nil {
+	if cfg.UserRegistry.LDAP != nil {
 		// LDAP is being used for the user registry
-		userRegistry, err = ldap.NewClient(cfg.LDAP)
+		userRegistry, err = ldap.NewClient(cfg.UserRegistry.LDAP)
 		if err != nil {
 			return err
 		}
@@ -43,27 +43,27 @@ func InitUserRegistry(cfg *Config) error {
 		// The database is being used for the user registry
 		var exists bool
 
-		switch cfg.DBdriver {
+		switch cfg.Database.Type {
 		case "sqlite3":
-			db, exists, err = dbutil.NewUserRegistrySQLLite3(cfg.DataSource)
+			db, exists, err = dbutil.NewUserRegistrySQLLite3(cfg.Database.Datasource)
 			if err != nil {
 				return err
 			}
 
 		case "postgres":
-			db, exists, err = dbutil.NewUserRegistryPostgres(cfg.DataSource, &cfg.TLSConf.DBClient)
+			db, exists, err = dbutil.NewUserRegistryPostgres(cfg.Database.Datasource, &cfg.Database.TLS)
 			if err != nil {
 				return err
 			}
 
 		case "mysql":
-			db, exists, err = dbutil.NewUserRegistryMySQL(cfg.DataSource, &cfg.TLSConf.DBClient)
+			db, exists, err = dbutil.NewUserRegistryMySQL(cfg.Database.Datasource, &cfg.Database.TLS)
 			if err != nil {
 				return err
 			}
 
 		default:
-			return fmt.Errorf("invalid 'DBDriver' in config file: %s", cfg.DBdriver)
+			return fmt.Errorf("invalid 'DBDriver' in config file: %s", cfg.Database.Type)
 		}
 
 		dbAccessor := new(Accessor)
@@ -71,7 +71,7 @@ func InitUserRegistry(cfg *Config) error {
 
 		userRegistry = dbAccessor
 
-		// If the DB doesn't exist, bootstrap the DB
+		// If the Database doesn't exist, bootstrap the Database
 		if !exists {
 			err := bootstrapDB()
 			if err != nil {

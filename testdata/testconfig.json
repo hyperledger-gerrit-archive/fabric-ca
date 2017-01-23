@@ -1,92 +1,99 @@
 {
- "tls_disable":false,
- "driver":"sqlite3",
- "data_source":"fabric-ca.db",
- "user_registry": {
-   "max_enrollments": 1
+ "ca":{
+   "certFile":"ec.pem",
+   "keyFile":"ec-key.pem"
  },
- "ca_cert":"ec.pem",
- "ca_key":"ec-key.pem",
- "tls":{
-   "tls_cert":"tls_server-cert.pem",
-   "tls_key":"tls_server-key.pem",
-   "mutual_tls_ca":"root.pem",
-   "db_client":{
-     "ca_certfiles":["root.pem"],
-     "client":{"keyfile":"tls_server-key.pem","certfile":"tls_server-cert.pem"}
+ "database":{
+   "type":"sqlite3",
+   "datasource":"fabric-ca.db",
+   "tls":{
+     "enabled":true,
+     "caFiles":["root.pem"],
+     "certFile":"tls_server-cert.pem",
+     "keyFile":"tls_server-key.pem"
    }
  },
+ "userRegistry": {
+   "maxEnrollments": 1
+ },
+ "tls":{
+   "enabled":true,
+   "caFile":"root.pem",
+   "certFile":"tls_server-cert.pem",
+   "keyFile":"tls_server-key.pem"
+ },
  "users": {
-    "admin": {
+   "admin":{
       "pass": "adminpw",
       "type": "client",
-      "group": "bank_a",
+      "affiliation": "bank_a",
       "attrs": [{"name":"hf.Registrar.Roles","value":"client,user,peer,validator,auditor"},
                 {"name":"hf.Registrar.DelegateRoles", "value": "client,user,validator,auditor"},
                 {"name":"hf.Revoker", "value": "true"}]
+
     },
-    "admin2": {
+  "admin2":{
       "pass": "adminpw2",
       "type": "client",
-      "group": "bank_a",
+      "affiliation": "bank_a",
       "attrs": [{"name":"hf.Registrar.Roles","value":"client,user,peer,validator,auditor"},
                 {"name":"hf.Registrar.DelegateRoles", "value": "client,user,validator,auditor"},
                 {"name":"hf.Revoker", "value": "true"}]
     },
-    "revoker": {
+  "revoker":{
       "pass": "revokerpw",
       "type": "client",
-      "group": "bank_a",
+      "affiliation": "bank_a",
       "attrs": [{"name":"hf.Revoker", "value": "true"}]
     },
-    "revoker2": {
+  "revoker2":{
       "pass": "revokerpw2",
       "type": "client",
-      "group": "bank_a",
+      "affiliation": "bank_a",
       "attrs": [{"name":"hf.Revoker", "value": "true"}]
     },
-    "nonrevoker": {
+  "nonrevoker":{
       "pass": "nonrevokerpw",
       "type": "client",
-      "group": "bank_a"
+      "affiliation": "bank_a"
     },
-    "nonrevoker2": {
+  "nonrevoker2":{
       "pass": "nonrevokerpw2",
       "type": "client",
-      "group": "bank_a"
+      "affiliation": "bank_a"
     },
-    "notadmin": {
+  "notadmin":{
       "pass": "pass",
       "type": "client",
-      "group": "bank_a",
+      "affiliation": "bank_a",
       "attrs": [{"name":"hf.Registrar.Roles","value":"client,peer,validator,auditor"},
                 {"name":"hf.Registrar.DelegateRoles", "value": "client"}]
     },
-    "expiryUser": {
+  "expiryuser":{
       "pass": "expirypw",
       "type": "client",
-      "group": "bank_a"
+      "affiliation": "bank_a"
     },
-    "testUser": {
+  "testuser":{
       "pass": "user1",
       "type": "client",
-      "group": "bank_b",
+      "affiliation": "bank_b",
       "attrs": []
     },
-    "testUser2": {
+  "testuser2":{
       "pass": "user2",
       "type": "client",
-      "group": "bank_c",
+      "affiliation": "bank_c",
       "attrs": []
     },
-    "testUser3": {
+  "testuser3":{
       "pass": "user3",
       "type": "client",
-      "group": "bank_a",
+      "affiliation": "bank_a",
       "attrs": []
     }
  },
- "groups": {
+ "affiliations": {
    "banks_and_institutions": {
      "banks": ["bank_a", "bank_b", "bank_c"],
      "institutions": ["institution_a"]
@@ -94,12 +101,15 @@
  },
  "signing": {
     "default": {
-       "usages": ["cert sign"],
+       "usage": ["cert sign"],
        "expiry": "8000h"
     },
-    "expiry": {
-       "usages": ["cert sign"],
-       "expiry": "1s"
+    "profiles":
+    {
+      "expiry": {
+         "usage": ["cert sign"],
+         "expiry": "1s"
+      }
     }
- }
+  }
 }
