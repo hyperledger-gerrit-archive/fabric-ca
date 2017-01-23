@@ -136,6 +136,9 @@ unit-tests: checks fabric-ca
 
 container-tests: ldap-tests
 
+swagger: .FORCE
+	@hapi gendoc -indir hapi -outdir swagger
+
 ldap-tests:
 	@scripts/run_ldap_tests
 
