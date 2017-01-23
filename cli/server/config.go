@@ -107,12 +107,12 @@ func configInit(cfg *cli.Config) {
 		}
 	}
 
-	CFG.CAFile = abs(CFG.CAFile)
-	CFG.CAKeyFile = abs(CFG.CAKeyFile)
-	CFG.TLSConf.TLSCertFile = abs(CFG.TLSConf.TLSCertFile)
-	CFG.TLSConf.TLSKeyFile = abs(CFG.TLSConf.TLSKeyFile)
-	CFG.TLSConf.MutualTLSCAFile = abs(CFG.TLSConf.MutualTLSCAFile)
-	absTLSClient(&CFG.TLSConf.DBClient)
+	CFG.CAFile = util.Abs(CFG.CAFile, configDir)
+	CFG.CAKeyFile = util.Abs(CFG.CAKeyFile, configDir)
+	CFG.TLSConf.TLSCertFile = util.Abs(CFG.TLSConf.TLSCertFile, configDir)
+	CFG.TLSConf.TLSKeyFile = util.Abs(CFG.TLSConf.TLSKeyFile, configDir)
+	CFG.TLSConf.MutualTLSCAFile = util.Abs(CFG.TLSConf.MutualTLSCAFile, configDir)
+	tls.AbsTLSClient(&CFG.TLSConf.DBClient, configDir)
 
 	if cfg.CAFile == "" {
 		cfg.CAFile = CFG.CAFile
@@ -158,7 +158,7 @@ func configInit(cfg *cli.Config) {
 	}
 
 	if CFG.DBdriver == sqlite {
-		CFG.DataSource = abs(CFG.DataSource)
+		CFG.DataSource = util.Abs(CFG.DataSource, configDir)
 	}
 
 	dbg := os.Getenv("FABRIC_CA_DEBUG")
@@ -171,22 +171,4 @@ func configInit(cfg *cli.Config) {
 
 	log.Debugf("CFSSL server config is: %+v", cfg)
 	log.Debugf("Fabric CA server config is: %+v", CFG)
-}
-
-// Make TLS client files absolute
-func absTLSClient(cfg *tls.ClientTLSConfig) {
-	for i := 0; i < len(cfg.CACertFiles); i++ {
-		cfg.CACertFiles[i] = abs(cfg.CACertFiles[i])
-	}
-	cfg.Client.CertFile = abs(cfg.Client.CertFile)
-	cfg.Client.KeyFile = abs(cfg.Client.KeyFile)
-}
-
-// Make 'file' absolute relative to the configuration directory
-func abs(file string) string {
-	path, err := util.MakeFileAbs(file, configDir)
-	if err != nil {
-		panic(err)
-	}
-	return path
 }
