@@ -18,6 +18,7 @@ package server
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -113,6 +114,26 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 	//       which isn't correct.
 	prekeyStr := string(prekey.SKI())
 
+	//Process TCert Option 2
+	keySigs := req.KeySigs
+	var pubKeyByteArray [][]byte
+
+	//Validate Signature
+	if len(keySigs) != 0 {
+
+		isValid, error := h.mgr.VerifyTCertBatchRequest(req)
+		if error != nil {
+			return err
+		}
+		if !isValid {
+			return errors.New("Signature Validation failed on Signature Batch")
+		}
+		pubKeyByteArray, error = tcert.BatchRequestToPubkeyBuff(req)
+		if error != nil {
+			return error
+		}
+	}
+
 	// Call the tcert library to get the batch of tcerts
 	tcertReq := &tcert.GetBatchRequest{
 		Count:          req.Count,
@@ -120,10 +141,23 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 		EncryptAttrs:   req.EncryptAttrs,
 		ValidityPeriod: req.ValidityPeriod,
 		PreKey:         prekeyStr,
+		PublicKeys:     pubKeyByteArray,
 	}
-	resp, err := h.mgr.GetBatch(tcertReq, cert)
-	if err != nil {
-		return err
+
+	var resp *tcert.GetBatchResponse
+	var tcertError error
+
+	if len(keySigs) == 0 {
+		resp, tcertError = h.mgr.GetBatch(tcertReq, cert)
+
+	} else {
+		resp, tcertError = h.mgr.GetBatchForGeneratedKey(tcertReq)
+	}
+	if tcertError != nil {
+		return tcertError
+	}
+	if resp == nil {
+		return errors.New("TCert Library did not return any TCert")
 	}
 
 	// Write the response
