@@ -38,6 +38,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -57,6 +58,7 @@ func NewClient(configFile string) (*Client, error) {
 			var err error
 			config, err = ioutil.ReadFile(configFile)
 			if err != nil {
+				fmt.Println("Here")
 				return nil, err
 			}
 			// Override any defaults
@@ -288,16 +290,9 @@ func (c *Client) SendPost(req *http.Request) (interface{}, error) {
 	reqStr := util.HTTPRequestToString(req)
 	log.Debugf("Sending request\n%s", reqStr)
 
-	configFile, err := c.getClientConfig(c.ConfigFile)
+	cfg, err := c.getClientConfig(c.ConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to load client config file [%s]; not sending\n%s", err, reqStr)
-	}
-
-	var cfg = new(tls.ClientTLSConfig)
-
-	err = json.Unmarshal(configFile, cfg)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to parse client config file [%s]; not sending\n%s", err, reqStr)
 	}
 
 	configDir := filepath.Dir(c.ConfigFile)
@@ -360,13 +355,36 @@ func (c *Client) getURL(endpoint string) (string, error) {
 	return rtn, nil
 }
 
-func (c *Client) getClientConfig(path string) ([]byte, error) {
+func (c *Client) getClientConfig(path string) (*tls.ClientTLSConfig, error) {
 	log.Debug("Retrieving client config")
-	fileBytes, err := ioutil.ReadFile(path)
+	file := strings.Split(filepath.Base(path), ".")
+	fileName := file[0]
+	fileExt := file[1]
+
+	configFile, err := filepath.Abs(path)
 	if err != nil {
 		return nil, err
 	}
-	return fileBytes, nil
+
+	configDir := filepath.Dir(configFile)
+
+	viper.SetConfigName(fileName) // name of config file (without extension)
+	viper.SetConfigType(fileExt)
+	viper.AddConfigPath(configDir) // path to look for the config file in
+
+	err = viper.ReadInConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	var cfg tls.ClientTLSConfig
+
+	err = viper.Unmarshal(&cfg)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to parse client config file [%s]", err)
+	}
+
+	return &cfg, nil
 }
 
 func normalizeURL(addr string) (*url.URL, error) {

@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	CFGFile      = "testconfig.json"
+	CFGFile      = "testconfig.yaml"
 	ClientConfig = "../../testdata/client-config.json"
 	FCADB        = "../../testdata/fabric-ca.db"
 )
@@ -142,13 +142,13 @@ func TestEnrollUser(t *testing.T) {
 	}
 
 	req := &api.EnrollmentRequest{
-		Name:   "testUser",
+		Name:   "testuser",
 		Secret: "user1",
 	}
 
 	id, err := c.Enroll(req)
 	if err != nil {
-		t.Error("enroll of user 'testUser' with password 'user1' failed")
+		t.Errorf("enroll of user 'testUser' with password 'user1' failed [error: %s]", err)
 		return
 	}
 
@@ -238,7 +238,7 @@ func TestMaxEnrollment(t *testing.T) {
 		return
 	}
 
-	CFG.UsrReg.MaxEnrollments = 2
+	CFG.UserRegistry.MaxEnrollments = 2
 
 	regReq := &api.RegistrationRequest{
 		Name:  "MaxTestUser",
@@ -334,21 +334,21 @@ func testEnrollingUser(t *testing.T) {
 	}
 
 	req := &api.EnrollmentRequest{
-		Name:   "testUser2",
+		Name:   "testuser2",
 		Secret: "user2",
 	}
 
 	_, err = c.Enroll(req)
 
 	if err != nil {
-		t.Error("Enroll of user 'testUser2' with password 'user2' failed")
+		t.Errorf("Enroll of user 'testUser2' with password 'user2' failed [error: %s]", err)
 		return
 	}
 
 }
 
 func TestGetCertificatesByID(t *testing.T) {
-	certRecord, err := certDBAccessor.GetCertificatesByID("testUser2")
+	certRecord, err := certDBAccessor.GetCertificatesByID("testuser2")
 	if err != nil {
 		t.Errorf("Error occured while getting certificate for id 'testUser2', [error: %s]", err)
 	}
@@ -374,14 +374,14 @@ func TestExpiration(t *testing.T) {
 	// Enroll this user using the "expiry" profile which is configured
 	// to expire after 1 second
 	regReq := &api.EnrollmentRequest{
-		Name:    "expiryUser",
+		Name:    "expiryuser",
 		Secret:  "expirypw",
 		Profile: "expiry",
 	}
 
 	id, err := c.Enroll(regReq)
 	if err != nil {
-		t.Error("enroll of user 'admin' with password 'adminpw' failed")
+		t.Errorf("enroll of user 'expiryUser' with password 'expirypw' failed [error: %s]", err)
 		return
 	}
 
@@ -395,22 +395,22 @@ func TestExpiration(t *testing.T) {
 }
 
 func TestUserRegistry(t *testing.T) {
-	err := InitUserRegistry(&Config{DBdriver: "postgres", DataSource: "dbname=fabric-ca sslmode=disable"})
+	err := InitUserRegistry(&Config{Database: DatabaseConfig{Type: "postgres", Datasource: "dbname=fabric-ca sslmode=disable"}})
 	if err == nil {
 		t.Error("Trying to create a postgres registry should have failed")
 	}
 
-	err = InitUserRegistry(&Config{DBdriver: "mysql", DataSource: "root:root@tcp(localhost:3306)/fabric-ca?parseTime=true"})
+	err = InitUserRegistry(&Config{Database: DatabaseConfig{Type: "mysql", Datasource: "root:root@tcp(localhost:3306)/fabric-ca?parseTime=true"}})
 	if err == nil {
 		t.Error("Trying to create a mysql registry should have failed")
 	}
 
-	err = InitUserRegistry(&Config{DBdriver: "foo", DataSource: "boo"})
+	err = InitUserRegistry(&Config{Database: DatabaseConfig{Type: "foo", Datasource: "boo"}})
 	if err == nil {
 		t.Error("Trying to create a unsupported database type should have failed")
 	}
 
-	err = InitUserRegistry(&Config{LDAP: &ldap.Config{}})
+	err = InitUserRegistry(&Config{UserRegistry: UserReg{LDAP: &ldap.Config{}}})
 	if err == nil {
 		t.Error("Trying to LDAP with no URL; it should have failed but passed")
 	}

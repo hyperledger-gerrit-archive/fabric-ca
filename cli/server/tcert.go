@@ -48,7 +48,7 @@ func NewTCertHandler() (h http.Handler, err error) {
 
 func initTCertHandler() (h http.Handler, err error) {
 	log.Debug("Initializing TCert handler")
-	mgr, err := tcert.LoadMgr(CFG.KeyFile, CFG.CAFile)
+	mgr, err := tcert.LoadMgr(CFG.CA.KeyFile, CFG.CA.CertFile)
 	if err != nil {
 		return nil, err
 	}

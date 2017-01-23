@@ -110,6 +110,9 @@ func Command() error {
 		"init":  InitServerCommand,
 		"start": StartCommand,
 	}
+
+	configFile = util.GetCommandLineOptValue("-config", true)
+
 	return cli.Start(cmds)
 }
 
@@ -139,7 +142,10 @@ func startMain(args []string, c cli.Config) error {
 		return err
 	}
 
-	configInit(&c)
+	err = configInit(&c)
+	if err != nil {
+		return err
+	}
 
 	// Initialize the Crypto Service Provider
 	csp, err = libcsp.Get(CFG.CSP)
@@ -149,7 +155,7 @@ func startMain(args []string, c cli.Config) error {
 	}
 
 	// Initialize the user registry
-	err = InitUserRegistry(CFG)
+	err = InitUserRegistry(&CFG)
 	if err != nil {
 		log.Errorf("Failed to initialize user registry: %s", err)
 		return err
@@ -188,7 +194,7 @@ func serverMain(args []string, c cli.Config) error {
 
 	addr := net.JoinHostPort(conf.Address, strconv.Itoa(conf.Port))
 
-	if !CFG.TLSDisable {
+	if CFG.TLS.Enabled {
 		log.Debug("TLS Enabled")
 
 		if conf.MutualTLSCAFile != "" {
