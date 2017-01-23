@@ -111,6 +111,14 @@ func configInit(cfg *cli.Config) {
 	CFG.TLSConf.MutualTLSCAFile = abs(CFG.TLSConf.MutualTLSCAFile)
 	absTLSClient(&CFG.TLSConf.DBClient)
 
+	if cfg.CAFile == "" {
+		cfg.CAFile = CFG.CAFile
+	}
+
+	if cfg.KeyFile == "" {
+		cfg.CAKeyFile = CFG.KeyFile
+	}
+
 	if cfg.DBConfigFile == "" {
 		cfg.DBConfigFile = cfg.ConfigFile
 	}
