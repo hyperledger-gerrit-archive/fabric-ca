@@ -92,7 +92,7 @@ func (attrMgr *AttributeMgr) GetValue(attrName string) (string, error) {
 			return attribute.Value, nil
 		}
 	}
-	return "", fmt.Errorf("Attribute Value could be found for attribute [%s]", attrName)
+	return "", fmt.Errorf("Attribute Value could be found for attribute :%s", attrName)
 }
 
 // GetValues returns attribute name value pair of the attributes
@@ -217,14 +217,14 @@ func processAttributeHeader(headerValue string, extension []pkix.Extension, keys
 			attributeIdentifierString = attribute[1]
 			attributeIdentifier, err = strconv.Atoi(attributeIdentifierString)
 			if err != nil {
-				return nil, fmt.Errorf("String to Integer conversion for attribute[%s] failed with error : %s", attributeName, err)
+				return nil, fmt.Errorf("String to Integer conversion for attribute:%s failed with error : %s", attributeName, err)
 			}
 
 			attributeValue = getExtensionValueFromCert(asn1.ObjectIdentifier{1, 2, 3, 4, 5, 6, attributeIdentifier + attributeBaseIdentifier}, extension)
 			if shouldDecrypt {
 				attrBuf, err = CBCPKCS7Decrypt(keys[attributeName], []byte(attributeValue))
 				if err != nil {
-					return nil, fmt.Errorf("The attribute value decryption for attribute [%s] failed with error : %s", attributeName, err)
+					return nil, fmt.Errorf("The attribute value decryption for attribute :%s failed with error : %s", attributeName, err)
 				}
 				sliceLength = len(attrBuf) - 16
 				attributeValue = string(attrBuf[:sliceLength])
