@@ -25,6 +25,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/asn1"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"time"
 
@@ -32,6 +33,7 @@ import (
 	"strconv"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric/core/crypto/bccsp"
 )
 
 var (
@@ -47,11 +49,13 @@ var (
 	// Padding for encryption.
 	Padding = []byte{255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}
 
-	// tcertSubject is the subject name placed in all generated TCerts
-	tcertSubject = pkix.Name{CommonName: "Fabric Transaction Certificate"}
+	//Enrollment Id Encryption Key
+	enrollmentID = "enrollmentID"
+	//Enrollment Id Key used in Key map
+	enrollmentIDMapKey = "enrollmentId"
 )
 
-// LoadMgr is the constructor for a TCert manager given key and certificate file names
+// LoadMgr constructs a TCert manager given files containing a signing key and a CA cert
 // @parameter caKeyFile is the file name for the CA's key
 // @parameter caCertFile is the file name for the CA's cert
 func LoadMgr(caKeyFile, caCertFile string) (*Mgr, error) {
@@ -90,7 +94,9 @@ type Mgr struct {
 	ValidityPeriod time.Duration
 	// MaxAllowedBatchSize is the maximum number of TCerts which can be requested at a time.
 	// The default value is 1000.
-	MaxAllowedBatchSize int
+	MaxAllowedBatchSize uint
+	//bccsp contains instance of BCCSP. CoP Server BCCSP instance needs to be passed
+	BCCSP bccsp.BCCSP
 }
 
 // GetBatch gets a batch of TCerts
@@ -106,7 +112,7 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 	var numTCertsInBatch int
 	if req.Count == 0 {
 		numTCertsInBatch = int(tm.MaxAllowedBatchSize)
-	} else if req.Count <= tm.MaxAllowedBatchSize {
+	} else if uint(req.Count) <= tm.MaxAllowedBatchSize {
 		numTCertsInBatch = int(req.Count)
 	} else {
 		return nil, fmt.Errorf("You may not request %d TCerts; the maximum is %d",
@@ -118,17 +124,6 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 	if req.ValidityPeriod > 0 && req.ValidityPeriod < vp {
 		vp = req.ValidityPeriod
 	}
-
-	// Create a template from which to create all other TCerts.
-	// Since a TCert is anonymous and unlinkable, do not include
-	template := &x509.Certificate{
-		Subject: tcertSubject,
-	}
-	template.NotBefore = time.Now()
-	template.NotAfter = template.NotBefore.Add(vp)
-	template.IsCA = false
-	template.KeyUsage = x509.KeyUsageDigitalSignature
-	template.SubjectKeyId = []byte{1, 2, 3, 4}
 
 	// Generate nonce for TCertIndex
 	nonce := make([]byte, 16) // 8 bytes rand, 8 bytes timestamp
@@ -183,23 +178,77 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 			return nil, extensionErr
 		}
 
-		template.PublicKey = txPub
-		template.Extensions = extensions
-		template.ExtraExtensions = extensions
-		template.SerialNumber = tcertid
-
-		raw, err := x509.CreateCertificate(rand.Reader, template, tm.CACert, &txPub, tm.CAKey)
-		if err != nil {
-			return nil, fmt.Errorf("Failed in TCert x509.CreateCertificate: %s", err)
+		pem, certError := GenerateCertificate(vp, tcertid, extensions, &txPub, tm.CAKey, tm.CACert)
+		if certError != nil {
+			errorMessage := fmt.Sprintf("Failed to generate a Transaction Certificate (TCert) [%v]", certError)
+			log.Error(errorMessage)
+			return nil, errors.New(errorMessage)
 		}
-
-		pem := ConvertDERToPEM(raw, "CERTIFICATE")
 
 		set = append(set, TCert{pem, ks})
 	}
 
 	tcertID := GenNumber(big.NewInt(20))
 	tcertResponse := &GetBatchResponse{tcertID, time.Now(), kdfKey, set}
+
+	return tcertResponse, nil
+
+}
+
+// GetBatchForGeneratedKey returns batch of TCerts for locally generated Key
+// This is used for HSM Friendly TCert generation , no Key Derivation
+func (tm *Mgr) GetBatchForGeneratedKey(req *GetBatchRequest) (*GetBatchResponse, error) {
+	log.Debugf("GetBatchForGeneratedKey req=%+v", req)
+	var errorMessage string
+	if req == nil {
+		errorMessage = "GetBatchRequest Request is nil"
+		log.Error(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	publicKeyList := req.PublicKeys
+	noOfPublicKeys := len(publicKeyList)
+	if noOfPublicKeys == 0 {
+		errorMessage = "Public Key for TCert is not present"
+		log.Error(errorMessage)
+		return nil, errors.New(errorMessage)
+	}
+
+	var set []TCert
+	for i := 0; i < noOfPublicKeys; i++ {
+		tcertid, uuidError := GenerateIntUUID()
+		if uuidError != nil {
+			return nil, fmt.Errorf("UUID generation failed with error : %s", uuidError)
+		}
+
+		// Certs are valid for the min of requested and configured max
+		vp := tm.ValidityPeriod
+		if req.ValidityPeriod > 0 && req.ValidityPeriod < vp {
+			vp = req.ValidityPeriod
+		}
+
+		extensions, ks, extensionErr := generateExtensions(tcertid, nil, nil, req)
+		if extensionErr != nil {
+			return nil, extensionErr
+		}
+
+		pubKey, publicKeyParseError := BytesToPublicKey(publicKeyList[i])
+		if publicKeyParseError != nil {
+			log.Errorf("Public Key Marshalling failed with error : [%v]", publicKeyParseError)
+			return nil, publicKeyParseError
+		}
+		pem, certError := GenerateCertificate(vp, tcertid, extensions, pubKey.(*ecdsa.PublicKey), tm.CAKey, tm.CACert)
+		if certError != nil {
+			errorMessage = fmt.Sprintf("TCert Generation Failed with error : [%v]", certError)
+			log.Error(errorMessage)
+			return nil, errors.New(errorMessage)
+		}
+		set = append(set, TCert{pem, ks})
+
+	}
+
+	tcertID := GenNumber(big.NewInt(20))
+	tcertResponse := &GetBatchResponse{tcertID, time.Now(), nil, set}
 
 	return tcertResponse, nil
 
@@ -228,21 +277,26 @@ func generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Cert
 	mac.Write(tcertid.Bytes())
 	preK0 := mac.Sum(nil)
 
+	var err error
+	var encEnrollmentID []byte
+	var enrollmentIDerr error
 	// Compute encrypted EnrollmentID
-	mac = hmac.New(sha512.New384, preK0)
-	mac.Write([]byte("enrollmentID"))
-	enrollmentIDKey := mac.Sum(nil)[:32]
+	if enrollmentCert != nil {
+		mac = hmac.New(sha512.New384, preK0)
+		mac.Write([]byte(enrollmentID))
+		enrollmentIDKey := mac.Sum(nil)[:32]
 
-	enrollmentID := []byte(GetEnrollmentIDFromCert(enrollmentCert))
-	enrollmentID = append(enrollmentID, Padding...)
+		enrollmentID := []byte(GetEnrollmentIDFromCert(enrollmentCert))
+		enrollmentID = append(enrollmentID, Padding...)
 
-	encEnrollmentID, err := CBCPKCS7Encrypt(enrollmentIDKey, enrollmentID)
-	if err != nil {
-		return nil, nil, err
+		encEnrollmentID, enrollmentIDerr = CBCPKCS7Encrypt(enrollmentIDKey, enrollmentID)
+		if enrollmentIDerr != nil {
+			return nil, nil, enrollmentIDerr
+		}
+
+		// save k used to encrypt EnrollmentID
+		ks[enrollmentIDMapKey] = enrollmentIDKey
 	}
-
-	// save k used to encrypt EnrollmentID
-	ks["enrollmentId"] = enrollmentIDKey
 
 	attributeIdentifierIndex := 9
 	count := 0
@@ -281,10 +335,14 @@ func generateExtensions(tcertid *big.Int, tidx []byte, enrollmentCert *x509.Cert
 	}
 
 	// Append the TCertIndex to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
+	if tidx != nil {
+		extensions = append(extensions, pkix.Extension{Id: TCertEncTCertIndex, Critical: true, Value: tidx})
+	}
 
 	// Append the encrypted EnrollmentID to the extensions
-	extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
+	if enrollmentCert != nil {
+		extensions = append(extensions, pkix.Extension{Id: TCertEncEnrollmentID, Critical: false, Value: encEnrollmentID})
+	}
 
 	// Append the attributes header if there was attributes to include in the TCert
 	if len(attrs) > 0 {

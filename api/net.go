@@ -16,7 +16,10 @@ limitations under the License.
 
 package api
 
-import "github.com/hyperledger/fabric-ca/lib/tcert"
+import (
+	"math/big"
+	"time"
+)
 
 /*
  * This file contains the structure definitions for the request
@@ -57,7 +60,7 @@ type RevocationRequestNet struct {
 
 // GetTCertBatchRequestNet is a network request for a batch of transaction certificates
 type GetTCertBatchRequestNet struct {
-	GetTCertBatchRequest
+	GetBatchRequest GetTCertBatchRequest
 	// KeySigs is an optional array of public keys and corresponding signatures.
 	// If not set, the server generates it's own keys based on a key derivation function
 	// which cryptographically relates the TCert to an ECert.
@@ -65,8 +68,30 @@ type GetTCertBatchRequestNet struct {
 }
 
 // GetTCertBatchResponseNet is the network response for a batch of transaction certificates
+//Will define it later
+/*
 type GetTCertBatchResponseNet struct {
 	tcert.GetBatchResponse
+}
+*/
+// GetTCertBatchResponseNet is the network response for a batch of transaction certificates
+type GetTCertBatchResponseNet struct {
+	// GetBatchResponse is the response from the GetBatch API
+	BatchResponse GetBatchResponse
+}
+
+// GetBatchResponse contains batch response for TCert
+type GetBatchResponse struct {
+	ID     *big.Int  `json:"id"`
+	TS     time.Time `json:"ts"`
+	Key    []byte    `json:"key"`
+	TCerts []TCert   `json:"tcerts"`
+}
+
+// TCert encapsulates a signed transaction certificate and optionally a map of keys
+type TCert struct {
+	Cert []byte            `json:"cert"`
+	Keys map[string][]byte `json:"keys,omitempty"` //base64 encoded string as value
 }
 
 // KeySig is a public key, signature, and signature algorithm tuple
