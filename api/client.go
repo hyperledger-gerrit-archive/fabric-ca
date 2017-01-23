@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 )
 
 // RegistrationRequest for a new identity
@@ -117,11 +116,6 @@ type GetTCertBatchRequest struct {
 	// cryptographically related to an ECert.  This may be necessary when using an
 	// HSM which does not support the TCert's key derivation function.
 	DisableKeyDerivation bool `json:"disable_kdf,omitempty"`
-}
-
-// GetTCertBatchResponse is the return value of identity.GetTCertBatch
-type GetTCertBatchResponse struct {
-	tcert.GetBatchResponse
 }
 
 // CSRInfo is Certificate Signing Request information

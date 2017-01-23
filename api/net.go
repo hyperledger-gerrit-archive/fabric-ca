@@ -16,7 +16,10 @@ limitations under the License.
 
 package api
 
-import "github.com/hyperledger/fabric-ca/lib/tcert"
+import (
+	"math/big"
+	"time"
+)
 
 /*
  * This file contains the structure definitions for the request
@@ -66,7 +69,22 @@ type GetTCertBatchRequestNet struct {
 
 // GetTCertBatchResponseNet is the network response for a batch of transaction certificates
 type GetTCertBatchResponseNet struct {
-	tcert.GetBatchResponse
+	// GetBatchResponse is the response from the GetBatch API
+	GetBatchResponse
+}
+
+// GetBatchResponse contains batch response for TCert
+type GetBatchResponse struct {
+	ID     *big.Int  `json:"id"`
+	TS     time.Time `json:"ts"`
+	Key    []byte    `json:"key"`
+	TCerts []TCert   `json:"tcerts"`
+}
+
+// TCert encapsulates a signed transaction certificate and optionally a map of keys
+type TCert struct {
+	Cert []byte            `json:"cert"`
+	Keys map[string][]byte `json:"keys,omitempty"` //base64 encoded string as value
 }
 
 // KeySig is a public key, signature, and signature algorithm tuple
