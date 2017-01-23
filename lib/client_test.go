@@ -32,7 +32,7 @@ import (
 
 const (
 	FCADB        = "../testdata/fabric-ca.db"
-	clientConfig = "../testdata/client-config2.json"
+	clientConfig = "../testdata/client-config.json"
 )
 
 var serverStarted bool
