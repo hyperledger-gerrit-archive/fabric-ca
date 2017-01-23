@@ -30,15 +30,16 @@ var registerUsageText = `fabric-ca client register -- Register an ID with fabric
 
 Usage of client register command:
     Register a client with fabric-ca server:
-        fabric-ca client register REGISTER-REQUEST-FILE FABRIC-CA-SERVER-ADDR
+        fabric-ca client register [-config config] REGISTER-REQUEST-FILE FABRIC-CA-SERVER-ADDR
 
 Arguments:
-        RRJSON:                   File contains registration info
-        FABRIC-CA-SERVER-ADDR:    Fabric CA server address
+		RRJSON:                   File contains registration info
+		FABRIC-CA-SERVER-ADDR:    Fabric CA server address
+
 Flags:
 `
 
-var registerFlags = []string{}
+var registerFlags = []string{"config"}
 
 func registerMain(args []string, c cli.Config) error {
 
@@ -63,12 +64,8 @@ func registerMain(args []string, c cli.Config) error {
 		return err
 	}
 
-	client, err := NewClient(fcaServer)
-	if err != nil {
-		return err
-	}
-
-	id, err := client.LoadMyIdentity()
+	loadMyIdentity := true
+	_, id, err := loadClient(loadMyIdentity, configFile, fcaServer)
 	if err != nil {
 		return err
 	}

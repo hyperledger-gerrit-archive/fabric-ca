@@ -29,18 +29,18 @@ var enrollUsageText = `fabric-ca client enroll -- Enroll with fabric-ca server
 
 Usage of client enroll command:
     Enroll a client and get an ecert:
-       fabric-ca client enroll ID SECRET FABRIC-CA-SERVER-ADDR
+        fabric-ca client enroll [-config config] ID SECRET FABRIC-CA-SERVER-ADDR
 
 Arguments:
-        ID:                     Enrollment ID
-        SECRET:                 Enrollment secret returned by register
-        FABRIC-CA-SERVER-ADDR:  Fabric CA server address
-	     CSRJSON:                Certificate Signing Request JSON information (Optional)
+		ID:                     Enrollment ID
+		SECRET:                 Enrollment secret returned by register
+		FABRIC-CA-SERVER-ADDR:  Fabric CA server address
+		CSRJSON:                Certificate Signing Request JSON information (Optional)
 
 Flags:
 `
 
-var enrollFlags = []string{}
+var enrollFlags = []string{"config"}
 
 func enrollMain(args []string, c cli.Config) error {
 	log.Debug("Entering cli/client/enrollMain")
@@ -60,14 +60,15 @@ func enrollMain(args []string, c cli.Config) error {
 		return err
 	}
 
+	loadMyIdentity := false
+	client, _, err := loadClient(loadMyIdentity, configFile, fcaServer)
+	if err != nil {
+		return err
+	}
+
 	req := &api.EnrollmentRequest{
 		Name:   id,
 		Secret: secret,
-	}
-
-	client, err := NewClient(fcaServer)
-	if err != nil {
-		return err
 	}
 
 	// Read the CSR JSON file if provided

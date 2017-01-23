@@ -20,11 +20,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/cloudflare/cfssl/cli"
 	"github.com/hyperledger/fabric-ca/cli/server"
 	"github.com/hyperledger/fabric-ca/util"
 )
@@ -34,13 +32,23 @@ var serverExitCode = 0
 var dir string
 
 const (
-	ClientTLSConfig = "client-config.json"
-	FabricCADB      = "../../testdata/fabric-ca.db"
+	FabricCADB   = "../../testdata/fabric-ca.db"
+	clientConfig = "../../testdata/client-config.json"
 )
 
-// TestNewClient tests constructing a client
+// TestNewClient tests constructing a client with a client config provided
 func TestNewClient(t *testing.T) {
-	_, err := NewClient(util.GetServerURL())
+	loadMyIdentity := true
+	_, _, err := loadClient(loadMyIdentity, clientConfig, util.GetServerURL())
+	if err != nil {
+		t.Errorf("Failed to create a client: %s", err)
+	}
+}
+
+// TestNewClient tests constructing a client without a client config provided, will use default values
+func TestNewClientNoConfig(t *testing.T) {
+	loadMyIdentity := true
+	_, _, err := loadClient(loadMyIdentity, "", util.GetServerURL())
 	if err != nil {
 		t.Errorf("Failed to create a client: %s", err)
 	}
@@ -49,14 +57,9 @@ func TestNewClient(t *testing.T) {
 func TestEnrollCLI(t *testing.T) {
 	startServer()
 
-	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../../testdata/client-config2.json", clientConfig)
+	os.Args = []string{"client", "enroll", "-config", clientConfig, "admin", "adminpw", util.GetServerURL()}
 
-	c := new(cli.Config)
-
-	args := []string{"admin", "adminpw", util.GetServerURL()}
-
-	err := enrollMain(args, *c)
+	err := Command()
 	if err != nil {
 		t.Error("Failed to register, err: ", err)
 	}
@@ -64,11 +67,10 @@ func TestEnrollCLI(t *testing.T) {
 }
 
 func TestReenrollCLI(t *testing.T) {
-	c := new(cli.Config)
 
-	args := []string{util.GetServerURL()}
+	os.Args = []string{"client", "reenroll", "-config", clientConfig, util.GetServerURL()}
 
-	err := reenrollMain(args, *c)
+	err := Command()
 	if err != nil {
 		t.Error("Failed to reenroll, err: ", err)
 	}
@@ -77,23 +79,31 @@ func TestReenrollCLI(t *testing.T) {
 
 func TestRegister(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "register", "-config", clientConfig, "../../testdata/registerrequest.json", util.GetServerURL()}
 
-	args := []string{"../../testdata/registerrequest.json", util.GetServerURL()}
-
-	err := registerMain(args, *c)
+	err := Command()
 	if err != nil {
 		t.Error("Failed to register, err: ", err)
 	}
 
 }
 
+func TestRegisterAlreadyRegistered(t *testing.T) {
+
+	os.Args = []string{"client", "register", "-config", clientConfig, "../../testdata/registerrequest.json", util.GetServerURL()}
+
+	err := Command()
+	if err == nil {
+		t.Error("Should have failed, cannot register user twice")
+	}
+
+}
+
 func TestRegisterNotEnoughArgs(t *testing.T) {
-	c := new(cli.Config)
 
-	args := []string{"../../testdata/registerrequest.json"}
+	os.Args = []string{"client", "register", "-config", clientConfig, "../../testdata/registerrequest.json"}
 
-	err := registerMain(args, *c)
+	err := Command()
 	if err == nil {
 		t.Error("Should have failed, not enough arguments provided")
 	}
@@ -101,11 +111,10 @@ func TestRegisterNotEnoughArgs(t *testing.T) {
 }
 
 func TestRegisterNoJSON(t *testing.T) {
-	c := new(cli.Config)
 
-	args := []string{"", "admin", util.GetServerURL()}
+	os.Args = []string{"client", "register", "-config", clientConfig, "", "admin", util.GetServerURL()}
 
-	err := registerMain(args, *c)
+	err := Command()
 	if err == nil {
 		t.Error("Should result in failure if registration json file not specificied, error: ", err)
 	}
@@ -113,11 +122,9 @@ func TestRegisterNoJSON(t *testing.T) {
 }
 
 func TestRegisterMissingRegistrar(t *testing.T) {
-	c := new(cli.Config)
+	os.Args = []string{"client", "register", "-config", clientConfig, "", "", util.GetServerURL()}
 
-	args := []string{"", "", util.GetServerURL()}
-
-	err := registerMain(args, *c)
+	err := Command()
 	if err == nil {
 		t.Error("Should result in failure if no registrar identity exists")
 	}
@@ -126,11 +133,9 @@ func TestRegisterMissingRegistrar(t *testing.T) {
 
 func TestRevoke(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "revoke", "-config", clientConfig, util.GetServerURL(), "admin"}
 
-	args := []string{util.GetServerURL(), "admin"}
-
-	err := revokeMain(args, *c)
+	err := Command()
 	if err != nil {
 		t.Errorf("TestRevoke failed: %s", err)
 	}
@@ -139,11 +144,9 @@ func TestRevoke(t *testing.T) {
 
 func TestEnrollCLINotEnoughArgs(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "enroll", "-config", clientConfig, "testUser"}
 
-	args := []string{"testUser"}
-
-	err := enrollMain(args, *c)
+	err := Command()
 	if err == nil {
 		t.Error("Should have failed, not enough argument provided")
 	}
@@ -152,11 +155,9 @@ func TestEnrollCLINotEnoughArgs(t *testing.T) {
 
 func TestEnrollCLIWithCSR(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "enroll", "-config", clientConfig, "notadmin", "pass", util.GetServerURL(), "../../testdata/csr.json"}
 
-	args := []string{"notadmin", "pass", util.GetServerURL(), "../../testdata/csr.json"}
-
-	err := enrollMain(args, *c)
+	err := Command()
 	if err != nil {
 		t.Error("Failed to enroll, err: ", err)
 	}
@@ -165,11 +166,9 @@ func TestEnrollCLIWithCSR(t *testing.T) {
 
 func TestReenrollCLIWithCSR(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "reenroll", "-config", clientConfig, util.GetServerURL(), "../../testdata/csr.json"}
 
-	args := []string{util.GetServerURL(), "../../testdata/csr.json"}
-
-	err := reenrollMain(args, *c)
+	err := Command()
 	if err != nil {
 		t.Error("Failed to reenroll, err: ", err)
 	}
@@ -177,11 +176,9 @@ func TestReenrollCLIWithCSR(t *testing.T) {
 
 func TestRevokeNoArg(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "revoke", "-config", clientConfig, util.GetServerURL()}
 
-	args := []string{util.GetServerURL()}
-
-	err := revokeMain(args, *c)
+	err := Command()
 	if err == nil {
 		t.Error("TestRevokeNoArg succeeded but should have failed")
 	}
@@ -189,15 +186,31 @@ func TestRevokeNoArg(t *testing.T) {
 
 func TestRevokeNotAdmin(t *testing.T) {
 
-	c := new(cli.Config)
+	os.Args = []string{"client", "revoke", "-config", clientConfig, util.GetServerURL(), "notadmin"}
 
-	args := []string{util.GetServerURL(), "admin"}
-
-	err := revokeMain(args, *c)
+	err := Command()
 	if err == nil {
 		t.Error("TestRevokeNotAdmin should have failed but didn't")
 	}
 
+}
+
+func TestIncompleteCommand(t *testing.T) {
+	os.Args = []string{"client"}
+
+	err := Command()
+	if err == nil {
+		t.Error("Expected an error stating no command was given")
+	}
+}
+
+func TestUnsupportedCommand(t *testing.T) {
+	os.Args = []string{"client", "unsupportedCMD"}
+
+	err := Command()
+	if err == nil {
+		t.Error("Expected an error stating command is not defined")
+	}
 }
 
 func TestBogusCommand(t *testing.T) {
