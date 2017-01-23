@@ -22,19 +22,17 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/cli/server"
-	"github.com/hyperledger/fabric-ca/util"
 )
 
 const (
-	ClientTLSConfig = "client-config.json"
-	FCADB           = "../testdata/fabric-ca.db"
+	FCADB        = "../testdata/fabric-ca.db"
+	clientConfig = "../testdata/client-config2.json"
 )
 
 var serverStarted bool
@@ -43,9 +41,6 @@ var dir string
 
 func TestAllClient(t *testing.T) {
 	startServer()
-
-	clientConfig := filepath.Join(dir, ClientTLSConfig)
-	os.Link("../testdata/client-config.json", clientConfig)
 
 	c := getClient()
 
@@ -220,8 +215,7 @@ func TestSendBadPost(t *testing.T) {
 }
 
 func getClient() *Client {
-	fcaServer := fmt.Sprintf(`{"serverURL": "%s"}`, util.GetServerURL())
-	c, err := NewClient(fcaServer)
+	c, err := NewClient(clientConfig)
 	if err != nil {
 		log.Errorf("getClient failed: %s", err)
 	}
