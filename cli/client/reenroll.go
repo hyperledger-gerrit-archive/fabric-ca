@@ -28,16 +28,16 @@ import (
 var reenrollUsageText = `fabric-ca client reenroll -- Reenroll with fabric-ca server
 
 Usage of client enroll command:
-   fabric-ca client reenroll FABRIC-CA-SERVER-ADDR
+   fabric-ca client reenroll [-config config] FABRIC-CA-SERVER-ADDR
 
 Arguments:
-        FABRIC-CA-SERVER-ADDR:  Fabric CA server address
-		  CSRJSON:                Certificate Signing Request JSON information (Optional)
+		FABRIC-CA-SERVER-ADDR:  Fabric CA server address
+		CSRJSON:                Certificate Signing Request JSON information (Optional)
 
 Flags:
 `
 
-var reenrollFlags = []string{}
+var reenrollFlags = []string{"config"}
 
 func reenrollMain(args []string, c cli.Config) error {
 	log.Debug("Entering cli/client/reenrollMain")
@@ -47,14 +47,10 @@ func reenrollMain(args []string, c cli.Config) error {
 		return err
 	}
 
-	client, err := NewClient(fcaServer)
+	loadMyIdentity := true
+	client, id, err := loadClient(loadMyIdentity, configFile, fcaServer)
 	if err != nil {
 		return err
-	}
-
-	id, err := client.LoadMyIdentity()
-	if err != nil {
-		return fmt.Errorf("Client is not yet enrolled: %s", err)
 	}
 
 	req := &api.ReenrollmentRequest{}

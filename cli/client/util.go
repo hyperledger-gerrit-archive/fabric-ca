@@ -18,7 +18,22 @@ package client
 
 import "github.com/hyperledger/fabric-ca/lib"
 
-// NewClient returns a client given a url
-func NewClient(url string) (*lib.Client, error) {
-	return lib.NewClient(`{"serverURL":"` + url + `"}`)
+// LoadClient loads client configuration file
+func loadClient(loadIdentity bool, configFile string, fcaServer string) (*lib.Client, *lib.Identity, error) {
+	client, err := lib.NewClient(configFile)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	client.ServerURL = fcaServer
+
+	if loadIdentity {
+		id, err2 := client.LoadMyIdentity()
+		if err != nil {
+			return nil, nil, err2
+		}
+		return client, id, nil
+	}
+
+	return client, nil, err
 }

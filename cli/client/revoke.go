@@ -28,18 +28,19 @@ var revokeUsageTxt = `fabric-ca client revoke -- revokes one or more certificate
 Usage:
 
 Revoke certificate(s):
-	   fabric-ca client revoke FABRIC-CA-SERVER-URL [ENROLLMENT-ID]
+	   fabric-ca client revoke [-config config] FABRIC-CA-SERVER-ADDR [ENROLLMENT_ID]
 
 Arguments:
-     FABRIC-CA-SERVER-URL:     The URL of the fabric-ca server
-     ENROLLMENT_ID:            Optional enrollment ID
+		FABRIC-CA-SERVER-ADDR:  Fabric CA server address
+		ENROLLMENT_ID:          Optional enrollment ID
 
 Flags:
 `
 
-var revokeFlags = []string{"aki", "serial", "reason"}
+var revokeFlags = []string{"config", "aki", "serial", "reason"}
 
 func revokeMain(args []string, c cli.Config) error {
+	var err error
 
 	fcaServer, args, err := cli.PopFirstArgument(args)
 	if err != nil {
@@ -54,12 +55,8 @@ func revokeMain(args []string, c cli.Config) error {
 		}
 	}
 
-	client, err := NewClient(fcaServer)
-	if err != nil {
-		return err
-	}
-
-	id, err := client.LoadMyIdentity()
+	loadMyIdentity := true
+	_, id, err := loadClient(loadMyIdentity, configFile, fcaServer)
 	if err != nil {
 		return err
 	}
