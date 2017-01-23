@@ -117,21 +117,6 @@ func Command() error {
 type Server struct {
 }
 
-// CreateHome will create a home directory if it does not exist
-func (s *Server) CreateHome() (string, error) {
-	log.Debug("CreateHome")
-	home := util.GetDefaultHomeDir()
-	if _, err := os.Stat(home); err != nil {
-		if os.IsNotExist(err) {
-			err := os.MkdirAll(home, 0755)
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-	return home, nil
-}
-
 // BootstrapDB loads the database based on config file
 func bootstrapDB() error {
 	log.Debug("Bootstrap DB")
@@ -149,12 +134,10 @@ func startMain(args []string, c cli.Config) error {
 	log.Debug("server.startMain")
 	var err error
 
-	s := new(Server)
-	home, err := s.CreateHome()
+	homeDir, err = util.CreateHome()
 	if err != nil {
 		return err
 	}
-	homeDir = home
 
 	configInit(&c)
 
