@@ -14,4 +14,4 @@ WORKDIR /root/.fabric-ca
 COPY ec-key.pem /root/.fabric-ca/ec-key.pem
 COPY ec.pem /root/.fabric-ca/ec.pem
 
-EXPOSE 8888
+EXPOSE 7054

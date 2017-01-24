@@ -235,7 +235,7 @@ Run the following command to start COP server:
 # ./cop server start -config ../testdata/cop.json
 ```
 
-It is now listening on localhost port 8888.
+It is now listening on localhost port 7054.
 
 You can customize your COP config file at `../testdata/cop.json`.  For example,
 if you want to disable authentication, you can do so by setting `authentication` to
@@ -251,7 +251,7 @@ The following command gets an ecert for the admin user.
 
 ```
 # cd $COP/bin
-# ./cop client enroll admin adminpw http://localhost:8888
+# ./cop client enroll admin adminpw http://localhost:7054
 ```
 
 The enrollment certificate is stored at `$COP_ENROLLMENT_DIR/cert.pem` by default, but a different
@@ -273,7 +273,7 @@ key is used to authenticate to the COP server.
 
 ```
 # cd $COP/bin
-# ./cop client reenroll http://localhost:8888
+# ./cop client reenroll http://localhost:7054
 ```
 
 The enrollment certificate and enrollment key are stored in the same location as described in the previous section for the `enroll` command.
@@ -282,7 +282,7 @@ You can specify a new Certificate Signing Request JSON information when issue th
 
 ```
 # cd $COP/bin
-# ./cop client reenroll http://localhost:8888 ../testdata/csr.json
+# ./cop client reenroll http://localhost:7054 ../testdata/csr.json
 ```
 
 ### Register a new user
@@ -318,7 +318,7 @@ The following command will register the user.
 
 ```
 # cd $COP/bin
-# ./cop client register ../testdata/registerrequest.json http://localhost:8888
+# ./cop client register ../testdata/registerrequest.json http://localhost:7054
 ```
 
 ### LDAP
@@ -402,7 +402,7 @@ defaults
       timeout server 50000
 
 listen http-in
-      bind *:8888
+      bind *:7054
       balance roundrobin
       server server1 <hostname:port>
       server server2 <hostname:port>

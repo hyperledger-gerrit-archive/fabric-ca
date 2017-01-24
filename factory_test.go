@@ -20,7 +20,7 @@ import "testing"
 
 // TestNewClient tests constructing a client
 func TestNewClient(t *testing.T) {
-	_, err := NewClient(`{"serverAddr":"http://127.0.0.1:8888"}`)
+	_, err := NewClient(`{"serverAddr":"http://127.0.0.1:7054"}`)
 	if err != nil {
 		t.Errorf("Failed to create a client: %s", err)
 	}
