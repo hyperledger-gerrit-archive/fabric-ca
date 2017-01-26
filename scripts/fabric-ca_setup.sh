@@ -234,7 +234,7 @@ function updateSudoers() {
    sudo cp /etc/sudoers $tmpfile
    echo 'ibmadmin ALL=(ALL) NOPASSWD:ALL' | tee -a $tmpfile
    sudo uniq $tmpfile | sudo tee $tmpfile
-   sudo visudo -c -f $tmpfile  
+   sudo visudo -c -f $tmpfile
    test "$?" -eq "0" && sudo cp $tmpfile /etc/sudoers || rc=1
    sudo rm -f $tmpfile
    return $rc
@@ -288,31 +288,32 @@ function resetFabricCa(){
 }
 
 function listFabricCa(){
-   echo "Listening servers;" 
+   echo "Listening servers;"
    lsof -n -i tcp:9888
 
 
-   case $DRIVER in 
+   case $DRIVER in
       mysql)
          echo ""
          mysql --host=localhost --user=root --password=mysql -e 'show tables' fabric_ca
-         echo "Users:" 
+         echo "Users:"
          mysql --host=localhost --user=root --password=mysql -e 'SELECT * FROM "users";' fabric_ca
       ;;
-      postgres) 
+      postgres)
          echo ""
          runPSQL '\l fabric_ca' | sed 's/^/   /;1s/^ *//;1s/$/:/'
 
-         echo "Users:" 
+         echo "Users:"
          runPSQL 'SELECT * FROM "users";' '--dbname=fabric_ca' | sed 's/^/   /'
       ;;
+      sqlite3) sqlite3 "$dbfile" 'SELECT * FROM "users" ;;' | sed 's/^/   /'
    esac
 }
 
 function initFabricCa() {
    test -f $FABRIC_CAEXEC || ErrorExit "fabric-ca executable not found (use -B to build)"
    cd $FABRIC_CA/bin
- 
+
    export FABRIC_CA_HOME=$HOME/fabric-ca
    genInitConfig
    $FABRIC_CAEXEC server init $INITCONFIG
@@ -345,8 +346,35 @@ function startHaproxy() {
    /etc/init.d/haproxy stop
    #sudo sed -i 's/ *# *$UDPServerRun \+514/$UDPServerRun 514/' /etc/rsyslog.conf
    #sudo sed -i 's/ *# *$ModLoad \+imudp/$ModLoad imudp/' /etc/rsyslog.conf
+   case $TLS_DISABLE in
+     false)
    haproxy -f  <(echo "global
-      #log localhost local0 debug
+      log /dev/log	local0 debug
+      log /dev/log	local1 debug
+      daemon
+defaults
+      log     global
+      option  dontlognull
+      maxconn 1024
+      timeout connect 5000
+      timeout client 50000
+      timeout server 50000
+
+frontend haproxy
+      bind *:8888
+      mode tcp
+      option tcplog
+      default_backend fabric-cas
+
+backend fabric-cas
+      mode tcp
+      balance roundrobin";
+   while test $((i++)) -lt $inst; do
+      echo "      server server$i  127.0.0.$i:9888"
+   done)
+   ;;
+   true)
+   haproxy -f  <(echo "global
       log /dev/log	local0 debug
       log /dev/log	local1 debug
       daemon
@@ -370,9 +398,9 @@ listen stats
 frontend haproxy
       bind *:8888
       mode http
+      option tcplog
       default_backend fabric-cas
 
-      
 backend fabric-cas
       mode http
       http-request set-header X-Forwarded-Port %[dst_port]
@@ -380,7 +408,9 @@ backend fabric-cas
    while test $((i++)) -lt $inst; do
       echo "      server server$i  127.0.0.$i:9888"
    done)
-      
+   ;;
+   esac
+
 }
 
 function startFabricCa() {
@@ -395,15 +425,15 @@ function startFabricCa() {
    inst=0
    $FABRIC_CAEXEC server start -address $server_addr -port $server_port -ca $DST_CERT \
                     -ca-key $DST_KEY -config $RUNCONFIG 2>&1 | sed 's/^/     /' &
-   until test "$started" = "$server_addr:$server_port" -o "$now" -gt "$timeout"; do 
+   until test "$started" = "$server_addr:$server_port" -o "$now" -gt "$timeout"; do
       started=$(ss -ltnp src $server_addr:$server_port | awk 'NR!=1 {print $4}')
-      sleep .5 
+      sleep .5
       let now+=1
    done
    printf "FABRIC_CA server on $server_addr:$server_port "
    if test "$started" = "$server_addr:$server_port"; then
       echo "STARTED"
-   else 
+   else
       RC=$((RC+1))
       echo "FAILED"
    fi
@@ -441,20 +471,31 @@ while getopts "\?hPRCBISKXLDTAd:t:l:n:i:c:k:x:g:m:p:" option; do
      X)   PROXY="true" ;;
      K)   KILL="true" ;;
      L)   LIST="true" ;;
-     T)   TLS_DISABLE="false" ;;
+     T)   TLS_ON="true" ;;
    \?|h)  usage
           exit 1
           ;;
   esac
 done
 
+# regarding tls:
+#    honor the command-line setting to turn on TLS
+#      else honor the envvar
+#        else (default) turn off tls
+if test -n "$TLS_ON"; then
+   TLS_DISABLE='false'
+else
+   case "$FABRIC_TLS" in
+      true) TLS_DISABLE='false' ;;
+     false) TLS_DISABLE='true'  ;;
+         *) TLS_DISABLE='true'  ;;
+   esac
+fi
 
 test -z "$DATADIR" && DATADIR="$HOME/fabric-ca"
 test -z "$SRC_KEY" && SRC_KEY="$DATADIR/server-key.pem"
 test -z "$SRC_CERT" && SRC_CERT="$DATADIR/server-cert.pem"
-
 : ${HTTP_PORT="3755"}
-: ${TLS_DISABLE="true"}
 : ${MAXENROLL="1"}
 : ${AUTH="true"}
 : ${DRIVER="sqlite3"}
@@ -475,9 +516,9 @@ test -z "$SRC_CERT" && SRC_CERT="$DATADIR/server-cert.pem"
 : ${KEYLEN="256"}
 test $KEYTYPE = "rsa" && SSLKEYCMD=$KEYTYPE || SSLKEYCMD="ec"
 
-case $DRIVER in 
+case $DRIVER in
    postgres) DATASRC="dbname=fabric_ca host=127.0.0.1 port=$POSTGRES_PORT user=postgres password=postgres sslmode=disable" ;;
-   sqlite3)   DATASRC="fabric_ca.db" ;;
+   sqlite3)   DATASRC="fabric_ca.db"; dbfile="$TESTDATA/fabric_ca.db" ;;
    mysql)    DATASRC="root:mysql@tcp(localhost:$MYSQL_PORT)/fabric_ca?parseTime=true" ;;
 esac
 

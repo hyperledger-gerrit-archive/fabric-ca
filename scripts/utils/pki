@@ -322,7 +322,7 @@ function  newreq {
 
       $REQ -config "$config" -nodes -new -"$digest"\
            -newkey "$keytype" -subj "$subjectname" \
-           -keyout "$keyout.pem" -out "$reqout" 
+           -keyout "$keyout.pem" -out "$reqout"
       if test "$?" -eq 0; then
          echo "Request is in $reqout, private key is in $keyout.pem"
       fi
