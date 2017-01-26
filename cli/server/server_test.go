@@ -25,10 +25,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudflare/cfssl/cli"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/cli/server/dbutil"
 	"github.com/hyperledger/fabric-ca/cli/server/ldap"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 )
 
 const (
@@ -118,6 +120,14 @@ func TestRegisterUser(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+// Tests for initializing an intermediate fabric-ca server
+func TestIntermediateServerInit(t *testing.T) {
+	// Positive test for a user with privileges
+	testIntermediateServerInit(t, "intermediateCA", "intermediateCAPW", true)
+	// Negative test for a user without privileges
+	testIntermediateServerInit(t, "nonIntermediateCA", "nonIntermediateCAPW", false)
 }
 
 func TestMisc(t *testing.T) {
@@ -469,4 +479,15 @@ func getClient(t *testing.T) *lib.Client {
 		return nil
 	}
 	return c
+}
+
+func testIntermediateServerInit(t *testing.T, user, pass string, expectSuccess bool) {
+	c := cli.Config{}
+	args := []string{"../../testdata/csr.json", user, pass, util.GetServerURL()}
+	err := initMain(args, c)
+	if expectSuccess && err != nil {
+		t.Errorf("User '%s' failed intermediate CA server init; %s", user, err)
+	} else if !expectSuccess && err == nil {
+		t.Errorf("User '%s' passed intermediate CA server init but should have failed", user)
+	}
 }

@@ -23,27 +23,27 @@ import (
 
 func newSigner(key, cert []byte, id *Identity) *Signer {
 	return &Signer{
-		key:    key,
-		cert:   cert,
-		id:     id,
-		client: id.client,
+		Key:    key,
+		Cert:   cert,
+		ID:     id,
+		Client: id.client,
 	}
 }
 
 // Signer represents a signer
 // Each identity may have multiple signers, currently one ecert and multiple tcerts
 type Signer struct {
-	name   string
-	key    []byte
-	cert   []byte
-	id     *Identity
-	client *Client
+	Name   string
+	Key    []byte
+	Cert   []byte
+	ID     *Identity
+	Client *Client
 }
 
 // RevokeSelf revokes only the certificate associated with this signer
 func (s *Signer) RevokeSelf() error {
-	log.Debugf("RevokeSelf %s", s.name)
-	serial, aki, err := GetCertID(s.cert)
+	log.Debugf("RevokeSelf %s", s.Name)
+	serial, aki, err := GetCertID(s.Cert)
 	if err != nil {
 		return err
 	}
@@ -51,5 +51,5 @@ func (s *Signer) RevokeSelf() error {
 		Serial: serial,
 		AKI:    aki,
 	}
-	return s.id.Revoke(req)
+	return s.ID.Revoke(req)
 }
