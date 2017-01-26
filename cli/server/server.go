@@ -229,7 +229,7 @@ func serverMain(args []string, c cli.Config) error {
 		return http.ListenAndServeTLS(addr, conf.TLSCertFile, conf.TLSKeyFile, nil)
 	}
 
-	log.Info("Now listening on ", addr)
+	log.Info("Now listening on http://", addr)
 	return http.ListenAndServe(addr, nil)
 }
 

@@ -241,6 +241,26 @@ Auhentication is added by fabric-ca since CFSSL does not perform authentication.
 basic authentication header is required for the enroll request.  All other requests
 to the fabric-ca server will require a JWT-like token, but this work is not yet complete.
 
+### Initialize a fabric-ca intermediate server
+
+There are multiple reasons you may want to run a hierarchy of fabric-ca servers, such as:
+1) You want to make the private key associated with your root certificate more secure
+   by taking the root fabric-ca server off-line after issuing certificates for your intermediate
+   fabric-ca servers.
+2) You don't have to update all users of your root certificate when an intermediate fabric-ca
+   server's private key is compromised.
+
+When initializing a fabric-ca intermediate server, the root (or parent) fabric-ca server issues
+a certificate in much the same way as when enrolling a client.  The following command issues the
+certificate to the intermediate fabric-ca server.  Note that it is the same as the previous
+**fabric-ca server init** command except that it contains 3 additional arguments.
+
+```
+# fabric-ca server init ../testdata/csr_dsa.json <enrollmentID> <enrollmentSecret> <fabric-ca-serverURL>
+```
+The identity associated with <enrollmentID> and <enrollmentSecret> must be the **hf.IntermediateCA** attribute,
+and the <fabric-ca-serverURL> must point to the root (or parent) fabric-ca server's listening endpoint.
+
 ### Enroll the admin client
 
 See the `FABRIC_CA/testdata/server-config.json` file and note the "admin" user with a password of "adminpw".

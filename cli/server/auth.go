@@ -77,6 +77,7 @@ func newAuthHandler(basic, token bool, handler http.Handler, errArg error) (h ht
 func (ah *fcaAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := ah.serveHTTP(w, r)
 	if err != nil {
+		log.Infof("The server is returning the following error: %s", err)
 		api.HandleError(w, err)
 	} else {
 		ah.next.ServeHTTP(w, r)

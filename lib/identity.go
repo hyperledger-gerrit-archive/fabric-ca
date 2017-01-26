@@ -154,7 +154,7 @@ func (i *Identity) Store() error {
 	if i.client == nil {
 		return fmt.Errorf("An identity with no client may not be stored")
 	}
-	return i.client.StoreMyIdentity(i.ecert.key, i.ecert.cert)
+	return i.client.StoreMyIdentity(i.ecert.Key, i.ecert.Cert)
 }
 
 // Post sends arbtrary request body (reqBody) to an endpoint.
@@ -175,8 +175,8 @@ func (i *Identity) Post(endpoint string, reqBody []byte) (interface{}, error) {
 
 func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	log.Debug("adding token-based authorization header")
-	cert := i.ecert.cert
-	key := i.ecert.key
+	cert := i.ecert.Cert
+	key := i.ecert.Key
 	token, err := util.CreateToken(cert, key, body)
 	if err != nil {
 		return fmt.Errorf("Failed to add token authorization header: %s", err)

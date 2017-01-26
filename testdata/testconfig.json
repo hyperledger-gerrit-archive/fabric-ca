@@ -67,6 +67,17 @@
       "type": "client",
       "group": "bank_a"
     },
+    "intermediateCA": {
+      "pass": "intermediateCAPW",
+      "type": "CA",
+      "group": "bank_a",
+      "attrs": [{"name":"hf.IntermediateCA", "value": "true"}]
+    },
+    "nonIntermediateCA": {
+      "pass": "nonIntermediateCAPW",
+      "type": "CA",
+      "group": "bank_a"
+    },
     "testUser": {
       "pass": "user1",
       "type": "client",
@@ -95,7 +106,8 @@
  "signing": {
     "default": {
        "usages": ["cert sign"],
-       "expiry": "8000h"
+       "expiry": "8000h",
+       "ca_constraint": {"is_ca": true}
     },
     "expiry": {
        "usages": ["cert sign"],
