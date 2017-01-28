@@ -31,7 +31,7 @@ import (
 )
 
 const (
-	CFGFile      = "testconfig.yaml"
+	ServerConfig = "testconfig.yaml"
 	ClientConfig = "../../testdata/client-config.yaml"
 	FCADB        = "../../testdata/fabric-ca.db"
 )
@@ -70,7 +70,11 @@ func startServer() {
 }
 
 func runServer() {
-	Start("../../testdata", CFGFile)
+	s := new(Server)
+	s.ConfigDir = "../../testdata"
+	s.ConfigFile = ServerConfig
+	s.StartFromConfig = true
+	s.Start()
 }
 
 func TestPostgresFail(t *testing.T) {
@@ -417,10 +421,21 @@ func TestUserRegistry(t *testing.T) {
 
 }
 
+func TestServerNoStartUpMissingCertKey(t *testing.T) {
+	s := new(Server)
+	s.CSRFile = "doesnotexist.json" // This will cause the initialization of server to fail. No cert and key will get created.
+	noConfig := "true"
+	err := s.Start(noConfig)
+	if err == nil {
+		t.Error("Server should have failed starting")
+	}
+}
+
 func TestLast(t *testing.T) {
 	// Cleanup
 	os.Remove(FCADB)
 	os.RemoveAll(dir)
+
 }
 
 func testStatic(id *lib.Identity, t *testing.T) {

@@ -18,7 +18,6 @@ package server
 
 import (
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -107,11 +106,23 @@ var CFG Config
 func configInit(cfg *cli.Config) error {
 	var err error
 
+	dbg := os.Getenv("FABRIC_CA_DEBUG")
+	if dbg != "" {
+		CFG.Debug = dbg == "true"
+	}
+	if CFG.Debug {
+		log.Level = log.LevelDebug
+	}
+
 	CFG.Authentication = true
 
 	if configFile == "" {
-		log.Infof("No server config file provided. Looking in home directory: %s", util.GetDefaultHomeDir())
-		configFile = path.Join(util.GetDefaultHomeDir(), serverConfigFile)
+		homeDir, configFile = util.GetDefaultConfig(configDir, true)
+		log.Infof("No server config file provided. Looking in home directory: %s", configFile)
+		err = getCertKey()
+		if err != nil {
+			return err
+		}
 	}
 
 	cfg.ConfigFile = configFile
@@ -173,19 +184,19 @@ func configInit(cfg *cli.Config) error {
 		cfg.DBConfigFile = cfg.ConfigFile
 	}
 
-	if CFG.TLS.CertFile != "" {
+	if CFG.TLS.CertFile != "" && cfg.TLSCertFile == "" {
 		cfg.TLSCertFile = CFG.TLS.CertFile
-	} else {
+	} else if CFG.TLS.CertFile == "" && cfg.TLSCertFile == "" {
 		cfg.TLSCertFile = CFG.CA.CertFile
 	}
 
-	if CFG.TLS.KeyFile != "" {
+	if CFG.TLS.KeyFile != "" && cfg.TLSKeyFile == "" {
 		cfg.TLSKeyFile = CFG.TLS.KeyFile
-	} else {
+	} else if CFG.TLS.KeyFile == "" && cfg.TLSKeyFile == "" {
 		cfg.TLSKeyFile = CFG.CA.KeyFile
 	}
 
-	if CFG.TLS.CAFile != "" {
+	if CFG.TLS.CAFile != "" && cfg.MutualTLSCAFile == "" {
 		cfg.MutualTLSCAFile = CFG.TLS.CAFile
 	}
 
@@ -200,16 +211,37 @@ func configInit(cfg *cli.Config) error {
 		CFG.Database.Datasource = util.Abs(CFG.Database.Datasource, configDir)
 	}
 
-	dbg := os.Getenv("FABRIC_CA_DEBUG")
-	if dbg != "" {
-		CFG.Debug = dbg == "true"
-	}
-	if CFG.Debug {
-		log.Level = log.LevelDebug
-	}
-
 	log.Debugf("CFSSL server config is: %+v", cfg)
 	log.Debugf("Fabric CA server config is: %+v", CFG)
 
+	return nil
+}
+
+func getCertKey() error {
+	log.Debug("Using default configuration, create cert and key if none already exist")
+	certFile := filepath.Join(homeDir, CERTFILE)
+	keyFile := filepath.Join(homeDir, KEYFILE)
+
+	csrFile = filepath.Join(homeDir, csrFile)
+
+	if _, err := os.Stat(certFile); os.IsNotExist(err) {
+		log.Debug("No cert found, creating cert and key...")
+		err := processInitRequest(csrFile)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if _, err := os.Stat(keyFile); os.IsNotExist(err) {
+		log.Debug("No key found, creating cert and key...")
+		processInitRequest(csrFile)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	log.Debug("Server already initialized, using already existing cert and key")
 	return nil
 }

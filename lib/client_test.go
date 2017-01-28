@@ -33,6 +33,7 @@ import (
 const (
 	FCADB        = "../testdata/fabric-ca.db"
 	clientConfig = "../testdata/client-config.yaml"
+	serverConfig = "testconfig.json"
 )
 
 var serverStarted bool
@@ -247,7 +248,11 @@ func startServer() int {
 func runServer() {
 	os.Setenv("FABRIC_CA_DEBUG", "true")
 	os.Setenv("FABRIC_CA_HOME", dir)
-	server.Start("../testdata", "testconfig.json")
+	s := new(server.Server)
+	s.ConfigDir = "../testdata"
+	s.ConfigFile = serverConfig
+	s.StartFromConfig = true
+	s.Start()
 }
 
 func TestLast(t *testing.T) {

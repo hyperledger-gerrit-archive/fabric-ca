@@ -18,6 +18,8 @@ package server
 
 import (
 	"encoding/json"
+
+	"fmt"
 	"io/ioutil"
 	"path"
 
@@ -37,6 +39,13 @@ Arguments:
 Flags:
 `
 
+const (
+	// CERTFILE is the name of the default server certificate created during initialization
+	CERTFILE = "server-cert.pem"
+	// KEYFILE is the name of the default server key created during initialization
+	KEYFILE = "server-key.pem"
+)
+
 var initFlags = []string{"remote", "u"}
 
 // initMain creates the private key and self-signed certificate needed to start fabric-ca Server
@@ -45,6 +54,19 @@ func initMain(args []string, c cli.Config) (err error) {
 	if err != nil {
 		return err
 	}
+
+	c.IsCA = true
+
+	err = processInitRequest(csrFile)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func processInitRequest(csrFile string) error {
+	log.Debugf("Initializing server using csrFile %s", csrFile)
 
 	csrFileBytes, err := cli.ReadStdin(csrFile)
 	if err != nil {
@@ -66,28 +88,32 @@ func initMain(args []string, c cli.Config) (err error) {
 	_ = bccsp
 	//FIXME: replace the key generation and storage with BCCSP
 
-	c.IsCA = true
-
 	var key, cert []byte
 	cert, _, key, err = initca.New(&req)
 	if err != nil {
 		return err
 	}
 
-	FCAHome, err := util.CreateHome()
+	FCAHome, _ := util.GetDefaultConfig(configDir, true)
 	if err != nil {
 		return err
 	}
-	certerr := ioutil.WriteFile(path.Join(FCAHome, "server-cert.pem"), cert, 0755)
+
+	fmt.Println("FCAHOME: ", FCAHome)
+
+	certerr := ioutil.WriteFile(path.Join(FCAHome, CERTFILE), cert, 0755)
 	if certerr != nil {
-		log.Fatal("Error writing server-cert.pem to fabric-ca home directory")
+		log.Errorf("Error writing server-cert.pem to fabric-ca home directory [error: %s]", certerr)
+		return certerr
 	}
-	keyerr := ioutil.WriteFile(path.Join(FCAHome, "server-key.pem"), key, 0755)
+	keyerr := ioutil.WriteFile(path.Join(FCAHome, KEYFILE), key, 0755)
 	if keyerr != nil {
-		log.Fatal("Error writing server-key.pem to fabric-ca home directory")
+		log.Errorf("Error writing server-key.pem to fabric-ca home directory [error: %s]", keyerr)
+		return keyerr
 	}
 
 	return nil
+
 }
 
 // InitServerCommand assembles the definition of Command 'genkey -initca CSRJSON'

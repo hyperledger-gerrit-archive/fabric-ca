@@ -86,7 +86,7 @@ func GetServerPort() string {
 // by adding the "-port" option to the command line if it was not
 // already present.
 func SetDefaultServerPort() {
-	if len(os.Args) > 2 && GetCommandLineOptValue("-port", false) == "" {
+	if len(os.Args) >= 2 && GetCommandLineOptValue("-port", false) == "" {
 		os.Args = append(os.Args, "-port", defaultServerPort)
 	}
 }

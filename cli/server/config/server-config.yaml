@@ -1,0 +1,53 @@
+#####################################
+#    CA Certificate and Key Section
+#####################################
+ca:
+
+  certFile: server-cert.pem
+  keyFile: server-key.pem
+
+#####################################
+#    Users section
+#####################################
+users:
+
+  admin:
+    pass: adminpw
+    type: client
+    affiliation: bank_a
+    attrs:
+      - name: "hf.Registrar.Roles"
+        value: "client,user,peer,validator,auditor"
+      - name: "hf.Registrar.DelegateRoles"
+        value: "client,user,validator,auditor"
+      - name: "hf.Revoker"
+        value: true
+
+#####################################
+#    Affiliation section
+#####################################
+affiliations:
+
+   banks_and_institutions:
+      banks:
+          - bank_a
+          - bank_b
+          - bank_c
+      institutions:
+          - institution_a
+
+#####################################
+#    Signing section
+#####################################
+signing:
+
+    profiles:
+      expiry:
+         usage:
+           - cert sign
+         expiry: 1s
+
+    default:
+      usage:
+        - cert sign
+      expiry: 8000h

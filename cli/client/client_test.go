@@ -217,7 +217,11 @@ func TestLast(t *testing.T) {
 
 func runServer() {
 	os.Setenv("FABRIC_CA_DEBUG", "true")
-	server.Start("../../testdata", serverConfig)
+	s := new(server.Server)
+	s.ConfigDir = "../../testdata"
+	s.ConfigFile = serverConfig
+	s.StartFromConfig = false
+	s.Start()
 }
 
 func startServer() {

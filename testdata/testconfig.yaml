@@ -40,7 +40,7 @@ database:
 #####################################
 tls:
 
-  enabled: true
+  enabled: false
   caFile: root.pem
   certFile: tls_server-cert.pem
   keyFile: tls_server-key.pem
