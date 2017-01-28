@@ -18,7 +18,6 @@ package client
 
 import (
 	"github.com/cloudflare/cfssl/cli"
-	"github.com/hyperledger/fabric-ca/util"
 
 	_ "github.com/go-sql-driver/mysql" // import to support MySQL
 	_ "github.com/lib/pq"              // import to support Postgres
@@ -27,7 +26,6 @@ import (
 
 // Command are the client commands
 func Command() error {
-	util.SetDefaultServerPort()
 	cmds := map[string]*cli.Command{
 		"register": RegisterCommand,
 		"enroll":   EnrollCommand,

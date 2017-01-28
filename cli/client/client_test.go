@@ -59,7 +59,14 @@ func TestEnrollCLI(t *testing.T) {
 
 	err := enrollMain(args, *c)
 	if err != nil {
-		t.Error("Failed to register, err: ", err)
+		t.Error("Failed to register without CSR, err: ", err)
+	}
+
+	args = []string{"admin2", "adminpw2", util.GetServerURL(), "../../testdata/csr.json", "-port", "7054"}
+
+	err = enrollMain(args, *c)
+	if err != nil {
+		t.Error("Failed to register with CSR, err: ", err)
 	}
 
 }
