@@ -35,7 +35,6 @@ Arguments:
         ID:                     Enrollment ID
         SECRET:                 Enrollment secret returned by register
         FABRIC-CA-SERVER-ADDR:  Fabric CA server address
-	     CSRJSON:                Certificate Signing Request JSON information (Optional)
 
 Flags:
 `
@@ -55,7 +54,7 @@ func enrollMain(args []string, c cli.Config) error {
 		return err
 	}
 
-	fcaServer, args, err := cli.PopFirstArgument(args)
+	fcaServer, _, err := cli.PopFirstArgument(args)
 	if err != nil {
 		return err
 	}
@@ -68,18 +67,6 @@ func enrollMain(args []string, c cli.Config) error {
 	client, err := NewClient(fcaServer)
 	if err != nil {
 		return err
-	}
-
-	// Read the CSR JSON file if provided
-	if len(args) > 0 {
-		path, _, err2 := cli.PopFirstArgument(args)
-		if err2 != nil {
-			return err2
-		}
-		req.CSR, err2 = client.LoadCSRInfo(path)
-		if err2 != nil {
-			return err2
-		}
 	}
 
 	ID, err := client.Enroll(req)
