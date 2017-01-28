@@ -71,7 +71,7 @@ func enrollMain(args []string, c cli.Config) error {
 	}
 
 	// Read the CSR JSON file if provided
-	if len(args) > 0 {
+	if len(args) > 2 {
 		path, _, err2 := cli.PopFirstArgument(args)
 		if err2 != nil {
 			return err2
