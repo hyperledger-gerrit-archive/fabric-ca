@@ -16,8 +16,6 @@ limitations under the License.
 
 package api
 
-import "github.com/hyperledger/fabric-ca/lib/tcert"
-
 /*
  * This file contains the structure definitions for the request
  * and responses which flow over the network between a fabric-ca client
@@ -66,12 +64,13 @@ type GetTCertBatchRequestNet struct {
 
 // GetTCertBatchResponseNet is the network response for a batch of transaction certificates
 type GetTCertBatchResponseNet struct {
-	tcert.GetBatchResponse
+	// GetBatchResponse  is the response from the GetBatch API
+	GetBatchResponse
 }
 
 // KeySig is a public key, signature, and signature algorithm tuple
 type KeySig struct {
-	// Key is a public key
+	// Key is a public key For Elliptic Curve or RSA
 	Key []byte `json:"key"`
 	// Sig is a signature over the PublicKey
 	Sig []byte `json:"sig"`
