@@ -24,7 +24,9 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp/factory"
 )
 
 func newIdentity(client *Client, name string, key []byte, cert []byte) *Identity {
@@ -53,8 +55,33 @@ func (i *Identity) GetECert() *Signer {
 }
 
 // GetTCertBatch returns a batch of TCerts for this identity
+// 	Added support for TCert option #2
 func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, error) {
-	reqBody, err := util.Marshal(req, "GetTCertBatchRequest")
+
+	batchRequestNet := new(api.GetTCertBatchRequestNet)
+
+	if req.DisableKeyDerivation == true {
+		//Get BCCSP intance
+		defaultBccsp, bccspError := factory.GetDefault()
+		if bccspError != nil {
+			return nil, fmt.Errorf("BCCSP initialiazation failed with error : %s", bccspError)
+		}
+		if defaultBccsp == nil {
+			return nil, errors.New("Cannot get default instance of BCCSP")
+		}
+		//Call GetTemporalBatch method
+		keySigs, error := tcert.GetTemporalBatch(defaultBccsp, req)
+		if error != nil {
+			return nil, fmt.Errorf("KeySig generation failed with error : %s", error)
+		}
+		//populate req object with GetTCertBatchRequestNet
+		batchRequestNet.KeySigs = keySigs
+
+	}
+
+	batchRequestNet.GetTCertBatchRequest = *req
+
+	reqBody, err := util.Marshal(batchRequestNet, "GetTCertBatchRequest")
 	if err != nil {
 		return nil, err
 	}

@@ -231,6 +231,16 @@ func TestGetTCerts(t *testing.T) {
 	if err != nil {
 		t.Errorf("GetPrivateSigners failed: %s", err)
 	}
+
+	//testing for TCert option 2
+	batchRequest := &api.GetTCertBatchRequest{Count: 1, EncryptAttrs: false, DisableKeyDerivation: true}
+
+	_, err = id.GetTCertBatch(batchRequest)
+
+	if err != nil {
+		t.Errorf("GetPrivateSigners failed: %s", err)
+	}
+
 }
 
 func TestMaxEnrollment(t *testing.T) {
