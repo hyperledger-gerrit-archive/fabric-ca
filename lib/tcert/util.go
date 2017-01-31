@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
 	"time"
 
 	"crypto/aes"
@@ -30,11 +31,13 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/pem"
 	"math/big"
 
-	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric/bccsp"
 )
 
 const (
@@ -45,6 +48,10 @@ const (
 var (
 	//RootPreKeySize is the default value of root key
 	RootPreKeySize = 48
+	// tcertSubject is the subject name placed in all generated TCerts
+	tcertSubject = pkix.Name{CommonName: "Fabric Transaction Certificate"}
+	// strings delimiter to separate signature and hash algo
+	algoDelimiter = "-with-"
 )
 
 // GenerateIntUUID returns a UUID based on RFC 4122 returning a big.Int
@@ -150,38 +157,36 @@ func GetEnrollmentIDFromCert(ecert *x509.Certificate) string {
 	return ecert.Subject.CommonName
 }
 
-//GetCertificate returns interface containing *rsa.PublicKey or ecdsa.PublicKey
+//GetCertificate  returns interface containing *rsa.PublicKey or *ecdsa.PublicKey
 func GetCertificate(certificate []byte) (*x509.Certificate, error) {
 
 	var certificates []*x509.Certificate
 	var isvalidCert bool
 	var err error
 
+	var errorMsg string
 	block, _ := pem.Decode(certificate)
 	if block == nil {
 		certificates, err = x509.ParseCertificates(certificate)
 		if err != nil {
-			log.Error("Certificate Parse failed")
-			return nil, errors.New("DER Certificate Parse failed")
-		} //else {
+			return nil, fmt.Errorf("DER Certificate Parse failed with error : %s", err)
+		}
 		isvalidCert = ValidateCert(certificates[0])
 		if !isvalidCert {
-			log.Error("Certificate expired")
-			return nil, errors.New("Certificate expired")
+			errorMsg = "Certificate expired"
+			return nil, errors.New(errorMsg)
 		}
-		//}
+
 	} else {
 		certificates, err = x509.ParseCertificates(block.Bytes)
 		if err != nil {
-			log.Fatal("PEM Certificatre Parse failed")
-			return nil, errors.New("PEM  Certificate Parse failed")
-		} //else {
+			return nil, fmt.Errorf("PEM Certificatre Parse failed with error :%s", err)
+		}
 		isvalidCert = ValidateCert(certificates[0])
 		if !isvalidCert {
-			log.Error("Certificate expired")
-			return nil, errors.New("Certificate expired")
+			errorMsg = "Certificate expired"
+			return nil, errors.New(errorMsg)
 		}
-		//}
 	}
 	return certificates[0], nil
 
@@ -192,8 +197,7 @@ func GetCertificate(certificate []byte) (*x509.Certificate, error) {
 func GetCertitificateSerialNumber(certificatebyte []byte) (*big.Int, error) {
 	certificate, error := GetCertificate(certificatebyte)
 	if error != nil {
-		log.Error("Not a valid Certificate")
-		return big.NewInt(-1), error
+		return big.NewInt(-1), fmt.Errorf("Certificate Object creation failed with error : %s", error)
 	}
 	return certificate.SerialNumber, nil
 }
@@ -293,6 +297,117 @@ func CreateRootPreKey() string {
 	return cooked
 }
 
+// GenerateCertificate generates X509 Certificate based on parameter passed
+func GenerateCertificate(validityPeriod time.Duration, serialNumber *big.Int,
+	extensions []pkix.Extension, pubkey *ecdsa.PublicKey,
+	CAKey interface{}, CACert *x509.Certificate) ([]byte, error) {
+	// Create a template from which to create all other TCerts.
+	// Since a TCert is anonymous and unlinkable, do not include
+	template := &x509.Certificate{
+		Subject: tcertSubject,
+	}
+	template.NotBefore = time.Now()
+	template.NotAfter = template.NotBefore.Add(validityPeriod)
+	template.IsCA = false
+	template.KeyUsage = x509.KeyUsageDigitalSignature
+	template.SubjectKeyId = []byte{1, 2, 3, 4}
+
+	template.Extensions = extensions
+	template.ExtraExtensions = extensions
+	template.SerialNumber = serialNumber
+
+	raw, err := x509.CreateCertificate(rand.Reader, template, CACert, pubkey, CAKey)
+	if err != nil {
+		return nil, fmt.Errorf("Certificate Creation failed with error : %s", err)
+	}
+
+	pem := ConvertDERToPEM(raw, "CERTIFICATE")
+
+	return pem, nil
+}
+
+// VerifyMessage verifies message using BCCSP
+// payload is the same as Public Key
+func (tm *Mgr) VerifyMessage(signature api.KeySig) (bool, error) {
+
+	pubkeyRaw := signature.Key
+	signatureAlgo := signature.Alg
+	signatureByte := signature.Sig
+
+	if signatureByte == nil {
+		return false, errors.New("Signature is not present")
+	}
+
+	if pubkeyRaw == nil {
+		return false, errors.New("Public key is not present")
+	}
+
+	if len(signatureAlgo) == 0 {
+		return false, errors.New("Hash Algorithm in signature is not present")
+	}
+	//Implemented ECDSA only , hence ignoring the value
+	_, hashAlgo := parseSigntureString(signatureAlgo)
+
+	//Import public key into BCCSP
+	pk2, err := tm.BCCSP.KeyImport(pubkeyRaw, &bccsp.ECDSAPKIXPublicKeyImportOpts{Temporary: false})
+	if err != nil {
+		return false, fmt.Errorf("Public Key import into BCCSP failed with error : %s", err)
+	}
+	if pk2 == nil {
+		return false, errors.New("Public Key Cannot be imported into BCCSP")
+	}
+
+	//Get Hash over the message
+	var digest []byte
+	var digestError error
+	switch hashAlgo {
+	case "SHA2_256":
+		digest, digestError = tm.BCCSP.Hash(pubkeyRaw, &bccsp.SHA256Opts{})
+	case "SHA2_384":
+		digest, digestError = tm.BCCSP.Hash(pubkeyRaw, &bccsp.SHA384Opts{})
+	case "SHA3_256":
+		digest, digestError = tm.BCCSP.Hash(pubkeyRaw, &bccsp.SHA3_256Opts{})
+	case "SHA3_384":
+		digest, digestError = tm.BCCSP.Hash(pubkeyRaw, &bccsp.SHA3_384Opts{})
+	default:
+		digest = nil
+		digestError = errors.New("Right Hash Algorithm is not passed")
+
+	}
+	if digestError != nil {
+		return false, fmt.Errorf("Digest operation failed with error: %s", digestError)
+	}
+
+	valid, validErr := tm.BCCSP.Verify(pk2, signatureByte, digest, nil)
+	if validErr != nil {
+		return false, fmt.Errorf("Signature validation failed with error : %s ", validErr)
+	}
+	if !valid {
+		return false, errors.New("Signature Validation failed")
+	}
+
+	return true, nil
+}
+
+// BytesToPublicKey parses a DER encoded public key (or a PEM block) returning
+// an X509 PublicKey interface
+func BytesToPublicKey(publicKey []byte) (interface{}, error) {
+
+	block, _ := pem.Decode(publicKey)
+	var pubKey interface{}
+	var pubKeyParseError error
+	if block != nil {
+		pubKey, pubKeyParseError = x509.ParsePKIXPublicKey(block.Bytes)
+	} else {
+		pubKey, pubKeyParseError = x509.ParsePKIXPublicKey(publicKey)
+	}
+
+	if pubKeyParseError != nil {
+		return nil, pubKeyParseError
+	}
+	return pubKey, nil
+}
+
 // GetPrivateKey returns ecdsa.PrivateKey or rsa.privateKey object for the private Key Bytes
 func GetPrivateKey(buf []byte) (interface{}, error) {
 	var err error
@@ -362,4 +477,141 @@ func LoadKey(path string) (interface{}, error) {
 		return nil, err
 	}
 	return key, nil
+
+}
+
+// VerifyTCertBatchRequest does signature verification over the request
+//  @returns : True all signature verification passes
+//             False otherwise
+func (tm *Mgr) VerifyTCertBatchRequest(tcertbatch *api.GetTCertBatchRequestNet) (bool, error) {
+
+	if tcertbatch == nil {
+		return false, errors.New("Request is nil. Please provide valid request")
+	}
+
+	temporalSignatures := tcertbatch.KeySigs
+	noOfTemporalSignatures := len(temporalSignatures)
+	if noOfTemporalSignatures == 0 {
+		return false, errors.New("None of the temporal public keys are signed")
+	}
+	for i := 0; i < noOfTemporalSignatures; i++ {
+
+		isValid, validationError := tm.VerifyMessage(temporalSignatures[i])
+		if validationError != nil {
+			return false, fmt.Errorf("Singature Validation failed with error :%s", validationError)
+		}
+		if !isValid {
+			return false, errors.New("Signature Validation failed")
+		}
+
+	}
+
+	return true, nil
+}
+
+// BatchRequestToPubkeyBuff retutns batch of public keys
+// from the TCert Batch Request
+func BatchRequestToPubkeyBuff(tcertbatch *api.GetTCertBatchRequestNet) ([][]byte, error) {
+	if tcertbatch == nil {
+		return nil, errors.New("Batch Request is nil")
+	}
+	sigBatch := tcertbatch.KeySigs
+	sigBatchLength := len(sigBatch)
+
+	if len(sigBatch) == 0 {
+		return nil, errors.New("Signature batch is nil")
+	}
+
+	var pubKey []byte
+	var pubKeyByteArray [][]byte
+	for i := 0; i < sigBatchLength; i++ {
+		pubKey = sigBatch[i].Key
+		pubKeyByteArray = append(pubKeyByteArray, pubKey)
+	}
+	return pubKeyByteArray, nil
+}
+
+// GetTemporalBatch takes the value from the Batch Request
+// @return : Array of KeySig structure
+func GetTemporalBatch(bccsp bccsp.BCCSP, batchRequest *api.GetTCertBatchRequest) ([]api.KeySig, error) {
+
+	var tempCrypto api.KeySig
+	var set []api.KeySig
+
+	count := batchRequest.Count
+
+	for i := 0; i < count; i++ {
+		ecSignature, pubASN1, signError := ECDSASignDirect(bccsp, "SHA2_256")
+		if signError != nil {
+			return nil, signError
+		}
+		tempCrypto = api.KeySig{Key: pubASN1, Sig: ecSignature, Alg: "ecdsa-with-SHA2_256"}
+
+		set = append(set, tempCrypto)
+
+	}
+
+	return set, nil
+}
+
+// ECDSASignDirect Signs message using ECDSA using BCCSP
+// @returns Signature byte , Public Key byte and error
+func ECDSASignDirect(currentBCCSP bccsp.BCCSP, hashAlgo string) ([]byte, []byte, error) {
+
+	if currentBCCSP == nil {
+		return nil, nil, errors.New("BCCSP instance is not available")
+	}
+
+	k, err := currentBCCSP.KeyGen(&bccsp.ECDSAKeyGenOpts{Temporary: false})
+	if err != nil {
+		return nil, nil, fmt.Errorf("BCCSP Key Generation failed with error %s", err)
+	}
+
+	publicKey, pubKeyError := k.PublicKey()
+	if pubKeyError != nil {
+		return nil, nil, fmt.Errorf("Public key rertrieval failed with error :%s", pubKeyError)
+	}
+	pubkeyRaw, byteError := publicKey.Bytes()
+	if byteError != nil {
+		return nil, nil, fmt.Errorf("Public key to Byte Conversion failed with error :%s", byteError)
+	}
+
+	var digest []byte
+	var digestError error
+	switch hashAlgo {
+	case "SHA2_256":
+		digest, digestError = currentBCCSP.Hash(pubkeyRaw, &bccsp.SHA256Opts{})
+	case "SHA2_384":
+		digest, digestError = currentBCCSP.Hash(pubkeyRaw, &bccsp.SHA384Opts{})
+	case "SHA3_256":
+		digest, digestError = currentBCCSP.Hash(pubkeyRaw, &bccsp.SHA3_256Opts{})
+	case "SHA3_384":
+		digest, digestError = currentBCCSP.Hash(pubkeyRaw, &bccsp.SHA3_384Opts{})
+	default:
+		digest = nil
+		digestError = errors.New("Right Hash Algorithm is not passed")
+
+	}
+	if digestError != nil {
+
+		return nil, nil, fmt.Errorf("Digest operation failed with error:%s", digestError)
+	}
+
+	signature, err := currentBCCSP.Sign(k, digest, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("BCCSP signature generation failed with error :%s", err)
+	}
+	if len(signature) == 0 {
+		return nil, nil, errors.New("BCCSP signature creation failed. Signature must be different than nil")
+	}
+
+	return signature, pubkeyRaw, nil
+}
+
+// ParseSigntureString returns Signature and Hash Algo
+func parseSigntureString(sigString string) (string, string) {
+	algoIdentifier := strings.Split(sigString, algoDelimiter)
+	signatureType := algoIdentifier[0]
+	hashAlgo := algoIdentifier[1]
+	return signatureType, hashAlgo
 }
