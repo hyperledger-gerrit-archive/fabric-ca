@@ -24,6 +24,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -56,8 +57,31 @@ func (i *Identity) GetECert() *Signer {
 }
 
 // GetTCertBatch returns a batch of TCerts for this identity
+// 	Added support for TCert Generation witout Key Derivation
+// In TCert generation without Key Derivation , client generates Key pair and
+// sends batch of signed public key to the Fabric ca
+// server which sends back Fabric-ca certificates to client
+// Different approaches for TCert generation have been discussed on    //https://jira.hyperledger.org/secure/attachment/10360/mserv-TCertOptions-v3(1).md.
+// Look for section : Approach 2
 func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, error) {
-	reqBody, err := util.Marshal(req, "GetTCertBatchRequest")
+
+	batchRequestNet := new(api.GetTCertBatchRequestNet)
+
+	if req.DisableKeyDerivation == true {
+
+		//Call GetKeySigBatch method
+		keySigs, error := tcert.GetKeySigBatch(i.CSP, req, "SHA2_256")
+		if error != nil {
+			return nil, fmt.Errorf("GetKeySigBatch failed with error : %s", error)
+		}
+		//populate req object with GetTCertBatchRequestNet
+		batchRequestNet.KeySigs = keySigs
+
+	}
+
+	batchRequestNet.GetTCertBatchRequest = *req
+
+	reqBody, err := util.Marshal(batchRequestNet, "GetTCertBatchRequest")
 	if err != nil {
 		return nil, err
 	}
