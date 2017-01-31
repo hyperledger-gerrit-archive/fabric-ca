@@ -129,6 +129,12 @@ func TestRunningServer(t *testing.T) {
 		server.Stop()
 		t.Fatalf("Failed to get tcerts for user1: %s", err)
 	}
+
+	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: -1})
+	if err == nil {
+		t.Fatalf("TCert batch retrieval should have failed")
+	}
+
 	// Revoke user1's identity
 	err = admin.Revoke(&api.RevocationRequest{Name: "user1"})
 	if err != nil {
