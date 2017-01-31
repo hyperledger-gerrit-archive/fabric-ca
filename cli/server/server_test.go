@@ -226,11 +226,33 @@ func TestGetTCerts(t *testing.T) {
 		t.Errorf("TestGetTCerts.LoadMyIdentity failed: %s", err)
 		return
 	}
+	id.CSP = csp
 	// Getting TCerts
+
 	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
 	if err != nil {
-		t.Errorf("GetPrivateSigners failed: %s", err)
+		t.Errorf("GetTCertBatch failed with error : %s", err)
 	}
+
+	//Client generates Key pair and
+	// sends batch of signed public key to the Fabric ca
+	// server which sends back Fabric-ca certificates to client
+	// Different approaches for TCert generation have been discussed on    //https://jira.hyperledger.org/secure/attachment/10360/mserv-TCertOptions-v3(1).md.
+	// Look for section : Approach 2
+	batchRequest := &api.GetTCertBatchRequest{Count: 1, EncryptAttrs: false, DisableKeyDerivation: true}
+
+	_, err = id.GetTCertBatch(batchRequest)
+
+	if err != nil {
+		t.Errorf("GetTCertBatch failed with error : %s", err)
+	}
+
+	//Negative test
+	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: -1})
+	if err == nil {
+		t.Errorf("GetTCertBatch should have failed with error : %s", err)
+	}
+
 }
 
 func TestMaxEnrollment(t *testing.T) {
