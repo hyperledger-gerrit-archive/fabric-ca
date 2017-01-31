@@ -18,6 +18,7 @@ package server
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -29,6 +30,8 @@ import (
 	libcsp "github.com/hyperledger/fabric-ca/lib/csp"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/factory"
 )
 
 // Handler for tcert requests
@@ -52,6 +55,22 @@ func initTCertHandler() (h http.Handler, err error) {
 	if err != nil {
 		return nil, err
 	}
+
+	var bccsp bccsp.BCCSP
+	if csp == nil {
+		defaultBccsp, bccspError := factory.GetDefault()
+		if bccspError != nil {
+			return nil, fmt.Errorf("BCCSP initialiazation failed with error : %s", bccspError)
+		}
+		if defaultBccsp == nil {
+			return nil, errors.New("Cannot get default instance of BCCSP")
+		}
+		bccsp = defaultBccsp
+	} else {
+		bccsp = csp
+	}
+
+	mgr.BCCSP = bccsp
 	// FIXME: The root prekey must be stored persistently in DB and retrieved here if not found
 	rootKey, err := libcsp.GenRootKey(csp)
 	if err != nil {
@@ -110,6 +129,29 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 	//       which isn't correct.
 	prekeyStr := string(prekey.SKI())
 
+	keySigs := req.KeySigs
+	var pubKeyByteArray [][]byte
+
+	//Process TCert Option 2
+	//In Tcert option 2 , client generates Key pair and
+	// send batch of signed public key to the Fabric ca
+	// server which sends back Fabric-ca certificate to client
+	//Validate Signature
+	if len(keySigs) != 0 {
+
+		isValid, error := h.mgr.VerifyTCertBatchRequest(req)
+		if error != nil {
+			return err
+		}
+		if !isValid {
+			return errors.New("Signature Validation failed on Signature Batch")
+		}
+		pubKeyByteArray, error = tcert.BatchRequestToPubkeyBuff(req)
+		if error != nil {
+			return error
+		}
+	}
+
 	// Call the tcert library to get the batch of tcerts
 	tcertReq := &tcert.GetBatchRequest{
 		Count:          req.Count,
@@ -117,10 +159,23 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 		EncryptAttrs:   req.EncryptAttrs,
 		ValidityPeriod: req.ValidityPeriod,
 		PreKey:         prekeyStr,
+		PublicKeys:     pubKeyByteArray,
 	}
-	resp, err := h.mgr.GetBatch(tcertReq, cert)
-	if err != nil {
-		return err
+
+	var resp *tcert.GetBatchResponse
+	var tcertError error
+
+	if len(keySigs) == 0 {
+		resp, tcertError = h.mgr.GetBatch(tcertReq, cert)
+
+	} else {
+		resp, tcertError = h.mgr.GetBatchForGeneratedKey(tcertReq)
+	}
+	if tcertError != nil {
+		return tcertError
+	}
+	if resp == nil {
+		return errors.New("TCert Library did not return any TCert")
 	}
 
 	// Write the response

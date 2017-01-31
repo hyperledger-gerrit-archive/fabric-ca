@@ -17,10 +17,10 @@ limitations under the License.
 package api
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 )
 
 // RegistrationRequest for a new identity
@@ -119,9 +119,19 @@ type GetTCertBatchRequest struct {
 	DisableKeyDerivation bool `json:"disable_kdf,omitempty"`
 }
 
-// GetTCertBatchResponse is the return value of identity.GetTCertBatch
-type GetTCertBatchResponse struct {
-	tcert.GetBatchResponse
+// GetBatchResponse contains batch response for TCert.
+// Same  response is being generated for Key Derivation as well non Key Derivation Case
+type GetBatchResponse struct {
+	ID     *big.Int  `json:"id"`
+	TS     time.Time `json:"ts"`
+	Key    []byte    `json:"key"`
+	TCerts []TCert   `json:"tcerts"`
+}
+
+// TCert encapsulates a signed transaction certificate and optionally a map of keys
+type TCert struct {
+	Cert []byte            `json:"cert"`
+	Keys map[string][]byte `json:"keys,omitempty"` //base64 encoded string as value
 }
 
 // CSRInfo is Certificate Signing Request information
