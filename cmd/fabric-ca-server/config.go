@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -26,6 +25,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -81,7 +81,7 @@ const (
    port: 7054
 
    # Enables debug logging (default: false)
-   debug: true
+   debug: false
 
    #############################################################################
    #  TLS section for the server's listening port
@@ -176,6 +176,24 @@ const (
          expiry: 8000h
 
    #############################################################################
+   #  Certificate Signing Request section for generating the CA certificate
+   #############################################################################
+   csr:
+      cn: fabric-ca-server
+      names:
+         - C: US
+           ST: "North Carolina"
+           L:
+           O: Hyperledger
+           OU: Fabric
+      hosts:
+        - <<<MYHOST>>>
+      ca:
+         pathlen:
+         pathlenzero:
+         expiry:
+
+   #############################################################################
    #   Crypto section configures the crypto primitives used for all
    #############################################################################
    crypto:
@@ -188,11 +206,14 @@ const (
 )
 
 var (
-	// cfgFileName is the name of the client's config file
+	// cfgFileName is the name of the config file
 	cfgFileName string
+	// serverCfg is the server's config
+	serverCfg *lib.ServerConfig
 )
 
 // configInit reads in config file and ENV variables if set.
+// It also initilizes 'cfg'
 func configInit() {
 
 	var err error
@@ -211,20 +232,43 @@ func configInit() {
 		if err != nil {
 			util.Fatal("Failed to create default configuration file: %s", err)
 		}
-		log.Infof("Created a default configuration file at %s", cfgFileName)
+		log.Infof("Created default configuration file at %s", cfgFileName)
 	} else {
 		log.Infof("Configuration file location: %s", cfgFileName)
 	}
 
-	// Call viper to read the config
+	// Read the config
 	viper.SetConfigFile(cfgFileName)
 	viper.AutomaticEnv() // read in environment variables that match
 	err = viper.ReadInConfig()
 	if err != nil {
-		log.Fatalf("Failed to read config file: %s", err)
-		os.Exit(1)
+		util.Fatal("Failed to read config file: %s", err)
 	}
 
+	// Unmarshal the config into 'serverCfg'
+	serverCfg = new(lib.ServerConfig)
+	err = viper.Unmarshal(serverCfg)
+	if err != nil {
+		util.Fatal("Failed to unmarshall server config: %s", err)
+	}
+
+	// Make all file paths in config absolute relative to the location
+	// of the config file
+	makeFileNamesAbsolute(serverCfg)
+
+}
+
+func makeFileNamesAbsolute(cfg *lib.ServerConfig) {
+	makeFileNameAbsolute(&cfg.CA.Certfile)
+	makeFileNameAbsolute(&cfg.CA.Keyfile)
+}
+
+func makeFileNameAbsolute(fileNamePtr *string) {
+	fileName, err := util.MakeFileAbs(*fileNamePtr, filepath.Dir(cfgFileName))
+	if err != nil {
+		util.Fatal("Failed to convert '%s' to an absolute path", *fileNamePtr)
+	}
+	*fileNamePtr = fileName
 }
 
 // Get the default path for the config file to display in usage message
@@ -246,7 +290,7 @@ func createDefaultConfigFile() error {
 	// bootstrap user ID and password
 	up := viper.GetString("user")
 	if up == "" {
-		return errors.New("The '-u user:pass' option is required")
+		return fmt.Errorf("The '-u user:pass' option is required; see '%s init -h'", cmdName)
 	}
 	ups := strings.Split(up, ":")
 	if len(ups) < 2 {
@@ -255,11 +299,17 @@ func createDefaultConfigFile() error {
 	if len(ups) > 2 {
 		ups = []string{ups[0], strings.Join(ups[1:], ":")}
 	}
+	// Get hostname
+	myhost, err := os.Hostname()
+	if err != nil {
+		return err
+	}
 	// Do string subtitution to get the default config
 	cfg := strings.Replace(defaultCfg, "<<<ADMIN>>>", ups[0], 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", ups[1], 1)
+	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
 	// Now write the file
-	err := os.MkdirAll(filepath.Dir(cfgFileName), 0644)
+	err = os.MkdirAll(filepath.Dir(cfgFileName), 0644)
 	if err != nil {
 		return err
 	}
@@ -269,4 +319,10 @@ func createDefaultConfigFile() error {
 
 func getDefaultListeningPort() int {
 	return 7054
+}
+
+// Make the file name absolute relative to the config file
+// if not already absolute
+func makeAbs(file string) (string, error) {
+	return util.MakeFileAbs(file, filepath.Dir(cfgFileName))
 }

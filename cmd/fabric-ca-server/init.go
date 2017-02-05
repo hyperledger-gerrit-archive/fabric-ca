@@ -19,11 +19,19 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
+	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
+
+// InitConfig is the part of the config needed by init
+type InitConfig struct {
+	CSR csr.CertificateRequest `json:"csr,omitempty"`
+}
 
 // initCmd represents the init command
 var initCmd = &cobra.Command{
@@ -35,6 +43,8 @@ var initCmd = &cobra.Command{
 func init() {
 	initCmd.Run = runInit
 	rootCmd.AddCommand(initCmd)
+	flags := initCmd.Flags()
+	registerCommonFlags(flags)
 }
 
 // The server init main logic
@@ -44,5 +54,13 @@ func runInit(cmd *cobra.Command, args []string) {
 		initCmd.Help()
 		os.Exit(1)
 	}
-	log.Infof("Initialized the %s", shortName)
+	server := lib.Server{
+		HomeDir: filepath.Dir(cfgFileName),
+		Config:  serverCfg,
+	}
+	err := server.Init(false)
+	if err != nil {
+		util.Fatal("Initialization failure: %s", err)
+	}
+	log.Info("Initialization was successful")
 }
