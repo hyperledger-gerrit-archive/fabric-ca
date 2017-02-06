@@ -58,7 +58,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	}
 	r.Body.Close()
 
-	cert, err := util.VerifyToken(authHdr, body)
+	cert, err := util.VerifyToken(csp, authHdr, body)
 	if err != nil {
 		return authErr(w, err)
 	}
