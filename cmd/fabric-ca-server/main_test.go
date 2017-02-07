@@ -48,10 +48,6 @@ func TestStart(t *testing.T) {
 	if err != nil {
 		t.Errorf("server start failed: %s", err)
 	}
-	err = RunMain([]string{cmdName, "start"})
-	if err != nil {
-		t.Errorf("server start failed: %s", err)
-	}
 }
 
 // TestBogus tests a negative test case
@@ -68,4 +64,5 @@ func TestClean(t *testing.T) {
 	os.Remove(testYaml)
 	os.Remove("ca-key.pem")
 	os.Remove("ca-cert.pem")
+	os.Remove("fabric-ca-server.db")
 }
