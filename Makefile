@@ -5,7 +5,7 @@
 # You may obtain a copy of the License at
 #
 #		 http://www.apache.org/licenses/LICENSE-2.0
-#
+
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,7 +19,7 @@
 #   - license - check all go files for license headers
 #   - fabric-ca - builds the fabric-ca executable
 #   - fabric-ca-server - builds the fabric-ca-server executable
-# 	- fabric-ca-client - builds the fabric-ca-client executable
+#   - fabric-ca-client - builds the fabric-ca-client executable
 #   - unit-tests - Performs checks first and runs the go-test based unit tests
 #   - checks - runs all check conditions (license, format, imports, lint and vet)
 #   - ldap-tests - runs the LDAP tests
@@ -49,8 +49,7 @@ SAMPLECONFIG = $(shell git ls-files images/fabric-ca/config)
 
 DOCKER_ORG = hyperledger
 IMAGES = $(PROJECT_NAME)
-
-image-path-map.fabric-ca := fabric-ca
+FVTIMAGE = $(PROJECT_NAME)-fvt
 
 include docker-env.mk
 
@@ -60,6 +59,8 @@ rename: .FORCE
 	@scripts/rename-repo
 
 docker: $(patsubst %,build/image/%/$(DUMMY), $(IMAGES))
+
+docker-fvt: $(patsubst %,build/image/%/$(DUMMY), $(FVTIMAGE))
 
 checks: license vet lint format imports
 
@@ -83,15 +84,11 @@ fabric-ca:
 	@mkdir -p bin && go build -o bin/fabric-ca
 	@echo "Built bin/fabric-ca"
 
-fabric-ca-server:
-	@echo "Building fabric-ca-server in bin directory ..."
-	@mkdir -p bin && go build -o bin/fabric-ca-server ./cmd/fabric-ca-server
-	@echo "Built bin/fabric-ca-server"
-
-fabric-ca-client:
-	@echo "Building fabric-ca-client in bin directory ..."
-	@mkdir -p bin && go build -o bin/fabric-ca-client ./cmd/fabric-ca-client
-	@echo "Built bin/fabric-ca-client"
+fabric-ca%:
+	$(eval TARGET = ${patsubst %,%,${@}})
+	@echo "Building $(TARGET) in bin directory ..."
+	@mkdir -p bin && go build -o bin/$(TARGET) ./cmd/$(TARGET)
+	@echo "Built bin/$(TARGET)"
 
 # We (re)build a package within a docker context but persist the $GOPATH/pkg
 # directory so that subsequent builds are faster
@@ -115,20 +112,19 @@ build/docker/busybox:
 build/image/$(PROJECT_NAME)/payload:	build/docker/bin/fabric-ca \
 					build/sampleconfig.tar.bz2
 
+build/image/$(PROJECT_NAME)-fvt/payload:	images/fabric-ca-fvt/start.sh
+
 build/image/%/payload:
+	$(eval TARGET = ${patsubst build/image/%/payload,%,${@}})
 	mkdir -p $@
-	cp images/fabric-ca/root.pem $@/root.pem
-	cp images/fabric-ca/tls_client-cert.pem $@/tls_client-cert.pem
-	cp images/fabric-ca/tls_client-key.pem $@/tls_client-key.pem
-	cp images/fabric-ca/ec.pem $@/ec.pem
-	cp images/fabric-ca/ec-key.pem $@/ec-key.pem
+	cp images/$(TARGET)/*.pem $@
 	cp $^ $@
 
 build/image/%/$(DUMMY): Makefile build/image/%/payload
 	$(eval TARGET = ${patsubst build/image/%/$(DUMMY),%,${@}})
 	$(eval DOCKER_NAME = $(DOCKER_ORG)/$(TARGET))
 	@echo "Building docker $(TARGET) image"
-	@cat images/$(image-path-map.$(TARGET))/Dockerfile.in \
+	@cat images/$(TARGET)/Dockerfile.in \
 		| sed -e 's/_BASE_TAG_/$(BASE_DOCKER_TAG)/g' \
 		| sed -e 's/_TAG_/$(DOCKER_TAG)/g' \
 		> $(@D)/Dockerfile
@@ -158,6 +154,7 @@ fvt-tests:
 docker-clean: $(patsubst %,%-docker-clean, $(IMAGES))
 
 .PHONY: clean
+
 clean: docker-clean
 	-@rm -rf build bin ||:
 
