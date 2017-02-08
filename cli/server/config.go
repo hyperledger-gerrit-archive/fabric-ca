@@ -26,8 +26,9 @@ import (
 	"github.com/cloudflare/cfssl/cli"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/cli/server/ldap"
+	"github.com/hyperledger/fabric-ca/lib"
 	libcsp "github.com/hyperledger/fabric-ca/lib/csp"
+	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 
@@ -169,14 +170,17 @@ func configInit(cfg *cli.Config) {
 		log.Level = log.LevelDebug
 	}
 
+	lib.CACertFile = CFG.CAFile
+	lib.CAKeyFile = CFG.CAKeyFile
+
 	log.Debugf("CFSSL server config is: %+v", cfg)
 	log.Debugf("Fabric CA server config is: %+v", CFG)
 }
 
 // Make TLS client files absolute
 func absTLSClient(cfg *tls.ClientTLSConfig) {
-	for i := 0; i < len(cfg.CACertFiles); i++ {
-		cfg.CACertFiles[i] = abs(cfg.CACertFiles[i])
+	for i := 0; i < len(cfg.CertFiles); i++ {
+		cfg.CertFiles[i] = abs(cfg.CertFiles[i])
 	}
 	cfg.Client.CertFile = abs(cfg.Client.CertFile)
 	cfg.Client.KeyFile = abs(cfg.Client.KeyFile)

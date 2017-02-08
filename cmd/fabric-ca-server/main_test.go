@@ -44,11 +44,8 @@ func TestInit(t *testing.T) {
 
 // TestStart tests fabric-ca-server start
 func TestStart(t *testing.T) {
+	blockingStart = false
 	err := RunMain([]string{cmdName, "start"})
-	if err != nil {
-		t.Errorf("server start failed: %s", err)
-	}
-	err = RunMain([]string{cmdName, "start"})
 	if err != nil {
 		t.Errorf("server start failed: %s", err)
 	}
@@ -68,4 +65,5 @@ func TestClean(t *testing.T) {
 	os.Remove(testYaml)
 	os.Remove("ca-key.pem")
 	os.Remove("ca-cert.pem")
+	os.Remove("fabric-ca-server.db")
 }

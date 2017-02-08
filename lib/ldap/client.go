@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/cli/server/spi"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	ldap "gopkg.in/ldap.v2"
 )
 
@@ -36,8 +36,9 @@ var (
 )
 
 // Config is the configuration object for this LDAP client
+// URL is of the form: ldap://adminDN:adminPassword@host:port/base
 type Config struct {
-	// URL is of the form: ldap://adminDN:adminPassword@host:port/base
+	Enabled     bool   `json:"enabled"`
 	URL         string `json:"url"`
 	Base        string `json:"base,omitempty"`
 	UserFilter  string `json:"userfilter,omitempty"`

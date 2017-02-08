@@ -39,9 +39,9 @@ const (
 )
 
 const (
-	defaultCfg = `
+	defaultCfgTemplate = `
    #############################################################################
-   #   This is a configuration file for the fabric-ca-server command.
+   #   This is a configuration file template for the fabric-ca-server command.
    #
    #   COMMAND LINE ARGUMENTS AND ENVIRONMENT VARIABLES
    #   ------------------------------------------------
@@ -80,6 +80,9 @@ const (
    # Server's listening port (default: 7054)
    port: 7054
 
+   # Server's listening address (default: 0.0.0.0)
+   addr: 0.0.0.0
+
    # Enables debug logging (default: false)
    debug: false
 
@@ -89,7 +92,6 @@ const (
    tls:
      # Enable TLS (default: false)
      enabled: false
-     # TLS for the server's listening port (default: false)
      cafile: root.pem
      certfile: tls_server-cert.pem
      keyfile: tls_server-key.pem
@@ -120,35 +122,55 @@ const (
    #     calls the LDAP server to perform these tasks.
    #############################################################################
    registry:
-     # Maximum number of times a password/secret can be reused for enrollment
-     # (default: 0, which means there is no limit)
+     # Maximum number of times a password/secret can be reused for enrollment.
+     # A value of 0 means there is no limit.
+     # Default: 0
      maxEnrollments: 0
 
      # Contains user information which is used when LDAP is disabled
-     user:
-       <<<ADMIN>>>:
-          pass: <<<ADMINPW>>>
-          type: client
-          affiliation: org1.department1
-          attrs:
-             hf.Registrar.Roles: "client,user,peer,validator,auditor"
-             hf.Registrar.DelegateRoles: "client,user,validator,auditor"
-             hf.Revoker: true
+     identities:
+       - id: <<<ADMIN>>>
+         pass: <<<ADMINPW>>>
+         type: client
+         affiliation: org1.department1
+         attrs:
+            hf.Registrar.Roles: "client,user,peer,validator,auditor"
+            hf.Registrar.DelegateRoles: "client,user,validator,auditor"
+            hf.Revoker: true
 
    #############################################################################
    # Database section
+   # Supported types are: "sqlite3", "postgres", and "mysql".
+   # The datasource value depends on the type.
+   # If the type is "sqlite3", the datasource value is a file name to use
+   # as the database store.  Since "sqlite3" is an embedded database, it
+   # may not be used if you want to run the fabric-ca-server in a cluster.
+   # To run the fabric-ca-server in a cluster, you must choose "postgres"
+   # or "mysql".
    #############################################################################
    database:
-
      type: sqlite3
-     datasource: fabric-ca.db
-
+     datasource: fabric-ca-server.db
      tls:
          enabled: false
-         cafiles:
-           - root.pem
-         certfile: tls-cert.pem
-         keyfile: tls-key.pem
+         certfiles:
+           - db-server-cert.pem
+         client:
+           certfile: db-client-cert.pem
+           keyfile: db-client-key.pem
+
+   #############################################################################
+   # LDAP section
+   # The URL is of the form: ldap://adminDN:adminPassword@host:port/base
+   #############################################################################
+   ldap:
+      # Enables or disables the LDAP client
+      enabled: false
+      # The URL is of the form: ldap://adminDN:adminPassword@host:port/base
+      url:
+      base:
+      userfilter:  "(uid=%s)"
+      groupfilter: "(memberUid=%s)"
 
    #############################################################################
    #  Affiliation section
@@ -161,19 +183,16 @@ const (
          - department1
 
    #############################################################################
-   #    Signing section
+   #    Signing profiles.  A default signing profile is required, but
+   #    other profiles may also be provided.  The caller may specify
+   #    which profile to use, but by default the "default" profile is used.
    #############################################################################
    signing:
-       profiles:
-         expiry:
-            usage:
-              - cert sign
-            expiry: 1s
-
        default:
          usage:
            - cert sign
          expiry: 8000h
+       profiles:
 
    #############################################################################
    #  Certificate Signing Request section for generating the CA certificate
@@ -249,7 +268,7 @@ func configInit() {
 	serverCfg = new(lib.ServerConfig)
 	err = viper.Unmarshal(serverCfg)
 	if err != nil {
-		util.Fatal("Failed to unmarshall server config: %s", err)
+		util.Fatal("Incorrect format in file '%s': %s", cfgFileName, err)
 	}
 
 	// Make all file paths in config absolute relative to the location
@@ -305,7 +324,7 @@ func createDefaultConfigFile() error {
 		return err
 	}
 	// Do string subtitution to get the default config
-	cfg := strings.Replace(defaultCfg, "<<<ADMIN>>>", ups[0], 1)
+	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", ups[0], 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", ups[1], 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
 	// Now write the file
@@ -315,10 +334,6 @@ func createDefaultConfigFile() error {
 	}
 	// Now write the file
 	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0644)
-}
-
-func getDefaultListeningPort() int {
-	return 7054
 }
 
 // Make the file name absolute relative to the config file
