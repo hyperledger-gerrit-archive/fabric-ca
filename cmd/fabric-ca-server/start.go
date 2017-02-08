@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var blockingStart = true
+
 // startCmd represents the enroll command
 var startCmd = &cobra.Command{
 	Use:   "start",
@@ -49,8 +51,9 @@ func runStart(cmd *cobra.Command, args []string) {
 		os.Exit(1)
 	}
 	server := lib.Server{
-		HomeDir: filepath.Dir(cfgFileName),
-		Config:  serverCfg,
+		HomeDir:       filepath.Dir(cfgFileName),
+		Config:        serverCfg,
+		BlockingStart: blockingStart,
 	}
 	err := server.Start()
 	if err != nil {

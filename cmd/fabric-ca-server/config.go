@@ -122,8 +122,9 @@ const (
    #     calls the LDAP server to perform these tasks.
    #############################################################################
    registry:
-     # Maximum number of times a password/secret can be reused for enrollment
-     # (default: 0, which means there is no limit)
+     # Maximum number of times a password/secret can be reused for enrollment.
+     # A value of 0 means there is no limit.
+     # Default: 0
      maxEnrollments: 0
 
      # Contains user information which is used when LDAP is disabled
@@ -267,7 +268,7 @@ func configInit() {
 	serverCfg = new(lib.ServerConfig)
 	err = viper.Unmarshal(serverCfg)
 	if err != nil {
-		util.Fatal("Failed to unmarshall server config: %s", err)
+		util.Fatal("Incorrect format in file '%s': %s", cfgFileName, err)
 	}
 
 	// Make all file paths in config absolute relative to the location
