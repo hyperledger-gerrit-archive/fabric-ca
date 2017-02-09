@@ -17,9 +17,14 @@ limitations under the License.
 package main
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
+	"path/filepath"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -60,9 +65,35 @@ func runRegister() error {
 		return errors.New("A registeration request file is required to register a user")
 	}
 
-	_ = regFile
+	log.Debugf("Registeration Request File: %s", regFile)
 
-	log.Infof("User Registered")
+	buf, err := util.ReadFile(regFile)
+	if err != nil {
+		return err
+	}
+
+	regReq := new(api.RegistrationRequest)
+	err = json.Unmarshal(buf, regReq)
+	if err != nil {
+		return err
+	}
+
+	client := lib.Client{
+		HomeDir: filepath.Dir(cfgFileName),
+		Config:  clientCfg,
+	}
+
+	id, err := client.LoadMyIdentity()
+	if err != nil {
+		return err
+	}
+
+	resp, err := id.Register(regReq)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("One time password: %s\n", resp.Secret)
 
 	return nil
 }
