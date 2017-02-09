@@ -17,8 +17,15 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
+	"path/filepath"
+
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // initCmd represents the init command
@@ -44,17 +51,70 @@ var reenrollCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(reenrollCmd)
 	reenrollFlags := reenrollCmd.Flags()
-	reenrollFlags.StringVarP(&csrFile, "csrfile", "f", "", "Certificate Signing Request information (Optional)")
-
+	util.FlagString(reenrollFlags, "csrfile", "f", "", "Certificate Signing Request information (Optional)")
 }
 
 // The client reenroll main logic
 func runReenroll() error {
 	log.Debug("Entered Reenroll")
 
-	_ = csrFile
+	client := lib.Client{
+		HomeDir: filepath.Dir(cfgFileName),
+		Config:  clientCfg,
+	}
 
-	log.Infof("User Reenrolled")
+	id, err := client.LoadMyIdentity()
+	if err != nil {
+		return err
+	}
+
+	req := &api.ReenrollmentRequest{}
+
+	csrFile := viper.GetString("csrfile")
+
+	// Want to use non-default csr options
+	if csrFile != "" {
+		if !filepath.IsAbs(csrFile) {
+			csrFile, err = filepath.Abs(csrFile)
+			if err != nil {
+				return fmt.Errorf("Failed to get full path of config file: %s", err)
+			}
+		}
+
+		log.Debugf("CSR File Provided: %s", csrFile)
+
+		var vip = viper.New()
+		vip.SetConfigFile(csrFile)
+		vip.SetConfigType("yaml")
+
+		err = vip.ReadInConfig()
+		if err != nil {
+			return fmt.Errorf("Failed to read config file: %s", err)
+		}
+
+		var csr api.CSRInfo
+		err = vip.Unmarshal(&csr)
+		if err != nil {
+			return fmt.Errorf("Syntax error in csr config file: %s", err)
+		}
+
+		req.CSR = &csr
+	} else {
+		req.CSR = clientCfg.CSR
+	}
+
+	newID, err := id.Reenroll(req)
+	if err != nil {
+		return fmt.Errorf("Failed to store enrollment information: %s", err)
+	}
+
+	err = newID.Store()
+	if err != nil {
+		return err
+	}
+
+	log.Infof("Enrollment information was successfully stored in %s and %s",
+		client.GetMyKeyFile(), client.GetMyCertFile())
 
 	return nil
 }

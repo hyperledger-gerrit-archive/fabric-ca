@@ -34,32 +34,20 @@ type ServerTLSConfig struct {
 
 // ClientTLSConfig defines the key material for a TLS client
 type ClientTLSConfig struct {
-	Enabled   bool         `json:"enabled,omitempty"`
-	CertFiles []string     `json:"certfiles"`
-	Client    KeyCertFiles `json:"client"`
-}
-
-// KeyCertFiles defines the files need for client on TLS
-type KeyCertFiles struct {
-	KeyFile  string `json:"keyfile"`
-	CertFile string `json:"certfile"`
-}
-
-// CertFile is a certificate file name
-type CertFile struct {
-	CertFile string `json:"certfile"`
+	Enabled     bool     `json:"enabled,omitempty"`
+	CACertFiles []string `json:"ca_certfiles"`
+	KeyFile     string   `json:"keyfile"`
+	CertFile    string   `json:"certfile"`
 }
 
 // GetClientTLSConfig creates a tls.Config object from certs and roots
 func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
-	//if !cfg.Enabled {
-	//	return nil, nil
-	//}
 	var certs []tls.Certificate
 
-	log.Debugf("Client Cert File: %s\n", cfg.Client.CertFile)
-	log.Debugf("Client Key File: %s\n", cfg.Client.KeyFile)
-	clientCert, err := tls.LoadX509KeyPair(cfg.Client.CertFile, cfg.Client.KeyFile)
+	log.Debugf("CA Files: %s\n", cfg.CACertFiles)
+	log.Debugf("Client Cert File: %s\n", cfg.CertFile)
+	log.Debugf("Client Key File: %s\n", cfg.KeyFile)
+	clientCert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 	if err != nil {
 		log.Debugf("Client Cert or Key not provided, if server requires mutual TLS, the connection will fail [error: %s]", err)
 	}
@@ -68,14 +56,18 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 
 	rootCAPool := x509.NewCertPool()
 
-	for _, certfile := range cfg.CertFiles {
-		cert, err := ioutil.ReadFile(certfile)
+	if len(cfg.CACertFiles) == 0 {
+		log.Error("No CA cert files provided. If server requires TLS, connection will fail")
+	}
+
+	for _, cacert := range cfg.CACertFiles {
+		caCert, err := ioutil.ReadFile(cacert)
 		if err != nil {
 			return nil, err
 		}
-		ok := rootCAPool.AppendCertsFromPEM(cert)
+		ok := rootCAPool.AppendCertsFromPEM(caCert)
 		if !ok {
-			return nil, fmt.Errorf("Failed to process certificate from file %s", certfile)
+			return nil, fmt.Errorf("Failed to process certificate from file %s", cacert)
 		}
 	}
 
