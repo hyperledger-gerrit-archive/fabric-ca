@@ -210,6 +210,9 @@ func testLoadBadCSRInfo(c *Client, t *testing.T) {
 
 func TestSendBadPost(t *testing.T) {
 	c := new(Client)
+
+	c.Config = new(ClientConfig)
+
 	curl := "fake"
 	reqBody := []byte("")
 	req, _ := http.NewRequest("POST", curl, bytes.NewReader(reqBody))
