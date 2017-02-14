@@ -68,7 +68,9 @@ func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	resp := &api.RegistrationResponseNet{RegistrationResponse: api.RegistrationResponse{Secret: string(tok)}}
+	secret := util.B64Encode([]byte(tok))
+
+	resp := &api.RegistrationResponseNet{RegistrationResponse: api.RegistrationResponse{Secret: secret}}
 
 	log.Debugf("Registration completed - sending response %+v", resp)
 	return cfsslapi.SendResponse(w, resp)

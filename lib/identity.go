@@ -94,14 +94,12 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 		return nil, err
 	}
 
-	switch resp.(type) {
-	case string:
-		secret = resp.(string)
-	case map[string]interface{}:
-		secret = resp.(map[string]interface{})["credential"].(string)
-	default:
-		return nil, fmt.Errorf("Response is neither string nor map: %+v", resp)
+	secret = resp.(map[string]interface{})["credential"].(string)
+	secretBytes, err := util.B64Decode(secret)
+	if err != nil {
+		return nil, fmt.Errorf("Failed decoding secret: %s", err)
 	}
+	secret = string(secretBytes)
 
 	log.Debug("The register request completely successfully")
 	return &api.RegistrationResponse{Secret: secret}, nil
