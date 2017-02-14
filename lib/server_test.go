@@ -23,10 +23,12 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/tls"
 )
 
 const (
-	port = 7055
+	port        = 7055
+	testdataDir = "../testdata"
 )
 
 func TestBegin(t *testing.T) {
@@ -149,6 +151,42 @@ func TestRunningServer(t *testing.T) {
 	}
 }
 
+func TestRunningTLSServer(t *testing.T) {
+	srv := getServer(t)
+
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = "../testdata/tls_server-cert.pem"
+	srv.Config.TLS.KeyFile = "../testdata/tls_server-key.pem"
+
+	err := srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	clientConfig := &lib.ClientConfig{
+		URL: fmt.Sprintf("https://localhost:%d", port),
+		TLS: tls.ClientTLSConfig{
+			CertFilesList: []string{"../testdata/root.pem"},
+			Client: tls.KeyCertFiles{
+				KeyFile:  "../testdata/tls_client-key.pem",
+				CertFile: "../testdata/tls_client-cert.pem",
+			},
+		},
+	}
+
+	rawURL := fmt.Sprintf("https://admin:adminpw@localhost:%d", port)
+
+	_, err = clientConfig.Enroll(rawURL, testdataDir)
+	if err != nil {
+		t.Errorf("Failed to enroll over TLS: %s", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
 func TestEnd(t *testing.T) {
 	clean()
 }
@@ -189,6 +227,6 @@ func getServer(t *testing.T) *lib.Server {
 func getTestClient() *lib.Client {
 	return &lib.Client{
 		Config:  &lib.ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
-		HomeDir: "../testdata",
+		HomeDir: testdataDir,
 	}
 }
