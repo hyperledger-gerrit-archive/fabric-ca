@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
@@ -180,6 +181,8 @@ func TestRunningTLSServer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to enroll over TLS: %s", err)
 	}
+
+	time.Sleep(1 * time.Second)
 
 	err = srv.Stop()
 	if err != nil {
