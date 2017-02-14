@@ -73,8 +73,12 @@ func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	secret := util.B64Encode([]byte(tok))
+
+	resp := &api.RegistrationResponseNet{RegistrationResponse: api.RegistrationResponse{Secret: secret}}
+
 	log.Debug("Registration completed - Sending response to clients")
-	return cfsslapi.SendResponse(w, []byte(tok))
+	return cfsslapi.SendResponse(w, resp)
 }
 
 // Register for registering a user
