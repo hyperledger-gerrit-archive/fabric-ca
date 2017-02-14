@@ -89,6 +89,7 @@ tls:
   cacertfiles:
   certfile:
   keyfile:
+
 #############################################################################
 #  Certificate Signing Request section for generating the CSR for
 #  an enrollment certificate (ECert)
@@ -107,6 +108,17 @@ csr:
     pathlen:
     pathlenzero:
     expiry:
+
+#############################################################################
+#  Registration section used to register a new user with fabric-ca server
+#############################################################################
+registrationrequest:
+  name:
+  type:
+  group:
+  attributes:
+    - name:
+      value:
 `
 )
 

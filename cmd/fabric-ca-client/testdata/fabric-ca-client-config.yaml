@@ -45,9 +45,10 @@ tls:
 
   # TLS for the client's listenting port (default: false)
   cacertfiles:
-    - root.pem
-  certfile: tls_client-cert.pem
-  keyfile: tls_client-key.pem
+    - ../../../testdata/root.pem
+  certfile: ../../../testdata/tls_client-cert.pem
+  keyfile: ../../../testdata/tls_client-key.pem
+
 #############################################################################
 #  Certificate Signing Request section for generating the CSR for
 #  an enrollment certificate (ECert)
@@ -66,3 +67,14 @@ csr:
     pathlen:
     pathlenzero:
     expiry:
+
+#############################################################################
+#  Registration section used to register a new user with fabric-ca server
+#############################################################################
+registrationrequest:
+  name: test_user
+  type: client
+  group: bank_a
+  attributes:
+    - name: test
+      value: testValue

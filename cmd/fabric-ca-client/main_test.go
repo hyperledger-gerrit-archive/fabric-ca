@@ -36,12 +36,12 @@ const (
 	keyfile  = "../../testdata/ec-key.pem"
 	tdDir    = "../../testdata"
 	db       = "fabric-ca-server.db"
+	rrFile   = "./testdata/fabric-ca-client-config.yaml"
 )
 
 var (
 	defYaml    string
 	fabricCADB = path.Join(tdDir, db)
-	rrFile     = path.Join(tdDir, "registerrequest.json")
 )
 
 // TestCreateDefaultConfigFile test to make sure default config file gets generated correctly
@@ -151,11 +151,6 @@ func testEnroll(t *testing.T) {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", "http://admin2:adminpw2@localhost:7054"})
-	if err != nil {
-		t.Errorf("client enroll -c -u failed: %s", err)
-	}
-
 	os.Remove(defYaml)
 
 	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin2:adminpw2@localhost:7055"})
@@ -177,11 +172,6 @@ func testReenroll(t *testing.T) {
 		t.Errorf("client reenroll --url -f failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "reenroll", "-c", testYaml})
-	if err != nil {
-		t.Errorf("client reenroll -c failed: %s", err)
-	}
-
 	os.Remove(defYaml)
 	os.Remove(testYaml)
 }
@@ -191,19 +181,24 @@ func testRegister(t *testing.T) {
 	t.Log("Testing Register CMD")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "register", "-c", testYaml})
-	if err == nil {
-		t.Error("Should have failed, no register request file provided")
+	err := RunMain([]string{cmdName, "enroll", "-c", rrFile, "-u", "http://admin2:adminpw2@localhost:7054"})
+	if err != nil {
+		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "register", "-f", rrFile})
+	err = RunMain([]string{cmdName, "register", "-c", rrFile})
 	if err != nil {
-		t.Errorf("client register -f failed: %s", err)
+		t.Errorf("client register -c failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "reenroll", "-c", rrFile})
+	if err != nil {
+		t.Errorf("client reenroll -c failed: %s", err)
 	}
 
 	os.Remove(defYaml) // Delete default config file
 
-	err = RunMain([]string{cmdName, "register", "--url", "http://localhost:7055", "-f", rrFile})
+	err = RunMain([]string{cmdName, "register", "-u", "http://localhost:7055"})
 	if err == nil {
 		t.Error("Should have failed, client config file should have incorrect port (7055) for server")
 	}
@@ -252,22 +247,9 @@ func testBogus(t *testing.T) {
 func TestClientCommandsTLS(t *testing.T) {
 	os.Remove(db)
 
-	dir, err := ioutil.TempDir("", "clientCMD")
-	if err != nil {
-		t.Errorf("Failed to create temp directory: %s", err)
-	}
-
 	srv := getServer()
 
-	srv.Config.Debug = true
-	os.Setenv("FABRIC_CA_ENROLLMENT_DIR", dir)
-
-	err = srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "bank1")
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -276,17 +258,12 @@ func TestClientCommandsTLS(t *testing.T) {
 	srv.Config.TLS.CertFile = "../../testdata/tls_server-cert.pem"
 	srv.Config.TLS.KeyFile = "../../testdata/tls_server-key.pem"
 
-	aff := make(map[string]interface{})
-	aff["bank_a"] = "banks"
-
-	srv.Config.Affiliations = aff
-
 	err = srv.Start()
 	if err != nil {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "https://admin:adminpw@localhost:7054"})
+	err = RunMain([]string{cmdName, "enroll", "-c", rrFile, "-u", "https://admin:adminpw@localhost:7054"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
@@ -295,13 +272,10 @@ func TestClientCommandsTLS(t *testing.T) {
 	if err != nil {
 		t.Errorf("Server stop failed: %s", err)
 	}
-
-	os.RemoveAll(dir)
-
 }
 
 func TestCleanUp(t *testing.T) {
-	os.Remove("cert.pem")
-	os.Remove("key.pem")
+	os.Remove("./testdata/cert.pem")
+	os.Remove("./testdata/key.pem")
 	os.Remove(db)
 }
