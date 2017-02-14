@@ -17,7 +17,6 @@ limitations under the License.
 package server
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -255,20 +254,14 @@ func TestMaxEnrollment(t *testing.T) {
 		t.Error(err)
 	}
 
-	secretBytes, err := base64.StdEncoding.DecodeString(resp.Secret)
-	if err != nil {
-		t.Fatalf("Failed decoding secret: %s", err)
-	}
-
-	secret := string(secretBytes)
 	enrollReq := &api.EnrollmentRequest{
 		Name:   "MaxTestUser",
-		Secret: secret,
+		Secret: resp.Secret,
 	}
 
 	_, err = c.Enroll(enrollReq)
 	if err != nil {
-		t.Errorf("Enroll of user 'MaxTestUser' failed with secret '%s'", secret)
+		t.Errorf("Enroll of user 'MaxTestUser' failed with secret '%s'", resp.Secret)
 		return
 	}
 
