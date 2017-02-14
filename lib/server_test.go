@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
@@ -150,6 +151,8 @@ func TestRunningServer(t *testing.T) {
 }
 
 func TestRunningTLSServer(t *testing.T) {
+	clean()
+
 	srv := getServer(t)
 
 	srv.Config.TLS.Enabled = true
@@ -160,6 +163,8 @@ func TestRunningTLSServer(t *testing.T) {
 	if err != nil {
 		t.Errorf("Server start failed: %s", err)
 	}
+
+	time.Sleep(5 * time.Second)
 
 	err = srv.Stop()
 	if err != nil {

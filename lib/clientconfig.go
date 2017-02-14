@@ -23,7 +23,8 @@ import (
 
 // ClientConfig is the fabric-ca client's config
 type ClientConfig struct {
-	URL string
-	TLS tls.ClientTLSConfig
-	CSR *api.CSRInfo
+	URL                 string
+	TLS                 tls.ClientTLSConfig
+	CSR                 *api.CSRInfo
+	RegistrationRequest *api.RegistrationRequest
 }
