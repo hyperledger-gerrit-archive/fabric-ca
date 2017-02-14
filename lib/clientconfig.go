@@ -38,14 +38,15 @@ func (c *ClientConfig) Enroll(rawurl, home string) (id *Identity, err error) {
 	if err != nil {
 		return nil, err
 	}
-	name := purl.User.Username()
-	secret, _ := purl.User.Password()
 	if purl.User != nil {
+		name := purl.User.Username()
+		secret, _ := purl.User.Password()
 		c.Enrollment.Name = name
 		c.Enrollment.Secret = secret
 		purl.User = nil
 	}
 	c.URL = purl.String()
+	c.TLS.Enabled = purl.Scheme == "https"
 	client := &Client{HomeDir: home, Config: c}
 	return client.Enroll(&c.Enrollment)
 }
