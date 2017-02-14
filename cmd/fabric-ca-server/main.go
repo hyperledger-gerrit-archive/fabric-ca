@@ -18,8 +18,10 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -41,6 +43,7 @@ var (
 		},
 	}
 	persistentFlags pflag.FlagSet
+	blockingStart   = true
 )
 
 func init() {
@@ -54,8 +57,9 @@ func init() {
 	// Set global flags used by all commands
 	pflags := rootCmd.PersistentFlags()
 	pflags.StringVarP(&cfgFileName, "config", "c", cfg, "Configuration file")
-	util.FlagString(pflags, "user", "u", "",
-		"user:pass for bootstrap user is required to build default config if config file does not exist")
+	util.FlagString(pflags, "url", "u", "", "URL of the parent fabric-ca-server")
+	util.FlagString(pflags, "boot", "b", "",
+		"The user:pass for the bootstrap admin, which is required to build default config if config file does not exist")
 	util.FlagBool(pflags, "debug", "d", false, "Enable debug logging")
 }
 
@@ -91,4 +95,14 @@ func registerCommonFlags(flags *pflag.FlagSet) {
 		"PEM-encoded key file used for TLS")
 	util.FlagString(flags, "tls.certfile", "", "cert.pem",
 		"PEM-encoded certificate file used for TLS")
+}
+
+// Get a server for the init and start commands
+func getServer() *lib.Server {
+	return &lib.Server{
+		HomeDir:         filepath.Dir(cfgFileName),
+		Config:          serverCfg,
+		BlockingStart:   blockingStart,
+		ParentServerURL: viper.GetString("url"),
+	}
 }

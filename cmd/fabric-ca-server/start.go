@@ -18,14 +18,11 @@ package main
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
-
-var blockingStart = true
 
 // startCmd represents the enroll command
 var startCmd = &cobra.Command{
@@ -47,12 +44,7 @@ func runStart(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return fmt.Errorf("Usage: too many arguments.\n%s", startCmd.UsageString())
 	}
-	server := lib.Server{
-		HomeDir:       filepath.Dir(cfgFileName),
-		Config:        serverCfg,
-		BlockingStart: blockingStart,
-	}
-	err := server.Start()
+	err := getServer().Start()
 	if err != nil {
 		return err
 	}
