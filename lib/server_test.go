@@ -189,7 +189,7 @@ func TestIntermediateServer(t *testing.T) {
 }
 
 func TestRunningTLSServer(t *testing.T) {
-	srv := getServer(7054, testdataDir, "", t)
+	srv := getServer(rootPort, testdataDir, "", t)
 
 	srv.Config.TLS.Enabled = true
 	srv.Config.TLS.CertFile = "tls_server-cert.pem"
@@ -200,7 +200,7 @@ func TestRunningTLSServer(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	time.Sleep(3 * time.Second)
+	time.Sleep(1 * time.Second)
 
 	err = srv.Stop()
 	if err != nil {
