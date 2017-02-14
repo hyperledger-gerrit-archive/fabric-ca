@@ -78,16 +78,20 @@ func testRegister(c *Client, t *testing.T) {
 	}
 
 	// Register as admin
+	user := "TestUser"
 	registerReq := &api.RegistrationRequest{
-		Name:  "TestUser",
+		Name:  user,
 		Type:  "Client",
 		Group: "bank_a",
 	}
 
-	_, err = id.Register(registerReq)
+	rr, err := id.Register(registerReq)
 	if err != nil {
 		t.Errorf("Register failed: %s", err)
 	}
+
+	testEnrollViaConfig(user, rr.Secret, t)
+
 }
 
 func testEnrollIncorrectPassword(c *Client, t *testing.T) {
@@ -133,6 +137,15 @@ func testEnrollGeneric(c *Client, t *testing.T) {
 		t.Errorf("testEnrollGeneric: store failed: %s", err)
 	}
 
+}
+
+func testEnrollViaConfig(user, pass string, t *testing.T) {
+	cfg := &ClientConfig{}
+	urlraw := fmt.Sprintf("http://%s:%s@localhost:7054", user, pass)
+	_, err := cfg.Enroll(urlraw, "../testdata")
+	if err != nil {
+		t.Errorf("Failed to enroll via config: %s", err)
+	}
 }
 
 func testDoubleEnroll(c *Client, t *testing.T) {
