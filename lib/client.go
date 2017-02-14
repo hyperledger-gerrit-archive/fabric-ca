@@ -290,13 +290,19 @@ func (c *Client) SendPost(req *http.Request) (interface{}, error) {
 	reqStr := util.HTTPRequestToString(req)
 	log.Debugf("Sending request\n%s", reqStr)
 
-	tlsConfig, err := tls.GetClientTLSConfig(&c.Config.TLS)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to get client TLS config: %s", err)
-	}
+	var tr = new(http.Transport)
 
-	tr := &http.Transport{
-		TLSClientConfig: tlsConfig,
+	if c.Config.TLS.Enabled {
+		log.Info("TLS Enabled")
+
+		tls.AbsTLSClient(&c.Config.TLS, c.HomeDir)
+
+		tlsConfig, err := tls.GetClientTLSConfig(&c.Config.TLS)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to get client TLS config: %s", err)
+		}
+
+		tr.TLSClientConfig = tlsConfig
 	}
 
 	httpClient := &http.Client{Transport: tr}
