@@ -31,6 +31,7 @@ const (
 	rootDir          = "rootDir"
 	intermediatePort = 7056
 	intermediateDir  = "intDir"
+	testdataDir      = "../testdata"
 )
 
 func TestServerInit(t *testing.T) {
@@ -187,7 +188,30 @@ func TestIntermediateServer(t *testing.T) {
 	}
 }
 
+func TestRunningTLSServer(t *testing.T) {
+	srv := getServer(7054, testdataDir, "", t)
+
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = "tls_server-cert.pem"
+	srv.Config.TLS.KeyFile = "tls_server-key.pem"
+
+	err := srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
 func TestEnd(t *testing.T) {
+	os.Remove("../testdata/fabric-ca-server.db")
+	os.Remove("../testdata/ca-cert.pem")
+	os.Remove("../testdata/ca-key.pem")
 	os.RemoveAll(rootDir)
 	os.RemoveAll(intermediateDir)
 }
@@ -205,7 +229,9 @@ func getIntermediateServer(t *testing.T) *lib.Server {
 }
 
 func getServer(port int, home, parentURL string, t *testing.T) *lib.Server {
-	os.RemoveAll(home)
+	if home != testdataDir {
+		os.RemoveAll(home)
+	}
 	affiliations := map[string]interface{}{
 		"hyperledger": map[string]interface{}{
 			"fabric":    []string{"ledger", "orderer", "security"},
@@ -244,6 +270,6 @@ func getIntermediateClient() *lib.Client {
 func getTestClient(port int) *lib.Client {
 	return &lib.Client{
 		Config:  &lib.ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
-		HomeDir: "../testdata",
+		HomeDir: "testdataDir",
 	}
 }

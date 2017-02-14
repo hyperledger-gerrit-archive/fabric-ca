@@ -195,3 +195,13 @@ func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	req.Header.Set("authorization", token)
 	return nil
 }
+
+// GetMyKeyFile returns the path to this identity's key file
+func (i *Identity) GetMyKeyFile() string {
+	return i.client.GetMyKeyFile()
+}
+
+// GetMyCertFile returns the path to this identity's key file
+func (i *Identity) GetMyCertFile() string {
+	return i.client.GetMyCertFile()
+}
