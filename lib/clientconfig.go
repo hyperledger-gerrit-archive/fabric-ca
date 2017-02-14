@@ -19,15 +19,17 @@ package lib
 import (
 	"net/url"
 
+	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 )
 
 // ClientConfig is the fabric-ca client's config
 type ClientConfig struct {
-	URL        string                `yaml:"url,omitempty"`
-	TLS        tls.ClientTLSConfig   `yaml:"tls,omitempty"`
-	Enrollment api.EnrollmentRequest `yaml:"enrollment,omitempty"`
+	URL        string `def:"http://localhost:7054" opt:"u" help:"URL of fabric-ca-server"`
+	TLS        tls.ClientTLSConfig
+	Enrollment api.EnrollmentRequest
+	CSR        csr.CertificateRequest
 }
 
 // Enroll a client given the server's URL and the client's home directory.
