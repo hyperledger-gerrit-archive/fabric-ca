@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -76,7 +77,7 @@ const (
 #############################################################################
 
 # URL of the Fabric-ca-server (default: http://localhost:7054)
-serverURL: <<<URL>>>
+URL: <<<URL>>>
 
 #############################################################################
 #    TLS section for the client's listenting port
@@ -157,11 +158,19 @@ func configInit() error {
 	}
 
 	// Unmarshal the config into 'clientCfg'
-	clientCfg = new(lib.ClientConfig)
 	err = viper.Unmarshal(clientCfg)
 	if err != nil {
 		util.Fatal("Failed to unmarshall client config: %s", err)
 	}
+
+	purl, err := url.Parse(clientCfg.URL)
+	if err != nil {
+		return err
+	}
+
+	clientCfg.TLS.Enabled = purl.Scheme == "https"
+
+	processCertFiles(&clientCfg.TLS)
 
 	return nil
 }
@@ -193,4 +202,16 @@ func createDefaultConfigFile() error {
 	}
 	// Now write the file
 	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0755)
+}
+
+// processCertFiles parses comma seperated string to generate a string array
+func processCertFiles(cfg *tls.ClientTLSConfig) []string {
+	CertFiles := strings.Split(cfg.CertFiles, ",")
+	cfg.CertFilesList = make([]string, 0)
+
+	for i := range CertFiles {
+		cfg.CertFilesList = append(cfg.CertFilesList, strings.TrimSpace(CertFiles[i]))
+	}
+
+	return CertFiles
 }
