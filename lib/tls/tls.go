@@ -19,10 +19,12 @@ package tls
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-cop-bu/util"
 )
 
 // ServerTLSConfig defines key material for a TLS server
@@ -49,7 +51,7 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 	log.Debugf("Client Key File: %s\n", cfg.KeyFile)
 	clientCert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
 	if err != nil {
-		log.Debugf("Client Cert or Key not provided, if server requires mutual TLS, the connection will fail [error: %s]", err)
+		log.Infof("Client Cert or Key not provided, if server requires mutual TLS, the connection will fail [error: %s]", err)
 	}
 
 	certs = append(certs, clientCert)
@@ -57,7 +59,7 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 	rootCAPool := x509.NewCertPool()
 
 	if len(cfg.CACertFiles) == 0 {
-		log.Error("No CA cert files provided. If server requires TLS, connection will fail")
+		return nil, errors.New("No CA certificiate files provided.")
 	}
 
 	for _, cacert := range cfg.CACertFiles {
@@ -77,4 +79,13 @@ func GetClientTLSConfig(cfg *ClientTLSConfig) (*tls.Config, error) {
 	}
 
 	return config, nil
+}
+
+// AbsTLSClient makes TLS client files absolute
+func AbsTLSClient(cfg *ClientTLSConfig, configDir string) {
+	for i := 0; i < len(cfg.CACertFiles); i++ {
+		cfg.CACertFiles[i] = util.Abs(cfg.CACertFiles[i], configDir)
+	}
+	cfg.CertFile = util.Abs(cfg.CertFile, configDir)
+	cfg.KeyFile = util.Abs(cfg.KeyFile, configDir)
 }

@@ -76,7 +76,7 @@ const (
 #############################################################################
 
 # URL of the Fabric-ca-server (default: http://localhost:7054)
-serverURL: <<<URL>>>
+URL: <<<URL>>>
 
 #############################################################################
 #    TLS section for the client's listening port
@@ -86,8 +86,8 @@ tls:
   enabled: false
 
   # TLS for the client's listenting port (default: false)
-  cafiles:
-  cerfile:
+  cacertfiles:
+  certfile:
   keyfile:
 #############################################################################
 #  Certificate Signing Request section for generating the CSR for

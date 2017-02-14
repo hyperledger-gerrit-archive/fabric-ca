@@ -149,6 +149,24 @@ func TestRunningServer(t *testing.T) {
 	}
 }
 
+func TestRunningTLSServer(t *testing.T) {
+	srv := getServer(t)
+
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = "../testdata/tls_server-cert.pem"
+	srv.Config.TLS.KeyFile = "../testdata/tls_server-key.pem"
+
+	err := srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
 func TestEnd(t *testing.T) {
 	clean()
 }

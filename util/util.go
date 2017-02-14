@@ -453,6 +453,15 @@ func MakeFileAbs(file, dir string) (string, error) {
 	return path, nil
 }
 
+// Abs makes 'file' absolute relative to the configuration directory
+func Abs(file, configDir string) string {
+	path, err := MakeFileAbs(file, configDir)
+	if err != nil {
+		panic(err)
+	}
+	return path
+}
+
 // Fatal logs a fatal message and exits
 func Fatal(format string, v ...interface{}) {
 	log.Fatalf(format, v...)
