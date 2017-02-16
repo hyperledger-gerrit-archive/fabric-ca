@@ -368,9 +368,9 @@ func CreateHome() (string, error) {
 	if home == "" {
 		home = os.Getenv("HOME")
 		if home != "" {
-			home = path.Join(home, "/fabric-cop")
+			home = path.Join(home, "/fabric-ca")
 		} else {
-			home = "/var/hyperledger/fabric/dev/fabric-cop"
+			home = "/var/hyperledger/fabric/dev/fabric-ca"
 		}
 	}
 
