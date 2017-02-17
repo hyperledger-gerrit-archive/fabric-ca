@@ -34,10 +34,10 @@ const (
 
 // ServerConfig is the fabric-ca server's config
 type ServerConfig struct {
-	Port         int
-	Address      string
+	Port         int    `def:"7054" opt:"p" help:"Listening port of fabric-ca-server"`
+	Address      string `def:"0.0.0.0" help:"Listening address of fabric-ca-server"`
 	TLS          tls.ServerTLSConfig
-	Debug        bool
+	Debug        bool `def:"false" opt:"d" help:"Enable debug level logging"`
 	CSP          *csp.Config
 	CA           ServerConfigCA
 	Signing      *config.Signing
@@ -46,26 +46,26 @@ type ServerConfig struct {
 	Affiliations map[string]interface{}
 	LDAP         ldap.Config
 	DB           ServerConfigDB
-	Remote       string
+	Remote       string `skip:"true"`
 	Client       *ClientConfig
 }
 
 // ServerConfigCA is the CA config for the fabric-ca server
 type ServerConfigCA struct {
-	Keyfile  string
-	Certfile string
+	Certfile string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
+	Keyfile  string `def:"ca-key.pem" help:"PEM-encoded CA key file"`
 }
 
 // ServerConfigDB is the database part of the server's config
 type ServerConfigDB struct {
-	Type       string
-	Datasource string
+	Type       string `def:"sqlite3" help:"Type of database; one of: sqlite3, postgres, mysql"`
+	Datasource string `def:"fabric-ca-server.db" help:"Data source which is database specific"`
 	TLS        tls.ClientTLSConfig
 }
 
 // ServerConfigRegistry is the registry part of the server's config
 type ServerConfigRegistry struct {
-	MaxEnrollments int
+	MaxEnrollments int `def:"0" help:"Maximum number of enrollments; valid if LDAP not enabled"`
 	Identities     []ServerConfigIdentity
 }
 

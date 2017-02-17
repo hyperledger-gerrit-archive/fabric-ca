@@ -18,11 +18,70 @@ package util
 
 import (
 	"fmt"
+	"reflect"
+	"strconv"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
+
+// RegisterFlags registers flags for all fields in config
+func RegisterFlags(flags *pflag.FlagSet, config interface{}) error {
+	fr := &flagRegistrar{Flags: flags}
+	return ParseObj(config, fr.Register)
+}
+
+type flagRegistrar struct {
+	Flags *pflag.FlagSet
+}
+
+func (fr *flagRegistrar) Register(f *Field) (err error) {
+	// Don't register non-leaf fields
+	if !f.Leaf {
+		return nil
+	}
+	// Don't register fields with no address
+	if f.Addr == nil {
+		log.Warningf("Not registering flag for '%s' because it is not addressable\n", f.Path)
+		return nil
+	}
+	skip := f.Tag.Get("skip")
+	if skip != "" {
+		return nil
+	}
+	help := f.Tag.Get("help")
+	opt := f.Tag.Get("opt")
+	def := f.Tag.Get("def")
+	switch f.Kind {
+	case reflect.String:
+		fr.Flags.StringVarP(f.Addr.(*string), f.Path, opt, def, help)
+	case reflect.Int:
+		var intDef int
+		if def != "" {
+			intDef, err = strconv.Atoi(def)
+			if err != nil {
+				return fmt.Errorf("Invalid integer value in 'def' tag of %s field", f.Path)
+			}
+		}
+		fr.Flags.IntVarP(f.Addr.(*int), f.Path, opt, intDef, help)
+	case reflect.Bool:
+		var boolDef bool
+		if def != "" {
+			boolDef, err = strconv.ParseBool(def)
+			if err != nil {
+				return fmt.Errorf("Invalid boolean value in 'def' tag of %s field", f.Path)
+			}
+		}
+		fr.Flags.BoolVarP(f.Addr.(*bool), f.Path, opt, boolDef, help)
+	default:
+		//log.Warningf("Not registering flag for '%s' because it is a currently unsupported type: %s\n",
+		//	f.Path, f.Kind)
+		return nil
+	}
+	bindFlag(fr.Flags, f.Path)
+	return nil
+}
 
 // CmdRunBegin is called at the beginning of each cobra run function
 func CmdRunBegin() {
