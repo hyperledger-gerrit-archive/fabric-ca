@@ -125,13 +125,16 @@ registry:
   maxEnrollments: 0
 
   # Contains user information which is used when LDAP is disabled
-  user:
-    <<<ADMIN>>>:
-       pass: <<<ADMINPW>>>
-       type: client
-       affiliation: org1.department1
-       attrs:
-          hf.Registrar.Roles: "client,user,peer,validator,auditor"
+  Identities:
+    - ID:   <<<ID>>>
+#It is so amazing that <<<ADMIN>>> will not be replace by user using strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1).
+#So I replace <<<ADMIN>>> by <<<ID>>>,and it works.
+      Pass: <<<PASS>>>
+      Type:           client
+      Affiliation:    org1.department1
+      MaxEnrollments: 0
+      Attributes:
+        - hf.Registrar.Roles: "client,user,peer,validator,auditor"
           hf.Registrar.DelegateRoles: "client,user,validator,auditor"
           hf.Revoker: true
 
@@ -291,8 +294,8 @@ func createDefaultConfigFile() error {
 		return err
 	}
 	// Do string subtitution to get the default config
-	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
-	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
+	cfg := strings.Replace(defaultCfgTemplate, "<<<ID>>>", user, 1)
+	cfg = strings.Replace(cfg, "<<<PASS>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
 	// Now write the file
 	err = os.MkdirAll(filepath.Dir(cfgFileName), 0644)
