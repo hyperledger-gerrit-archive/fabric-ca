@@ -53,9 +53,10 @@ BASEIMAGE_RELEASE = 0.3.0
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 SAMPLECONFIG = $(shell git ls-files images/fabric-ca/config)
 CERTFILES = $(shell git ls-files images/fabric-ca/certs)
+CLIENTFILES = $(shell git ls-files images/fabric-ca/certs/ec.pem)
 
 DOCKER_ORG = hyperledger
-IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-fvt
+IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-server $(PROJECT_NAME)-client $(PROJECT_NAME)-fvt
 
 path-map.fabric-ca := ./
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
@@ -98,14 +99,14 @@ bin/%:
 
 # We (re)build a package within a docker context but persist the $GOPATH/pkg
 # directory so that subsequent builds are faster
-build/docker/bin/fabric-ca:
+build/docker/bin/%:
 	@echo "Building $@"
 	@mkdir -p $(@D) build/docker/$(@F)/pkg
 	@$(DRUN) \
 		-v $(abspath build/docker/bin):/opt/gopath/bin \
 		-v $(abspath build/docker/$(@F)/pkg):/opt/gopath/pkg \
 		hyperledger/fabric-baseimage:$(BASE_DOCKER_TAG) \
-		go install -ldflags "$(DOCKER_GO_LDFLAGS)" $(PKGNAME)
+		go install -ldflags "$(DOCKER_GO_LDFLAGS)" $(PKGNAME)/$(path-map.${@F})
 	@touch $@
 
 build/docker/busybox:
@@ -120,6 +121,10 @@ build/image/$(PROJECT_NAME)/payload:	build/docker/bin/fabric-ca \
 					build/certfiles.tar.bz2
 
 build/image/$(PROJECT_NAME)-fvt/payload: images/fabric-ca-fvt/start.sh
+build/image/$(PROJECT_NAME)-server/payload: build/certfiles.tar.bz2 \
+					build/docker/bin/fabric-ca-server
+build/image/$(PROJECT_NAME)-client/payload: build/clientfiles.tar.bz2 \
+					build/docker/bin/fabric-ca-client
 
 build/image/%/payload:
 	mkdir -p $@
@@ -145,6 +150,10 @@ build/sampleconfig.tar.bz2: $(SAMPLECONFIG)
 build/certfiles.tar.bz2: $(CERTFILES)
 	@echo "Building $(CERTFILES)"
 	tar -jc -C images/fabric-ca/certs $(patsubst images/fabric-ca/certs/%,%,$(CERTFILES)) > $@
+
+build/clientfiles.tar.bz2: $(CLIENTFILES)
+	@echo "Building $(CLIENTFILES)"
+	tar -jc -C images/fabric-ca/certs $(patsubst images/fabric-ca/certs/%,%,$(CLIENTFILES)) > $@
 
 unit-tests: checks fabric-ca fabric-ca-server fabric-ca-client
 	@scripts/run_tests
