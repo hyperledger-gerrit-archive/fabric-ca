@@ -1,0 +1,8 @@
+FROM hyperledger/fabric-baseos:_BASE_TAG_
+ENV CA_CFG_PATH /etc/hyperledger/fabric-ca-client
+ENV FABRIC_CA_HOME /etc/hyperledger/fabric-ca-client
+RUN mkdir -p $CA_CFG_PATH
+COPY payload/fabric-ca-client /usr/local/bin
+
+# Copy the same certificates that are currently hardcoded into the peers
+ADD payload/clientfiles.tar.bz2 $FABRIC_CA_HOME
