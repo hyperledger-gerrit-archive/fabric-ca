@@ -1,0 +1,13 @@
+<component name="libraryTable">
+  <library name="GOPATH &lt;fabric-ca&gt;">
+    <CLASSES>
+      <root url="file://$PROJECT_DIR$/../../../../../godev2/src/github.com" />
+    </CLASSES>
+    <SOURCES>
+      <root url="file://$PROJECT_DIR$/../../../../../godev2/src/github.com" />
+    </SOURCES>
+    <excluded>
+      <root url="file://$PROJECT_DIR$" />
+    </excluded>
+  </library>
+</component>
