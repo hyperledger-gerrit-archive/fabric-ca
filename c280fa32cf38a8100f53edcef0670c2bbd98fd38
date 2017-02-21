@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jim Zhang <jim_the_matrix@hotmail.com>
+Code-Review+2: Binh Nguyen <binhn@us.ibm.com>
+Submitted-by: Binh Nguyen <binhn@us.ibm.com>
+Submitted-at: Tue, 21 Feb 2017 22:26:18 +0000
+Reviewed-on: http://gerrit.hyperledger.org/r/5601
+Project: fabric-ca
+Branch: refs/heads/master
