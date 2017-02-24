@@ -16,23 +16,23 @@ limitations under the License.
 
 package spi
 
-// NewGroup returns a group interface
-func NewGroup(group *GroupInfo) Group {
+// NewAffiliation returns a group interface
+func NewAffiliation(group *AffiliationInfo) Affiliation {
 	return group
 }
 
 // GetName returns the name of group
-func (g *GroupInfo) GetName() string {
+func (g *AffiliationInfo) GetName() string {
 	return g.Name
 }
 
 // GetChildren returns all the children of the group
-func (g *GroupInfo) GetChildren() ([]Group, error) {
+func (g *AffiliationInfo) GetChildren() ([]Affiliation, error) {
 	// TODO: IMPLEMENT
 	return nil, nil
 }
 
 // GetParent returns the parent of the group
-func (g *GroupInfo) GetParent() string {
+func (g *AffiliationInfo) GetParent() string {
 	return g.ParentID
 }
