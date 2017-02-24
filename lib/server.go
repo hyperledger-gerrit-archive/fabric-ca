@@ -167,7 +167,7 @@ func (s *Server) Stop() error {
 
 // Initialize the fabric-ca server's key material
 func (s *Server) initKeyMaterial(renew bool) error {
-	log.Debugf("Init with home %s and config %+v", s.HomeDir, s.Config)
+	log.Debugf("Init with home %s and config %+v", s.HomeDir, *s.Config)
 
 	// Make the path names absolute in the config
 	s.makeFileNamesAbsolute()
@@ -273,11 +273,13 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 	if err != nil {
 		return fmt.Errorf("Failed to register bootstrap user '%s': %s", user, err)
 	}
+
 	id := ServerConfigIdentity{
-		Name:        user,
-		Pass:        pass,
-		Type:        "user",
-		Affiliation: affiliation,
+		Name:           user,
+		Pass:           pass,
+		Type:           "user",
+		Affiliation:    affiliation,
+		MaxEnrollments: s.Config.Registry.MaxEnrollments,
 		Attrs: map[string]string{
 			"hf.Registrar.Roles":         "client,user,peer,validator,auditor",
 			"hf.Registrar.DelegateRoles": "client,user,validator,auditor",
@@ -332,22 +334,25 @@ func (s *Server) initConfig() (err error) {
 func (s *Server) initDB() error {
 	db := &s.Config.DB
 
-	log.Debugf("Initializing '%s' data base at '%s'", db.Type, db.Datasource)
-
 	var err error
 	var exists bool
+
+	MaxEnrollments = s.Config.Registry.MaxEnrollments
 
 	if db.Type == "" {
 		db.Type = "sqlite3"
 	}
 	if db.Datasource == "" {
-		var ds string
-		ds, err = util.MakeFileAbs("fabric-ca-server.db", s.HomeDir)
-		if err != nil {
-			return err
-		}
-		db.Datasource = ds
+		db.Datasource = "fabric-ca-server.db"
 	}
+
+	db.Datasource, err = util.MakeFileAbs(db.Datasource, s.HomeDir)
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Initializing '%s' data base at '%s'", db.Type, db.Datasource)
+
 	switch db.Type {
 	case "sqlite3":
 		s.db, exists, err = dbutil.NewUserRegistrySQLLite3(db.Datasource)

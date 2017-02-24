@@ -19,6 +19,7 @@ package lib
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -40,7 +41,7 @@ type fcaAuthHandler struct {
 	next  http.Handler
 }
 
-var authError = cerr.NewBadRequest(errors.New("authorization failure"))
+var authError = cerr.NewBadRequest(errors.New("Authorization failure"))
 
 // NewAuthWrapper is auth wrapper constructor.
 // Only the "enroll" URI uses basic auth for the enrollment secret, while all
@@ -104,7 +105,7 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		err = u.Login(pwd)
 		if err != nil {
 			log.Debugf("Failed to login '%s': %s", user, err)
-			return authError
+			return fmt.Errorf("%s. %s", authError, err)
 		}
 		log.Debug("User/Pass was correct")
 		r.Header.Set(enrollmentIDHdrName, user)
