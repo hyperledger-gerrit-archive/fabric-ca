@@ -18,6 +18,7 @@ package lib
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -63,21 +64,21 @@ func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	// Register User
 	callerID := r.Header.Get(enrollmentIDHdrName)
-	secret, err := h.RegisterUser(req.Name, req.Type, req.Affiliation, req.Attributes, callerID)
+	secret, err := h.RegisterUser(req.Name, req.Type, req.Affiliation, req.Attributes, callerID, req.MaxEnrollments)
 	if err != nil {
 		return err
 	}
 
 	resp := &api.RegistrationResponseNet{RegistrationResponse: api.RegistrationResponse{Secret: secret}}
 
-	log.Debugf("Registration completed - sending response %+v", resp)
+	log.Debugf("Registration completed - sending response %+v", &resp)
 	return cfsslapi.SendResponse(w, resp)
 }
 
 // RegisterUser will register a user
-func (h *registerHandler) RegisterUser(id string, userType string, affiliation string, attributes []api.Attribute, registrar string, opt ...string) (string, error) {
-	log.Debugf("Received request to register user with id: %s, affiliation: %s, attributes: %+v, registrar: %s\n",
-		id, affiliation, affiliation, registrar)
+func (h *registerHandler) RegisterUser(id string, userType string, affiliation string, attributes []api.Attribute, registrar string, maxEnrollments int, opt ...string) (string, error) {
+	log.Debugf("Received request to register user with id: %s, group: %s, attributes: %+v, maxEnrollments: %d, registrar: %s\n",
+		id, affiliation, attributes, maxEnrollments, registrar)
 
 	var tok string
 	var err error
@@ -97,7 +98,7 @@ func (h *registerHandler) RegisterUser(id string, userType string, affiliation s
 		return "", err
 	}
 
-	tok, err = h.registerUserID(id, userType, affiliation, attributes, opt...)
+	tok, err = h.registerUserID(id, userType, affiliation, attributes, maxEnrollments, opt...)
 
 	if err != nil {
 		log.Debugf("Registration of '%s' failed: %s", id, err)
@@ -121,7 +122,7 @@ func (h *registerHandler) validateID(id string, userType string, affiliation str
 }
 
 // registerUserID registers a new user and its enrollmentID, role and state
-func (h *registerHandler) registerUserID(id string, userType string, affiliation string, attributes []api.Attribute, opt ...string) (string, error) {
+func (h *registerHandler) registerUserID(id string, userType string, affiliation string, attributes []api.Attribute, newMaxEnrollments int, opt ...string) (string, error) {
 	log.Debugf("Registering user id: %s\n", id)
 
 	var tok string
@@ -131,7 +132,13 @@ func (h *registerHandler) registerUserID(id string, userType string, affiliation
 		tok = util.RandomString(12)
 	}
 
-	// affiliationPath(name, parent)
+	if (newMaxEnrollments > MaxEnrollments && MaxEnrollments != 0) || (newMaxEnrollments < 0) {
+		return "", fmt.Errorf("Invalid max enrollment value specified, value must be equal to or less then %d", MaxEnrollments)
+	}
+
+	if newMaxEnrollments == 0 && MaxEnrollments != 0 {
+		return "", fmt.Errorf("Unlimited enrollments not allowed, value must be equal to or less then %d", MaxEnrollments)
+	}
 
 	insert := spi.UserInfo{
 		Name:           id,
@@ -139,7 +146,7 @@ func (h *registerHandler) registerUserID(id string, userType string, affiliation
 		Type:           userType,
 		Affiliation:    affiliation,
 		Attributes:     attributes,
-		MaxEnrollments: MaxEnrollments,
+		MaxEnrollments: newMaxEnrollments,
 	}
 
 	_, err := UserRegistry.GetUser(id, nil)
@@ -187,8 +194,12 @@ func (h *registerHandler) canRegister(registrar string, userType string) error {
 	} else {
 		roles = make([]string, 0)
 	}
-	if !util.StrContained(userType, roles) {
-		return fmt.Errorf("User '%s' may not register type '%s'", registrar, userType)
+	if userType != "" {
+		if !util.StrContained(userType, roles) {
+			return fmt.Errorf("User '%s' may not register type '%s'", registrar, userType)
+		}
+	} else {
+		return errors.New("No user type provied. Please provide user type")
 	}
 
 	return nil
