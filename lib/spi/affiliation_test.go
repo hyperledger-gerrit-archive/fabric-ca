@@ -19,8 +19,8 @@ package spi
 import "testing"
 
 func TestGetName(t *testing.T) {
-	groupInfo := &GroupInfo{Name: "Bank_a", ParentID: "Bank"}
-	group := NewGroup(groupInfo)
+	groupInfo := &AffiliationInfo{Name: "Bank_a", ParentID: "Bank"}
+	group := NewAffiliation(groupInfo)
 	name := group.GetName()
 
 	if name != "Bank_a" {
@@ -29,8 +29,8 @@ func TestGetName(t *testing.T) {
 }
 
 func TestGetParent(t *testing.T) {
-	groupInfo := &GroupInfo{Name: "Bank_a", ParentID: "Bank"}
-	group := NewGroup(groupInfo)
+	groupInfo := &AffiliationInfo{Name: "Bank_a", ParentID: "Bank"}
+	group := NewAffiliation(groupInfo)
 	name := group.GetParent()
 
 	if name != "Bank" {

@@ -38,7 +38,7 @@ type RegistrationRequest struct {
 	MaxEnrollments int `json:"max_enrollments,omitempty" help:"MaxEnrollments is the maximum number of times the secret can be reused to enroll."`
 	// is returned in the response.
 	// Group name associated with the identity
-	Group string `json:"group" help:"Name associated with the identity"`
+	Affiliation string `json:"group" help:"Name associated with the identity"`
 	// Attr is used to support a single attribute provided through the fabric-ca-client CLI
 	Attr string `help:"Attributes associated with this identity (e.g. hf.revoker=true)"`
 	// Attributes associated with this identity
