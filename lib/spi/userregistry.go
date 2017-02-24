@@ -27,14 +27,14 @@ type UserInfo struct {
 	Name           string
 	Pass           string
 	Type           string
-	Group          string
+	Affiliation    string
 	Attributes     []api.Attribute
 	State          int
 	MaxEnrollments int
 }
 
-// GroupInfo defines a group name and its parent
-type GroupInfo struct {
+// AffiliationInfo defines a group name and its parent
+type AffiliationInfo struct {
 	Name     string `db:"name"`
 	ParentID string `db:"parent_id"`
 }
@@ -51,11 +51,11 @@ type User interface {
 	GetAttribute(name string) string
 }
 
-// Group is the API for a group
-type Group interface {
+// Affiliation is the API for a group
+type Affiliation interface {
 	GetName() string
 	GetParent() string
-	GetChildren() ([]Group, error)
+	GetChildren() ([]Affiliation, error)
 }
 
 // UserRegistry is the API for retreiving users and groups
@@ -65,8 +65,7 @@ type UserRegistry interface {
 	InsertUser(user UserInfo) error
 	UpdateUser(user UserInfo) error
 	DeleteUser(id string) error
-	GetGroup(name string) (Group, error)
-	GetRootGroup() (Group, error)
-	InsertGroup(name string, parentID string) error
-	DeleteGroup(name string) error
+	GetAffiliation(name string) (Affiliation, error)
+	InsertAffiliation(name string, parentID string) error
+	DeleteAffiliation(name string) error
 }

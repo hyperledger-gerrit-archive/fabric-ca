@@ -19,9 +19,9 @@ package spi
 import "testing"
 
 func TestGetName(t *testing.T) {
-	groupInfo := &GroupInfo{Name: "Bank_a", ParentID: "Bank"}
-	group := NewGroup(groupInfo)
-	name := group.GetName()
+	affInfo := &AffiliationInfo{Name: "Bank_a", ParentID: "Bank"}
+	aff := NewAffiliation(affInfo)
+	name := aff.GetName()
 
 	if name != "Bank_a" {
 		t.Error("Name does not match, expected 'Bank_a'")
@@ -29,9 +29,9 @@ func TestGetName(t *testing.T) {
 }
 
 func TestGetParent(t *testing.T) {
-	groupInfo := &GroupInfo{Name: "Bank_a", ParentID: "Bank"}
-	group := NewGroup(groupInfo)
-	name := group.GetParent()
+	affInfo := &AffiliationInfo{Name: "Bank_a", ParentID: "Bank"}
+	aff := NewAffiliation(affInfo)
+	name := aff.GetParent()
 
 	if name != "Bank" {
 		t.Error("Parent name does not match, expected 'Bank'")
