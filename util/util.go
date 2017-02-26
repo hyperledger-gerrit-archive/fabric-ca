@@ -342,11 +342,15 @@ func GetRSAPrivateKey(raw []byte) (*rsa.PrivateKey, error) {
 
 // B64Encode base64 encodes bytes
 func B64Encode(buf []byte) string {
-	return base64.RawStdEncoding.EncodeToString(buf)
+	return base64.StdEncoding.EncodeToString(buf)
 }
 
 // B64Decode base64 decodes a string
 func B64Decode(str string) (buf []byte, err error) {
+	buf, err = base64.StdEncoding.DecodeString(str)
+	if err == nil {
+		return buf, nil
+	}
 	return base64.RawStdEncoding.DecodeString(str)
 }
 

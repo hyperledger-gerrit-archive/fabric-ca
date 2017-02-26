@@ -17,6 +17,8 @@ limitations under the License.
 package util
 
 import (
+	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -372,6 +374,26 @@ func TestMakeFileAbs(t *testing.T) {
 	makeFileAbs(t, "/a/b/c", "", "/a/b/c")
 	makeFileAbs(t, "c", "/a/b", "/a/b/c")
 	makeFileAbs(t, "../c", "/a/b", "/a/c")
+}
+
+func TestB64(t *testing.T) {
+	buf := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	str := B64Encode(buf)
+	buf2, err := B64Decode(str)
+	if err != nil {
+		t.Errorf("Failed base64 decoding standard: %s", err)
+	}
+	if !bytes.Equal(buf, buf2) {
+		t.Error("Failed base64 decoding standard bytes aren't equal")
+	}
+	str = base64.RawStdEncoding.EncodeToString(buf)
+	buf2, err = B64Decode(str)
+	if err != nil {
+		t.Errorf("Failed base64 decoding raw: %s", err)
+	}
+	if !bytes.Equal(buf, buf2) {
+		t.Error("Failed base64 decoding standard bytes aren't equal")
+	}
 }
 
 func TestGetUser(t *testing.T) {
