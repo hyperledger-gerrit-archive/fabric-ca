@@ -144,12 +144,12 @@ registry:
 #  To run the fabric-ca-server in a cluster, you must choose "postgres"
 #  or "mysql".
 #############################################################################
-database:
+db:
   type: sqlite3
   datasource: fabric-ca-server.db
   tls:
       enabled: false
-      certfiles:
+      certfileslist:
         - db-server-cert.pem
       client:
         certfile: db-client-cert.pem
@@ -168,7 +168,7 @@ ldap:
    # The URL of the LDAP server
    url: ldap://<adminDN>:<adminPassword>@<host>:<port>/<base>
    tls:
-      certfiles:
+      certfileslist:
         - ldap-server-cert.pem
       client:
          certfile: ldap-client-cert.pem
