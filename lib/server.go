@@ -348,9 +348,11 @@ func (s *Server) initDB() error {
 		db.Datasource = "fabric-ca-server.db"
 	}
 
-	db.Datasource, err = util.MakeFileAbs(db.Datasource, s.HomeDir)
-	if err != nil {
-		return err
+	if db.Type == "sqlite3" {
+		db.Datasource, err = util.MakeFileAbs(db.Datasource, s.HomeDir)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Debugf("Initializing '%s' data base at '%s'", db.Type, db.Datasource)

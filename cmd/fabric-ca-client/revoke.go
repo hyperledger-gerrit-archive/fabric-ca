@@ -72,7 +72,10 @@ func runRevoke() error {
 	log.Debug("Revoke Entered")
 
 	var err error
+
 	enrollmentID := viper.GetString("eid")
+	serial := viper.GetString("serial")
+	aki := viper.GetString("aki")
 
 	client := lib.Client{
 		HomeDir: filepath.Dir(cfgFileName),
@@ -84,11 +87,18 @@ func runRevoke() error {
 		return err
 	}
 
-	serial := viper.GetString("serial")
-	aki := viper.GetString("aki")
-
-	if enrollmentID == "" && serial == "" {
+	if enrollmentID == "" && (serial == "" || aki == "") {
 		return fmt.Errorf("Invalid usage; either --eid or both --serial and --aki are required")
+	}
+
+	if enrollmentID != "" && (serial != "" || aki != "") {
+		return fmt.Errorf("Invalid usage; specify either --eid or both --serial and --aki")
+	}
+
+	reasonInput := viper.GetString("reason")
+	var reason int
+	if reasonInput != "" {
+		reason = util.RevocationReasonCodes[reasonInput]
 	}
 
 	err = id.Revoke(
@@ -96,6 +106,7 @@ func runRevoke() error {
 			Name:   enrollmentID,
 			Serial: serial,
 			AKI:    aki,
+			Reason: reason,
 		})
 
 	if err == nil {
