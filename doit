@@ -1,0 +1,17 @@
+DIRS="lib cmd/fabric-ca-server cmd/fabric-ca-client"
+CWD=`pwd`
+for dir in $DIRS
+do
+   cd $CWD/$dir
+   go test -coverprofile coverage.out .
+done
+
+cd $CWD
+
+echo "mode: set" > coverage.out
+for dir in $DIRS
+do
+   grep -h -v "mode: set" $dir/coverage.out >> coverage.out
+done
+
+# go tool cover -html=coverage.out 
