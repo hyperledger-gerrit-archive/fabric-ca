@@ -21,6 +21,7 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/tls"
+	"github.com/hyperledger/fabric/bccsp/factory"
 )
 
 // ClientConfig is the fabric-ca client's config
@@ -32,6 +33,7 @@ type ClientConfig struct {
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
+	CSP        *factory.FactoryOpts
 }
 
 // Enroll a client given the server's URL and the client's home directory.
