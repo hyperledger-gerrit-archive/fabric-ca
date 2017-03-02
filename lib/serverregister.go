@@ -34,13 +34,14 @@ import (
 
 // registerHandler for register requests
 type registerHandler struct {
+	server *Server
 }
 
 // NewRegisterHandler is constructor for register handler
-func NewRegisterHandler() (h http.Handler, err error) {
+func NewRegisterHandler(server *Server) (h http.Handler, err error) {
 	// NewHandler is constructor for register handler
 	return &cfsslapi.HTTPHandler{
-		Handler: &registerHandler{},
+		Handler: &registerHandler{server: server},
 		Methods: []string{"POST"},
 	}, nil
 }
@@ -132,12 +133,14 @@ func (h *registerHandler) registerUserID(id string, userType string, affiliation
 		tok = util.RandomString(12)
 	}
 
-	if (newMaxEnrollments > MaxEnrollments && MaxEnrollments != 0) || (newMaxEnrollments < 0) {
-		return "", fmt.Errorf("Invalid max enrollment value specified, value must be equal to or less then %d", MaxEnrollments)
+	maxEnrollments := h.server.Config.Registry.MaxEnrollments
+
+	if (newMaxEnrollments > maxEnrollments && maxEnrollments != 0) || (newMaxEnrollments < 0) {
+		return "", fmt.Errorf("Invalid max enrollment value specified, value must be equal to or less then %d", maxEnrollments)
 	}
 
-	if newMaxEnrollments == 0 && MaxEnrollments != 0 {
-		return "", fmt.Errorf("Unlimited enrollments not allowed, value must be equal to or less then %d", MaxEnrollments)
+	if newMaxEnrollments == 0 && maxEnrollments != 0 {
+		return "", fmt.Errorf("Unlimited enrollments not allowed, value must be equal to or less then %d", maxEnrollments)
 	}
 
 	insert := spi.UserInfo{
@@ -149,12 +152,14 @@ func (h *registerHandler) registerUserID(id string, userType string, affiliation
 		MaxEnrollments: newMaxEnrollments,
 	}
 
-	_, err := UserRegistry.GetUser(id, nil)
+	registry := h.server.registry
+
+	_, err := registry.GetUser(id, nil)
 	if err == nil {
 		return "", fmt.Errorf("User '%s' is already registered", id)
 	}
 
-	err = UserRegistry.InsertUser(insert)
+	err = registry.InsertUser(insert)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +170,7 @@ func (h *registerHandler) registerUserID(id string, userType string, affiliation
 func (h *registerHandler) isValidAffiliation(affiliation string) error {
 	log.Debug("Validating affiliation: " + affiliation)
 
-	_, err := UserRegistry.GetAffiliation(affiliation)
+	_, err := h.server.registry.GetAffiliation(affiliation)
 	if err != nil {
 		return fmt.Errorf("Failed getting affiliation '%s': %s", affiliation, err)
 	}
@@ -182,7 +187,7 @@ func (h *registerHandler) requireAffiliation(idType string) bool {
 func (h *registerHandler) canRegister(registrar string, userType string) error {
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
-	user, err := UserRegistry.GetUser(registrar, nil)
+	user, err := h.server.registry.GetUser(registrar, nil)
 	if err != nil {
 		return fmt.Errorf("Registrar does not exist: %s", err)
 	}
