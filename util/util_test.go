@@ -23,10 +23,16 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hyperledger/fabric-ca/lib/csputil"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/spf13/viper"
 )
+
+func TestMain(m *testing.M) {
+	factory.InitFactories(nil)
+	os.Exit(m.Run())
+}
 
 func TestGetEnrollmentIDFromPEM(t *testing.T) {
 	cert, err := ioutil.ReadFile(getPath("ec.pem"))
@@ -41,10 +47,13 @@ func TestGetEnrollmentIDFromPEM(t *testing.T) {
 
 func TestECCreateToken(t *testing.T) {
 	cert, _ := ioutil.ReadFile(getPath("ec.pem"))
-	privKey, _ := ioutil.ReadFile(getPath("ec-key.pem"))
+	csp := factory.GetDefault()
+	privKey, err := csputil.ImportBCCSPKeyFromPEM(getPath("ec-key.pem"), csp, true)
+	if err != nil {
+		t.Logf("Failed importing key %s", err)
+	}
 	body := []byte("request byte array")
 
-	csp := factory.GetDefault()
 	ECtoken, err := CreateToken(csp, cert, privKey, body)
 	if err != nil {
 		t.Fatalf("CreatToken failed: %s", err)
@@ -139,10 +148,10 @@ func TestRSACreateToken(t *testing.T) {
 
 func TestCreateTokenDiffKey(t *testing.T) {
 	cert, _ := ioutil.ReadFile(getPath("ec.pem"))
-	privKey, _ := ioutil.ReadFile(getPath("rsa-key.pem"))
+	csp := factory.GetDefault()
+	privKey, _ := csputil.ImportBCCSPKeyFromPEM(getPath("rsa-key.pem"), csp, true)
 	body := []byte("request byte array")
 
-	csp := factory.GetDefault()
 	_, err := CreateToken(csp, cert, privKey, body)
 	if err == nil {
 		t.Fatalf("TestCreateTokenDiffKey passed but should have failed")
@@ -181,17 +190,17 @@ func TestEmptyCert(t *testing.T) {
 	body := []byte("request byte array")
 
 	csp := factory.GetDefault()
-	_, err := CreateToken(csp, cert, []byte(""), body)
+	_, err := CreateToken(csp, cert, nil, body)
 	if err == nil {
 		t.Fatalf("TestEmptyCert passed but should have failed")
 	}
 }
 
 func TestEmptyKey(t *testing.T) {
-	privKey, _ := ioutil.ReadFile(getPath("ec-key.pem"))
+	csp := factory.GetDefault()
+	privKey, _ := csputil.ImportBCCSPKeyFromPEM(getPath("ec-key.pem"), csp, true)
 	body := []byte("request byte array")
 
-	csp := factory.GetDefault()
 	_, err := CreateToken(csp, []byte(""), privKey, body)
 	if err == nil {
 		t.Fatalf("TestEmptyKey passed but should have failed")
@@ -199,10 +208,10 @@ func TestEmptyKey(t *testing.T) {
 }
 
 func TestEmptyBody(t *testing.T) {
-	cert, _ := ioutil.ReadFile(getPath("ec.pem"))
-	privKey, _ := ioutil.ReadFile(getPath("ec-key.pem"))
-
 	csp := factory.GetDefault()
+	privKey, _ := csputil.ImportBCCSPKeyFromPEM(getPath("ec-key.pem"), csp, true)
+	cert, _ := ioutil.ReadFile(getPath("ec.pem"))
+
 	_, err := CreateToken(csp, cert, privKey, []byte(""))
 	if err != nil {
 		t.Fatalf("CreateToken failed: %s", err)

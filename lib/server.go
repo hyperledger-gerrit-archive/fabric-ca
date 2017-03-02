@@ -34,6 +34,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/cloudflare/cfssl/signer/universal"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/csputil"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/spi"
@@ -100,7 +101,16 @@ func (s *Server) Init(renew bool) (err error) {
 		return err
 	}
 
-	MyCSP = factory.GetDefault()
+	s.csp, err = factory.GetBCCSPFromOpts(s.Config.CSP)
+	if err != nil {
+		return err
+	}
+	// TODO: remove global MyCSP
+	MyCSP = s.csp
+
+	universal.PrependLocalSignerToList(func(root *universal.Root, policy *config.Signing) (signer.Signer, bool, error) {
+		return csputil.BccspBackedSigner(root, policy, s.csp)
+	})
 
 	// Initialize key materials
 	err = s.initKeyMaterial(renew)
@@ -182,31 +192,39 @@ func (s *Server) initKeyMaterial(renew bool) error {
 			log.Infof("Certificate file location: %s", certFile)
 			return nil
 		}
+
+		// If key file does not exist, but certFile does, key file is probably
+		// stored by bccsp. Check
+		if certFileExists {
+			_, _, _, err := csputil.GetSignerFromCertFile(certFile, s.csp)
+			if err == nil {
+				log.Info("The CA key and certificate files already exist")
+				log.Infof("Key file location: in %s BCCSP", s.Config.CSP.ProviderName)
+				log.Infof("Certificate file location: %s", certFile)
+				return nil
+			}
+		}
 	}
 
 	// Get the CA cert and key
-	cert, key, err := s.getCACertAndKey()
+	cert, err := s.getCACertAndKey()
 	if err != nil {
 		return fmt.Errorf("Failed to initialize CA: %s", err)
 	}
 
 	// Store the key and certificate to file
-	err = writeFile(keyFile, key, 0600)
-	if err != nil {
-		return fmt.Errorf("Failed to store key: %s", err)
-	}
 	err = writeFile(certFile, cert, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to store certificate: %s", err)
 	}
 	log.Info("The CA key and certificate files were generated")
-	log.Infof("Key file location: %s", keyFile)
+	log.Infof("Key file stored by %s BCCSP", s.Config.CSP.ProviderName)
 	log.Infof("Certificate file location: %s", certFile)
 	return nil
 }
 
 // Get the CA certificate and key for this server
-func (s *Server) getCACertAndKey() (cert, key []byte, err error) {
+func (s *Server) getCACertAndKey() (cert []byte, err error) {
 	log.Debugf("Getting CA cert and key; parent server URL is '%s'", s.ParentServerURL)
 	if s.ParentServerURL != "" {
 		// This is an intermediate CA, so call the parent fabric-ca-server
@@ -228,14 +246,13 @@ func (s *Server) getCACertAndKey() (cert, key []byte, err error) {
 		var id *Identity
 		id, err = clientCfg.Enroll(s.ParentServerURL, s.HomeDir)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 		ecert := id.GetECert()
 		if ecert == nil {
-			return nil, nil, errors.New("No ECert from parent server")
+			return nil, errors.New("No ECert from parent server")
 		}
 		cert = ecert.Cert()
-		key = ecert.Key()
 	} else {
 		// This is a root CA, so call cfssl to get the key and cert.
 		csr := &s.Config.CSR
@@ -248,13 +265,19 @@ func (s *Server) getCACertAndKey() (cert, key []byte, err error) {
 			CA:           csr.CA,
 			SerialNumber: csr.SerialNumber,
 		}
+
+		_, cspSigner, err := csputil.BCCSPKeyRequestGenerate(&req, MyCSP)
+		if err != nil {
+			return nil, errors.New(err.Error())
+		}
+
 		// Call CFSSL to initialize the CA
-		cert, _, key, err = initca.New(&req)
+		cert, _, err = initca.NewFromSigner(&req, cspSigner)
 	}
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	return cert, key, nil
+	return cert, nil
 }
 
 // RegisterBootstrapUser registers the bootstrap user with appropriate privileges
@@ -319,10 +342,30 @@ func (s *Server) initConfig() (err error) {
 	if cfg.Debug {
 		log.Level = log.LevelDebug
 	}
+
+	bccspConfig := cfg.CSP
+	if bccspConfig == nil {
+		bccspConfig = &factory.DefaultOpts
+	}
+
+	if bccspConfig.ProviderName == "SW" {
+		if bccspConfig.SwOpts == nil {
+			bccspConfig.SwOpts = factory.DefaultOpts.SwOpts
+		}
+
+		// Only override the KeyStorePath if it was left empty
+		if bccspConfig.SwOpts.FileKeystore == nil ||
+			bccspConfig.SwOpts.FileKeystore.KeyStorePath == "" {
+			bccspConfig.SwOpts.Ephemeral = false
+			bccspConfig.SwOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: s.HomeDir + "/keystore"}
+		}
+	}
+	cfg.CSP = bccspConfig
+
 	// Init the BCCSP
-	err = factory.InitFactories(s.Config.CSP)
+	err = factory.InitFactories(bccspConfig)
 	if err != nil {
-		panic(fmt.Errorf("Could not initialize BCCSP Factories [%s]", err))
+		return fmt.Errorf("Could not initialize BCCSP Factories [%s]", err)
 	}
 
 	return nil
@@ -706,6 +749,7 @@ func (s *Server) makeFileNamesAbsolute() error {
 	for _, namePtr := range fields {
 		abs, err := util.MakeFileAbs(*namePtr, s.HomeDir)
 		if err != nil {
+			// could this be because of empty keyfile string?
 			return err
 		}
 		*namePtr = abs

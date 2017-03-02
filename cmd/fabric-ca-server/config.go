@@ -104,6 +104,20 @@ ca:
   keyfile: ca-key.pem
 
 #############################################################################
+# BCCSP (Blockchain crypto provider) section alows to select which crypto 
+# implementation library to use
+#############################################################################
+BCCSP:
+    Default: SW
+    SW:
+        Hash: SHA3
+        Security: 256
+        # Location of Key Store. If this is unset, HOME/keystore will be
+        # used
+        FileKeyStore: 
+            KeyStore: 
+
+#############################################################################
 #  The registry section controls how the fabric-ca-server does two things:
 #  1) authenticates enrollment requests which contain a username and password
 #     (also known as an enrollment ID and secret).
