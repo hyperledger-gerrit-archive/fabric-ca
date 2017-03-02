@@ -62,7 +62,6 @@ ca:
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
 type CAConfig struct {
-	CSP          *factory.FactoryOpts
 	CA           CAInfo
 	ParentServer ParentServer
 	Signing      *config.Signing
@@ -71,6 +70,7 @@ type CAConfig struct {
 	Affiliations map[string]interface{}
 	LDAP         ldap.Config
 	DB           CAConfigDB
+	CSP          *factory.FactoryOpts `mapstructure:"bccsp"`
 	Client       *ClientConfig
 }
 
