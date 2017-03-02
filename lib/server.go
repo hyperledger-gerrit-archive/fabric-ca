@@ -47,20 +47,6 @@ import (
 	_ "github.com/mattn/go-sqlite3"    // import to support SQLite3
 )
 
-// FIXME: These variables are temporary and will be removed once
-// the cobra/viper move is complete and we no longer support the fabric command.
-// The correct way is to pass the Server object (and thus ServerConfig)
-// to the endpoint handler constructors, thus using no global variables.
-var (
-	EnrollSigner     signer.Signer
-	UserRegistry     spi.UserRegistry
-	MaxEnrollments   int
-	MyCertDBAccessor *CertDBAccessor
-	CAKeyFile        string
-	CACertFile       string
-	MyCSP            bccsp.BCCSP
-)
-
 // Server is the fabric-ca server
 type Server struct {
 	// The home directory for the server
@@ -101,7 +87,6 @@ func (s *Server) Init(renew bool) (err error) {
 	}
 	// Initialize the Crypto Service Provider
 	s.csp, err = libcsp.Get(s.Config.CSP)
-	MyCSP = s.csp
 	if err != nil {
 		log.Errorf("Failed to get the crypto service provider: %s", err)
 		return err
@@ -139,10 +124,6 @@ func (s *Server) Start() (err error) {
 	if err != nil {
 		return err
 	}
-
-	// TEMP
-	CAKeyFile = s.Config.CA.Keyfile
-	CACertFile = s.Config.CA.Certfile
 
 	// Register http handlers
 	s.registerHandlers()
@@ -337,8 +318,6 @@ func (s *Server) initDB() error {
 	var err error
 	var exists bool
 
-	MaxEnrollments = s.Config.Registry.MaxEnrollments
-
 	if db.Type == "" {
 		db.Type = "sqlite3"
 	}
@@ -377,7 +356,6 @@ func (s *Server) initDB() error {
 
 	// Set the certificate DB accessor
 	s.certDBAccessor = NewCertDBAccessor(s.db)
-	MyCertDBAccessor = s.certDBAccessor
 
 	// Initialize the user registry.
 	// If LDAP is not configured, the fabric-ca server functions as a user
@@ -411,7 +389,6 @@ func (s *Server) initUserRegistry() error {
 	if ldapCfg.Enabled {
 		// Use LDAP for the user registry
 		s.registry, err = ldap.NewClient(ldapCfg)
-		UserRegistry = s.registry
 		log.Debugf("Initialized LDAP user registry; err=%s", err)
 		return err
 	}
@@ -420,7 +397,6 @@ func (s *Server) initUserRegistry() error {
 	dbAccessor := new(Accessor)
 	dbAccessor.SetDB(s.db)
 	s.registry = dbAccessor
-	UserRegistry = s.registry
 	log.Debug("Initialized DB user registry")
 	return nil
 }
@@ -459,7 +435,6 @@ func (s *Server) initEnrollmentSigner() (err error) {
 		ForceRemote: c.Remote != "",
 	}
 	s.enrollSigner, err = universal.NewSigner(root, policy)
-	EnrollSigner = s.enrollSigner
 	if err != nil {
 		return err
 	}
@@ -472,42 +447,35 @@ func (s *Server) initEnrollmentSigner() (err error) {
 // Register all endpoint handlers
 func (s *Server) registerHandlers() {
 	s.mux = http.NewServeMux()
-	s.registerHandlerLog("register", NewRegisterHandler)
-	s.registerHandlerLog("enroll", NewEnrollHandler)
-	s.registerHandlerLog("reenroll", NewReenrollHandler)
-	s.registerHandlerLog("revoke", NewRevokeHandler)
-	s.registerHandlerLog("tcert", NewTCertHandler)
+	s.registerHandler("register", NewRegisterHandler, false, true)
+	s.registerHandler("enroll", NewEnrollHandler, true, false)
+	s.registerHandler("reenroll", NewReenrollHandler, true, false)
+	s.registerHandler("revoke", NewRevokeHandler, true, false)
+	s.registerHandler("tcert", NewTCertHandler, true, false)
 }
 
-// Register an endpoint handler and log success or error
-func (s *Server) registerHandlerLog(
-	path string,
-	getHandler func() (http.Handler, error)) {
-	err := s.registerHandler(path, getHandler)
-	if err != nil {
-		log.Warningf("Endpoint '%s' is disabled: %s", path, err)
-	} else {
-		log.Infof("Endpoint '%s' is enabled", path)
-	}
-}
-
-// Register an endpoint handler and return an error if unsuccessful
+// Register an endpoint handler
 func (s *Server) registerHandler(
 	path string,
-	getHandler func() (http.Handler, error)) (err error) {
+	getHandler func(server *Server) (http.Handler, error),
+	basic bool,
+	token bool) {
 
 	var handler http.Handler
 
-	handler, err = getHandler()
+	handler, err := getHandler(s)
 	if err != nil {
-		return fmt.Errorf("Endpoint '%s' is disabled: %s", path, err)
+		log.Warningf("Endpoint '%s' is disabled: %s", path, err)
+		return
 	}
-	path, handler, err = NewAuthWrapper(path, handler, err)
-	if err != nil {
-		return fmt.Errorf("Endpoint '%s' has been disabled: %s", path, err)
+	handler = &fcaAuthHandler{
+		server: s,
+		basic:  basic,
+		token:  token,
+		next:   handler,
 	}
-	s.mux.Handle(path, handler)
-	return nil
+	s.mux.Handle("/"+path, handler)
+	s.mux.Handle("/api/v1/cfssl/"+path, handler)
 }
 
 // Starting listening and serving
@@ -670,6 +638,11 @@ func (s *Server) addAffiliation(path, parentPath string) error {
 	return s.registry.InsertAffiliation(path, parentPath)
 }
 
+// CertDBAccessor returns the certificate DB accessor for server
+func (s *Server) CertDBAccessor() *CertDBAccessor {
+	return s.certDBAccessor
+}
+
 func (s *Server) convertAttrs(inAttrs map[string]string) []api.Attribute {
 	outAttrs := make([]api.Attribute, 0)
 	for name, value := range inAttrs {
@@ -718,6 +691,43 @@ func (s *Server) makeFileNamesAbsolute() error {
 		*namePtr = abs
 	}
 	return nil
+}
+
+// userHasAttribute returns nil if the user has the attribute, or an
+// appropriate error if the user does not have this attribute.
+func (s *Server) userHasAttribute(username, attrname string) error {
+	val, err := s.getUserAttrValue(username, attrname)
+	if err != nil {
+		return err
+	}
+	if val == "" {
+		return fmt.Errorf("user '%s' does not have attribute '%s'", username, attrname)
+	}
+	return nil
+}
+
+// getUserAttrValue returns a user's value for an attribute
+func (s *Server) getUserAttrValue(username, attrname string) (string, error) {
+	log.Debugf("getUserAttrValue user=%s, attr=%s", username, attrname)
+	user, err := s.registry.GetUser(username, []string{attrname})
+	if err != nil {
+		return "", err
+	}
+	attrval := user.GetAttribute(attrname)
+	log.Debugf("getUserAttrValue user=%s, name=%s, value=%s", username, attrname, attrval)
+	return attrval, nil
+}
+
+// getUserAffiliation returns a user's affiliation
+func (s *Server) getUserAffiliation(username string) (string, error) {
+	log.Debugf("getUserAffilliation user=%s", username)
+	user, err := s.registry.GetUserInfo(username)
+	if err != nil {
+		return "", err
+	}
+	aff := user.Affiliation
+	log.Debugf("getUserAttrValue user=%s, aff=%s, value=%s", username, aff)
+	return aff, nil
 }
 
 func writeFile(file string, buf []byte, perm os.FileMode) error {
