@@ -45,7 +45,7 @@ type ServerConfig struct {
 	Address      string `def:"0.0.0.0" help:"Listening address of fabric-ca-server"`
 	Debug        bool   `def:"false" opt:"d" help:"Enable debug level logging"`
 	TLS          tls.ServerTLSConfig
-	CSP          *factory.FactoryOpts
+	CSP          *factory.FactoryOpts `mapstructure:"bccsp"`
 	CA           ServerConfigCA
 	Signing      *config.Signing
 	CSR          csr.CertificateRequest

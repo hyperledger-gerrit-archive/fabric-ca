@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -238,14 +239,17 @@ csr:
       expiry:
 
 #############################################################################
-#  Crypto section configures the crypto primitives used for all
+# BCCSP (BlockChain Crypto Service Provider) section allows to select which
+# crypto implementation library to use
 #############################################################################
-crypto:
-  software:
-     hash_family: SHA2
-     security_level: 256
-     ephemeral: false
-     key_store_dir: keys
+bccsp:
+    default: SW
+    sw:
+        hash: SHA2
+        security: 256
+        filekeystore:
+            # The directory used for the software file-based keystore
+            keystore: <<<KEYSTOREDIR>>>
 `
 )
 
@@ -346,13 +350,19 @@ func createDefaultConfigFile() error {
 	// Get hostname
 	caName = getCAName(myhost)
 
-	// Do string subtitution to get the default config
+	// Get keystoredir
+	cfgDir := filepath.Dir(cfgFileName)
+	keystoredir := path.Join(cfgDir, "keystore")
+
+	// Do string substitution to get the default config
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
 	cfg = strings.Replace(cfg, "<<<CANAME>>>", caName, 1)
+	cfg = strings.Replace(cfg, "<<<KEYSTOREDIR>>>", keystoredir, 1)
+
 	// Now write the file
-	err = os.MkdirAll(filepath.Dir(cfgFileName), 0755)
+	err = os.MkdirAll(cfgDir, 0755)
 	if err != nil {
 		return err
 	}
