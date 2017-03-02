@@ -81,12 +81,12 @@ const (
 #############################################################################
 
 # URL of the Fabric-ca-server (default: http://localhost:7054)
-URL: <<<URL>>>
+url: <<<URL>>>
 
 # Membership Service Provider (MSP) directory
 # This is useful when the client is used to enroll a peer or orderer, so
 # that the enrollment artifacts are stored in the format expected by MSP.
-MSPDir:
+mspdir:
 
 #############################################################################
 #    TLS section for the client's listenting port
@@ -138,6 +138,20 @@ enrollment:
   hosts:
   profile:
   label:
+
+#############################################################################
+# BCCSP (BlockChain Crypto Service Provider) section allows to select which
+# crypto implementation library to use
+#############################################################################
+bccsp:
+    default: SW
+    sw:
+        hash: SHA2
+        security: 256
+        # Location of Key Store. If this is unset, HOME/keystore will be
+        # used
+        filekeystore:
+            keystore:
 `
 )
 
