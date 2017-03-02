@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -81,12 +82,12 @@ const (
 #############################################################################
 
 # URL of the Fabric-ca-server (default: http://localhost:7054)
-URL: <<<URL>>>
+url: <<<URL>>>
 
 # Membership Service Provider (MSP) directory
 # This is useful when the client is used to enroll a peer or orderer, so
 # that the enrollment artifacts are stored in the format expected by MSP.
-MSPDir:
+mspdir:
 
 #############################################################################
 #    TLS section for the client's listenting port
@@ -138,6 +139,19 @@ enrollment:
   hosts:
   profile:
   label:
+
+#############################################################################
+# BCCSP (BlockChain Crypto Service Provider) section allows to select which
+# crypto implementation library to use
+#############################################################################
+bccsp:
+    default: SW
+    sw:
+        hash: SHA2
+        security: 256
+        filekeystore:
+            # The directory used for the software file-based keystore
+            keystore: <<<KEYSTOREDIR>>>
 `
 )
 
@@ -228,6 +242,9 @@ func createDefaultConfigFile() error {
 
 	myhost := viper.GetString("myhost")
 
+	cfgDir := filepath.Dir(cfgFileName)
+	keystoredir := path.Join(cfgDir, "keystore")
+
 	// Do string subtitution to get the default config
 	cfg = strings.Replace(defaultCfgTemplate, "<<<URL>>>", fabricCAServerURL, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
@@ -236,9 +253,10 @@ func createDefaultConfigFile() error {
 		return err
 	}
 	cfg = strings.Replace(cfg, "<<<ENROLLMENT_ID>>>", user, 1)
+	cfg = strings.Replace(cfg, "<<<KEYSTOREDIR>>>", keystoredir, 1)
 
-	// Now write the file
-	err = os.MkdirAll(filepath.Dir(cfgFileName), 0755)
+	// Create the directory if necessary
+	err = os.MkdirAll(cfgDir, 0755)
 	if err != nil {
 		return err
 	}
