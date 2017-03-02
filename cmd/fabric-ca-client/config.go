@@ -138,6 +138,20 @@ enrollment:
   hosts:
   profile:
   label:
+
+#############################################################################
+# BCCSP (Blockchain crypto provider) section alows to select which crypto 
+# implementation library to use
+#############################################################################
+BCCSP:
+    Default: SW
+    SW:
+        Hash: SHA2
+        Security: 256
+        # Location of Key Store. If this is unset, HOME/keystore will be
+        # used
+        FileKeyStore: 
+            KeyStore: 
 `
 )
 

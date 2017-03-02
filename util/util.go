@@ -177,7 +177,7 @@ func DERCertToPEM(der []byte) []byte {
 // @param cert The pem-encoded certificate
 // @param key The pem-encoded key
 // @param body The body of an HTTP request
-func CreateToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (string, error) {
+func CreateToken(csp bccsp.BCCSP, cert []byte, key bccsp.Key, body []byte) (string, error) {
 
 	block, _ := pem.Decode(cert)
 	if block == nil {
@@ -235,13 +235,7 @@ func GenRSAToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (string,
 */
 
 //GenECDSAToken signs the http body and cert with ECDSA using EC private key
-func GenECDSAToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (string, error) {
-
-	sk, err := GetKeyFromBytes(csp, key)
-	if err != nil {
-		return "", err
-	}
-
+func GenECDSAToken(csp bccsp.BCCSP, cert []byte, key bccsp.Key, body []byte) (string, error) {
 	b64body := B64Encode(body)
 	b64cert := B64Encode(cert)
 	bodyAndcert := b64body + "." + b64cert
@@ -251,8 +245,8 @@ func GenECDSAToken(csp bccsp.BCCSP, cert []byte, key []byte, body []byte) (strin
 		return "", fmt.Errorf("Hash operation on %s\t failed with error : %s", bodyAndcert, digestError)
 	}
 
-	ecSignature, signatureError := csp.Sign(sk, digest, nil)
-	if signatureError != nil {
+	ecSignature, err := csp.Sign(key, digest, nil)
+	if err != nil {
 		return "", fmt.Errorf("BCCSP signature generation failed with error :%s", err)
 	}
 	if len(ecSignature) == 0 {
