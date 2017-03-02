@@ -226,14 +226,18 @@ csr:
       expiry:
 
 #############################################################################
-#  Crypto section configures the crypto primitives used for all
+# BCCSP (BlockChain Crypto Service Provider) section allows to select which
+# crypto implementation library to use
 #############################################################################
-crypto:
-  software:
-     hash_family: SHA2
-     security_level: 256
-     ephemeral: false
-     key_store_dir: keys
+bccsp:
+    default: SW
+    sw:
+        hash: SHA2
+        security: 256
+        # Location of Key Store. If this is unset, HOME/keystore will be
+        # used
+        filekeystore:
+            keystore:
 `
 )
 
