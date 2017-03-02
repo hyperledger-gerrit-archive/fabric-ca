@@ -137,7 +137,11 @@ func startMain(args []string, c cli.Config) error {
 		return errors.New("Failed to start server. No certificate/key file provided. Please specify certificate/key file via CLI or configuration file")
 	}
 
-	lib.MyCSP = factory.GetDefault()
+	lib.MyCSP, err = factory.GetBCCSPFromOpts(CFG.CSP)
+	if err != nil {
+		log.Errorf("Failed to initialize BCCSP %s: %v", err, CFG.CSP)
+		return err
+	}
 
 	// Initialize the user registry
 	err = InitUserRegistry(CFG)
