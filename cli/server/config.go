@@ -173,7 +173,33 @@ func configInit(cfg *cli.Config) {
 	lib.CACertFile = CFG.CAFile
 	lib.CAKeyFile = CFG.CAKeyFile
 
+	if homeDir == "" {
+		homeDir, err = os.Getwd()
+		if err != nil {
+			panic(fmt.Errorf("Failed to initialize server's home directory: %s", err))
+		}
+	}
+
 	// Init the BCCSP
+	bccspConfig := CFG.CSP
+	if bccspConfig == nil {
+		bccspConfig = &factory.DefaultOpts
+	}
+
+	if bccspConfig.ProviderName == "SW" {
+		if bccspConfig.SwOpts == nil {
+			bccspConfig.SwOpts = factory.DefaultOpts.SwOpts
+		}
+
+		// Only override the KeyStorePath if it was left empty
+		if bccspConfig.SwOpts.FileKeystore == nil ||
+			bccspConfig.SwOpts.FileKeystore.KeyStorePath == "" {
+			bccspConfig.SwOpts.Ephemeral = false
+			bccspConfig.SwOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: homeDir + "/keystore"}
+		}
+	}
+	CFG.CSP = bccspConfig
+
 	err = factory.InitFactories(CFG.CSP)
 	if err != nil {
 		panic(fmt.Errorf("Could not initialize BCCSP Factories [%s]", err))

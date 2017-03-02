@@ -36,8 +36,10 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/csputil"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp"
 )
 
 const (
@@ -142,7 +144,7 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*Identity, error) {
 // @param result The result from server
 // @param id Name of identity being enrolled or reenrolled
 // @param key The private key which was used to sign the request
-func (c *Client) newIdentityFromResponse(result interface{}, id string, key []byte) (*Identity, error) {
+func (c *Client) newIdentityFromResponse(result interface{}, id string, key bccsp.Key) (*Identity, error) {
 	log.Debugf("newIdentityFromResponse %s", id)
 	certByte, err := base64.StdEncoding.DecodeString(result.(string))
 	if err != nil {
@@ -152,13 +154,23 @@ func (c *Client) newIdentityFromResponse(result interface{}, id string, key []by
 }
 
 // GenCSR generates a CSR (Certificate Signing Request)
-func (c *Client) GenCSR(req *api.CSRInfo, id string) ([]byte, []byte, error) {
+func (c *Client) GenCSR(req *api.CSRInfo, id string) ([]byte, bccsp.Key, error) {
 	log.Debugf("GenCSR %+v", req)
 
 	cr := c.newCertificateRequest(req)
 	cr.CN = id
 
-	csrPEM, key, err := csr.ParseRequest(cr)
+	if cr.KeyRequest == nil {
+		cr.KeyRequest = csr.NewBasicKeyRequest()
+	}
+
+	key, cspSigner, err := csputil.BCCSPKeyRequestGenerate(cr, MyCSP)
+	if err != nil {
+		log.Debugf("failed generating BCCSP key: %s", err)
+		return nil, nil, err
+	}
+
+	csrPEM, err := csr.Generate(cspSigner, cr)
 	if err != nil {
 		log.Debugf("failed generating CSR: %s", err)
 		return nil, nil, err
@@ -200,11 +212,7 @@ func (c *Client) LoadMyIdentity() (*Identity, error) {
 }
 
 // StoreMyIdentity stores my identity to disk
-func (c *Client) StoreMyIdentity(key, cert []byte) error {
-	err := util.WriteFile(c.GetMyKeyFile(), key, 0600)
-	if err != nil {
-		return err
-	}
+func (c *Client) StoreMyIdentity(cert []byte) error {
 	return util.WriteFile(c.GetMyCertFile(), cert, 0644)
 }
 
@@ -237,19 +245,26 @@ func (c *Client) GetMyEnrollmentDir() string {
 
 // LoadIdentity loads an identity from disk
 func (c *Client) LoadIdentity(keyFile, certFile string) (*Identity, error) {
-	key, err := util.ReadFile(keyFile)
-	if err != nil {
-		return nil, err
-	}
 	cert, err := util.ReadFile(certFile)
 	if err != nil {
+		log.Debugf("No cert found at %s", certFile)
 		return nil, err
 	}
+	key, _, _, err := csputil.GetSignerFromCertFile(certFile, MyCSP)
+	if err != nil {
+		// Fallback: attempt to read out of keyFile and import
+		log.Debugf("No key found in BCCSP keystore, attempting fallback")
+		key, err = csputil.ImportBCCSPKeyFromPEM(keyFile, MyCSP, true)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return c.NewIdentity(key, cert)
 }
 
 // NewIdentity creates a new identity
-func (c *Client) NewIdentity(key, cert []byte) (*Identity, error) {
+func (c *Client) NewIdentity(key bccsp.Key, cert []byte) (*Identity, error) {
 	name, err := util.GetEnrollmentIDFromPEM(cert)
 	if err != nil {
 		return nil, err

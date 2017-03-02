@@ -26,10 +26,9 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
-	"github.com/hyperledger/fabric/bccsp/factory"
 )
 
-func newIdentity(client *Client, name string, key []byte, cert []byte) *Identity {
+func newIdentity(client *Client, name string, key bccsp.Key, cert []byte) *Identity {
 	id := new(Identity)
 	id.name = name
 	id.ecert = newSigner(key, cert, id)
@@ -170,7 +169,7 @@ func (i *Identity) Store() error {
 	if i.client == nil {
 		return fmt.Errorf("An identity with no client may not be stored")
 	}
-	return i.client.StoreMyIdentity(i.ecert.key, i.ecert.cert)
+	return i.client.StoreMyIdentity(i.ecert.cert)
 }
 
 // Post sends arbtrary request body (reqBody) to an endpoint.
@@ -194,7 +193,7 @@ func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	cert := i.ecert.cert
 	key := i.ecert.key
 	if i.CSP == nil {
-		i.CSP = factory.GetDefault()
+		i.CSP = MyCSP
 	}
 	token, err := util.CreateToken(i.CSP, cert, key, body)
 	if err != nil {
