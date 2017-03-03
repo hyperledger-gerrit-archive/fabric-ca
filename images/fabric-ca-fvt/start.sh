@@ -1,6 +1,6 @@
 #!/bin/bash
 su postgres -c 'postgres -D /usr/local/pgsql/data' &
-timeout=10
+timeout=15
 i=0
 while ! nc -zvnt -w 5 127.0.0.1 5432; do
  sleep 1
