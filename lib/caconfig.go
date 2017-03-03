@@ -18,7 +18,7 @@ package lib
 
 import (
 	"github.com/cloudflare/cfssl/config"
-	"github.com/cloudflare/cfssl/csr"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
@@ -71,33 +71,35 @@ type CAConfig struct {
 	CA           CAInfo
 	ParentServer ParentServer
 	Signing      *config.Signing
-	CSR          csr.CertificateRequest
+	CSR          api.CSRInfo
 	Registry     CAConfigRegistry
 	Affiliations map[string]interface{}
 	LDAP         ldap.Config
 	DB           CAConfigDB
 	CSP          *factory.FactoryOpts `mapstructure:"bccsp"`
-	Client       *ClientConfig
+	// Optional client config for an intermediate server which acts as a client
+	// of the root (or parent) server
+	Client *ClientConfig
 }
 
 // CAInfo is the CA information on a fabric-ca-server
 type CAInfo struct {
-	Name      string `opt:"n" help:"Certificate Authority name"`
-	Keyfile   string `def:"ca-key.pem" help:"PEM-encoded CA key file"`
-	Certfile  string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
-	Chainfile string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
+	Name      string `component:"server" opt:"n" help:"Certificate Authority name"`
+	Keyfile   string `component:"server" def:"ca-key.pem" help:"PEM-encoded CA key file"`
+	Certfile  string `component:"server" def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
+	Chainfile string `component:"server" def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
 }
 
 // CAConfigDB is the database part of the server's config
 type CAConfigDB struct {
-	Type       string `def:"sqlite3" help:"Type of database; one of: sqlite3, postgres, mysql"`
-	Datasource string `def:"fabric-ca-server.db" help:"Data source which is database specific"`
+	Type       string `component:"server" def:"sqlite3" help:"Type of database; one of: sqlite3, postgres, mysql"`
+	Datasource string `component:"server" def:"fabric-ca-server.db" help:"Data source which is database specific"`
 	TLS        tls.ClientTLSConfig
 }
 
 // CAConfigRegistry is the registry part of the server's config
 type CAConfigRegistry struct {
-	MaxEnrollments int `def:"0" help:"Maximum number of enrollments; valid if LDAP not enabled"`
+	MaxEnrollments int `component:"server" def:"0" help:"Maximum number of enrollments; valid if LDAP not enabled"`
 	Identities     []CAConfigIdentity
 }
 
@@ -114,8 +116,8 @@ type CAConfigIdentity struct {
 // ParentServer contains URL for the parent server and the name of CA inside
 // the server to connect to
 type ParentServer struct {
-	URL    string `opt:"u" help:"URL of the parent fabric-ca-server (e.g. http://<username>:<password>@<address>:<port)"`
-	CAName string `help:"Name of the CA to connect to on fabric-ca-serve"`
+	URL    string `component:"server" opt:"u" help:"URL of the parent fabric-ca-server (e.g. http://<username>:<password>@<address>:<port)"`
+	CAName string `component:"server" help:"Name of the CA to connect to on fabric-ca-serve"`
 }
 
 func (cc *CAConfigIdentity) String() string {

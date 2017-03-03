@@ -281,6 +281,35 @@ bccsp:
 cacount:
 
 cafiles:
+
+#############################################################################
+# Client config for an intermediate CA which acts as a client
+# of the root (or parent) CA.
+#
+# Enrollment section used to enroll an identity with fabric-ca server
+#    Profile - Name of the signing profile to use in issuing the certificate
+#    Label - Label to use in HSM operations
+#
+# TLS section for secure socket connection
+#   Certfiles - PEM-encoded list of trusted root certificate files
+#   Client:
+#     Certfile - PEM-encoded certificate file for when client authentication
+#     is enabled on server
+#     Keyfile - PEM-encoded key file for when client authentication
+#     is enabled on server
+#############################################################################
+
+client:
+  enrollment:
+    label:
+    profile:
+
+  tls:
+    certfiles:
+      -
+    client:
+      certfile:
+      keyfile:
 `
 )
 
@@ -314,7 +343,6 @@ func configInit() (err error) {
 	}
 
 	// Read the config
-	// viper.SetConfigFile(cfgFileName)
 	viper.AutomaticEnv() // read in environment variables that match
 	err = lib.UnmarshalConfig(serverCfg, viper.GetViper(), cfgFileName, true, true)
 	if err != nil {

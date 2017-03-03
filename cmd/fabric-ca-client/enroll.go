@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
@@ -36,6 +37,21 @@ var enrollCmd = &cobra.Command{
 	Use:   "enroll -u http://user:userpw@serverAddr:serverPort",
 	Short: "Enroll an identity",
 	Long:  "Enroll identity with fabric-ca server",
+	PreRunE: func(cmd *cobra.Command, args []string) error {
+		_, _, err := util.GetUser()
+		if err != nil {
+			return err
+		}
+
+		err = configInit(cmd.Name())
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("Client configuration settings: %+v", clientCfg)
+
+		return nil
+	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
 			cmd.Help()
@@ -53,20 +69,20 @@ var enrollCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(enrollCmd)
+
+	eflags := enrollCmd.Flags()
+	clientCfg = &lib.ClientConfig{}
+
+	err := util.RegisterFlags(eflags, clientCfg, nil, client, enroll)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 // The client enroll main logic
 func runEnroll(cmd *cobra.Command) error {
 	log.Debug("Entered runEnroll")
-	_, _, err := util.GetUser()
-	if err != nil {
-		return err
-	}
-
-	err = configInit(cmd.Name())
-	if err != nil {
-		return err
-	}
 
 	resp, err := clientCfg.Enroll(clientCfg.URL, filepath.Dir(cfgFileName))
 	if err != nil {

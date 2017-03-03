@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
@@ -105,7 +104,7 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 // Reenroll reenrolls an existing Identity and returns a new Identity
 // @param req The reenrollment request
 func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, error) {
-	log.Debugf("Reenrolling %s", req)
+	log.Debugf("Reenrolling %+v", req)
 
 	csrPEM, key, err := i.client.GenCSR(req.CSR, i.GetName())
 	if err != nil {
@@ -117,10 +116,12 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 	}
 
 	// Get the body of the request
-	reqNet.Hosts = signer.SplitHosts(req.Hosts)
-	reqNet.Request = string(csrPEM)
-	reqNet.Profile = req.Profile
-	reqNet.Label = req.Label
+	if req.CSR != nil {
+		reqNet.SignRequest.Hosts = req.CSR.Hosts
+	}
+	reqNet.SignRequest.Request = string(csrPEM)
+	reqNet.SignRequest.Profile = req.Profile
+	reqNet.SignRequest.Label = req.Label
 
 	body, err := util.Marshal(reqNet, "SignRequest")
 	if err != nil {

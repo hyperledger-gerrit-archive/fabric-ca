@@ -19,6 +19,7 @@ package main
 import (
 	"bufio"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/hex"
 	"encoding/pem"
 	"errors"
@@ -29,8 +30,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/cloudflare/cfssl/csr"
+	"github.com/cloudflare/cfssl/config"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
@@ -118,7 +121,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 
 	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-m", myhost})
 	if err == nil {
-		t.Errorf("No username/password provided, should have errored")
+		t.Errorf("No server running, should have errored")
 	}
 
 	fileBytes, err := ioutil.ReadFile(defYaml)
@@ -166,7 +169,7 @@ func TestClientCommandsNoTLS(t *testing.T) {
 
 	err = srv.Start()
 	if err != nil {
-		t.Errorf("Server start failed: %s", err)
+		t.Fatalf("Server start failed: %s", err)
 	}
 
 	testConfigFileTypes(t)
@@ -269,9 +272,28 @@ func testEnroll(t *testing.T) {
 		t.Errorf("No username/password provided, should have errored")
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin:adminpw@localhost:7054"})
+	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin:adminpw@localhost:7054", "--csr.hosts", "testhost1", "--csr.hosts", "testhost2"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
+	}
+
+	// Check if csr.hosts flags successfully got inserted into certificate
+	certfile, err := ioutil.ReadFile(filepath.Join(filepath.Dir(defYaml), "msp", "signcerts", "cert.pem"))
+	if err != nil {
+		t.Error("Error occured reading certificate after reenrollment: ", err)
+	}
+	cert, err := util.GetX509CertificateFromPEM(certfile)
+	if err != nil {
+		t.Error("Error occured parsing certificate: ", err)
+	}
+	extensions := cert.Extensions
+	for _, ext := range extensions {
+		// The OID for Subject Alternative Name, this where hosts are inserted
+		if ext.Id.Equal(asn1.ObjectIdentifier{2, 5, 29, 17}) {
+			if !strings.Contains(string(ext.Value), "testhost2") {
+				t.Error("Failed to insert hosts into certificate from using --csr.hosts command line flag")
+			}
+		}
 	}
 
 	testReenroll(t)
@@ -289,7 +311,7 @@ func testReenroll(t *testing.T) {
 	t.Log("Testing Reenroll CMD")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"})
+	err := RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7054"})
 	if err != nil {
 		t.Errorf("client reenroll --url -f failed: %s", err)
 	}
@@ -417,11 +439,11 @@ func testRevoke(t *testing.T) {
 	// testRegister2's affiliation: company1, revoker's affiliation: company1
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister2", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Errorf("Failed to revoke proper affiliation hierarchy, error: %s", err)
+		t.Errorf("Failed to revoke proper affiliation hierarchy: %s", err)
 	}
 
 	// testRegister4's affiliation: company2, revoker's affiliation: company1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister4", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err == nil {
 		t.Error("Should have failed have different affiliation path")
 	}
@@ -435,8 +457,7 @@ func testRevoke(t *testing.T) {
 	// testRegister4's affiliation: company2, revoker's affiliation: "" (root)
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Errorf("User with root affiliation failed to revoke, error: %s", err)
-
+		t.Errorf("User with root affiliation failed to revoke: %s", err)
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -461,10 +482,10 @@ func testProfiling(t *testing.T) {
 		mProfExpected bool
 		cProfExpected bool
 	}{
-		{"heap", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, true, false},
-		{"cpu", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, false, true},
-		{"", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, false, false},
-		{"xxx", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, false, false},
+		{"heap", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--csr.hosts", "host1,host2"}, true, false},
+		{"cpu", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--csr.hosts", "host1,host2"}, false, true},
+		{"", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--csr.hosts", "host1,host2"}, false, false},
+		{"xxx", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--csr.hosts", "host1,host2"}, false, false},
 	}
 	wd, err := os.Getwd()
 	if err != nil {
@@ -610,9 +631,14 @@ func TestClientCommandsTLS(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-M", "testmspfolder", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	exists := util.FileExists(filepath.Join(testYaml, "testmspfolder"))
+	if !exists {
+		t.Error("Failed to create testmspfolder using -M option during enroll")
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertExpired, "-u", "https://admin:adminpw@localhost:7054", "-d"})
@@ -698,6 +724,7 @@ func TestCleanUp(t *testing.T) {
 	os.Remove("../../testdata/ca-key.pem")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
+	os.RemoveAll("../../testdata/testmspfolder")
 	os.RemoveAll(mspDir)
 	cleanMultiCADir()
 }
@@ -717,8 +744,10 @@ func cleanMultiCADir() {
 }
 
 func TestRegisterWithoutEnroll(t *testing.T) {
+	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+	os.Remove(defYaml) // Clean up any left over config file
 	err := RunMain([]string{cmdName, "register", "-c", testYaml})
-	if err == nil {
+	if err.Error() != "Enrollment information does not exist. Please execute enroll command first. Example: fabric-ca-client enroll -u http://user:userpw@serverAddr:serverPort" {
 		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
 	}
 }
@@ -745,14 +774,22 @@ func getCAConfig() *lib.CAConfig {
 		"org1": nil,
 	}
 
+	d, _ := time.ParseDuration("8000h")
+
 	return &lib.CAConfig{
 		CA: lib.CAInfo{
 			Keyfile:  keyfile,
 			Certfile: certfile,
 		},
 		Affiliations: affiliations,
-		CSR: csr.CertificateRequest{
+		CSR: api.CSRInfo{
 			CN: "TestCN",
+		},
+		Signing: &config.Signing{
+			Default: &config.SigningProfile{
+				Usage:  []string{"cert sign"},
+				Expiry: d,
+			},
 		},
 	}
 }

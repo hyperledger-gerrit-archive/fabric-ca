@@ -23,6 +23,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
 
@@ -58,6 +59,15 @@ var reenrollCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(reenrollCmd)
+
+	eflags := reenrollCmd.Flags()
+	clientCfg = &lib.ClientConfig{}
+
+	err := util.RegisterFlags(eflags, clientCfg, nil, client, reenroll)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 // The client reenroll main logic
@@ -75,9 +85,8 @@ func runReenroll() error {
 	}
 
 	req := &api.ReenrollmentRequest{
-		Hosts:   clientCfg.Enrollment.Hosts,
-		Label:   clientCfg.Enrollment.Label,
-		Profile: clientCfg.Enrollment.Profile,
+		Label:   clientCfg.Reenroll.Label,
+		Profile: clientCfg.Reenroll.Profile,
 		CSR:     &clientCfg.CSR,
 		CAName:  clientCfg.CAName,
 	}
