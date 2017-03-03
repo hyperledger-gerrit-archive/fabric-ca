@@ -48,9 +48,9 @@ const (
 // "opt" - the optional one character short name to use on the command line;
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
-func RegisterFlags(flags *pflag.FlagSet, config interface{}, tags map[string]string) error {
+func RegisterFlags(flags *pflag.FlagSet, config interface{}, tags map[string]string, flag ...string) error {
 	fr := &flagRegistrar{flags: flags, tags: tags}
-	return ParseObj(config, fr.Register)
+	return ParseObj(config, fr.Register, flag...)
 }
 
 type flagRegistrar struct {

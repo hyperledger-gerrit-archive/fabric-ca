@@ -108,7 +108,7 @@ csr:
   cn: <<<ENROLLMENT_ID>>>
   names:
     - C: US
-      ST: "North Carolina"
+      ST: North Carolina
       L:
       O: Hyperledger
       OU: Fabric
@@ -164,7 +164,9 @@ func configInit(command string) error {
 		}
 	}
 
-	if command != "enroll" {
+	clientCfg = &lib.ClientConfig{}
+
+	if command != "enroll" && command != "getcacert" {
 		err = checkForEnrollment()
 		if err != nil {
 			return err
@@ -172,22 +174,24 @@ func configInit(command string) error {
 	}
 
 	// If the config file doesn't exist, create a default one
-	if !util.FileExists(cfgFileName) {
-		err = createDefaultConfigFile()
-		if err != nil {
-			return fmt.Errorf("Failed to create default configuration file: %s", err)
+	if command == "enroll" {
+		if !util.FileExists(cfgFileName) {
+			err = createDefaultConfigFile()
+			if err != nil {
+				return fmt.Errorf("Failed to create default configuration file: %s", err)
+			}
+			log.Infof("Created a default configuration file at %s", cfgFileName)
+		} else {
+			log.Infof("Configuration file location: %s", cfgFileName)
 		}
-		log.Infof("Created a default configuration file at %s", cfgFileName)
-	} else {
-		log.Infof("Configuration file location: %s", cfgFileName)
-	}
 
-	// Call viper to read the config
-	viper.SetConfigFile(cfgFileName)
-	viper.AutomaticEnv() // read in environment variables that match
-	err = viper.ReadInConfig()
-	if err != nil {
-		return fmt.Errorf("Failed to read config file: %s", err)
+		// Call viper to read the config
+		viper.SetConfigFile(cfgFileName)
+		viper.AutomaticEnv() // read in environment variables that match
+		err = viper.ReadInConfig()
+		if err != nil {
+			return fmt.Errorf("Failed to read config file: %s", err)
+		}
 	}
 
 	// Unmarshal the config into 'clientCfg'
