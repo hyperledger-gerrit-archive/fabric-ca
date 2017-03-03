@@ -30,29 +30,29 @@ import (
 
 // ServerTLSConfig defines key material for a TLS server
 type ServerTLSConfig struct {
-	Enabled    bool   `help:"Enable TLS on the listening port"`
-	CertFile   string `def:"ca-cert.pem" help:"PEM-encoded TLS certificate file for server's listening port"`
-	KeyFile    string `def:"ca-key.pem" help:"PEM-encoded TLS key for server's listening port"`
+	Enabled    bool   `component:"server" help:"Enable TLS on the listening port"`
+	CertFile   string `component:"server" def:"ca-cert.pem" help:"PEM-encoded TLS certificate file for server's listening port"`
+	KeyFile    string `component:"server" def:"ca-key.pem" help:"PEM-encoded TLS key for server's listening port"`
 	ClientAuth ClientAuth
 }
 
 // ClientAuth defines the key material needed to verify client certificates
 type ClientAuth struct {
-	Type      string   `def:"noclientcert" help:"Policy the server will follow for TLS Client Authentication."`
-	CertFiles []string `help:"PEM-encoded list of trusted certificate files"`
+	Type      string   `component:"server" def:"noclientcert" help:"Policy the server will follow for TLS Client Authentication."`
+	CertFiles []string `component:"server" help:"PEM-encoded list of trusted certificate files"`
 }
 
 // ClientTLSConfig defines the key material for a TLS client
 type ClientTLSConfig struct {
 	Enabled   bool     `skip:"true"`
-	CertFiles []string `help:"PEM-encoded list of trusted certificate files"`
+	CertFiles []string `component:"client server" help:"PEM-encoded list of trusted certificate files"`
 	Client    KeyCertFiles
 }
 
 // KeyCertFiles defines the files need for client on TLS
 type KeyCertFiles struct {
-	KeyFile  string `help:"PEM-encoded key file when mutual authentication is enabled"`
-	CertFile string `help:"PEM-encoded certificate file when mutual authenticate is enabled"`
+	KeyFile  string `component:"client server" help:"PEM-encoded key file when mutual authentication is enabled"`
+	CertFile string `component:"client server" help:"PEM-encoded certificate file when mutual authenticate is enabled"`
 }
 
 // GetClientTLSConfig creates a tls.Config object from certs and roots

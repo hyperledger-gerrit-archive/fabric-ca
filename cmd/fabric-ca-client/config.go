@@ -136,7 +136,9 @@ enrollment:
   profile:
   label:
 
+#############################################################################
 # Name of the CA to connect to within the fabric-ca server
+#############################################################################
 caname:
 
 #############################################################################
@@ -177,30 +179,36 @@ func configInit(command string) error {
 		}
 	}
 
-	if command != "enroll" {
+	clientCfg = &lib.ClientConfig{}
+
+	if commandRequiresEnrollment(command) {
 		err = checkForEnrollment()
 		if err != nil {
 			return err
 		}
 	}
 
-	// If the config file doesn't exist, create a default one
-	if !util.FileExists(cfgFileName) {
-		err = createDefaultConfigFile()
-		if err != nil {
-			return fmt.Errorf("Failed to create default configuration file: %s", err)
+	// If the config file doesn't exist, create a default one. Only do this for
+	// an enroll command as the configuration file should not be created without
+	// a CN, and the CN comes from the username used to enroll
+	if createDefaultConfig(command) {
+		if !util.FileExists(cfgFileName) {
+			err = createDefaultConfigFile()
+			if err != nil {
+				return fmt.Errorf("Failed to create default configuration file: %s", err)
+			}
+			log.Infof("Created a default configuration file at %s", cfgFileName)
+		} else {
+			log.Infof("Configuration file location: %s", cfgFileName)
 		}
-		log.Infof("Created a default configuration file at %s", cfgFileName)
-	} else {
-		log.Infof("Configuration file location: %s", cfgFileName)
-	}
 
-	// Call viper to read the config
-	viper.SetConfigFile(cfgFileName)
-	viper.AutomaticEnv() // read in environment variables that match
-	err = viper.ReadInConfig()
-	if err != nil {
-		return fmt.Errorf("Failed to read config file: %s", err)
+		// Call viper to read the config
+		viper.SetConfigFile(cfgFileName)
+		viper.AutomaticEnv() // read in environment variables that match
+		err = viper.ReadInConfig()
+		if err != nil {
+			return fmt.Errorf("Failed to read config file: %s", err)
+		}
 	}
 
 	// Unmarshal the config into 'clientCfg'
