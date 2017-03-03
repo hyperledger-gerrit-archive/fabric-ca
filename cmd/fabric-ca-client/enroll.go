@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
@@ -53,6 +54,15 @@ var enrollCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(enrollCmd)
+
+	eflags := enrollCmd.Flags()
+	clientCfg = &lib.ClientConfig{}
+
+	err := util.RegisterFlags(eflags, clientCfg, nil, client, enroll)
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 // The client enroll main logic
