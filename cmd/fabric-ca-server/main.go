@@ -61,17 +61,20 @@ func init() {
 
 	// Register flags for all tagged and exported fields in the config
 	serverCfg = &lib.ServerConfig{}
-	tags := map[string]string{
-		"help.csr.cn":           "The common name field of the certificate signing request to a parent fabric-ca-server",
-		"help.csr.serialnumber": "The serial number in a certificate signing request to a parent fabric-ca-server",
-		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request to a parent fabric-ca-server",
-	}
-	err := util.RegisterFlags(pflags, serverCfg, nil)
+	err := util.RegisterFlags(pflags, serverCfg, nil, "server", "")
 	if err != nil {
 		panic(err)
 	}
+	// Skipping CSR related tags inside enrollment request for an intermediate
+	// CA. These options will be pulled from the main CSR section in the server
+	// configuration.
+	tags := map[string]string{
+		"skip.intermediate.enrollment.csr.cn":           "true",
+		"skip.intermediate.enrollment.csr.serialnumber": "true",
+		"skip.intermediate.enrollment.csr.hosts":        "true",
+	}
 	caCfg := &lib.CAConfig{}
-	err = util.RegisterFlags(pflags, caCfg, tags)
+	err = util.RegisterFlags(pflags, caCfg, tags, "server", "")
 	if err != nil {
 		panic(err)
 	}

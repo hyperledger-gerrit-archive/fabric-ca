@@ -529,7 +529,7 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 	}
 
 	intermediatesrv := getServer(intermediatePort, testdataDir, "", 0, t)
-	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml", "ca/intermediateca/ca2/fabric-ca-server-config.yaml"}
+	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml"}
 	intermediatesrv.CA.Config.CSR.Hosts = []string{"hostname"}
 
 	// Start it
@@ -839,8 +839,10 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 		},
 		CA: CA{
 			Config: &CAConfig{
-				ParentServer: ParentServer{
-					URL: parentURL,
+				Intermediate: IntermediateCA{
+					ParentServer: ParentServer{
+						URL: parentURL,
+					},
 				},
 				Affiliations: affiliations,
 				Registry: CAConfigRegistry{

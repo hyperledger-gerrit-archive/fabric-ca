@@ -22,7 +22,6 @@ import (
 	"net/http"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
@@ -117,10 +116,9 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 	}
 
 	// Get the body of the request
-	reqNet.Hosts = signer.SplitHosts(req.Hosts)
-	reqNet.Request = string(csrPEM)
-	reqNet.Profile = req.Profile
-	reqNet.Label = req.Label
+	reqNet.SignRequest.Request = string(csrPEM)
+	reqNet.SignRequest.Profile = req.Profile
+	reqNet.SignRequest.Label = req.Label
 
 	body, err := util.Marshal(reqNet, "SignRequest")
 	if err != nil {

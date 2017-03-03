@@ -26,26 +26,26 @@ import (
 // RegistrationRequest for a new identity
 type RegistrationRequest struct {
 	// Name is the unique name of the identity
-	Name string `json:"id" help:"Unique name of the identity"`
+	Name string `json:"id" component:"client" command:"register" help:"Unique name of the identity"`
 	// Type of identity being registered (e.g. "peer, app, user")
-	Type string `json:"type" help:"Type of identity being registered (e.g. 'peer, app, user')"`
+	Type string `json:"type" component:"client" command:"register" help:"Type of identity being registered (e.g. 'peer, app, user')"`
 	// Secret is an optional password.  If not specified,
 	// a random secret is generated.  In both cases, the secret
 	// is returned in the RegistrationResponse.
-	Secret string `json:"secret,omitempty" help:"The enrollment secret for the identity being registered"`
+	Secret string `json:"secret,omitempty" component:"client" command:"register" help:"The enrollment secret for the identity being registered"`
 	// MaxEnrollments is the maximum number of times the secret can
 	// be reused to enroll.
-	MaxEnrollments int `json:"max_enrollments,omitempty" help:"The maximum number of times the secret can be reused to enroll."`
+	MaxEnrollments int `json:"max_enrollments,omitempty" component:"client" command:"register" help:"The maximum number of times the secret can be reused to enroll."`
 	// is returned in the response.
 	// The identity's affiliation.
 	// For example, an affiliation of "org1.department1" associates the identity with "department1" in "org1".
-	Affiliation string `json:"affiliation" help:"The identity's affiliation"`
+	Affiliation string `json:"affiliation" component:"client" command:"register" help:"The identity's affiliation"`
 	// Attr is used to support a single attribute provided through the fabric-ca-client CLI
-	Attr string `help:"Attributes associated with this identity (e.g. hf.Revoker=true)"`
+	Attr string `component:"client" command:"register" help:"Attributes associated with this identity (e.g. hf.Revoker=true)"`
 	// Attributes associated with this identity
 	Attributes []Attribute `json:"attrs,omitempty"`
 	// CAName is the name of the CA to connect to
-	CAName string `json:"caname,omitempty" skip:"true"`
+	CAName string `skip:"true"`
 }
 
 // RegistrationResponse is a registration response
@@ -60,23 +60,19 @@ type EnrollmentRequest struct {
 	Name string `json:"name" skip:"true"`
 	// The secret returned via Register
 	Secret string `json:"secret,omitempty" skip:"true"`
-	// Hosts is a comma-separated host list in the CSR
-	Hosts string `json:"hosts,omitempty" help:"Comma-separated host list"`
 	// Profile is the name of the signing profile to use in issuing the certificate
-	Profile string `json:"profile,omitempty" help:"Name of the signing profile to use in issuing the certificate"`
+	Profile string `json:"profile,omitempty" component:"client server" command:"enroll reenroll" help:"Name of the signing profile to use in issuing the certificate"`
 	// Label is the label to use in HSM operations
-	Label string `json:"label,omitempty" help:"Label to use in HSM operations"`
+	Label string `json:"label,omitempty" component:"client server" command:"enroll reenroll" help:"Label to use in HSM operations"`
 	// CSR is Certificate Signing Request info
-	CSR *CSRInfo `json:"csr,omitempty" help:"Certificate Signing Request info"`
+	CSR *CSRInfo `json:"csr,omitempty" component:"client server" command:"enroll reenroll" help:"Certificate Signing Request info"`
 	// CAName is the name of the CA to connect to
-	CAName string `json:"caname,omitempty" skip:"true"`
+	CAName string `skip:"true"`
 }
 
 // ReenrollmentRequest is a request to reenroll an identity.
 // This is useful to renew a certificate before it has expired.
 type ReenrollmentRequest struct {
-	// Hosts is a comma-separated host list in the CSR
-	Hosts string `json:"hosts,omitempty"`
 	// Profile is the name of the signing profile to use in issuing the certificate
 	Profile string `json:"profile,omitempty"`
 	// Label is the label to use in HSM operations
@@ -84,7 +80,7 @@ type ReenrollmentRequest struct {
 	// CSR is Certificate Signing Request info
 	CSR *CSRInfo `json:"csr,omitempty"`
 	// CAName is the name of the CA to connect to
-	CAName string `json:"caname,omitempty" skip:"true"`
+	CAName string `skip:"true"`
 }
 
 // RevocationRequest is a revocation request for a single certificate or all certificates
@@ -96,17 +92,17 @@ type ReenrollmentRequest struct {
 type RevocationRequest struct {
 	// Name of the identity whose certificates should be revoked
 	// If this field is omitted, then Serial and AKI must be specified.
-	Name string `json:"id,omitempty" opt:"e" help:"Identity whose certificates should be revoked"`
+	Name string `json:"id,omitempty" opt:"e" component:"client" command:"revoke" help:"Identity whose certificates should be revoked"`
 	// Serial number of the certificate to be revoked
 	// If this is omitted, then Name must be specified
-	Serial string `json:"serial,omitempty" opt:"s" help:"Serial number of the certificate to be revoked"`
+	Serial string `json:"serial,omitempty" opt:"s" component:"client" command:"revoke" help:"Serial number of the certificate to be revoked"`
 	// AKI (Authority Key Identifier) of the certificate to be revoked
-	AKI string `json:"aki,omitempty" opt:"a" help:"AKI (Authority Key Identifier) of the certificate to be revoked"`
+	AKI string `json:"aki,omitempty" opt:"a" component:"client" command:"revoke" help:"AKI (Authority Key Identifier) of the certificate to be revoked"`
 	// Reason is the reason for revocation.  See https://godoc.org/golang.org/x/crypto/ocsp for
 	// valid values.  The default value is 0 (ocsp.Unspecified).
-	Reason string `json:"reason,omitempty" opt:"r" help:"Reason for revocation"`
+	Reason string `json:"reason,omitempty" opt:"r" component:"client" command:"revoke" help:"Reason for revocation"`
 	// CAName is the name of the CA to connect to
-	CAName string `json:"caname,omitempty" skip:"true"`
+	CAName string `skip:"true"`
 }
 
 // GetTCertBatchRequest is input provided to identity.GetTCertBatch
@@ -129,7 +125,7 @@ type GetTCertBatchRequest struct {
 	// HSM which does not support the TCert's key derivation function.
 	DisableKeyDerivation bool `json:"disable_kdf,omitempty"`
 	// CAName is the name of the CA to connect to
-	CAName string `json:"caname,omitempty" skip:"true"`
+	CAName string `skip:"true"`
 }
 
 // GetTCertBatchResponse is the return value of identity.GetTCertBatch
@@ -139,17 +135,17 @@ type GetTCertBatchResponse struct {
 
 // GetCAInfoRequest is request to get generic CA information
 type GetCAInfoRequest struct {
-	CAName string `json:"caname,omitempty" skip:"true"`
+	CAName string `skip:"true"`
 }
 
 // CSRInfo is Certificate Signing Request information
 type CSRInfo struct {
-	CN           string               `json:"CN"`
+	CN           string               `json:"CN" component:"client server" command:"enroll reenroll" help:"The common name field of the certificate signing request to a parent fabric-ca-server"`
 	Names        []csr.Name           `json:"names,omitempty"`
-	Hosts        []string             `json:"hosts,omitempty"`
+	Hosts        []string             `json:"hosts,omitempty" component:"client server" command:"enroll reenroll" help:"A list of space-separated host names in a certificate signing request to a parent fabric-ca-server"`
 	KeyRequest   *csr.BasicKeyRequest `json:"key,omitempty"`
 	CA           *csr.CAConfig        `json:"ca,omitempty"`
-	SerialNumber string               `json:"serial_number,omitempty"`
+	SerialNumber string               `json:"serial_number,omitempty" component:"client server" command:"enroll reenroll" help:"The serial number in a certificate signing request to a parent fabric-ca-server" `
 }
 
 // Attribute is a name and value pair

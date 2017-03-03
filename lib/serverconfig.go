@@ -35,22 +35,19 @@ const (
 // "skip" - to skip the field.
 type ServerConfig struct {
 	// Listening port for the server
-	Port int `def:"7054" opt:"p" help:"Listening port of fabric-ca-server"`
+	Port int `component:"server" def:"7054" opt:"p" help:"Listening port of fabric-ca-server"`
 	// Bind address for the server
-	Address string `def:"0.0.0.0" help:"Listening address of fabric-ca-server"`
+	Address string `component:"server" def:"0.0.0.0" help:"Listening address of fabric-ca-server"`
 	// Enables debug logging
-	Debug bool `def:"false" opt:"d" help:"Enable debug level logging"`
+	Debug bool `component:"server" def:"false" opt:"d" help:"Enable debug level logging"`
 	// TLS for the server's listening endpoint
 	TLS tls.ServerTLSConfig
-	// Optional client config for an intermediate server which acts as a client
-	// of the root (or parent) server
-	Client *ClientConfig
 	// CACfg is the default CA's config
 	CAcfg CAConfig `skip:"true"`
 	// The names of the CA configuration files
 	// This is empty unless there are non-default CAs served by this server
-	CAfiles []string `help:"CA configuration files"`
+	CAfiles []string `component:"server" help:"CA configuration files"`
 	// The number of non-default CAs, which is useful for a dev environment to
 	// quickly start any number of CAs in a single server
-	CAcount int `def:"0" help:"Number of non-default CA instances"`
+	CAcount int `component:"server" def:"0" help:"Number of non-default CA instances"`
 }
