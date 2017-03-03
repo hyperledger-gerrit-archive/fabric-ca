@@ -21,7 +21,7 @@ RUN dpkg-reconfigure locales && update-locale LANG=en_US.UTF-8
 # Install more test depedencies
 RUN echo "mysql-server mysql-server/root_password password mysql" | debconf-set-selections
 RUN echo "mysql-server mysql-server/root_password_again password mysql" | debconf-set-selections
-RUN apt-get -y install lsof haproxy postgresql-$PGVER postgresql-client-common \
+RUN apt-get -y install lsof sqlite3 haproxy postgresql-$PGVER postgresql-client-common \
                        isag jq git html2text debconf-utils zsh htop python2.7-minimal \
                        mysql-client  mysql-common mysql-server
 RUN apt-get -y autoremove
@@ -30,7 +30,7 @@ RUN apt-get -y autoremove
 RUN echo $PGUSER:$PGUSER | chpasswd
 RUN mkdir -p $PGDATA && chown postgres:postgres $PGDATA
 RUN su $PGUSER -c "/usr/lib/postgresql/$PGVER/bin/initdb -D $PGDATA"
-RUN su $PGUSER -c "/usr/lib/postgresql/$PGVER/bin/pg_ctl start -D $PGDATA" && sleep 10 && psql -U postgres -h localhost -c "ALTER USER $PGUSER WITH PASSWORD '$PGPASSWORD';"
+RUN su $PGUSER -c "/usr/lib/postgresql/$PGVER/bin/pg_ctl start -D $PGDATA" && psql -U postgres -h localhost -c "ALTER USER $PGUSER WITH PASSWORD '$PGPASSWORD';" && su postgres -c '/usr/lib/postgresql/$PGVER/bin/pg_ctl stop'
 RUN echo "host all  all    0.0.0.0/0  trust" >> ${PGDATA}/pg_hba.conf
 RUN echo "listen_addresses='*'" >> ${PGDATA}/postgresql.conf
 
