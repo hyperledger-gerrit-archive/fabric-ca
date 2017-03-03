@@ -88,6 +88,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	certDBAccessor := h.server.certDBAccessor
 	registry := h.server.registry
+	reason := util.RevocationReasonCodes[req.Reason]
 
 	if req.Serial != "" && req.AKI != "" {
 		certificate, err := certDBAccessor.GetCertificateWithID(req.Serial, req.AKI)
@@ -116,7 +117,8 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 			return authErr(w, err2)
 		}
 
-		err = certDBAccessor.RevokeCertificate(req.Serial, req.AKI, req.Reason)
+		err = certDBAccessor.RevokeCertificate(req.Serial, req.AKI, reason)
+
 		if err != nil {
 			msg := fmt.Sprintf("Failed to revoke certificate: %s", err)
 			log.Error(msg)
@@ -155,7 +157,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		var recs []CertRecord
-		recs, err = certDBAccessor.RevokeCertificatesByID(req.Name, req.Reason)
+		recs, err = certDBAccessor.RevokeCertificatesByID(req.Name, reason)
 		if err != nil {
 			log.Warningf("No certificates were revoked for '%s' but the ID was disabled: %s", req.Name, err)
 			return dbErr(w, err)

@@ -22,6 +22,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
 
@@ -57,6 +58,15 @@ var registerCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(registerCmd)
+
+	rflags := registerCmd.Flags()
+	clientCfg = &lib.ClientConfig{}
+
+	err := util.RegisterFlags(rflags, clientCfg, nil, "id")
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 // The client register main logic

@@ -118,7 +118,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 
 	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-m", myhost})
 	if err == nil {
-		t.Errorf("No username/password provided, should have errored")
+		t.Errorf("No server running, should have errored")
 	}
 
 	fileBytes, err := ioutil.ReadFile(defYaml)
@@ -378,23 +378,23 @@ func testRevoke(t *testing.T) {
 	}
 
 	// Revoker's affiliation: hyperledger.org1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "nonexistinguser"})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "nonexistinguser"})
 	if err == nil {
 		t.Errorf("Non existing user being revoked, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", serial})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "", "--revoke.serial", serial})
 	if err == nil {
 		t.Errorf("Only serial specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", "", "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "", "--revoke.serial", "", "--revoke.aki", aki})
 	if err == nil {
 		t.Errorf("Only aki specified, should have failed")
 	}
 
 	// revoker's affiliation: company1, revoking affiliation: ""
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.serial", serial, "--revoke.aki", aki})
 	if err == nil {
 		t.Errorf("Should have failed, admin2 cannot revoke root affiliation")
 	}
@@ -408,19 +408,19 @@ func testRevoke(t *testing.T) {
 	}
 
 	// Revoked user's affiliation: hyperledger.org3
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister3", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister3", "--revoke.serial", "", "--revoke.aki", ""})
 	if err == nil {
 		t.Errorf("Should have failed, admin2 does not have authority revoke")
 	}
 
 	// testRegister2's affiliation: company1, revoker's affiliation: company1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister2", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister2", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Errorf("Failed to revoke proper affiliation hierarchy")
+		t.Errorf("Failed to revoke proper affiliation hierarchy: %s", err)
 	}
 
 	// testRegister4's affiliation: company2, revoker's affiliation: company1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister4", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err == nil {
 		t.Errorf("Should have failed have different affiliation path")
 	}
@@ -432,9 +432,9 @@ func testRevoke(t *testing.T) {
 	}
 
 	// testRegister4's affiliation: company2, revoker's affiliation: "" (root)
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister4", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Errorf("User with root affiliation failed to revoke")
+		t.Errorf("User with root affiliation failed to revoke: %s", err)
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -559,9 +559,14 @@ func TestClientCommandsTLS(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-M", "testmspfolder", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	exists := util.FileExists(filepath.Join(testYaml, "testmspfolder"))
+	if !exists {
+		t.Error("Failed to create testmspfolder using -M option during enroll")
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertExpired, "-u", "https://admin:adminpw@localhost:7054", "-d"})
@@ -580,12 +585,15 @@ func TestCleanUp(t *testing.T) {
 	os.Remove("../../testdata/key.pem")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
+	os.RemoveAll("../../testdata/testmspfolder")
 	os.RemoveAll(mspDir)
 }
 
 func TestRegisterWithoutEnroll(t *testing.T) {
+	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+	os.Remove(defYaml) // Clean up any left over config file
 	err := RunMain([]string{cmdName, "register", "-c", testYaml})
-	if err == nil {
+	if err.Error() != "Enrollment information does not exist. Please execute enroll command first. Example: fabric-ca-client enroll -u http://user:userpw@serverAddr:serverPort" {
 		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
 	}
 }
