@@ -23,6 +23,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
 
@@ -60,6 +61,15 @@ var revokeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(revokeCmd)
+
+	revokeFlags := revokeCmd.Flags()
+	clientCfg = &lib.ClientConfig{}
+
+	err := util.RegisterFlags(revokeFlags, clientCfg, nil, "client", "revoke")
+	if err != nil {
+		panic(err)
+	}
+
 }
 
 // The client revoke main logic

@@ -61,17 +61,12 @@ func init() {
 
 	// Register flags for all tagged and exported fields in the config
 	serverCfg = &lib.ServerConfig{}
-	tags := map[string]string{
-		"help.csr.cn":           "The common name field of the certificate signing request to a parent fabric-ca-server",
-		"help.csr.serialnumber": "The serial number in a certificate signing request to a parent fabric-ca-server",
-		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request to a parent fabric-ca-server",
-	}
-	err := util.RegisterFlags(pflags, serverCfg, nil)
+	err := util.RegisterFlags(pflags, serverCfg, nil, "server", "")
 	if err != nil {
 		panic(err)
 	}
 	caCfg := &lib.CAConfig{}
-	err = util.RegisterFlags(pflags, caCfg, tags)
+	err = util.RegisterFlags(pflags, caCfg, nil, "server", "")
 	if err != nil {
 		panic(err)
 	}
