@@ -209,9 +209,6 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		// This is an intermediate CA, so call the parent fabric-ca-server
 		// to get the cert
 		clientCfg := ca.Config.Client
-		if clientCfg == nil {
-			clientCfg = &ClientConfig{}
-		}
 		if clientCfg.Enrollment.Profile == "" {
 			clientCfg.Enrollment.Profile = "ca"
 		}

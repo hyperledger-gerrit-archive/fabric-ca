@@ -89,7 +89,7 @@ func init() {
 		"help.csr.serialnumber": "The serial number in a certificate signing request",
 		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request",
 	}
-	err = util.RegisterFlags(pflags, clientCfg, tags)
+	err = util.RegisterFlags(pflags, clientCfg, tags, "client", "")
 	if err != nil {
 		panic(err)
 	}

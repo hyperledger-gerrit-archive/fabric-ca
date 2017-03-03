@@ -102,6 +102,8 @@ func UnmarshalConfig(config interface{}, vp *viper.Viper, caFile string, server,
 			"ldap.tls.certfiles",
 			"db.tls.certfiles",
 			"cafiles",
+			"client.tls.certfiles",
+			"client.csr.hosts",
 		}
 		err = util.ViperUnmarshal(config, sliceFields, vp)
 		if err != nil {
