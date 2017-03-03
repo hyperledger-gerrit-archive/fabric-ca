@@ -281,6 +281,47 @@ bccsp:
 cacount:
 
 cafiles:
+
+#############################################################################
+# Client config for an intermediate CA which acts as a client
+# of the root (or parent) CA.
+#
+# Certificate Signing Request section for generating the CSR for
+# an enrollment certificate (ECert)
+#
+# Enrollment section used to enroll an identity with fabric-ca server
+#
+# TLS section for secure socket connection
+#
+#############################################################################
+
+client:
+  csr:
+    cn: <<<ENROLLMENT_ID>>>
+    names:
+      - C: US
+        ST: North Carolina
+        L:
+        O: Hyperledger
+        OU: Fabric
+    hosts:
+      - <<<MYHOST>>>
+    ca:
+      pathlen:
+      pathlenzero:
+      expiry:
+
+  enrollment:
+    hosts:
+    label:
+    profile:
+
+  tls:
+    certfiles:
+      -
+    client:
+      certfile:
+      keyfile:
 `
 )
 

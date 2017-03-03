@@ -26,16 +26,16 @@ import (
 
 // ClientConfig is the fabric-ca client's config
 type ClientConfig struct {
-	Debug      bool   `def:"false" opt:"d" help:"Enable debug level logging"`
-	URL        string `def:"http://localhost:7054" opt:"u" help:"URL of fabric-ca-server"`
-	MSPDir     string `def:"msp" opt:"M" help:"Membership Service Provider directory"`
+	Debug      bool   `def:"false" component:"client" opt:"d" help:"Enable debug level logging"`
+	URL        string `def:"http://localhost:7054" component:"client" opt:"u" help:"URL of fabric-ca-server"`
+	MSPDir     string `def:"msp" opt:"M" component:"client" help:"Membership Service Provider directory"`
 	TLS        tls.ClientTLSConfig
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
 	Revoke     api.RevocationRequest
 	CAInfo     api.GetCAInfoRequest
-	CAName     string               `help:"Name of CA"`
+	CAName     string               `component:"client" help:"Name of CA"`
 	CSP        *factory.FactoryOpts `mapstructure:"bccsp"`
 }
 
