@@ -90,15 +90,15 @@ type ReenrollmentRequest struct {
 type RevocationRequest struct {
 	// Name of the identity whose certificates should be revoked
 	// If this field is omitted, then Serial and AKI must be specified.
-	Name string `json:"id,omitempty"`
+	Name string `json:"id,omitempty" help:"Identity whose certificates should be revoked"`
 	// Serial number of the certificate to be revoked
 	// If this is omitted, then Name must be specified
-	Serial string `json:"serial,omitempty"`
+	Serial string `json:"serial,omitempty" help:"Serial number of the certificate to be revoked"`
 	// AKI (Authority Key Identifier) of the certificate to be revoked
-	AKI string `json:"aki,omitempty"`
+	AKI string `json:"aki,omitempty" help:"AKI (Authority Key Identifier) of the certificate to be revoked"`
 	// Reason is the reason for revocation.  See https://godoc.org/golang.org/x/crypto/ocsp for
 	// valid values.  The default value is 0 (ocsp.Unspecified).
-	Reason int `json:"reason,omitempty"`
+	Reason string `json:"reason,omitempty" help:"Reason is the reason for revocation"`
 }
 
 // GetTCertBatchRequest is input provided to identity.GetTCertBatch
