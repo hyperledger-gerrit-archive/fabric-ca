@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/spf13/pflag"
@@ -48,14 +49,15 @@ const (
 // "opt" - the optional one character short name to use on the command line;
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
-func RegisterFlags(flags *pflag.FlagSet, config interface{}, tags map[string]string) error {
-	fr := &flagRegistrar{flags: flags, tags: tags}
+func RegisterFlags(flags *pflag.FlagSet, config interface{}, tags map[string]string, flagsToRegister ...string) error {
+	fr := &flagRegistrar{flags: flags, tags: tags, flagsToRegsiter: flagsToRegister}
 	return ParseObj(config, fr.Register)
 }
 
 type flagRegistrar struct {
-	flags *pflag.FlagSet
-	tags  map[string]string
+	flags           *pflag.FlagSet
+	tags            map[string]string
+	flagsToRegsiter []string
 }
 
 func (fr *flagRegistrar) Register(f *Field) (err error) {
@@ -71,9 +73,35 @@ func (fr *flagRegistrar) Register(f *Field) (err error) {
 	if skip != "" {
 		return nil
 	}
+
+	if len(fr.flagsToRegsiter) != 0 {
+		for _, flag := range fr.flagsToRegsiter {
+			if strings.Contains(strings.ToLower(f.Path)+".", strings.ToLower(flag)+".") {
+				err = fr.register(f)
+				if err != nil {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}
+
+	err = fr.register(f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (fr *flagRegistrar) register(f *Field) error {
+	var err error
+
 	help := fr.getTag(f, TagHelp)
 	opt := fr.getTag(f, TagOpt)
 	def := fr.getTag(f, TagDefault)
+
 	switch f.Kind {
 	case reflect.String:
 		if help == "" {
