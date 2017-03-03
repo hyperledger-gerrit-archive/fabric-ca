@@ -224,7 +224,7 @@ csr:
    cn: fabric-ca-server
    names:
       - C: US
-        ST: "North Carolina"
+        ST: North Carolina
         L:
         O: Hyperledger
         OU: Fabric
