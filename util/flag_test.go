@@ -28,28 +28,29 @@ import (
 
 // A test struct
 type A struct {
-	ASlice     []string          `help:"Slice description"`
-	AStr       string            `def:"defval" help:"Str1 description"`
-	AInt       int               `def:"10" help:"Int1 description"`
-	AB         B                 `help:"FB description"`
+	ASlice     []string          `component:"server" help:"Slice description"`
+	AStr       string            `component:"server" def:"defval" help:"Str1 description"`
+	AInt       int               `component:"server" def:"10" help:"Int1 description"`
+	AB         B                 `component:"server" help:"FB description"`
 	AStr2      string            `skip:"true"`
-	AIntArray  []int             `help:"IntArray description"`
+	AIntArray  []int             `component:"server" help:"IntArray description"`
 	AMap       map[string]string `skip:"true"`
-	ABPtr      *B                `help:"FBP description"`
+	ABPtr      *B                `component:"server" help:"FBP description"`
 	AInterface interface{}       `skip:"true"`
 }
 
 // B test struct
 type B struct {
-	BStr  string `help:"Str description"`
+	BStr  string `component:"server" help:"Str description"`
 	BInt  int    `skip:"true"`
+	BBool bool   `component:"server" def:"true" help:"Bool description"`
 	BCPtr *C
 }
 
 // C test struct
 type C struct {
-	CBool bool   `def:"true" help:"Bool description"`
-	CStr  string `help:"Str description"`
+	CBool bool   `component:"server" def:"true" help:"Bool description"`
+	CStr  string `component:"server" help:"Str description"`
 }
 
 func printit(f *Field) error {
@@ -61,7 +62,7 @@ func TestRegisterFlags(t *testing.T) {
 	tags := map[string]string{
 		"help.fb.int": "This is an int field",
 	}
-	err := RegisterFlags(&pflag.FlagSet{}, &A{}, tags)
+	err := RegisterFlags(&pflag.FlagSet{}, &A{}, tags, "server", "")
 	if err != nil {
 		t.Errorf("Failed to register flags: %s", err)
 	}

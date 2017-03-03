@@ -31,6 +31,8 @@ import (
 )
 
 const (
+	client = "client"
+	server = "server"
 	// TagDefault is the tag name for a default value of a field as recognized
 	// by RegisterFlags.
 	TagDefault = "def"
@@ -44,6 +46,12 @@ const (
 	// TagSkip is the tag name which causes the field to be skipped by
 	// RegisterFlags.
 	TagSkip = "skip"
+	// TagComponent is the tag name to identitfy which component should have
+	// flags registered for.
+	TagComponent = "component"
+	// TagCommand is the tag name for the specific commands for a component to
+	// register flags for.
+	TagCommand = "command"
 )
 
 // RegisterFlags registers flags for all fields in an arbitrary 'config' object.
@@ -52,14 +60,16 @@ const (
 // "opt" - the optional one character short name to use on the command line;
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
-func RegisterFlags(flags *pflag.FlagSet, config interface{}, tags map[string]string) error {
-	fr := &flagRegistrar{flags: flags, tags: tags}
+func RegisterFlags(flags *pflag.FlagSet, config interface{}, tags map[string]string, component string, command string) error {
+	fr := &flagRegistrar{flags: flags, tags: tags, component: component, command: command}
 	return ParseObj(config, fr.Register)
 }
 
 type flagRegistrar struct {
-	flags *pflag.FlagSet
-	tags  map[string]string
+	flags     *pflag.FlagSet
+	tags      map[string]string
+	component string
+	command   string
 }
 
 func (fr *flagRegistrar) Register(f *Field) (err error) {
@@ -71,13 +81,68 @@ func (fr *flagRegistrar) Register(f *Field) (err error) {
 	if f.Addr == nil {
 		return fmt.Errorf("Field is not addressable: %s", f.Path)
 	}
-	skip := fr.getTag(f, TagSkip)
-	if skip != "" {
+
+	// Check to see if the flag should be registerd
+	if !fr.shouldRegister(f) {
 		return nil
 	}
+
+	// Register the flag and bind with viper
+	err = fr.register(f)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Check to see if the flag should be registerd
+func (fr *flagRegistrar) shouldRegister(f *Field) bool {
+	component := fr.getTag(f, TagComponent)
+	command := fr.getTag(f, TagCommand)
+
+	// Flag with no component specified should not be registered
+	if component == "" {
+		return false
+	}
+
+	componentList := strings.Split(component, " ")
+
+	for _, comp := range componentList {
+		if comp == fr.component {
+			// Server currently only has global level flags, if field has tag to
+			// register with server and no specific command has been specified
+			// for component than register flag as global
+			if fr.command == "" && comp == server {
+				return true
+			}
+
+			// If no command specified for client flag registeration, flag
+			// will be treated as global only if field has no command tag
+			if command == "" && fr.command == "" {
+				return true
+			}
+
+			// Look through the command tag to see which client commands can register this flag
+			commandList := strings.Split(command, " ")
+			for _, comm := range commandList {
+				if comm == fr.command {
+					return true
+				}
+			}
+		}
+	}
+
+	return false
+}
+
+func (fr *flagRegistrar) register(f *Field) error {
+	var err error
+
 	help := fr.getTag(f, TagHelp)
 	opt := fr.getTag(f, TagOpt)
 	def := fr.getTag(f, TagDefault)
+
 	switch f.Kind {
 	case reflect.String:
 		if help == "" {

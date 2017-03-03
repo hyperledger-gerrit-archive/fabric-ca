@@ -30,7 +30,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudflare/cfssl/csr"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
@@ -118,7 +118,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 
 	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-m", myhost})
 	if err == nil {
-		t.Errorf("No username/password provided, should have errored")
+		t.Errorf("No server running, should have errored")
 	}
 
 	fileBytes, err := ioutil.ReadFile(defYaml)
@@ -417,11 +417,11 @@ func testRevoke(t *testing.T) {
 	// testRegister2's affiliation: company1, revoker's affiliation: company1
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister2", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Errorf("Failed to revoke proper affiliation hierarchy, error: %s", err)
+		t.Errorf("Failed to revoke proper affiliation hierarchy: %s", err)
 	}
 
 	// testRegister4's affiliation: company2, revoker's affiliation: company1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister4", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err == nil {
 		t.Error("Should have failed have different affiliation path")
 	}
@@ -435,8 +435,7 @@ func testRevoke(t *testing.T) {
 	// testRegister4's affiliation: company2, revoker's affiliation: "" (root)
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Errorf("User with root affiliation failed to revoke, error: %s", err)
-
+		t.Errorf("User with root affiliation failed to revoke: %s", err)
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -610,9 +609,14 @@ func TestClientCommandsTLS(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-M", "testmspfolder", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	exists := util.FileExists(filepath.Join(testYaml, "testmspfolder"))
+	if !exists {
+		t.Error("Failed to create testmspfolder using -M option during enroll")
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertExpired, "-u", "https://admin:adminpw@localhost:7054", "-d"})
@@ -698,6 +702,7 @@ func TestCleanUp(t *testing.T) {
 	os.Remove("../../testdata/ca-key.pem")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
+	os.RemoveAll("../../testdata/testmspfolder")
 	os.RemoveAll(mspDir)
 	cleanMultiCADir()
 }
@@ -717,8 +722,10 @@ func cleanMultiCADir() {
 }
 
 func TestRegisterWithoutEnroll(t *testing.T) {
+	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+	os.Remove(defYaml) // Clean up any left over config file
 	err := RunMain([]string{cmdName, "register", "-c", testYaml})
-	if err == nil {
+	if err.Error() != "Enrollment information does not exist. Please execute enroll command first. Example: fabric-ca-client enroll -u http://user:userpw@serverAddr:serverPort" {
 		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
 	}
 }
@@ -751,7 +758,7 @@ func getCAConfig() *lib.CAConfig {
 			Certfile: certfile,
 		},
 		Affiliations: affiliations,
-		CSR: csr.CertificateRequest{
+		CSR: api.CSRInfo{
 			CN: "TestCN",
 		},
 	}
