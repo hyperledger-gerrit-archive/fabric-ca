@@ -38,14 +38,14 @@ type Field struct {
 
 // ParseObj parses an object structure, calling back with field info
 // for each field
-func ParseObj(obj interface{}, cb func(*Field) error) error {
+func ParseObj(obj interface{}, cb func(*Field) error, flags ...string) error {
 	if cb == nil {
 		return errors.New("nil callback")
 	}
-	return parse(obj, cb, nil)
+	return parse(obj, cb, nil, flags...)
 }
 
-func parse(ptr interface{}, cb func(*Field) error, parent *Field) error {
+func parse(ptr interface{}, cb func(*Field) error, parent *Field, flags ...string) error {
 	var path string
 	var depth int
 	v := reflect.ValueOf(ptr).Elem()
@@ -76,16 +76,39 @@ func parse(ptr interface{}, cb func(*Field) error, parent *Field) error {
 			Value: vf.Interface(),
 			Addr:  vf.Addr().Interface(),
 		}
-		err := cb(field)
-		if err != nil {
-			return err
-		}
-		if kind == reflect.Struct {
-			err := parse(field.Addr, cb, field)
+
+		if len(flags) != 0 {
+			for _, flag := range flags {
+				if strings.ToLower(tf.Name) == strings.ToLower(flag) {
+					err := register(kind, cb, field)
+					if err != nil {
+						return err
+					}
+				}
+			}
+		} else {
+			err := register(kind, cb, field)
 			if err != nil {
 				return err
 			}
 		}
 	}
+
+	return nil
+}
+
+func register(kind reflect.Kind, cb func(*Field) error, field *Field) error {
+	if kind == reflect.Struct {
+		err := parse(field.Addr, cb, field)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := cb(field)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
