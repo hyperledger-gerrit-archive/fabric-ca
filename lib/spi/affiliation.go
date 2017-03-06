@@ -18,9 +18,8 @@ package spi
 
 // AffiliationInfo defines a group name and its parent
 type AffiliationInfo struct {
-	Name     string `db:"name"`
-	ParentID string `db:"parent_id"`
-	Prekey   string `db:"prekey"`
+	Name   string `db:"name"`
+	Prekey string `db:"prekey"`
 }
 
 // Affiliation is the API for a group

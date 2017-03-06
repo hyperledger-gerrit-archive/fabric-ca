@@ -55,7 +55,7 @@ SELECT * FROM users
 	WHERE (id = ?)`
 
 	insertAffiliation = `
-INSERT INTO affiliations (name, parent_id)
+INSERT INTO affiliations (name, prekey)
 	VALUES (?, ?)`
 
 	deleteAffiliation = `
@@ -63,7 +63,7 @@ DELETE FROM affiliations
 	WHERE (name = ?)`
 
 	getAffiliation = `
-SELECT name, parent_id FROM affiliations
+SELECT name, prekey FROM affiliations
 	WHERE (name = ?)`
 )
 
@@ -256,13 +256,13 @@ func (d *Accessor) GetUserInfo(id string) (spi.UserInfo, error) {
 }
 
 // InsertAffiliation inserts affiliation into database
-func (d *Accessor) InsertAffiliation(name string, parentID string) error {
+func (d *Accessor) InsertAffiliation(name string, prekey string) error {
 	log.Debugf("DB: Insert Affiliation (%s)", name)
 	err := d.checkDB()
 	if err != nil {
 		return err
 	}
-	_, err = d.db.Exec(d.db.Rebind(insertAffiliation), name, parentID)
+	_, err = d.db.Exec(d.db.Rebind(insertAffiliation), name, prekey)
 	if err != nil {
 		return err
 	}
