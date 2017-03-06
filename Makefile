@@ -54,7 +54,7 @@ PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 DOCKER_ORG = hyperledger
 # IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-fvt
-IMAGES = $(PROJECT_NAME)
+IMAGES = $(PROJECT_NAME) openldap
 
 path-map.fabric-ca := ./
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
@@ -133,6 +133,8 @@ build/image/fabric-ca/payload: \
 build/image/fabric-ca-fvt/payload: \
 	build/docker/bin/fabric-ca
 	images/fabric-ca-fvt/start.sh
+build/image/openldap/payload : \
+	images/openldap/openldap.tar
 build/image/%/payload:
 	@echo "Copying $^ to $@"
 	mkdir -p $@
@@ -146,9 +148,9 @@ build/%.tar.bz2:
 unit-tests: checks fabric-ca fabric-ca-server fabric-ca-client
 	@scripts/run_tests
 
-container-tests: ldap-tests
+container-tests: docker ldap-tests
 
-ldap-tests:
+ldap-tests: docker
 	@scripts/run_ldap_tests
 
 fvt-tests: fabric-ca
