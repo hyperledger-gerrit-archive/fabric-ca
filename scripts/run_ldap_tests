@@ -22,7 +22,7 @@ function startContainer {
       echo "Starting $OLC ..."
       docker start $CID
    else
-      echo "Downloading and starting $OLC ..."
+      echo "Starting $OLC ..."
       docker run -p 10389:389 -p 10636:636 --name $OLC --detach $IMAGE > /dev/null
    fi
    CID=`docker ps -q -f name=$OLC`

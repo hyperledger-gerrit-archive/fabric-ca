@@ -127,7 +127,10 @@ build/image/%/$(DUMMY): Makefile build/image/%/payload
 build/image/fabric-ca/payload: \
 	build/docker/bin/fabric-ca-client \
 	build/docker/bin/fabric-ca-server \
-	build/fabric-ca.tar.bz2
+   	build/fabric-ca.tar.bz2
+build/image/fabric-ca-fvt/payload: \
+	build/docker/bin/fabric-ca
+	images/fabric-ca-fvt/start.sh
 build/image/openldap/payload : \
 	images/openldap/openldap.tar
 build/image/%/payload:
@@ -143,9 +146,9 @@ build/%.tar.bz2:
 unit-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_tests
 
-container-tests: docker ldap-tests
+container-tests: ldap-tests
 
-ldap-tests: openldap
+ldap-tests: docker openldap
 	@scripts/run_ldap_tests
 
 %-docker-clean:
