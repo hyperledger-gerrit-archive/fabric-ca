@@ -25,7 +25,7 @@ socket		= /var/run/mysqld/mysqld.sock
 # This was formally known as [safe_mysqld]. Both versions are currently parsed.
 [mysqld_safe]
 socket		= /var/run/mysqld/mysqld.sock
-nice		= 3306
+nice		= 0
 
 [mysqld]
 skip-host-cache
@@ -161,8 +161,8 @@ innodb_flush_method	= O_DIRECT
 wsrep_on=ON
 wsrep_provider=/usr/lib/galera/libgalera_smm.so
 wsrep_cluster_address=gcomm://mariadb-node-1,mariadb-node-2,mariadb-node-3
-wsrep_node_address=mariadb-node-1
-wsrep_node_name=mariadb-node-1
+wsrep_node_address=mariadb-node-3
+wsrep_node_name=mariadb-node-3
 binlog_format=row
 default_storage_engine=InnoDB
 innodb_autoinc_lock_mode=2
@@ -175,7 +175,7 @@ wsrep-sst-method=rsync
 #
 # Allow server to accept connections on all interfaces.
 #
-#bind-address=mariadb-node-1
+#bind-address=mariadb-node-0
 #
 # Optional setting
 #wsrep_slave_threads=1

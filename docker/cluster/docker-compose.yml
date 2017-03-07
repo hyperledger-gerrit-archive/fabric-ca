@@ -1,13 +1,4 @@
-haproxy:
-    image: haproxy:latest
-    container_name: haproxy
-    volumes:
-      - "./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
-    links:
-      - mariadb-node-0
-      - fabric-ca-server
-#
-# keepalived:
+# keepalived1:
 #     image: neoassist/docker-keepalived:latest
 #     container_name: keepalived
 #     environment:
@@ -18,55 +9,123 @@ haproxy:
 #       - VRID=150
 #       - INTERFACE=eth0
 #     command: sh -c '/usr/sbin/sysctl -w net.ipv4.ip_nonlocal_bind=1'
+version: '2'
 
-mariadb-node-0:
-    image: mariadb:latest
-    hostname: mariadb-node-0
-    environment:
-      - MYSQL_ROOT_USER=root0
-      - MYSQL_ROOT_PASSWORD=rootpw0
-      - NODE_NAME=mariadb-node-0
-      - GALERA=On
-      - CLUSTER_NAME=ca_galera
-      - CLUSTER_ADDRESS=gcomm://
-    # volumes:
-    #   - "./my.cnf:/etc/mysql/my.cnf"
-    command: --wsrep-new-cluster
+services:
+  haproxy0:
+      image: haproxy:latest
+      container_name: haproxy0
+      volumes:
+        - "./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+      environment:
+        - EXPOSE=7054
+      links:
+        - fabric-ca-server1:fabric-ca-server1
+        - fabric-ca-server2:fabric-ca-server2
+      # command: sh -c '/usr/sbin/sysctl -w net.ipv4.ip_nonlocal_bind=1'
 
-mariadb-node-1:
-    image: mariadb:latest
-    hostname: mariadb-node-1
+  haproxy1:
+      image: haproxy:latest
+      container_name: haproxy1
+      volumes:
+        - "./haproxy1.cfg:/usr/local/etc/haproxy/haproxy.cfg"
+      environment:
+        - EXPOSE=3306
+      links:
+        - mariadb-node-1:mariadb-node-1
+        - mariadb-node-2:mariadb-node-2
+
+  mariadb-node-1:
+      image: mariadb:latest
+      hostname: mariadb-node-1
+      # ports:
+      #   - 13306:3306
+      environment:
+        - MYSQL_ROOT_PASSWORD=rootpw
+        - REPLICATION_PASSWORD=test
+        # - NODE_NAME=mariadb-node-1
+      volumes:
+        - "./my.cnf:/etc/mysql/my.cnf"
+      command: --wsrep-new-cluster
+              # - GALERA=On
+              # - CLUSTER_NAME=ca_galera
+              # - CLUSTER_ADDRESS=gcomm://mariadb-node-1,mariadb-node-2,mariadb-node-3
+
+
+  mariadb-node-2:
+      image: mariadb:latest
+      hostname: mariadb-node-2
+      ports:
+        - 13307:3306
+      # links:
+      #   - mariadb-node-1
+      environment:
+        - MYSQL_ROOT_PASSWORD=rootpw
+        - REPLICATION_PASSWORD=test
+        # - NODE_NAME=mariadb-node-2
+      volumes:
+        - "./my2.cnf:/etc/mysql/my.cnf"
+        # - GALERA=On
+        # - CLUSTER_NAME=ca_galera
+        # - CLUSTER_ADDRESS=gcomm://mariadb-node-1,mariadb-node-2,mariadb-node-3
+
+  mariadb-node-3:
+      image: mariadb:latest
+      hostname: mariadb-node-3
+      ports:
+        - 13308:3306
+      # links:
+      #   - mariadb-node-1
+      environment:
+        - MYSQL_ROOT_PASSWORD=rootpw
+        - REPLICATION_PASSWORD=test
+        # - NODE_NAME=mariadb-node-3
+      volumes:
+        - "./my3.cnf:/etc/mysql/my.cnf"
+        # - GALERA=On
+        # - CLUSTER_NAME=ca_galera
+        # - CLUSTER_ADDRESS=gcomm://mariadb-node-1,mariadb-node-2,mariadb-node-3
+
+  fabric-ca-server1:
+     image: hyperledger/fabric-ca
+     container_name: fabric-ca-server1
+     ports:
+       - 7051:7054
+     environment:
+       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+     volumes:
+       - "./fabric-ca-server:/etc/hyperledger/fabric-ca-server"
+       - "./wait-for-it.sh:/etc/hyperledger/wait-for-it.sh"
+     command: sh -c '/etc/hyperledger/wait-for-it.sh mariadb-node-1:3306 -- fabric-ca-server start -b admin:adminpw'
+     links:
+       - mariadb-node-1
+       - haproxy1
+
+  fabric-ca-server2:
+     image: hyperledger/fabric-ca
+     container_name: fabric-ca-server2
+     ports:
+       - 7052:7054
+     environment:
+       - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+     volumes:
+       - "./fabric-ca-server:/etc/hyperledger/fabric-ca-server"
+       - "./wait-for-it.sh:/etc/hyperledger/wait-for-it.sh"
+     command: sh -c '/etc/hyperledger/wait-for-it.sh mariadb-node-1:3306 -- fabric-ca-server start -b admin:adminpw'
+     links:
+       - mariadb-node-1
+       - haproxy1
+
+  admin-client:
+    image: hyperledger/fabric-ca
+    container_name: admin-client
     links:
-      - mariadb-node-0
-    environment:
-      - MYSQL_ROOT_PASSWORD=rootpw1
-      - NODE_NAME=mariadb-node-1
-      - GALERA=On
-      - CLUSTER_NAME=ca_galera
-      - CLUSTER_ADDRESS=gcomm://mariadb-node-0
+      - haproxy0:haproxy0
+    command: sh -c "sleep 25;fabric-ca-client enroll -u http://admin:adminpw@haproxy0:7054"
 
-mariadb-node-2:
-    image: mariadb:latest
-    hostname: mariadb-node-2
+  admin-client1:
+    image: hyperledger/fabric-ca
+    container_name: admin-client1
     links:
-      - mariadb-node-0
-    environment:
-      - MYSQL_ROOT_PASSWORD=rootpw2
-      - NODE_NAME=mariadb-node-2
-      - GALERA=On
-      - CLUSTER_NAME=ca_galera
-      - CLUSTER_ADDRESS=gcomm://mariadb-node-0
-
-fabric-ca-server:
-   image: hyperledger/fabric-ca
-   container_name: fabric-ca-server
-   ports:
-     - 7055:7055
-   environment:
-     - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
-   volumes:
-     - "./fabric-ca-server:/etc/hyperledger/fabric-ca-server"
-     - "./wait-for-it.sh:/etc/hyperledger/wait-for-it.sh"
-   command: sh -c '/etc/hyperledger/wait-for-it.sh mariadb-node-0:3306 -- fabric-ca-server start -b admin:adminpw]'
-   links:
-     - mariadb-node-0
+      - haproxy0:haproxy0
+    command: sh -c "sleep 25;fabric-ca-client enroll -u http://admin:adminpw@haproxy0:7054"

@@ -36,7 +36,7 @@
 #############################################################################
 
 # Server's listening port (default: 7054)
-port: 7055
+port: 7054
 
 # Enables debug logging (default: false)
 debug: false
@@ -105,7 +105,7 @@ registry:
 #############################################################################
 db:
   type: mysql
-  datasource: root:rootpw0@tcp(mariadb-node-0:3306)/fabric_ca_server?parseTime=true
+  datasource: root:rootpw@tcp(haproxy1:3306)/fabric_ca_server?parseTime=true
   tls:
       enabled: false
       certfileslist:
