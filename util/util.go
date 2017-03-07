@@ -559,7 +559,11 @@ func GetKeyFromBytes(csp bccsp.BCCSP, key []byte) (bccsp.Key, error) {
 func GetSerialAsHex(serial *big.Int) string {
 	hex := fmt.Sprintf("%x", serial)
 
-	if utf8.RuneCountInString(hex) < 80 {
+	// OpenSSL returns serial number as hex consisting of 40 characters.
+	// When doing the conversion to hex above, if the conversion results in
+	// a zero at the beginning it gets trimmed. To be consist with OpenSSL a
+	// zero is prepended if the hex is less than 40 characters.
+	if utf8.RuneCountInString(hex) < 40 {
 		hex = fmt.Sprintf("0%s", hex)
 	}
 
