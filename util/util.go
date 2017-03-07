@@ -559,7 +559,7 @@ func GetKeyFromBytes(csp bccsp.BCCSP, key []byte) (bccsp.Key, error) {
 func GetSerialAsHex(serial *big.Int) string {
 	hex := fmt.Sprintf("%x", serial)
 
-	if utf8.RuneCountInString(hex) < 80 {
+	if utf8.RuneCountInString(hex) < 40 {
 		hex = fmt.Sprintf("0%s", hex)
 	}
 

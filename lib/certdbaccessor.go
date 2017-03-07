@@ -102,6 +102,8 @@ func (d *CertDBAccessor) InsertCertificate(cr certdb.CertificateRecord) error {
 
 	serial := util.GetSerialAsHex(ip)
 
+	log.Debug("Saved serial number as hex ", serial)
+
 	var record = new(CertRecord)
 	record.ID = id
 	record.Serial = serial
