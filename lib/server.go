@@ -451,9 +451,9 @@ func (s *Server) registerHandlers() {
 	s.mux = http.NewServeMux()
 	s.registerHandler("register", NewRegisterHandler, false, true)
 	s.registerHandler("enroll", NewEnrollHandler, true, false)
-	s.registerHandler("reenroll", NewReenrollHandler, true, false)
-	s.registerHandler("revoke", NewRevokeHandler, true, false)
-	s.registerHandler("tcert", NewTCertHandler, true, false)
+	s.registerHandler("reenroll", NewReenrollHandler, false, true)
+	s.registerHandler("revoke", NewRevokeHandler, false, true)
+	s.registerHandler("tcert", NewTCertHandler, false, true)
 }
 
 // Register an endpoint handler

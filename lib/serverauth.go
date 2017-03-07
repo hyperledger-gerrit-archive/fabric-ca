@@ -18,6 +18,7 @@ package lib
 
 import (
 	"bytes"
+	"encoding/hex"
 	"errors"
 	"io/ioutil"
 	"net/http"
@@ -62,6 +63,7 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 	}
 	user, pwd, ok := r.BasicAuth()
 	if ok {
+		log.Debug("Basic auth verification")
 		if !ah.basic {
 			log.Debugf("Basic auth is not allowed; found %s", authHdr)
 			return errBasicAuthNotAllowed
@@ -80,8 +82,17 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		r.Header.Set(enrollmentIDHdrName, user)
 		return nil
 	}
+
 	// Perform token verification
-	if ah.token {
+
+	if !ok {
+		log.Debug("Token verification")
+
+		if !ah.token {
+			log.Debugf("Token auth is not allowed; found %s", authHdr)
+			return errTokenAuthNotAllowed
+		}
+
 		// read body
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -97,20 +108,41 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		}
 		id := util.GetEnrollmentIDFromX509Certificate(cert)
 		log.Debugf("Checking for revocation/expiration of certificate owned by '%s'", id)
-		// Check for certificate revocation and expiration
+
+		// VerifyCertificate ensures that the certificate passed in hasn't
+		// expired and checks the CRL for the server.
 		revokedOrExpired, checked := revoke.VerifyCertificate(cert)
 		if revokedOrExpired {
-			log.Debugf("Certificate was either revoked or has expired owned by '%s'", id)
+			log.Debugf("Certificate has expired owned by '%s'", id)
 			return authError
 		}
 		if !checked {
 			log.Debug("A failure occurred while checking for revocation and expiration")
 			return authError
 		}
+
+		aki := hex.EncodeToString(cert.AuthorityKeyId)
+		serial := util.GetSerialAsHex(cert.SerialNumber)
+
+		certs, err := ah.server.CertDBAccessor().GetCertificate(serial, aki)
+		if err != nil {
+			return authError
+		}
+
+		for _, certificate := range certs {
+			if certificate.Status == "revoked" {
+				return authError
+			}
+		}
+
 		log.Debugf("Successful authentication of '%s'", id)
 		r.Header.Set(enrollmentIDHdrName, util.GetEnrollmentIDFromX509Certificate(cert))
+
+		return nil
+
 	}
-	return nil
+
+	return authError
 }
 
 func wrappedPath(path string) string {
