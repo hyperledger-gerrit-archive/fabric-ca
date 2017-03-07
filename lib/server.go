@@ -502,9 +502,9 @@ func (s *Server) registerHandlers() {
 	s.registerHandler("info", newInfoHandler, false, false)
 	s.registerHandler("register", newRegisterHandler, false, true)
 	s.registerHandler("enroll", newEnrollHandler, true, false)
-	s.registerHandler("reenroll", newReenrollHandler, true, false)
-	s.registerHandler("revoke", newRevokeHandler, true, false)
-	s.registerHandler("tcert", newTCertHandler, true, false)
+	s.registerHandler("reenroll", newReenrollHandler, false, true)
+	s.registerHandler("revoke", newRevokeHandler, false, true)
+	s.registerHandler("tcert", newTCertHandler, false, true)
 }
 
 // Register an endpoint handler
