@@ -21,8 +21,6 @@ while getopts "du:p:t:l:x:" option; do
   esac
 done
 test -z "$CA_CFG_PATH" && CA_CFG_PATH="$HOME/fabric-ca"
-test -z "$CLIENTCERT" && CLIENTCERT="$CA_CFG_PATH/cert.pem"
-test -z "$CLIENTKEY" && CLIENTKEY="$CA_CFG_PATH/key.pem"
 test -f "$CA_CFG_PATH" || mkdir -p $CA_CFG_PATH
 
 : ${FABRIC_CA_DEBUG="false"}
@@ -32,6 +30,9 @@ test -f "$CA_CFG_PATH" || mkdir -p $CA_CFG_PATH
 $($AUTH) || unset USERPSWD
 : ${KEYTYPE="ecdsa"}
 : ${KEYLEN="256"}
+
+test -z "$CLIENTCERT" && CLIENTCERT="$CA_CFG_PATH/$USERNAME/$MSP_CERT_DIR/cert.pem"
+test -z "$CLIENTKEY" && CLIENTKEY="$CA_CFG_PATH/$USERNAME/$MSP_KEY_DIR/key.pem"
 
 test "$KEYTYPE" = "ecdsa" && sslcmd="ec"
 
