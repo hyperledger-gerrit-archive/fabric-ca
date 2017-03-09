@@ -52,7 +52,7 @@ BASEIMAGE_RELEASE = 0.3.0
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 DOCKER_ORG = hyperledger
-IMAGES = $(PROJECT_NAME)
+IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-fvt
 
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
 path-map.fabric-ca-server := ./cmd/fabric-ca-server
@@ -126,6 +126,10 @@ build/image/fabric-ca/payload: \
 	build/docker/bin/fabric-ca-client \
 	build/docker/bin/fabric-ca-server \
 	build/fabric-ca.tar.bz2
+build/image/fabric-ca-fvt/payload: \
+	build/docker/bin/fabric-ca-client \
+	build/docker/bin/fabric-ca-server \
+	images/fabric-ca-fvt/start.sh
 build/image/%/payload:
 	@echo "Copying $^ to $@"
 	mkdir -p $@
@@ -143,6 +147,9 @@ container-tests: ldap-tests
 
 ldap-tests:
 	@scripts/run_ldap_tests
+
+fvt-tests: fabric-ca-client fabric-ca-server
+	@scripts/run_fvt_tests
 
 %-docker-clean:
 	$(eval TARGET = ${patsubst %-docker-clean,%,${@}})
