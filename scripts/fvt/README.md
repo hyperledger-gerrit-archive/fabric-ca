@@ -6,7 +6,7 @@ The tests that will run are in
 
 From ``${GOPATH}/src/github.com/hyperledger/fabric-ca``, issue
 
-&nbsp;&nbsp;&nbsp;``make docker-fvt``
+&nbsp;&nbsp;&nbsp;``make docker``
 
 to generate the docker test image.
 
