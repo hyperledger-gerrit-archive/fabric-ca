@@ -1,160 +1,10 @@
 #!/bin/bash
-FABRIC_CA="${GOPATH}/src/github.com/hyperledger/fabric-ca"
-FABRIC_CAEXEC="$FABRIC_CA/bin/fabric-ca"
-TESTDATA="$FABRIC_CA/testdata"
-RUNCONFIG="$TESTDATA/runFabricCaFvt.json"
-INITCONFIG="$TESTDATA/initFabricCaFvt.json"
-DST_KEY="$TESTDATA/fabric-ca-key.pem"
-DST_CERT="$TESTDATA/fabric-ca-cert.pem"
-MYSQL_PORT="3306"
-CA_DEFAULT_PORT="7054"
-POSTGRES_PORT="5432"
-export PGPASSWORD='postgres'
+FABRIC_CA="$GOPATH/src/github.com/hyperledger/fabric-ca"
+SCRIPTDIR="$FABRIC_CA/scripts/fvt"
+. $SCRIPTDIR/fabric-ca_utils
 GO_VER="1.7.1"
 ARCH="amd64"
 RC=0
-
-function ErrorExit() {
-   echo "${1}...exiting"
-   exit 1
-}
-
-function tolower() {
-  echo "$1" | tr [:upper:] [:lower:]
-}
-
-function genRunconfig() {
-   cat > $RUNCONFIG <<EOF
-{
- "tls_disable":$TLS_DISABLE,
- "authentication": $AUTH,
- "driver":"$DRIVER",
- "data_source":"$DATASRC",
- "ca_cert":"$DST_CERT",
- "ca_key":"$DST_KEY",
- "tls":{
-   "tls_cert":"$TESTDATA/tls_server-cert.pem",
-   "tls_key":"$TESTDATA/tls_server-key.pem",
-   "mutual_tls_ca":"$TESTDATA/root.pem",
-   "db_client":{
-     "ca_certfiles":["$TESTDATA/root.pem"],
-     "client":{"keyfile":"$TESTDATA/tls_server-key.pem","certfile":"$TESTDATA/tls_server-cert.pem"}
-   }
- },
- "user_registry": {
-   "max_enrollments": $MAXENROLL
- },
- "users": {
-    "admin": {
-      "pass": "adminpw",
-      "type": "client",
-      "group": "bank_a",
-      "attrs": [{"name":"hf.Registrar.Roles","value":"client,user,peer,validator,auditor"},
-                {"name":"hf.Registrar.DelegateRoles", "value": "client,user,validator,auditor"},
-                {"name":"hf.Revoker", "value": "true"}]
-    },
-    "admin2": {
-      "pass": "adminpw2",
-      "type": "client",
-      "group": "bank_a",
-      "attrs": [{"name":"hf.Registrar.Roles","value":"client,user,peer,validator,auditor"},
-                {"name":"hf.Registrar.DelegateRoles", "value": "client,user,validator,auditor"},
-                {"name":"hf.Revoker", "value": "true"}]
-    },
-    "revoker": {
-      "pass": "revokerpw",
-      "type": "client",
-      "group": "bank_a",
-      "attrs": [{"name":"hf.Revoker", "value": "true"}]
-    },
-    "notadmin": {
-      "pass": "pass",
-      "type": "client",
-      "group": "bank_a",
-      "attrs": [{"name":"hf.Registrar.Roles","value":"client,peer,validator,auditor"},
-                {"name":"hf.Registrar.DelegateRoles", "value": "client"}]
-    },
-    "expiryUser": {
-      "pass": "expirypw",
-      "type": "client",
-      "group": "bank_a"
-    },
-    "testUser": {
-      "pass": "user1",
-      "type": "client",
-      "group": "bank_b",
-      "attrs": []
-    },
-    "testUser2": {
-      "pass": "user2",
-      "type": "client",
-      "group": "bank_c",
-      "attrs": []
-    },
-    "testUser3": {
-      "pass": "user3",
-      "type": "client",
-      "group": "bank_a",
-      "attrs": []
-    }
- },
- "groups": {
-   "banks_and_institutions": {
-     "banks": ["bank_a", "bank_b", "bank_c"],
-     "institutions": ["institution_a"]
-   }
- },
- "signing": {
-    "default": {
-       "usages": ["cert sign"],
-       "expiry": "8000h",
-       "crl_url": "http://localhost:$HTTP_PORT/TestCRL.crl",
-       "ca_constraint": {"is_ca": true, "max_path_len":1},
-       "ocsp_no_check": true,
-       "not_before": "2016-12-30T00:00:00Z"
-    },
-    "expiry": {
-       "usages": ["cert sign"],
-       "expiry": "1s"
-    }
- }
-}
-EOF
-
-}
-
-function genInitConfig() {
-   cat > $INITCONFIG <<EOF
-{
- "hosts": [
-     "eca@hyperledger-server",
-     "127.0.0.1",
-     "hyperledger-server.example.com"
- ],
- "CN": "FVT FABRIC_CA Enrollment CA($KEYTYPE $KEYLEN)",
- "key": {
-     "algo": "$KEYTYPE",
-     "size": $KEYLEN
- },
- "names": [
-     {
-         "SN": "admin",
-         "O": "Hyperledger",
-         "O": "Fabric",
-         "OU": "FABRIC_CA",
-         "OU": "FVT",
-         "STREET": "Miami Blvd.",
-         "DC": "peer",
-         "UID": "admin",
-         "L": "Raleigh",
-         "L": "RTP",
-         "ST": "North Carolina",
-         "C": "US"
-     }
- ]
-}
-EOF
-}
 
 function usage() {
    echo "ARGS:"
@@ -183,12 +33,14 @@ function usage() {
 }
 
 function runPSQL() {
-   cmd="$1"
-   opts="$2"
-   wrk_dir="$(pwd)"
+   local cmd="$1"
+   local opts="$2"
+   local wrk_dir="$(pwd)"
    cd /tmp
    /usr/bin/psql "$opts" -U postgres -h localhost -c "$cmd"
+   local rc=$?
    cd $wrk_dir
+   return $rc
 }
 
 function updateBase {
@@ -281,47 +133,42 @@ function buildFabricCa(){
 
 function resetFabricCa(){
    killAllFabricCas
-   rm -rf $DATADIR
-   rm $TESTDATA/fabric_ca.db
+   rm -rf $DATADIR >/dev/null
+   test -f $(pwd)/fabric-ca-server.db && rm $(pwd)/fabric-ca-server.db
    cd /tmp
-   /usr/bin/dropdb 'fabric_ca' -U postgres -h localhost -w
-   mysql --host=localhost --user=root --password=mysql -e 'DROP DATABASE IF EXISTS fabric_ca;'
+   mysql --host=localhost --user=root --password=mysql -e 'show tables' $DBNAME 2>/dev/null &&
+      mysql --host=localhost --user=root --password=mysql -e "DROP DATABASE IF EXISTS $DBNAME"
+   /usr/bin/dropdb "$DBNAME" -U postgres -h localhost -w --if-exists 2>/dev/null
 }
 
 function listFabricCa(){
    echo "Listening servers;"
-   lsof -n -i tcp:${USER_CA_PORT-$CA_DEFAULT_PORT}
+   lsof -n -i tcp:9888
 
 
    case $DRIVER in
       mysql)
          echo ""
-         mysql --host=localhost --user=root --password=mysql -e 'show tables' fabric_ca
+         mysql --host=localhost --user=root --password=mysql -e 'SELECT * FROM users;' $DBNAME
          echo "Users:"
-         mysql --host=localhost --user=root --password=mysql -e 'SELECT * FROM "users";' fabric_ca
+         mysql --host=localhost --user=root --password=mysql -e 'SELECT * FROM users;' $DBNAME
       ;;
       postgres)
          echo ""
-         runPSQL '\l fabric_ca' | sed 's/^/   /;1s/^ *//;1s/$/:/'
+         runPSQL "\l $DBNAME" | sed 's/^/   /;1s/^ *//;1s/$/:/'
 
          echo "Users:"
-         runPSQL 'SELECT * FROM "users";' '--dbname=fabric_ca' | sed 's/^/   /'
+         runPSQL "SELECT * FROM USERS;" "--dbname=$DBNAME" | sed 's/^/   /'
       ;;
-      sqlite3) sqlite3 "$dbfile" 'SELECT * FROM "users" ;;' | sed 's/^/   /'
+      sqlite3) sqlite3 "$DATASRC" 'SELECT * FROM USERS ;;' | sed 's/^/   /'
    esac
 }
 
 function initFabricCa() {
-   test -f $FABRIC_CAEXEC || ErrorExit "fabric-ca executable not found (use -B to build)"
-   cd $FABRIC_CA/bin
+   test -f $FABRIC_CA_SERVEREXEC || ErrorExit "fabric-ca executable not found (use -B to build)"
 
-   export CA_CFG_PATH=$HOME/fabric-ca
-   genInitConfig
-   $FABRIC_CAEXEC server init $INITCONFIG
+   $FABRIC_CA_SERVEREXEC init -c $RUNCONFIG
 
-   rm $DST_KEY $DST_CERT
-   cp $SRC_KEY $DST_KEY
-   cp $SRC_CERT $DST_CERT
    echo "FABRIC_CA server initialized"
    if $($FABRIC_CA_DEBUG); then
       openssl x509 -in $DST_CERT -noout -issuer -subject -serial \
@@ -346,11 +193,10 @@ function startHaproxy() {
    local i=0
    local proxypids=$(lsof -n -i tcp | awk '$1=="haproxy" && !($2 in a) {a[$2]=$2;print a[$2]}')
    test -n "$proxypids" && kill $proxypids
-   local server_port=${USER_CA_PORT-$CA_DEFAULT_PORT}
    #sudo sed -i 's/ *# *$UDPServerRun \+514/$UDPServerRun 514/' /etc/rsyslog.conf
    #sudo sed -i 's/ *# *$ModLoad \+imudp/$ModLoad imudp/' /etc/rsyslog.conf
-   case $TLS_DISABLE in
-     false)
+   case $TLS_ON in
+     "true")
    haproxy -f  <(echo "global
       log /dev/log	local0 debug
       log /dev/log	local1 debug
@@ -373,10 +219,10 @@ backend fabric-cas
       mode tcp
       balance roundrobin";
    while test $((i++)) -lt $inst; do
-      echo "      server server$i  127.0.0.$i:$server_port"
+      echo "      server server$i  127.0.0.$i:9888"
    done)
    ;;
-   true)
+   *)
    haproxy -f  <(echo "global
       log /dev/log	local0 debug
       log /dev/log	local1 debug
@@ -409,7 +255,7 @@ backend fabric-cas
       http-request set-header X-Forwarded-Port %[dst_port]
       balance roundrobin";
    while test $((i++)) -lt $inst; do
-      echo "      server server$i  127.0.0.$i:$server_port"
+      echo "      server server$i  127.0.0.$i:9888"
    done)
    ;;
    esac
@@ -422,20 +268,19 @@ function startFabricCa() {
    local timeout=8
    local now=0
    local server_addr=127.0.0.$inst
-   # if not explcitly set, use default
-   test -n "${USER_CA_PORT-$CA_DEFAULT_PORT}" && local server_port="-port ${USER_CA_PORT-$CA_DEFAULT_PORT}" || local server_port=""
+   local server_port=9888
 
-   cd $FABRIC_CA/bin
    inst=0
-   $FABRIC_CAEXEC server start -address $server_addr $server_port -ca $DST_CERT \
-                    -ca-key $DST_KEY -config $RUNCONFIG 2>&1 | sed 's/^/     /' &
-   until test "$started" = "$server_addr:${USER_CA_PORT-$CA_DEFAULT_PORT}" -o "$now" -gt "$timeout"; do
-      started=$(ss -ltnp src $server_addr:${USER_CA_PORT-$CA_DEFAULT_PORT} | awk 'NR!=1 {print $4}')
+   $FABRIC_CA_SERVEREXEC start --address $server_addr --port $server_port --ca.certfile $DST_CERT \
+                     --ca.keyfile $DST_KEY --config $RUNCONFIG 2>&1 | sed 's/^/     /' &
+                    # --db.datasource $DATASRC --ca.keyfile $DST_KEY --config $RUNCONFIG 2>&1 | sed 's/^/     /' &
+   until test "$started" = "$server_addr:$server_port" -o "$now" -gt "$timeout"; do
+      started=$(ss -ltnp src $server_addr:$server_port | awk 'NR!=1 {print $4}')
       sleep .5
       let now+=1
    done
-   printf "FABRIC_CA server on $server_addr:${USER_CA_PORT-$CA_DEFAULT_PORT} "
-   if test "$started" = "$server_addr:${USER_CA_PORT-$CA_DEFAULT_PORT}"; then
+   printf "FABRIC_CA server on $server_addr:$server_port "
+   if test "$started" = "$server_addr:$server_port"; then
       echo "STARTED"
    else
       RC=$((RC+1))
@@ -451,10 +296,9 @@ function killAllFabricCas() {
    test -n "$proxypids" && kill $proxypids
 }
 
-while getopts "\?hPRCBISKXLDTAd:t:l:n:i:c:k:x:g:m:p:o:" option; do
+while getopts "\?hPRCBISKXLDTAd:t:l:n:i:c:k:x:g:m:p:" option; do
   case "$option" in
      d)   DRIVER="$OPTARG" ;;
-     r)   USER_CA_PORT="$OPTARG" ;;
      p)   HTTP_PORT="$OPTARG" ;;
      n)   FABRIC_CA_INSTANCES="$OPTARG" ;;
      i)   GITID="$OPTARG" ;;
@@ -462,7 +306,7 @@ while getopts "\?hPRCBISKXLDTAd:t:l:n:i:c:k:x:g:m:p:o:" option; do
      l)   KEYLEN="$OPTARG" ;;
      c)   SRC_CERT="$OPTARG";;
      k)   SRC_KEY="$OPTARG" ;;
-     x)   DATADIR="$OPTARG" ;;
+     x)   CA_CFG_PATH="$OPTARG" ;;
      m)   MAXENROLL="$OPTARG" ;;
      g)   SERVERCONFIG="$OPTARG" ;;
      D)   export FABRIC_CA_DEBUG='true' ;;
@@ -483,24 +327,8 @@ while getopts "\?hPRCBISKXLDTAd:t:l:n:i:c:k:x:g:m:p:o:" option; do
   esac
 done
 
-# regarding tls:
-#    honor the command-line setting to turn on TLS
-#      else honor the envvar
-#        else (default) turn off tls
-if test -n "$TLS_ON"; then
-   TLS_DISABLE='false'
-else
-   case "$FABRIC_TLS" in
-      true) TLS_DISABLE='false' ;;
-     false) TLS_DISABLE='true'  ;;
-         *) TLS_DISABLE='true'  ;;
-   esac
-fi
-
-test -z "$DATADIR" && DATADIR="$HOME/fabric-ca"
-test -z "$SRC_KEY" && SRC_KEY="$DATADIR/server-key.pem"
-test -z "$SRC_CERT" && SRC_CERT="$DATADIR/server-cert.pem"
 : ${HTTP_PORT="3755"}
+: ${DBNAME:="fabric_ca"}
 : ${MAXENROLL="1"}
 : ${AUTH="true"}
 : ${DRIVER="sqlite3"}
@@ -521,10 +349,34 @@ test -z "$SRC_CERT" && SRC_CERT="$DATADIR/server-cert.pem"
 : ${KEYLEN="256"}
 test $KEYTYPE = "rsa" && SSLKEYCMD=$KEYTYPE || SSLKEYCMD="ec"
 
+: ${CA_CFG_PATH:="/tmp/fabric-ca"}
+: ${DATADIR:="$CA_CFG_PATH"}
+export CA_CFG_PATH
+
+# regarding tls:
+#    honor the command-line setting to turn on TLS
+#      else honor the envvar
+#        else (default) turn off tls
+if test -n "$TLS_ON"; then
+   TLS_DISABLE='false'
+else
+   case "$FABRIC_TLS" in
+      true) TLS_DISABLE='false';TLS_ON='true';LDAP_PORT=636 ;;
+     false) TLS_DISABLE='true' ;TLS_ON='false' ;;
+         *) TLS_DISABLE='true' ;TLS_ON='false' ;;
+   esac
+fi
+test -d $DATADIR || mkdir -p $DATADIR
+DST_KEY="$DATADIR/fabric-ca-key.pem"
+DST_CERT="$DATADIR/fabric-ca-cert.pem"
+test -n "$SRC_CERT" && cp "$SRC_CERT" $DST_CERT
+test -n "$SRC_KEY" && cp "$SRC_KEY" $DST_KEY
+RUNCONFIG="$DATADIR/runFabricCaFvt.yaml"
+
 case $DRIVER in
-   postgres) DATASRC="dbname=fabric_ca host=127.0.0.1 port=$POSTGRES_PORT user=postgres password=postgres sslmode=disable" ;;
-   sqlite3)   DATASRC="fabric_ca.db"; dbfile="$TESTDATA/fabric_ca.db" ;;
-   mysql)    DATASRC="root:mysql@tcp(localhost:$MYSQL_PORT)/fabric_ca?parseTime=true" ;;
+   postgres) DATASRC="dbname=$DBNAME host=127.0.0.1 port=$POSTGRES_PORT user=postgres password=postgres sslmode=disable" ;;
+   sqlite3)  DATASRC="$DATADIR/fabric-ca-server.db" ;;
+   mysql)    DATASRC="root:mysql@tcp(localhost:$MYSQL_PORT)/$DBNAME?parseTime=true" ;;
 esac
 
 $($LIST)  && listFabricCa
@@ -532,12 +384,14 @@ $($PREP)  && installPrereq
 $($RESET) && resetFabricCa
 $($CLONE) && cloneFabricCa
 $($BUILD) && buildFabricCa
-$($INIT) && initFabricCa
 $($KILL)  && killAllFabricCas
 $($PROXY) && startHaproxy $FABRIC_CA_INSTANCES
 
+$( $INIT -o $START ) && genRunconfig "$RUNCONFIG" "$DRIVER" "$DATASRC" "$DST_CERT" "$DST_KEY" "$MAXENROLL"
+test -n "$SERVERCONFIG" && cp "$SERVERCONFIG" "$RUNCONFIG"
+
+$($INIT) && initFabricCa
 if $($START); then
-   test -z "$SERVERCONFIG" && genRunconfig || cp "$SERVERCONFIG" "$RUNCONFIG"
    inst=0
    while test $((inst++)) -lt $FABRIC_CA_INSTANCES; do
       startFabricCa $inst
