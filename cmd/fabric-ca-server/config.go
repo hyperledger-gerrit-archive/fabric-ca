@@ -91,6 +91,9 @@ tls:
   # TLS for the server's listening port (default: false)
   certfile: ca-cert.pem
   keyfile: ca-key.pem
+  clientauth:
+    type: noclientcert
+    certfiles: 			# Comma Separated list of root certificate files (e.g. root.pem, root2.pem)
 
 #############################################################################
 #  The CA section contains information related to the Certificate Authority
