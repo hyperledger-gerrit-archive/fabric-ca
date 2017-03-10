@@ -26,7 +26,6 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
-	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -205,7 +204,7 @@ func configInit(command string) error {
 
 	clientCfg.TLS.Enabled = purl.Scheme == "https"
 
-	processCertFiles(&clientCfg.TLS)
+	clientCfg.TLS.CertFilesList = util.ProcessCertFiles(clientCfg.TLS.CertFiles)
 
 	if clientCfg.ID.Attr != "" {
 		processAttributes()
@@ -245,20 +244,6 @@ func createDefaultConfigFile() error {
 	}
 	// Now write the file
 	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0755)
-}
-
-// processCertFiles parses comma separated string to generate a string array
-func processCertFiles(cfg *tls.ClientTLSConfig) {
-	log.Debugf("Process comma separated cert files: %s", cfg.CertFiles)
-	if cfg.CertFiles != "" {
-		CertFiles := strings.Split(cfg.CertFiles, ",")
-
-		cfg.CertFilesList = make([]string, 0)
-
-		for i := range CertFiles {
-			cfg.CertFilesList = append(cfg.CertFilesList, strings.TrimSpace(CertFiles[i]))
-		}
-	}
 }
 
 // processAttributes parses attributes from command line
