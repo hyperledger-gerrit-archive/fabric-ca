@@ -26,7 +26,6 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
-	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -92,9 +91,6 @@ MSPDir:
 #    TLS section for the client's listenting port
 #############################################################################
 tls:
-  # Enable TLS (default: false)
-  enabled: false
-
   # TLS for the client's listenting port (default: false)
   certfiles: 				# Comma Separated (e.g. root.pem, root2.pem)
   client:
@@ -205,7 +201,7 @@ func configInit(command string) error {
 
 	clientCfg.TLS.Enabled = purl.Scheme == "https"
 
-	processCertFiles(&clientCfg.TLS)
+	clientCfg.TLS.CertFilesList = util.ProcessCertFiles(clientCfg.TLS.CertFiles)
 
 	if clientCfg.ID.Attr != "" {
 		processAttributes()
@@ -245,17 +241,6 @@ func createDefaultConfigFile() error {
 	}
 	// Now write the file
 	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0755)
-}
-
-// processCertFiles parses comma seperated string to generate a string array
-func processCertFiles(cfg *tls.ClientTLSConfig) {
-	log.Debug("Process comma seperated cert files")
-	CertFiles := strings.Split(cfg.CertFiles, ",")
-	cfg.CertFilesList = make([]string, 0)
-
-	for i := range CertFiles {
-		cfg.CertFilesList = append(cfg.CertFilesList, strings.TrimSpace(CertFiles[i]))
-	}
 }
 
 // processAttributes parses attributes from command line
