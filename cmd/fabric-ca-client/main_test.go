@@ -225,6 +225,7 @@ func testConfigFileTypes(t *testing.T) {
 	}
 
 	// Reset the config file name
+	os.RemoveAll("./config")
 	cfgFileName = util.GetDefaultConfigFile("fabric-ca-client")
 }
 
