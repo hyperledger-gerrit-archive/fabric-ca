@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -279,6 +280,8 @@ func configInit() (err error) {
 	if err != nil {
 		return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 	}
+
+	tls.ProcessCertFiles(&serverCfg.DB.TLS)
 
 	return nil
 }

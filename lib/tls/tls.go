@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"strings"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
@@ -110,4 +111,16 @@ func AbsTLSClient(cfg *ClientTLSConfig, configDir string) error {
 	}
 
 	return nil
+}
+
+// ProcessCertFiles parses comma separated string to generate a string array
+func ProcessCertFiles(cfg *ClientTLSConfig) {
+	log.Debugf("Process comma separated cert files: %s", cfg.CertFiles)
+	if cfg.CertFiles != "" {
+		certFiles := strings.Split(cfg.CertFiles, ",")
+
+		for i := range certFiles {
+			cfg.CertFilesList = append(cfg.CertFilesList, strings.TrimSpace(certFiles[i]))
+		}
+	}
 }
