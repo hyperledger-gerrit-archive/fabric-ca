@@ -16,7 +16,9 @@ limitations under the License.
 
 package tls
 
-import "testing"
+import (
+	"testing"
+)
 
 const (
 	configDir = "../../testdata"
@@ -44,6 +46,23 @@ func TestGetClientTLSConfig(t *testing.T) {
 	_, err := GetClientTLSConfig(cfg)
 	if err != nil {
 		t.Errorf("Failed to get TLS Config: %s", err)
+	}
+
+}
+
+func TestProcessCertFiles(t *testing.T) {
+	cfg := &ClientTLSConfig{
+		CertFiles: "root1.pem, root2.pem",
+		Client: KeyCertFiles{
+			KeyFile:  "tls_client-key.pem",
+			CertFile: "tls_client-cert.pem",
+		},
+	}
+
+	ProcessCertFiles(cfg)
+
+	if cfg.CertFilesList[0] != "root1.pem" || cfg.CertFilesList[1] != "root2.pem" {
+		t.Error("Failed to process comma seperated string into array")
 	}
 
 }
