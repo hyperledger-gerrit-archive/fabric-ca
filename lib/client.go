@@ -333,8 +333,8 @@ func (c *Client) StoreMyIdentity(key, cert []byte) error {
 	return nil
 }
 
-// loadIdentity loads an identity from disk
-func (c *Client) loadIdentity(keyFile, certFile string) (*Identity, error) {
+// LoadIdentity loads an identity from disk
+func (c *Client) LoadIdentity(keyFile, certFile string) (*Identity, error) {
 	key, err := util.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
@@ -347,7 +347,7 @@ func (c *Client) loadIdentity(keyFile, certFile string) (*Identity, error) {
 }
 
 // NewIdentity creates a new identity
-func (c *Client) newIdentity(key, cert []byte) (*Identity, error) {
+func (c *Client) NewIdentity(key, cert []byte) (*Identity, error) {
 	name, err := util.GetEnrollmentIDFromPEM(cert)
 	if err != nil {
 		return nil, err
