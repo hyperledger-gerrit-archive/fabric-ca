@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -288,6 +289,19 @@ func configInit() (err error) {
 	err = viper.Unmarshal(serverCfg)
 	if err != nil {
 		return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+	}
+
+	serverCfg.DB.TLS.CertFilesList = util.ProcessCertFiles(serverCfg.DB.TLS.CertFiles)
+	serverCfg.LDAP.TLS.CertFilesList = util.ProcessCertFiles(serverCfg.LDAP.TLS.CertFiles)
+
+	err = tls.AbsTLSClient(&serverCfg.DB.TLS, filepath.Dir(cfgFileName))
+	if err != nil {
+		return err
+	}
+
+	err = tls.AbsTLSClient(&serverCfg.LDAP.TLS, filepath.Dir(cfgFileName))
+	if err != nil {
+		return err
 	}
 
 	return nil
