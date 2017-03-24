@@ -26,6 +26,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -187,7 +188,8 @@ ldap:
    # The URL of the LDAP server
    url: ldap://<adminDN>:<adminPassword>@<host>:<port>/<base>
    tls:
-      certfiles: ldap-server-cert.pem				# Comma Separated (e.g. root.pem, root2.pem)
+      certfiles:
+        - ldap-server-cert.pem
       client:
          certfile: ldap-client-cert.pem
          keyfile: ldap-client-key.pem
@@ -303,6 +305,16 @@ func configInit() (err error) {
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 		}
+	}
+
+	err = tls.AbsTLSClient(&serverCfg.DB.TLS, filepath.Dir(cfgFileName))
+	if err != nil {
+		return err
+	}
+
+	err = tls.AbsTLSClient(&serverCfg.LDAP.TLS, filepath.Dir(cfgFileName))
+	if err != nil {
+		return err
 	}
 
 	return nil
