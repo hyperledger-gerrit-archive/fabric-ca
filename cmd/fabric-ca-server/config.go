@@ -282,6 +282,17 @@ func configInit() (err error) {
 	}
 
 	tls.ProcessCertFiles(&serverCfg.DB.TLS)
+	tls.ProcessCertFiles(&serverCfg.LDAP.TLS)
+
+	err = tls.AbsTLSClient(&serverCfg.DB.TLS, filepath.Dir(cfgFileName))
+	if err != nil {
+		return err
+	}
+
+	err = tls.AbsTLSClient(&serverCfg.LDAP.TLS, filepath.Dir(cfgFileName))
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
