@@ -24,8 +24,8 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
-	"encoding/base64"
 	"fmt"
+	"reflect"
 	"time"
 
 	"math/big"
@@ -77,18 +77,19 @@ func LoadMgr(caKeyFile, caCertFile string, myCSP bccsp.BCCSP) (*Mgr, error) {
 		caKey = signer
 	}
 
-	return NewMgr(caKey, caCert)
+	return NewMgr(myCSP, caKey, caCert)
 }
 
 // NewMgr is the constructor for a TCert manager given a key and an x509 certificate
 // @parameter caKey is used for signing a certificate request
 // @parameter caCert is used for extracting CA data to associate with issued certificates
-func NewMgr(caKey interface{}, caCert *x509.Certificate) (*Mgr, error) {
+func NewMgr(csp bccsp.BCCSP, caKey interface{}, caCert *x509.Certificate) (*Mgr, error) {
 	mgr := new(Mgr)
 	mgr.CAKey = caKey
 	mgr.CACert = caCert
 	mgr.ValidityPeriod = time.Hour * 24 * 365 // default to 1 year
 	mgr.MaxAllowedBatchSize = 1000
+	mgr.csp = csp
 	return mgr, nil
 }
 
@@ -105,6 +106,8 @@ type Mgr struct {
 	// MaxAllowedBatchSize is the maximum number of TCerts which can be requested at a time.
 	// The default value is 1000.
 	MaxAllowedBatchSize int
+	// The crypto service provider (BCCSP)
+	csp bccsp.BCCSP
 }
 
 // GetBatch gets a batch of TCerts
@@ -149,11 +152,28 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 	rand.Reader.Read(nonce[:8])
 
 	pub := ecert.PublicKey.(*ecdsa.PublicKey)
-
-	mac := hmac.New(sha512.New384, []byte(createHMACKey()))
 	raw, _ := x509.MarshalPKIXPublicKey(pub)
-	mac.Write(raw)
-	kdfKey := mac.Sum(nil)
+
+	pubKey, err := tm.csp.KeyImport(raw, &bccsp.ECDSAPKIXPublicKeyImportOpts{Temporary: true})
+	if err != nil {
+		return nil, fmt.Errorf("Failed importing ECDSA public key [%s]", err)
+	}
+
+	rootOpts := &bccsp.AES256KeyGenOpts{Temporary: true}
+	rootKey, err := tm.csp.KeyGen(rootOpts)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create root key: %s", err)
+	}
+
+	opts := &bccsp.HMACTruncated256AESDeriveKeyOpts{
+		Temporary: true,
+		Arg:       []byte(raw),
+	}
+
+	kdfKey, err := tm.csp.KeyDeriv(rootKey, opts)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to derive kdfKey [%s]", err)
+	}
 
 	var set []TCert
 
@@ -167,28 +187,47 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 		tidx = append(tidx[:], nonce[:]...)
 		tidx = append(tidx[:], Padding...)
 
-		mac := hmac.New(sha512.New384, kdfKey)
-		mac.Write([]byte{1})
-		extKey := mac.Sum(nil)[:32]
+		opts := &bccsp.HMACTruncated256AESDeriveKeyOpts{
+			Temporary: true,
+			Arg:       []byte([]byte{1}),
+		}
+		extKey, err := tm.csp.KeyDeriv(kdfKey, opts)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to derive extKey [%s]", err)
+		}
 
-		mac = hmac.New(sha512.New384, kdfKey)
-		mac.Write([]byte{2})
-		mac = hmac.New(sha512.New384, mac.Sum(nil))
-		mac.Write(tidx)
+		opts = &bccsp.HMACTruncated256AESDeriveKeyOpts{
+			Temporary: true,
+			Arg:       []byte([]byte{2}),
+		}
+		expanKey, err := tm.csp.KeyDeriv(kdfKey, opts)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to derive extKey [%s]", err)
+		}
 
-		one := new(big.Int).SetInt64(1)
-		k := new(big.Int).SetBytes(mac.Sum(nil))
-		k.Mod(k, new(big.Int).Sub(pub.Curve.Params().N, one))
-		k.Add(k, one)
+		opts = &bccsp.HMACTruncated256AESDeriveKeyOpts{
+			Temporary: true,
+			Arg:       []byte(tidx),
+		}
+		rawK, err := tm.csp.KeyDeriv(expanKey, opts)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to derive extKey [%s]", err)
+		}
 
-		tmpX, tmpY := pub.ScalarBaseMult(k.Bytes())
-		txX, txY := pub.Curve.Add(pub.X, pub.Y, tmpX, tmpY)
-		txPub := ecdsa.PublicKey{Curve: pub.Curve, X: txX, Y: txY}
+		reRandomizedKey, err := tm.csp.KeyDeriv(pubKey, &bccsp.ECDSAReRandKeyOpts{Temporary: true, Expansion: rawK})
+		if err != nil {
+			return nil, fmt.Errorf("Failed re-randomizing ECDSA key [%s]", err)
+		}
+
+		txPub, err := reRandomizedKey.SwPublicKey()
+		if err != nil {
+			return nil, fmt.Errorf("Failed extracting public ECDSA key [%s]", err)
+		}
 
 		// Compute encrypted TCertIndex
-		encryptedTidx, encryptErr := CBCPKCS7Encrypt(extKey, tidx)
-		if encryptErr != nil {
-			return nil, encryptErr
+		encryptedTidx, err := tm.csp.Encrypt(extKey, tidx, &bccsp.AESCBCPKCS7ModeOpts{})
+		if err != nil {
+			return nil, fmt.Errorf("Failed encrypting TCertIndex [%s]", err)
 		}
 
 		extensions, ks, extensionErr := generateExtensions(tcertid, encryptedTidx, ecert, req)
@@ -202,32 +241,24 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 		template.ExtraExtensions = extensions
 		template.SerialNumber = tcertid
 
-		raw, err := x509.CreateCertificate(rand.Reader, template, tm.CACert, &txPub, tm.CAKey)
+		raw, err := x509.CreateCertificate(rand.Reader, template, tm.CACert, txPub, tm.CAKey)
 		if err != nil {
-			return nil, fmt.Errorf("Failed in TCert x509.CreateCertificate: %s", err)
+			return nil, fmt.Errorf("Failed in TCert x509.CreateCertificate: %s %s", err, reflect.TypeOf(txPub))
 		}
 
 		pem := ConvertDERToPEM(raw, "CERTIFICATE")
-
 		set = append(set, TCert{pem, ks})
 	}
 
+	rawKDFKey, err := kdfKey.Bytes()
+	if err != nil {
+		return nil, fmt.Errorf("Failed in to export KDFKey [%s]", err)
+	}
 	tcertID := GenNumber(big.NewInt(20))
-	tcertResponse := &GetBatchResponse{tcertID, time.Now(), kdfKey, set}
+	tcertResponse := &GetBatchResponse{tcertID, time.Now(), rawKDFKey, set}
 
 	return tcertResponse, nil
 
-}
-
-/**
-*  Create HMAC Key
-*  returns HMAC String
- */
-func createHMACKey() string {
-	key := make([]byte, 49)
-	rand.Reader.Read(key)
-	var cooked = base64.StdEncoding.EncodeToString(key)
-	return cooked
 }
 
 // Generate encrypted extensions to be included into the TCert (TCertIndex, EnrollmentID and attributes).

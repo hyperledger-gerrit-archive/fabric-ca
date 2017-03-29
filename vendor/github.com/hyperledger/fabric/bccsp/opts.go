@@ -67,9 +67,11 @@ const (
 	SHA = "SHA"
 
 	// SHA256
-	SHA256 = "SHA256"
+	SHA256   = "SHA256"
+	SHA2_256 = "SHA2_256"
 	// SHA384
-	SHA384 = "SHA384"
+	SHA384   = "SHA384"
+	SHA2_384 = "SHA2_384"
 	// SHA3_256
 	SHA3_256 = "SHA3_256"
 	// SHA3_384
@@ -147,7 +149,7 @@ func (opts *ECDSAGoPublicKeyImportOpts) Ephemeral() bool {
 // ECDSAReRandKeyOpts contains options for ECDSA key re-randomization.
 type ECDSAReRandKeyOpts struct {
 	Temporary bool
-	Expansion []byte
+	Expansion Key
 }
 
 // Algorithm returns the key derivation algorithm identifier (to be used).
@@ -162,7 +164,7 @@ func (opts *ECDSAReRandKeyOpts) Ephemeral() bool {
 }
 
 // ExpansionValue returns the re-randomization factor
-func (opts *ECDSAReRandKeyOpts) ExpansionValue() []byte {
+func (opts *ECDSAReRandKeyOpts) ExpansionValue() Key {
 	return opts.Expansion
 }
 

@@ -244,7 +244,15 @@ func (csp *impl) KeyDeriv(k bccsp.Key, opts bccsp.KeyDerivOpts) (dk bccsp.Key, e
 				Y:     new(big.Int),
 			}
 
-			var k = new(big.Int).SetBytes(reRandOpts.ExpansionValue())
+			expVal := reRandOpts.ExpansionValue()
+			var rawK []byte
+			switch expVal.(type) {
+			case *aesPrivateKey:
+				rawK = expVal.(*aesPrivateKey).privKey
+			default:
+				return nil, fmt.Errorf("Unrecognized KeyDerivOpts expansion value")
+			}
+			var k = new(big.Int).SetBytes(rawK)
 			var one = new(big.Int).SetInt64(1)
 			n := new(big.Int).Sub(ecdsaK.pubKey.Params().N, one)
 			k.Mod(k, n)
@@ -302,7 +310,15 @@ func (csp *impl) KeyDeriv(k bccsp.Key, opts bccsp.KeyDerivOpts) (dk bccsp.Key, e
 				D: new(big.Int),
 			}
 
-			var k = new(big.Int).SetBytes(reRandOpts.ExpansionValue())
+			expVal := reRandOpts.ExpansionValue()
+			var rawK []byte
+			switch expVal.(type) {
+			case *aesPrivateKey:
+				rawK = expVal.(*aesPrivateKey).privKey
+			default:
+				return nil, fmt.Errorf("Unrecognized KeyDerivOpts expansion value")
+			}
+			var k = new(big.Int).SetBytes(rawK)
 			var one = new(big.Int).SetInt64(1)
 			n := new(big.Int).Sub(ecdsaK.privKey.Params().N, one)
 			k.Mod(k, n)
@@ -356,7 +372,9 @@ func (csp *impl) KeyDeriv(k bccsp.Key, opts bccsp.KeyDerivOpts) (dk bccsp.Key, e
 
 			mac := hmac.New(csp.conf.hashFunction, aesK.privKey)
 			mac.Write(hmacOpts.Argument())
-			hmacedKey := &aesPrivateKey{mac.Sum(nil)[:csp.conf.aesBitLength], false}
+			//hmacedKey := &aesPrivateKey{mac.Sum(nil)[:csp.conf.aesBitLength], false}
+			//FIXME: This is a hack to allow key export, since we dont have key agreement yet
+			hmacedKey := &aesPrivateKey{mac.Sum(nil)[:csp.conf.aesBitLength], true}
 
 			// If the key is not Ephemeral, store it.
 			if !opts.Ephemeral() {

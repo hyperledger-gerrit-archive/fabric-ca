@@ -51,3 +51,18 @@ type SHA3_384Opts struct {
 func (opts *SHA3_384Opts) Algorithm() string {
 	return SHA3_384
 }
+
+func HashNameToOpts(name string) HashOpts {
+	switch name {
+	case SHA256, SHA2_256:
+		return &SHA256Opts{}
+	case SHA384, SHA2_384:
+		return &SHA384Opts{}
+	case SHA3_256:
+		return &SHA3_256Opts{}
+	case SHA3_384:
+		return &SHA3_384Opts{}
+	default:
+		return nil
+	}
+}

@@ -42,6 +42,11 @@ type Key interface {
 	// PublicKey returns the corresponding public key part of an asymmetric public/private key pair.
 	// This method returns an error in symmetric key schemes.
 	PublicKey() (Key, error)
+
+	// SwPublicKey returns corresponding public key part of an asymmetric public/private key pair.
+	// Expected type is rsa.PublicKey or ecdsa.PublicKey
+	// This method returns an error in symmetric key schemes.
+	SwPublicKey() (interface{}, error)
 }
 
 // KeyGenOpts contains options for key-generation with a CSP.

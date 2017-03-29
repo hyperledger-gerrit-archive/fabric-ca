@@ -72,6 +72,13 @@ func (k *ecdsaPrivateKey) PublicKey() (bccsp.Key, error) {
 	return &ecdsaPublicKey{&k.privKey.PublicKey}, nil
 }
 
+// SwPublicKey returns corresponding public key part of an asymmetric public/private key pair.
+// Expected type is rsa.PublicKey or ecdsa.PublicKey
+// This method returns an error in symmetric key schemes.
+func (k *ecdsaPrivateKey) SwPublicKey() (interface{}, error) {
+	return k.privKey.PublicKey, nil
+}
+
 type ecdsaPublicKey struct {
 	pubKey *ecdsa.PublicKey
 }
@@ -117,4 +124,11 @@ func (k *ecdsaPublicKey) Private() bool {
 // This method returns an error in symmetric key schemes.
 func (k *ecdsaPublicKey) PublicKey() (bccsp.Key, error) {
 	return k, nil
+}
+
+// SwPublicKey returns corresponding public key part of an asymmetric public/private key pair.
+// Expected type is rsa.PublicKey or ecdsa.PublicKey
+// This method returns an error in symmetric key schemes.
+func (k *ecdsaPublicKey) SwPublicKey() (interface{}, error) {
+	return k.pubKey, nil
 }

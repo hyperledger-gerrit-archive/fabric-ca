@@ -63,3 +63,10 @@ func (k *aesPrivateKey) Private() bool {
 func (k *aesPrivateKey) PublicKey() (bccsp.Key, error) {
 	return nil, errors.New("Cannot call this method on a symmetric key.")
 }
+
+// SwPublicKey returns corresponding public key part of an asymmetric public/private key pair.
+// Expected type is rsa.PublicKey or ecdsa.PublicKey
+// This method returns an error in symmetric key schemes.
+func (k *aesPrivateKey) SwPublicKey() (interface{}, error) {
+	return nil, errors.New("Cannot call this method on a symmetric key.")
+}
