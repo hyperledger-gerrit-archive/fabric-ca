@@ -41,7 +41,6 @@ import (
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
-	"github.com/mitchellh/mapstructure"
 )
 
 const (
@@ -474,16 +473,17 @@ func (c *Client) SendReq(req *http.Request, result interface{}) (err error) {
 	}
 	var respBody []byte
 	if resp.Body != nil {
+		log.Debugf("Received response\n%s", util.HTTPResponseToString(resp))
 		respBody, err = ioutil.ReadAll(resp.Body)
 		defer resp.Body.Close()
 		if err != nil {
 			return fmt.Errorf("Failed to read response [%s] of request:\n%s", err, reqStr)
 		}
-		log.Debugf("Received response\n%s", util.HTTPResponseToString(resp))
 	}
 	var body *cfsslapi.Response
 	if respBody != nil && len(respBody) > 0 {
 		body = new(cfsslapi.Response)
+		body.Result = result
 		err = json.Unmarshal(respBody, body)
 		if err != nil {
 			return fmt.Errorf("Failed to parse response: %s\n%s", err, respBody)
@@ -502,10 +502,6 @@ func (c *Client) SendReq(req *http.Request, result interface{}) (err error) {
 	}
 	if !body.Success {
 		return fmt.Errorf("Server returned failure for request:\n%s", reqStr)
-	}
-	log.Debugf("Response body result: %+v", body.Result)
-	if result != nil {
-		return mapstructure.Decode(body.Result, result)
 	}
 	return nil
 }

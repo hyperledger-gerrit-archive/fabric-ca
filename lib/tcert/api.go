@@ -55,12 +55,6 @@ type GetBatchResponse struct {
 	TCerts []TCert   `json:"tcerts"`
 }
 
-// TCert encapsulates a signed transaction certificate and optionally a map of keys
-type TCert struct {
-	Cert []byte            `json:"cert"`
-	Keys map[string][]byte `json:"keys,omitempty"` //base64 encoded string as value
-}
-
 // Attribute is a single attribute name and value
 type Attribute struct {
 	Name  string `json:"name"`

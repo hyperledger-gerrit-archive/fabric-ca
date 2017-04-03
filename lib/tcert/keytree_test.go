@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package tcert
+package tcert_test
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/cloudflare/cfssl/log"
+	. "github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
 )

@@ -211,3 +211,31 @@ func ImportBCCSPKeyFromPEM(keyFile string, myCSP bccsp.BCCSP, temporary bool) (b
 		return nil, fmt.Errorf("Failed to import key from %s: invalid secret key type", keyFile)
 	}
 }
+
+// LoadKeyAndCert loads a private key and certificate from file
+func LoadKeyAndCert(keyfile, certfile string, csp bccsp.BCCSP) (bccsp.Key, crypto.Signer, *x509.Certificate, error) {
+	key, signer, cert, err := GetSignerFromCertFile(certfile, csp)
+	if err != nil {
+		// Fallback: attempt to read out of keyFile and import
+		log.Debug("No key found in BCCSP keystore; attempting to import directly")
+		key, err = ImportBCCSPKeyFromPEM(keyfile, csp, true)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		signer, err = Key2Signer(key, csp)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+	}
+	return key, signer, cert, nil
+}
+
+// Key2Signer converts a key to a CryptoSigner
+func Key2Signer(key bccsp.Key, csp bccsp.BCCSP) (*cspsigner.CryptoSigner, error) {
+	signer := &cspsigner.CryptoSigner{}
+	err := signer.Init(csp, key)
+	if err != nil {
+		return nil, fmt.Errorf("Failed initializing CryptoSigner: %s", err)
+	}
+	return signer, nil
+}

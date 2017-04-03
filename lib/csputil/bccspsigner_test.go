@@ -169,3 +169,13 @@ func TestBccspBackedSigner(t *testing.T) {
 
 	_ = signer
 }
+
+func TestLoadKeyAndCert(t *testing.T) {
+	_, _, _, err := LoadKeyAndCert(
+		"../../testdata/ec-key.pem",
+		"../../testdata/ec.pem",
+		csp)
+	if err != nil {
+		t.Fatalf("LoadCertAndKey failed: %s", err)
+	}
+}

@@ -67,14 +67,6 @@ func TestCBCPKCS7EncryptCBCPKCS7Decrypt(t *testing.T) {
 
 }
 
-func TestPreKey(t *testing.T) {
-	rootKey := CreateRootPreKey()
-	if len(rootKey) == 0 {
-		t.Fatal("Root Key Cannot be generated")
-	}
-
-}
-
 func TestSerialNumber(t *testing.T) {
 	publicKeyBuff, err := ioutil.ReadFile("../../testdata/ec.pem")
 	if err != nil {
