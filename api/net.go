@@ -60,7 +60,7 @@ type RevocationRequestNet struct {
 
 // GetTCertBatchRequestNet is a network request for a batch of transaction certificates
 type GetTCertBatchRequestNet struct {
-	GetTCertBatchRequest
+	GetTCertFactoryRequest
 	// KeySigs is an optional array of public keys and corresponding signatures.
 	// If not set, the server generates it's own keys based on a key derivation function
 	// which cryptographically relates the TCerts to an ECert.

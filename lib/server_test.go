@@ -135,21 +135,23 @@ func TestRootServer(t *testing.T) {
 		t.Error("User1 should not be be allowed to revoke admin")
 	}
 	// User1 get's batch of tcerts
-	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+	tf, err := user1.NewTCertFactory(&api.GetTCertFactoryRequest{Count: 1})
 	if err != nil {
-		t.Fatalf("Failed to get tcerts for user1: %s", err)
+		t.Fatalf("Failed to get tcert factory for user1: %s", err)
+	}
+	_, err = tf.GetTCert()
+	if err != nil {
+		t.Fatalf("Failed to get tcert for user1: %s", err)
 	}
 	// Revoke user1's identity
 	err = admin.Revoke(&api.RevocationRequest{Name: "user1"})
 	if err != nil {
 		t.Fatalf("Failed to revoke user1's identity: %s", err)
 	}
-	// User1 should not be allowed to get tcerts now that it is revoked
-	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+	_, err = tf.GetTCert()
 	if err == nil {
-		t.Errorf("User1 should have failed to get tcerts since it is revoked")
+		t.Fatalf("User1 should have failed to get tcerts since it is revoked")
 	}
-
 	// Stop the server
 	err = server.Stop()
 	if err != nil {

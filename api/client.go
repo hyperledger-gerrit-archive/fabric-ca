@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 )
 
 // RegistrationRequest for a new identity
@@ -101,10 +100,8 @@ type RevocationRequest struct {
 	Reason int `json:"reason,omitempty"`
 }
 
-// GetTCertBatchRequest is input provided to identity.GetTCertBatch
-type GetTCertBatchRequest struct {
-	// Number of TCerts in the batch.
-	Count int `json:"count"`
+// GetTCertFactoryRequest is input provided to identity.GetTCertFactory
+type GetTCertFactoryRequest struct {
 	// The attribute names whose names and values are to be sealed in the issued TCerts.
 	AttrNames []string `json:"attr_names,omitempty"`
 	// EncryptAttrs denotes whether to encrypt attribute values or not.
@@ -120,11 +117,16 @@ type GetTCertBatchRequest struct {
 	// cryptographically related to an ECert.  This may be necessary when using an
 	// HSM which does not support the TCert's key derivation function.
 	DisableKeyDerivation bool `json:"disable_kdf,omitempty"`
-}
-
-// GetTCertBatchResponse is the return value of identity.GetTCertBatch
-type GetTCertBatchResponse struct {
-	tcert.GetBatchResponse
+	// SelfSigned is true if the request is for self-signed TCerts.
+	// Advantages of self-signed TCerts are:
+	// 1) Requires fewer requests to the server
+	// 2) Does not reveal CA's identity
+	// Disadvantages of self-signed TCerts are:
+	// 1) Is not signed by a trusted root of the system so extra validation is required.
+	SelfSigned bool
+	// The number of transaction certificates returned in each response from the server.
+	// If the value is 0, the server's default number is used.
+	Count int
 }
 
 // CSRInfo is Certificate Signing Request information

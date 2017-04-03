@@ -24,6 +24,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -35,9 +36,9 @@ func newIdentity(client *Client, name string, key bccsp.Key, cert []byte) *Ident
 	id.ecert = newSigner(key, cert, id)
 	id.client = client
 	if client != nil {
-		id.CSP = client.csp
+		id.csp = client.csp
 	} else {
-		id.CSP = factory.GetDefault()
+		id.csp = factory.GetDefault()
 	}
 	return id
 }
@@ -47,7 +48,7 @@ type Identity struct {
 	name   string
 	ecert  *Signer
 	client *Client
-	CSP    bccsp.BCCSP
+	csp    bccsp.BCCSP
 }
 
 // GetName returns the identity name
@@ -60,20 +61,18 @@ func (i *Identity) GetECert() *Signer {
 	return i.ecert
 }
 
-// GetTCertBatch returns a batch of TCerts for this identity
-func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, error) {
-	reqBody, err := util.Marshal(req, "GetTCertBatchRequest")
+// NewTCertFactory constructs a transaction certificate factory from which you can
+// get multiple anonymous and unlinkable signers for this identity
+func (i *Identity) NewTCertFactory(req *api.GetTCertFactoryRequest) (*TCertFactory, error) {
+	if req == nil {
+		return nil, errors.New("nil request to GetTCertBatch")
+	}
+	tf := &TCertFactory{identity: i, req: req, csp: i.csp}
+	err := tf.init()
 	if err != nil {
 		return nil, err
 	}
-	err = i.Post("tcert", reqBody, nil)
-	if err != nil {
-		return nil, err
-	}
-	// Ignore the contents of the response for now.  They will be processed in the future when we need to
-	// support the Go SDK.   We currently have Node and Java SDKs which process this and they are the
-	// priority.
-	return nil, nil
+	return tf, nil
 }
 
 // Register registers a new identity
@@ -151,9 +150,7 @@ func (i *Identity) Revoke(req *api.RevocationRequest) error {
 func (i *Identity) RevokeSelf() error {
 	name := i.GetName()
 	log.Debugf("RevokeSelf %s", name)
-	req := &api.RevocationRequest{
-		Name: name,
-	}
+	req := &api.RevocationRequest{Name: name}
 	return i.Revoke(req)
 }
 
@@ -185,10 +182,154 @@ func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	log.Debug("adding token-based authorization header")
 	cert := i.ecert.cert
 	key := i.ecert.key
-	token, err := util.CreateToken(i.CSP, cert, key, body)
+	token, err := util.CreateToken(i.csp, cert, key, body)
 	if err != nil {
 		return fmt.Errorf("Failed to add token authorization header: %s", err)
 	}
 	req.Header.Set("authorization", token)
 	return nil
+}
+
+// TCertFactory is an object from which you may retrieve multiple TCerts, each
+// being anonymous and unlinkable.
+type TCertFactory struct {
+	identity   *Identity
+	csp        bccsp.BCCSP
+	selfSigned bool
+	req        *api.GetTCertFactoryRequest
+	factory    *tcert.Factory
+	batch      []tcert.TCert
+}
+
+// GetTCert returns a transaction certificate
+func (tf *TCertFactory) GetTCert() (*tcert.TCert, error) {
+	if tf.selfSigned {
+		// Get a self-signed TCert
+		return tf.factory.GenTCert()
+	}
+	// Get a CA-signed TCert
+	if len(tf.batch) == 0 {
+		err := tf.getBatch()
+		if err != nil {
+			return nil, err
+		}
+	}
+	tcert := tf.batch[0]
+	tf.batch = tf.batch[1:]
+	return &tcert, nil
+}
+
+// Initialize the TCert factory
+func (tf *TCertFactory) init() error {
+	if tf.req.SelfSigned {
+		return tf.initSelfSigned()
+	}
+	return nil
+}
+
+// Initialize a self-signed TCert batch by getting a single CA-signed
+// TCert to get two things: the KDF key and the values of the requested
+// attributes.  All else is done locally to self-sign as many TCerts
+// as the client wants to create.
+func (tf *TCertFactory) initSelfSigned() error {
+	tf.selfSigned = true
+	req := tf.req
+	if req.DisableKeyDerivation {
+		return errors.New("SelfSigned and DisableKeyDerivation may not both be true")
+	}
+	if req.PreKey == "" {
+		return errors.New("SelfSigned is enabled but PreKey was not specified")
+	}
+	// In order to generate self-signed TCerts, we need to get a single
+	// TCert signed by the server with the requested attributes and the KDF
+	// key to use in generating the private keys.
+	req2 := &api.GetTCertBatchRequestNet{
+		GetTCertFactoryRequest: api.GetTCertFactoryRequest{
+			AttrNames:      req.AttrNames,
+			ValidityPeriod: req.ValidityPeriod,
+			PreKey:         req.PreKey,
+			Count:          req.Count,
+		}}
+	resp, err := tf.getBatchFromServer(req2)
+	if err != nil {
+		return err
+	}
+	tCert := resp.TCerts[0]
+	attrs, err := tCert.GetAttributes()
+	if err != nil {
+		return err
+	}
+	err = tf.initFactory(resp.Key)
+	if err != nil {
+		return err
+	}
+	tf.factory.SetAttributes(attrs, req.EncryptAttrs)
+	tf.factory.SetPreKey(req.PreKey)
+	return nil
+}
+
+// Create and initalize the lib/tcert factory
+func (tf *TCertFactory) initFactory(kdfKey []byte) error {
+	mgr, err := tcert.NewMgr(tf.csp)
+	if err != nil {
+		return err
+	}
+	ecert := tf.identity.GetECert()
+	ecertX509, err := ecert.X509Cert()
+	if err != nil {
+		return err
+	}
+	tf.factory, err = mgr.NewFactory(ecertX509, kdfKey)
+	if err != nil {
+		return err
+	}
+	tf.factory.SetECertPrivateKey(ecert.Key())
+	return nil
+}
+
+// Get the next batch of TCerts
+func (tf *TCertFactory) getBatch() error {
+	// Get the batch from the server
+	log.Debug("Getting TCert batch from server")
+	netReq := &api.GetTCertBatchRequestNet{GetTCertFactoryRequest: *tf.req}
+	resp, err := tf.getBatchFromServer(netReq)
+	if err != nil {
+		return err
+	}
+	batch := resp.TCerts
+	if len(batch) == 0 {
+		return errors.New("No transaction certificates were returned by the server")
+	}
+	err = tf.initFactory(resp.Key)
+	if err != nil {
+		return err
+	}
+	// Set the private signer for each TCert, which requires the private key and
+	// involves private key derivation.
+	for _, tcert := range batch {
+		err = tf.factory.SetTCertPrivateSigner(&tcert)
+		if err != nil {
+			return err
+		}
+	}
+	if tf.batch == nil {
+		tf.batch = batch
+	} else {
+		tf.batch = append(tf.batch, batch...)
+	}
+	return nil
+}
+
+// Get a batch of TCerts from the server
+func (tf *TCertFactory) getBatchFromServer(req *api.GetTCertBatchRequestNet) (*api.GetTCertBatchResponseNet, error) {
+	reqBody, err := util.Marshal(req, "GetTCertBatchRequest")
+	if err != nil {
+		return nil, err
+	}
+	resp := new(api.GetTCertBatchResponseNet)
+	err = tf.identity.Post("tcert", reqBody, &resp.GetBatchResponse)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

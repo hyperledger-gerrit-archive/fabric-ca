@@ -102,41 +102,97 @@ func testRegister(c *Client, t *testing.T) {
 
 	adminID = eresp.Identity
 
-	// Register as admin
-	registerReq := &api.RegistrationRequest{
+	// Register a test user with two attributes: attr1 and attr2
+	testUserRegistration := &api.RegistrationRequest{
 		Name:           "MyTestUser",
 		Type:           "Client",
 		Affiliation:    "hyperledger",
 		MaxEnrollments: 1,
+		Attributes: []api.Attribute{
+			{Name: "attr1", Value: "attr1-value"},
+			{Name: "attr2", Value: "attr2-value"},
+		},
 	}
-
-	resp, err := adminID.Register(registerReq)
+	rresp, err := adminID.Register(testUserRegistration)
 	if err != nil {
 		t.Fatalf("Register failed: %s", err)
 	}
 
-	req := &api.EnrollmentRequest{
+	testUserEnrollment := &api.EnrollmentRequest{
 		Name:   "MyTestUser",
-		Secret: resp.Secret,
+		Secret: rresp.Secret,
 	}
-
-	eresp, err = c.Enroll(req)
+	eresp, err = c.Enroll(testUserEnrollment)
 	if err != nil {
 		t.Fatalf("Enroll failed: %s", err)
 	}
 	id := eresp.Identity
 
 	if id.GetName() != "MyTestUser" {
-		t.Fatal("Incorrect name retrieved")
+		t.Fatal("Incorrect test user name retrieved")
 	}
 
 	if id.GetECert() == nil {
-		t.Fatal("No ECert was returned")
+		t.Fatal("No ECert was returned for test user")
 	}
 
-	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+	testTCertFactory(false, false, id, t)
+	testTCertFactory(false, true, id, t)
+	testTCertFactory(true, false, id, t)
+	testTCertFactory(true, true, id, t)
+}
+
+func testTCertFactory(selfSigned, encryptAttrs bool, id *Identity, t *testing.T) {
+	name := fmt.Sprintf("<selfSigned:%v,encryptAttrs:%v>", selfSigned, encryptAttrs)
+	prekey := ""
+	if selfSigned {
+		prekey = "my-self-signed-prekey"
+	}
+	tf, err := id.NewTCertFactory(&api.GetTCertFactoryRequest{
+		AttrNames:    []string{"attr1"},
+		SelfSigned:   selfSigned,
+		EncryptAttrs: encryptAttrs,
+		PreKey:       prekey,
+	})
 	if err != nil {
-		t.Fatal("Failed to get batch of TCerts")
+		t.Errorf("Failed to get %s TCert factory: %s", name, err)
+		return
+	}
+	// Get a tcert from the factory
+	tcert, err := tf.GetTCert()
+	if err != nil {
+		t.Errorf("Failed to get TCert from factory for %s: %s", name, err)
+		return
+	}
+	// Test GetAttributeNames
+	attrNames := tcert.GetAttributeNames()
+	if len(attrNames) != 1 {
+		t.Errorf("Incorrect number of attribute names for test user for %s: %+v", name, attrNames)
+		return
+	}
+	if attrNames[0] != "attr1" {
+		t.Errorf("The tcert attribute name should have been 'attr1' but was '%s' for %s", attrNames[0], name)
+		return
+	}
+	// Test HasAttribute
+	if !tcert.HasAttribute("attr1") {
+		t.Errorf("Test user tcert does not have attr 'attr1' for %s", name)
+		return
+	}
+	if tcert.HasAttribute("attr2") {
+		t.Errorf("Test user tcert should not have 'attr2' for %s", name)
+		return
+	}
+	// Test GetAttributeValue
+	attrVal, err := tcert.GetAttributeValue("attr1")
+	if err != nil {
+		t.Errorf("Failed to get tcert attribute value for %s: %s", name, err)
+	} else if string(attrVal) != "attr1-value" {
+		t.Errorf("Invalid value for attribute attr1 for %s; found '%s'", name, string(attrVal))
+	}
+	_, err = tcert.GetAttributeValue("attr2")
+	if err == nil {
+		t.Errorf("Should have failed to get attr2 value for %s", name)
 	}
 }
 

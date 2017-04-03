@@ -20,16 +20,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"io/ioutil"
 	"time"
 
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/ecdsa"
+	"crypto/hmac"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/pem"
 	"math/big"
@@ -91,7 +92,7 @@ func CBCEncrypt(key, s []byte) ([]byte, error) {
 
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Failed to create AES cipher: %s", err)
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
@@ -150,41 +151,23 @@ func GetEnrollmentIDFromCert(ecert *x509.Certificate) string {
 	return ecert.Subject.CommonName
 }
 
-//GetCertificate returns interface containing *rsa.PublicKey or ecdsa.PublicKey
-func GetCertificate(certificate []byte) (*x509.Certificate, error) {
-
-	var certificates []*x509.Certificate
-	var isvalidCert bool
-	var err error
-
-	block, _ := pem.Decode(certificate)
-	if block == nil {
-		certificates, err = x509.ParseCertificates(certificate)
-		if err != nil {
-			log.Error("Certificate Parse failed")
-			return nil, errors.New("DER Certificate Parse failed")
-		} //else {
-		isvalidCert = ValidateCert(certificates[0])
-		if !isvalidCert {
-			log.Error("Certificate expired")
-			return nil, errors.New("Certificate expired")
-		}
-		//}
-	} else {
-		certificates, err = x509.ParseCertificates(block.Bytes)
-		if err != nil {
-			log.Fatal("PEM Certificatre Parse failed")
-			return nil, errors.New("PEM  Certificate Parse failed")
-		} //else {
-		isvalidCert = ValidateCert(certificates[0])
-		if !isvalidCert {
-			log.Error("Certificate expired")
-			return nil, errors.New("Certificate expired")
-		}
-		//}
+// GetCertificate converts bytes to an x509 certificate
+func GetCertificate(buf []byte) (*x509.Certificate, error) {
+	encoding := "DER"
+	block, _ := pem.Decode(buf)
+	if block != nil {
+		buf = block.Bytes
+		encoding = "PEM"
 	}
-	return certificates[0], nil
-
+	certs, err := x509.ParseCertificates(buf)
+	if err != nil {
+		return nil, fmt.Errorf("%s certificate parse failed", encoding)
+	}
+	cert := certs[0]
+	if !ValidateCert(cert) {
+		return nil, errors.New("Certificate has expired")
+	}
+	return cert, nil
 }
 
 //GetCertitificateSerialNumber returns serial number for Certificate byte
@@ -211,18 +194,15 @@ func ValidateCert(cert *x509.Certificate) bool {
 
 // CBCPKCS7Decrypt combines CBC decryption and PKCS7 unpadding
 func CBCPKCS7Decrypt(key, src []byte) ([]byte, error) {
+	src = cloneBytes(src)
 	pt, err := CBCDecrypt(key, src)
 	if err != nil {
-
 		return nil, err
 	}
-
 	original, err := PKCS7UnPadding(pt)
 	if err != nil {
-
 		return nil, err
 	}
-
 	return original, nil
 }
 
@@ -230,14 +210,12 @@ func CBCPKCS7Decrypt(key, src []byte) ([]byte, error) {
 func CBCDecrypt(key, src []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-
 		return nil, err
 	}
 
 	// The IV needs to be unique, but not secure. Therefore it's common to
 	// include it at the beginning of the ciphertext.
 	if len(src) < aes.BlockSize {
-
 		return nil, errors.New("ciphertext too short")
 	}
 	iv := src[:aes.BlockSize]
@@ -245,7 +223,6 @@ func CBCDecrypt(key, src []byte) ([]byte, error) {
 
 	// CBC mode always works in whole blocks.
 	if len(src)%aes.BlockSize != 0 {
-
 		return nil, errors.New("ciphertext is not a multiple of the block size")
 	}
 
@@ -269,77 +246,19 @@ func CBCDecrypt(key, src []byte) ([]byte, error) {
 func PKCS7UnPadding(src []byte) ([]byte, error) {
 	length := len(src)
 	unpadding := int(src[length-1])
-
-	if unpadding > aes.BlockSize || unpadding == 0 {
-		return nil, fmt.Errorf("invalid padding")
+	if unpadding == 0 {
+		return nil, errors.New("Invalid PKCS7 padding")
 	}
-
+	if unpadding > aes.BlockSize {
+		return nil, fmt.Errorf("Invalid PKCS7 padding (%d > %d)", unpadding, aes.BlockSize)
+	}
 	pad := src[len(src)-unpadding:]
 	for i := 0; i < unpadding; i++ {
 		if pad[i] != byte(unpadding) {
-			return nil, fmt.Errorf("invalid padding")
+			return nil, fmt.Errorf("Invalid PKCS7 padding (index: %d)", i)
 		}
 	}
-
 	return src[:(length - unpadding)], nil
-}
-
-//CreateRootPreKey method generates root key
-func CreateRootPreKey() string {
-	var cooked string
-	key := make([]byte, RootPreKeySize)
-	rand.Reader.Read(key)
-	cooked = base64.StdEncoding.EncodeToString(key)
-	return cooked
-}
-
-// GetPrivateKey returns ecdsa.PrivateKey or rsa.privateKey object for the private Key Bytes
-func GetPrivateKey(buf []byte) (interface{}, error) {
-	var err error
-	var privateKey interface{}
-
-	block, _ := pem.Decode(buf)
-	if block == nil {
-		privateKey, err = ParsePrivateKey(buf)
-		if err != nil {
-			return nil, fmt.Errorf("Failure parsing DER-encoded private key: %s", err)
-		}
-	} else {
-		privateKey, err = ParsePrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("Failure parsing PEM private key: %s", err)
-		}
-	}
-
-	switch privateKey := privateKey.(type) {
-	case *rsa.PrivateKey:
-		return privateKey, nil
-	case *ecdsa.PrivateKey:
-		return privateKey, nil
-	default:
-		return nil, errors.New("Key is neither RSA nor ECDSA")
-	}
-
-}
-
-// ParsePrivateKey parses private key
-func ParsePrivateKey(der []byte) (interface{}, error) {
-	if key, err := x509.ParsePKCS1PrivateKey(der); err == nil {
-		return key, nil
-	}
-	if key, err := x509.ParsePKCS8PrivateKey(der); err == nil {
-		switch key := key.(type) {
-		case *rsa.PrivateKey, *ecdsa.PrivateKey:
-			return key, nil
-		default:
-			return nil, errors.New("Key is neither RSA nor ECDSA")
-		}
-	}
-	key, err := x509.ParseECPrivateKey(der)
-	if err != nil {
-		return nil, fmt.Errorf("Failure parsing private key: %s", err)
-	}
-	return key, nil
 }
 
 // LoadCert loads a certificate from a file
@@ -351,15 +270,30 @@ func LoadCert(path string) (*x509.Certificate, error) {
 	return GetCertificate(certBuf)
 }
 
-// LoadKey loads a private key from a file
-func LoadKey(path string) (interface{}, error) {
-	keyBuf, err := ioutil.ReadFile(path)
-	if err != nil {
-		return nil, err
+func getExtensionValueFromCert(cert *x509.Certificate, oid asn1.ObjectIdentifier) []byte {
+	for _, ext := range cert.Extensions {
+		if ext.Id.Equal(oid) {
+			return ext.Value
+		}
 	}
-	key, err := GetPrivateKey(keyBuf)
-	if err != nil {
-		return nil, err
-	}
-	return key, nil
+	return nil
+}
+
+func createHMACKey() []byte {
+	key := make([]byte, 49)
+	rand.Reader.Read(key)
+	var cooked = base64.StdEncoding.EncodeToString(key)
+	return []byte(cooked)
+}
+
+func myhmac(key, buf []byte, hashFunction func() hash.Hash) []byte {
+	mac := hmac.New(hashFunction, key)
+	mac.Write(buf)
+	return mac.Sum(nil)
+}
+
+func cloneBytes(buf []byte) []byte {
+	clone := make([]byte, len(buf))
+	copy(clone, buf)
+	return clone
 }
