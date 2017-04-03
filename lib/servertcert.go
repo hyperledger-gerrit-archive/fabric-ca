@@ -56,6 +56,7 @@ func initTCertHandler(server *Server) (h http.Handler, err error) {
 		return nil, err
 	}
 	// FIXME: The root prekey must be stored persistently in DB and retrieved here if not found
+	// See https://jira.hyperledger.org/browse/FAB-2907
 	rootKey, err := genRootKey(server.csp)
 	if err != nil {
 		return nil, err

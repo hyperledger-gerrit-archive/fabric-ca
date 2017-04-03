@@ -17,6 +17,8 @@ limitations under the License.
 package lib
 
 import (
+	"crypto/x509"
+
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric/bccsp"
@@ -34,11 +36,12 @@ func newSigner(key bccsp.Key, cert []byte, id *Identity) *Signer {
 // Signer represents a signer
 // Each identity may have multiple signers, currently one ecert and multiple tcerts
 type Signer struct {
-	name   string
-	key    bccsp.Key
-	cert   []byte
-	id     *Identity
-	client *Client
+	name     string
+	key      bccsp.Key
+	cert     []byte
+	x509Cert *x509.Certificate
+	id       *Identity
+	client   *Client
 }
 
 // Key returns the key bytes of this signer
@@ -49,6 +52,18 @@ func (s *Signer) Key() bccsp.Key {
 // Cert returns the cert bytes of this signer
 func (s *Signer) Cert() []byte {
 	return s.cert
+}
+
+// X509Cert returns the X509 certificate
+func (s *Signer) X509Cert() (*x509.Certificate, error) {
+	if s.x509Cert == nil {
+		cert, err := BytesToX509Cert(s.cert)
+		if err != nil {
+			return nil, err
+		}
+		s.x509Cert = cert
+	}
+	return s.x509Cert, nil
 }
 
 // RevokeSelf revokes only the certificate associated with this signer
