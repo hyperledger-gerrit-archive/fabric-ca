@@ -32,7 +32,7 @@ setTLS() {
      # otherwise, set TLS-related stuff
      if $($FABRIC_TLS); then
         PROTO="https://"
-        TLSOPT="--tls.enabled --tls.certfiles $ROOTCERT"
+        TLSOPT="--tls.certfiles $ROOTCERT"
      fi
    fi
 }
