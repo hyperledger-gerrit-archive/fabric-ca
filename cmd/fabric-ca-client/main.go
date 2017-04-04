@@ -67,8 +67,9 @@ func init() {
 
 	clientCfg = &lib.ClientConfig{}
 	tags := map[string]string{
-		"help.csr.cn":           "The common name field of the certificate signing request to a parent fabric-ca-server",
-		"help.csr.serialnumber": "The serial number in a certificate signing request to a parent fabric-ca-server",
+		"help.csr.cn":           "The common name field of the certificate signing request",
+		"help.csr.serialnumber": "The serial number in a certificate signing request",
+		"help.csr.hosts":        "A host name in a certificate signing request",
 	}
 	err = util.RegisterFlags(pflags, clientCfg, tags)
 	if err != nil {
