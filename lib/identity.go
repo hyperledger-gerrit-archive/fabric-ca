@@ -61,6 +61,10 @@ func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, erro
 	if err != nil {
 		return nil, err
 	}
+	if req.CAName == "" {
+		log.Info("No CA name specified in client request, defaulting to 'ca'")
+		req.CAName = DefaultCAName
+	}
 	err = i.Post("tcert", reqBody, nil)
 	if err != nil {
 		return nil, err
@@ -74,7 +78,7 @@ func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, erro
 // Register registers a new identity
 // @param req The registration request
 func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationResponse, err error) {
-	log.Debugf("Register %+v", &req)
+	log.Debugf("Register %+v", req)
 	if req.Name == "" {
 		return nil, errors.New("Register was called without a Name set")
 	}
@@ -85,6 +89,11 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 	reqBody, err := util.Marshal(req, "RegistrationRequest")
 	if err != nil {
 		return nil, err
+	}
+
+	if req.CAName == "" {
+		log.Info("No CA name specified in client request, defaulting to 'ca'")
+		req.CAName = DefaultCAName
 	}
 
 	// Send a post to the "register" endpoint with req as body
@@ -101,7 +110,7 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 // Reenroll reenrolls an existing Identity and returns a new Identity
 // @param req The reenrollment request
 func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, error) {
-	log.Debugf("Reenrolling %s", &req)
+	log.Debugf("Reenrolling %s", req)
 
 	csrPEM, key, err := i.client.GenCSR(req.CSR, i.GetName())
 	if err != nil {
@@ -119,6 +128,10 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 	if err != nil {
 		return nil, err
 	}
+	if req.CAName == "" {
+		log.Info("No CA name specified in client request, defaulting to 'ca'")
+		req.CAName = DefaultCAName
+	}
 	var result enrollmentResponseNet
 	err = i.Post("reenroll", body, &result)
 	if err != nil {
@@ -129,10 +142,14 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 
 // Revoke the identity associated with 'id'
 func (i *Identity) Revoke(req *api.RevocationRequest) error {
-	log.Debugf("Entering identity.Revoke %+v", &req)
+	log.Debugf("Entering identity.Revoke %+v", req)
 	reqBody, err := util.Marshal(req, "RevocationRequest")
 	if err != nil {
 		return err
+	}
+	if req.CAName == "" {
+		log.Info("No CA name specified in client requested, defaulting to 'ca'")
+		req.CAName = "ca"
 	}
 	err = i.Post("revoke", reqBody, nil)
 	if err != nil {

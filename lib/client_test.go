@@ -41,6 +41,10 @@ var (
 	adminID     *Identity
 )
 
+const (
+	DefaultCA = ""
+)
+
 func TestClient(t *testing.T) {
 
 	server := getServer(ctport1, path.Join(serversDir, "c1"), "", 1, t)
@@ -54,7 +58,7 @@ func TestClient(t *testing.T) {
 
 	c := getTestClient(ctport1)
 
-	testGetServerInfo(c, t)
+	testGetCAInfo(c, t)
 	testRegister(c, t)
 	testEnrollIncorrectPassword(c, t)
 	testDoubleEnroll(c, t)
@@ -71,9 +75,11 @@ func TestClient(t *testing.T) {
 
 }
 
-func testGetServerInfo(c *Client, t *testing.T) {
-
-	si, err := c.GetServerInfo()
+func testGetCAInfo(c *Client, t *testing.T) {
+	req := &api.GetCAInfoRequest{
+		CAName: DefaultCAName,
+	}
+	si, err := c.GetCAInfo(req)
 	if err != nil {
 		t.Fatalf("Failed to get server info: %s", err)
 	}
@@ -279,23 +285,23 @@ func testTooManyEnrollments(t *testing.T) {
 
 	rawURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", ctport2)
 
-	_, err := clientConfig.Enroll(rawURL, testdataDir)
+	_, err := clientConfig.Enroll(rawURL, DefaultCA, testdataDir)
 	if err != nil {
 		t.Errorf("Failed to enroll: %s", err)
 	}
 
-	_, err = clientConfig.Enroll(rawURL, testdataDir)
+	_, err = clientConfig.Enroll(rawURL, DefaultCA, testdataDir)
 	if err != nil {
 		t.Errorf("Failed to enroll: %s", err)
 	}
 
-	eresp, err := clientConfig.Enroll(rawURL, testdataDir)
+	eresp, err := clientConfig.Enroll(rawURL, DefaultCA, testdataDir)
 	if err != nil {
 		t.Errorf("Failed to enroll: %s", err)
 	}
 	id := eresp.Identity
 
-	_, err = clientConfig.Enroll(rawURL, testdataDir)
+	_, err = clientConfig.Enroll(rawURL, DefaultCA, testdataDir)
 	if err == nil {
 		t.Errorf("Enroll should have failed, no more enrollments left")
 	}

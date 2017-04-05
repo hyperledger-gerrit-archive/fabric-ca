@@ -32,12 +32,14 @@ type ClientConfig struct {
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
+	Revoke     api.RevocationRequest
+	CAInfo     api.GetCAInfoRequest
 }
 
 // Enroll a client given the server's URL and the client's home directory.
 // The URL may be of the form: http://user:pass@host:port where user and pass
 // are the enrollment ID and secret, respectively.
-func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) {
+func (c *ClientConfig) Enroll(rawurl, caname, home string) (*EnrollmentResponse, error) {
 	purl, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, err
@@ -49,6 +51,7 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 		c.Enrollment.Secret = secret
 		purl.User = nil
 	}
+	c.Enrollment.CAName = caname
 	c.URL = purl.String()
 	c.TLS.Enabled = purl.Scheme == "https"
 	c.Enrollment.CSR = &c.CSR
