@@ -27,8 +27,7 @@ import (
 )
 
 const (
-	rootPort    = 7055
-	rootDir     = "rootDir"
+	rootPort    = 7062
 	testdataDir = "../testdata"
 	user        = "admin"
 	pass        = "adminpw"
@@ -131,6 +130,10 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 			"sdk":       nil,
 		},
 		"org2": nil,
+	}
+	affiliations[affiliationName] = map[string]interface{}{
+		"department1": nil,
+		"department2": nil,
 	}
 	srv := &Server{
 		Config: &ServerConfig{
