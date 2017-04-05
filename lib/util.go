@@ -84,9 +84,10 @@ func LoadPEMCertPool(certFiles []string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-// UnmarshalConfig ...
-func UnmarshalConfig(config interface{}, vp *viper.Viper, caFile string, server, viperIssue327WorkAround bool) error {
-	vp.SetConfigFile(caFile)
+// UnmarshalConfig will use the viperunmarshal workaround to unmarshal a
+// configuration file into a struct
+func UnmarshalConfig(config interface{}, vp *viper.Viper, configFile string, server, viperIssue327WorkAround bool) error {
+	vp.SetConfigFile(configFile)
 	err := vp.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("Failed to read config file: %s", err)
@@ -105,25 +106,25 @@ func UnmarshalConfig(config interface{}, vp *viper.Viper, caFile string, server,
 		}
 		err = util.ViperUnmarshal(config, sliceFields, vp)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 		}
 		if server {
 			serverCfg := config.(*ServerConfig)
 			err = vp.Unmarshal(&serverCfg.CAcfg)
 			if err != nil {
-				return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+				return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 			}
 		}
 	} else {
 		err = vp.Unmarshal(config)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 		}
 		if server {
 			serverCfg := config.(*ServerConfig)
 			err = vp.Unmarshal(&serverCfg.CAcfg)
 			if err != nil {
-				return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+				return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 			}
 		}
 	}
