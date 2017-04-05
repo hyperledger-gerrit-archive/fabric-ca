@@ -372,46 +372,36 @@ func testRevoke(t *testing.T) {
 
 	aki = strings.ToUpper(aki)
 
-	// Revoker's affiliation: banks.bank_a
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "nonexistinguser"})
+	// Revoker's affiliation: hyperledger.bank_a
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "nonexistinguser"})
 	if err == nil {
 		t.Errorf("Non existing user being revoked, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", serial})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "", "--revoke.serial", serial})
 	if err == nil {
 		t.Errorf("Only serial specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", "", "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "", "--revoke.serial", "", "--revoke.aki", aki})
 	if err == nil {
 		t.Errorf("Only aki specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.serial", serial, "--revoke.aki", aki})
 	if err != nil {
-		t.Errorf("client revoke -u -s -a failed: %s", err)
+		t.Errorf("client revoke -u --revoke.serial --revoke.aki failed: %s", err)
 	}
 
-	serial, aki, err = getSerialAKIByID("testRegister")
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister3", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Error(err)
+		t.Errorf("client revoke -u --revoke.name failed: %s", err)
 	}
 
-	// Revoked user's affiliation: banks.bank_c
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
-	if err != nil {
-		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
-	}
-
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister3", "-s", "", "-a", ""})
-	if err != nil {
-		t.Errorf("client revoke -u -e failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister2", "-s", "", "-a", ""})
+	// testRegister2's affiliation: hyperledger.bank_b, revoker's affiliation: hyperledger.bank_a
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister2", "--revoke.serial", "", "--revoke.aki", ""})
 	if err == nil {
-		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
+		t.Errorf("Revoker does not have the correct affiliation to revoke user testRegister2, should have failed")
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -552,12 +542,55 @@ func TestClientCommandsTLS(t *testing.T) {
 	}
 }
 
+func TestMultiCA(t *testing.T) {
+	srv = getServer()
+	srv.HomeDir = "../../testdata"
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	srv.CA.Config.CSR.Hosts = []string{"hostname"}
+	t.Logf("Server configuration: %+v\n", srv.Config)
+
+	srv.BlockingStart = false
+	err := srv.Start()
+	if err != nil {
+		t.Fatal("Failed to start server:", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", "http://adminca1:adminca1pw@localhost:7054", "-d", "--caname", "rootca1"})
+	if err != nil {
+		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", "http://adminca1:adminca1pw@localhost:7054", "-d", "--caname", "rootca3"})
+	if err == nil {
+		t.Errorf("Should have failed, rootca3 does not exist on server")
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
 func TestCleanUp(t *testing.T) {
-	os.Remove("../../testdata/cert.pem")
-	os.Remove("../../testdata/key.pem")
+	os.Remove("../../testdata/ca-cert.pem")
+	os.Remove("../../testdata/ca-key.pem")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
 	os.RemoveAll(mspDir)
+	cleanMultiCADir()
+}
+
+func cleanMultiCADir() {
+	caFolder := "../../testdata/ca/rootca"
+	nestedFolders := []string{"ca1", "ca2"}
+	removeFiles := []string{"ec.pem", "ec-key.pem", "fabric-ca-server.db", "fabric-ca2-server.db", "ca-chain.pem"}
+
+	for _, nestedFolder := range nestedFolders {
+		path := filepath.Join(caFolder, nestedFolder)
+		for _, file := range removeFiles {
+			os.Remove(filepath.Join(path, file))
+		}
+	}
 }
 
 func TestRegisterWithoutEnroll(t *testing.T) {
@@ -572,8 +605,7 @@ func getServer() *lib.Server {
 		HomeDir: ".",
 		Config:  getServerConfig(),
 		CA: lib.CA{
-			HomeDir: ".",
-			Config:  getCAConfig(),
+			Config: getCAConfig(),
 		},
 	}
 }
@@ -601,7 +633,10 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	acc := lib.NewCertDBAccessor(testdb)
 
-	certs, _ := acc.GetCertificatesByID("admin")
+	certs, err := acc.GetCertificatesByID(id)
+	if err != nil {
+		return "", "", err
+	}
 
 	block, _ := pem.Decode([]byte(certs[0].PEM))
 	if block == nil {
