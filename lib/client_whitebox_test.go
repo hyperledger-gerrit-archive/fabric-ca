@@ -27,12 +27,9 @@ import (
 )
 
 const (
-	rootPort    = 7055
-	rootDir     = "rootDir"
-	testdataDir = "../testdata"
-	user        = "admin"
-	pass        = "adminpw"
-	serversDir  = "testservers"
+	user       = "admin"
+	pass       = "adminpw"
+	serversDir = "testservers"
 )
 
 var clientConfig = path.Join(testdataDir, "client-config.json")

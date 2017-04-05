@@ -305,6 +305,11 @@ func configInit() (err error) {
 		}
 	}
 
+	// If max enrollments is not set, set the value to -1 which means there is no limit on the number of enrollments
+	if !viper.IsSet("registry.maxenrollments") {
+		serverCfg.Registry.MaxEnrollments = -1
+	}
+
 	return nil
 }
 

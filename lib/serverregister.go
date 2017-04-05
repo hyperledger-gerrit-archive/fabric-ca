@@ -127,19 +127,17 @@ func (h *registerHandler) validateID(req *api.RegistrationRequestNet) error {
 // registerUserID registers a new user and its enrollmentID, role and state
 func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet) (string, error) {
 	log.Debugf("Registering user id: %s\n", req.Name)
+	var err error
 
 	if req.Secret == "" {
 		req.Secret = util.RandomString(12)
 	}
 
-	maxEnrollments := h.server.Config.Registry.MaxEnrollments
+	caMaxEnrollments := h.server.Config.Registry.MaxEnrollments
 
-	if (req.MaxEnrollments > maxEnrollments && maxEnrollments != 0) || (req.MaxEnrollments < 0) {
-		return "", fmt.Errorf("Invalid max enrollment value specified, value must be equal to or less then %d", maxEnrollments)
-	}
-
-	if req.MaxEnrollments == 0 && maxEnrollments != 0 {
-		return "", fmt.Errorf("Unlimited enrollments not allowed, value must be equal to or less then %d", maxEnrollments)
+	req.MaxEnrollments, err = checkMaxEnrollments(req.MaxEnrollments, caMaxEnrollments)
+	if err != nil {
+		return "", err
 	}
 
 	insert := spi.UserInfo{
@@ -153,7 +151,7 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet) (strin
 
 	registry := h.server.registry
 
-	_, err := registry.GetUser(req.Name, nil)
+	_, err = registry.GetUser(req.Name, nil)
 	if err == nil {
 		return "", fmt.Errorf("User '%s' is already registered", req.Name)
 	}
@@ -207,4 +205,37 @@ func (h *registerHandler) canRegister(registrar string, userType string) error {
 	}
 
 	return nil
+}
+
+func checkMaxEnrollments(userMaxEnrollment int, caMaxEnrollment int) (int, error) {
+	log.Debugf("Max enrollment value verification - User specified max enrollment: %d, CA max enrollment: %d", userMaxEnrollment, caMaxEnrollment)
+	maxEnrollment := userMaxEnrollment
+
+	if userMaxEnrollment < -1 {
+		return 0, fmt.Errorf("Invalid value of %d specified for max enrollment", userMaxEnrollment)
+	}
+
+	if userMaxEnrollment == 0 && caMaxEnrollment == 0 {
+		log.Debug("CA set to not allow enrollments, and registration request has zero specified for max enrollments. Defaulting request to be -1 (infinite enrollments)")
+		maxEnrollment = -1
+	} else if (userMaxEnrollment >= 1 || userMaxEnrollment == -1) && caMaxEnrollment == 0 {
+		log.Debug("CA set to not allow enrollments, and registration request has non-zero value specified for max enrollments. Using user specified max enrollment")
+		maxEnrollment = userMaxEnrollment
+	} else if userMaxEnrollment == 0 && caMaxEnrollment != 0 {
+		// Zero value for max enrollment specified in registration request, use CA max enrollment value
+		log.Debugf("%d specified for max enrollment in registration request, using CA max enrollment value of %d", userMaxEnrollment, caMaxEnrollment)
+		maxEnrollment = caMaxEnrollment
+	} else if userMaxEnrollment == -1 && caMaxEnrollment > 0 {
+		// A negative value for max enrollment specified in registration request, check
+		// CA max enrollment value to see if infinite registration is allowed
+
+		return 0, fmt.Errorf("Unlimited enrollments not allowed, value must be equal to or less then %d", caMaxEnrollment)
+	} else if userMaxEnrollment > caMaxEnrollment && caMaxEnrollment > 0 {
+		// A positive value for max enrollment specified in registration request, check
+		// to see if value is less than or equal to max enrollment allowed by CA
+
+		return 0, fmt.Errorf("Invalid max enrollment (%d) value specified, value must be equal to or less then %d", userMaxEnrollment, caMaxEnrollment)
+	}
+
+	return maxEnrollment, nil
 }
