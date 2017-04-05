@@ -42,12 +42,17 @@ func newRevokeHandler(server *Server) (h http.Handler, err error) {
 // revokeHandler for revoke requests
 type revokeHandler struct {
 	server *Server
+	caName string
 }
 
 // Handle an revoke request
 func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
-
 	log.Debug("Revoke request received")
+
+	h.caName = r.Header.Get("caname")
+	if h.caName == "" {
+		h.caName = DefaultCAName
+	}
 
 	authHdr := r.Header.Get("authorization")
 	if authHdr == "" {
@@ -60,7 +65,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	}
 	r.Body.Close()
 
-	cert, err := util.VerifyToken(h.server.csp, authHdr, body)
+	cert, err := util.VerifyToken(h.server.CAs[h.caName].csp, authHdr, body)
 	if err != nil {
 		return authErr(w, err)
 	}
@@ -69,7 +74,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	// to revoke a certificate.  This attribute comes from the user registry, which
 	// is either in the DB if LDAP is not configured, or comes from LDAP if LDAP is
 	// configured.
-	err = h.server.userHasAttribute(cert.Subject.CommonName, "hf.Revoker")
+	err = h.server.CAs[h.caName].userHasAttribute(cert.Subject.CommonName, "hf.Revoker")
 	if err != nil {
 		return authErr(w, err)
 	}
@@ -86,8 +91,8 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	req.AKI = strings.TrimLeft(strings.ToLower(req.AKI), "0")
 	req.Serial = strings.TrimLeft(strings.ToLower(req.Serial), "0")
 
-	certDBAccessor := h.server.certDBAccessor
-	registry := h.server.registry
+	certDBAccessor := h.server.CAs[h.caName].certDBAccessor
+	registry := h.server.CAs[h.caName].registry
 
 	if req.Serial != "" && req.AKI != "" {
 		certificate, err := certDBAccessor.GetCertificateWithID(req.Serial, req.AKI)
@@ -152,7 +157,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 		}
 
 		if len(recs) == 0 {
-			log.Warningf("No certificates were revoked for '%s' but the ID was disabled: %s", req.Name)
+			log.Warningf("No certificates were revoked for '%s' but the ID was disabled", req.Name)
 		}
 
 		log.Debugf("Revoked the following certificates owned by '%s': %+v", req.Name, recs)
@@ -169,7 +174,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 func (h *revokeHandler) checkAffiliations(revoker string, revoking spi.UserInfo) error {
 	log.Debugf("Check to see if revoker %s has affiliations to revoke: %s", revoker, revoking.Name)
-	revokerAffiliation, err := h.server.getUserAffiliation(revoker)
+	revokerAffiliation, err := h.server.CAs[h.caName].getUserAffiliation(revoker)
 	if err != nil {
 		return err
 	}

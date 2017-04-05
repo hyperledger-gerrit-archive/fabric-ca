@@ -26,6 +26,7 @@ import (
 // infoHandler handles the GET /info request
 type infoHandler struct {
 	server *Server
+	caName string
 }
 
 // newInfoHandler is the constructor for the infoHandler
@@ -47,8 +48,14 @@ type serverInfoResponseNet struct {
 // Handle is the handler for the GET /info request
 func (ih *infoHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	log.Debug("Received request for server info")
+
+	ih.caName = r.Header.Get("caname")
+	if ih.caName == "" {
+		ih.caName = DefaultCAName
+	}
+
 	resp := &serverInfoResponseNet{}
-	err := ih.server.fillCAInfo(resp)
+	err := ih.server.CAs[ih.caName].fillCAInfo(resp)
 	if err != nil {
 		return err
 	}

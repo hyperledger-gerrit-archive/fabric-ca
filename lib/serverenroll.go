@@ -53,6 +53,7 @@ type signHandler struct {
 	server *Server
 	// "enroll" or "reenroll"
 	endpoint string
+	caName   string
 }
 
 // The enrollment response from the server
@@ -79,6 +80,11 @@ func (sh *signHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	log.Debugf("Received request for endpoint %s", sh.endpoint)
 
+	sh.caName = r.Header.Get("caname")
+	if sh.caName == "" {
+		sh.caName = DefaultCAName
+	}
+
 	// Read the request's body
 	body, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -103,7 +109,7 @@ func (sh *signHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	// Sign the certificate
-	cert, err := sh.server.enrollSigner.Sign(req)
+	cert, err := sh.server.CAs[sh.caName].enrollSigner.Sign(req)
 	if err != nil {
 		err = fmt.Errorf("Failed signing for endpoint %s: %s", sh.endpoint, err)
 		log.Error(err.Error())
@@ -112,7 +118,7 @@ func (sh *signHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 	// Send the response with the cert and the server info
 	resp := &enrollmentResponseNet{Cert: util.B64Encode(cert)}
-	err = sh.server.fillCAInfo(&resp.ServerInfo)
+	err = sh.server.CAs[sh.caName].fillCAInfo(&resp.ServerInfo)
 	if err != nil {
 		return err
 	}
@@ -152,7 +158,7 @@ func (sh *signHandler) csrAuthCheck(req *signer.SignRequest, r *http.Request) er
 				log.Debug("CSR request received for an intermediate CA")
 				// This is a request for a CA certificate, so make sure the caller
 				// has the 'hf.IntermediateCA' attribute
-				return sh.server.userHasAttribute(r.Header.Get(enrollmentIDHdrName), "hf.IntermediateCA")
+				return sh.server.CAs[sh.caName].userHasAttribute(r.Header.Get(enrollmentIDHdrName), "hf.IntermediateCA")
 			}
 		}
 	}

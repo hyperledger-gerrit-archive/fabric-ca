@@ -104,7 +104,7 @@ func TestRootServer(t *testing.T) {
 	}
 	user1 = eresp.Identity
 	// The admin ID should have 1 cert in the DB now
-	recs, err = server.CertDBAccessor().GetCertificatesByID("admin")
+	recs, err = server.CAs[DefaultCAName].CertDBAccessor().GetCertificatesByID("admin")
 	if err != nil {
 		t.Errorf("Could not get admin's certs from DB: %s", err)
 	}
@@ -380,7 +380,7 @@ func TestMaxEnrollmentCombinations(t *testing.T) {
 	}
 
 	// Check to see if user got the proper value set for max enrollment
-	db := srv.DBAccessor()
+	db := srv.CAs[DefaultCAName].DBAccessor()
 	user, err := db.GetUserInfo("testuser")
 	if err != nil {
 		t.Error("Failed to get user info, error: ", err)
@@ -508,11 +508,41 @@ func TestMultiCA(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
+	// No CA specified by client, will default to "ca"
+	clientCA := getRootClient()
+	_, err = clientCA.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err == nil {
+		t.Error("Should have failed, client using default CA name (ca) but no CA exist by that name on server")
+	}
+
+	//Send enroll request to each CA
+	clientCA1 := getRootClient()
+	clientCA1.Config.CAName = "ca1"
+	_, err = clientCA1.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err != nil {
+		t.Error("Failed to enroll, error: ", err)
+	}
+
+	clientCA2 := getRootClient()
+	clientCA2.Config.CAName = "ca2"
+	_, err = clientCA2.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err != nil {
+		t.Error("Failed to enroll, error: ", err)
+	}
+
 	err = srv.Stop()
 	if err != nil {
 		t.Error("Failed to stop server:", err)
 	}
-
 	cleanMultiCADir()
 
 }
@@ -657,6 +687,7 @@ func TestEnd(t *testing.T) {
 	os.RemoveAll("../testdata/msp")
 	os.RemoveAll(rootDir)
 	os.RemoveAll(intermediateDir)
+	cleanMultiCADir()
 }
 
 func cleanMultiCADir() {

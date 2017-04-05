@@ -58,8 +58,6 @@ type Server struct {
 	listener net.Listener
 	// An error which occurs when serving
 	serveError error
-	// Pointer to CA instance
-	*CA
 	// A map of CAs stored by CA name as key
 	CAs map[string]*CA
 }
@@ -93,7 +91,6 @@ func (s *Server) Start() (err error) {
 	}
 
 	s.CAs = make(map[string]*CA)
-	var ca *CA
 
 	if len(s.Config.CAfiles) != 0 {
 		log.Infof("CAs to be started: %s", s.Config.CAfiles)
@@ -103,30 +100,28 @@ func (s *Server) Start() (err error) {
 		} else {
 			caFiles = s.Config.CAfiles
 		}
-
 		for _, caFile := range caFiles {
-			caFile = strings.TrimSpace(caFile)
-
 			caFile, err = util.MakeFileAbs(caFile, s.HomeDir)
 			if err != nil {
 				return err
 			}
-			ca, err = s.loadCA(caFile)
+			ca, err := s.loadCA(caFile)
 			if err != nil {
 				return err
 			}
+
 			log.Infof("CA %s has been added to server ", ca.Config.CA.Name)
 		}
+	} else {
+		log.Info("Starting one CA instance")
+
+		ca, err := s.loadStandardCA()
+		if err != nil {
+			return err
+		}
+
+		log.Infof("CA '%s' has been added to server ", ca.Config.CA.Name)
 	}
-
-	ca, err = s.loadStandardCA()
-	if err != nil {
-		return err
-	}
-	s.CA = ca
-
-	log.Infof("CA '%s' has been added to server ", ca.Config.CA.Name)
-
 	// Register http handlers
 	s.registerHandlers()
 
@@ -201,7 +196,6 @@ func (s *Server) initConfig() (err error) {
 	if cfg.Debug {
 		log.Level = log.LevelDebug
 	}
-
 	return nil
 }
 

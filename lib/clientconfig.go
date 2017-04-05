@@ -28,6 +28,7 @@ type ClientConfig struct {
 	Debug      bool   `def:"false" opt:"d" help:"Enable debug level logging"`
 	URL        string `def:"http://localhost:7054" opt:"u" help:"URL of fabric-ca-server"`
 	MSPDir     string `def:"msp" opt:"M" help:"Membership Service Provider directory"`
+	CAName     string `def:"ca" help:"Name of CA"`
 	TLS        tls.ClientTLSConfig
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo

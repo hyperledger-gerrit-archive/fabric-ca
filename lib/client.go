@@ -195,7 +195,7 @@ type EnrollmentResponse struct {
 // Enroll enrolls a new identity
 // @param req The enrollment request
 func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error) {
-	log.Debugf("Enrolling %+v", &req)
+	log.Debugf("Enrolling %+v", req)
 
 	err := c.Init()
 	if err != nil {
@@ -259,7 +259,7 @@ func (c *Client) newEnrollmentResponse(result *enrollmentResponseNet, id string,
 
 // GenCSR generates a CSR (Certificate Signing Request)
 func (c *Client) GenCSR(req *api.CSRInfo, id string) ([]byte, []byte, error) {
-	log.Debugf("GenCSR %+v", &req)
+	log.Debugf("GenCSR %+v", req)
 
 	err := c.Init()
 	if err != nil {
@@ -393,6 +393,12 @@ func (c *Client) newPost(endpoint string, reqBody []byte) (*http.Request, error)
 	if err != nil {
 		return nil, fmt.Errorf("Failed posting to %s: %s", curl, err)
 	}
+
+	if c.Config.CAName == "" {
+		c.Config.CAName = DefaultCAName
+	}
+
+	req.Header.Set("caname", c.Config.CAName)
 	return req, nil
 }
 

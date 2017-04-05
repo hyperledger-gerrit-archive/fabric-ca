@@ -35,6 +35,7 @@ import (
 // registerHandler for register requests
 type registerHandler struct {
 	server *Server
+	caName string
 }
 
 // newRegisterHandler is constructor for register handler
@@ -49,6 +50,11 @@ func newRegisterHandler(server *Server) (h http.Handler, err error) {
 // Handle a register request
 func (h *registerHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	log.Debug("Register request received")
+
+	h.caName = r.Header.Get("caname")
+	if h.caName == "" {
+		h.caName = DefaultCAName
+	}
 
 	reqBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {
@@ -133,9 +139,9 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet) (strin
 		req.Secret = util.RandomString(12)
 	}
 
-	caMaxEnrollments := h.server.Config.Registry.MaxEnrollments
+	caMaxEnrollments := h.server.CAs[h.caName].Config.Registry.MaxEnrollments
 
-	req.MaxEnrollments, err = checkMaxEnrollments(req.MaxEnrollments, caMaxEnrollments)
+	maxEnrollment, err := checkMaxEnrollments(req.MaxEnrollments, caMaxEnrollments)
 	if err != nil {
 		return "", err
 	}
@@ -146,10 +152,10 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet) (strin
 		Type:           req.Type,
 		Affiliation:    req.Affiliation,
 		Attributes:     req.Attributes,
-		MaxEnrollments: req.MaxEnrollments,
+		MaxEnrollments: maxEnrollment,
 	}
 
-	registry := h.server.registry
+	registry := h.server.CAs[h.caName].registry
 
 	_, err = registry.GetUser(req.Name, nil)
 	if err == nil {
@@ -167,7 +173,7 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet) (strin
 func (h *registerHandler) isValidAffiliation(affiliation string) error {
 	log.Debug("Validating affiliation: " + affiliation)
 
-	_, err := h.server.registry.GetAffiliation(affiliation)
+	_, err := h.server.CAs[h.caName].registry.GetAffiliation(affiliation)
 	if err != nil {
 		return fmt.Errorf("Failed getting affiliation '%s': %s", affiliation, err)
 	}
@@ -184,7 +190,7 @@ func (h *registerHandler) requireAffiliation(idType string) bool {
 func (h *registerHandler) canRegister(registrar string, userType string) error {
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
-	user, err := h.server.registry.GetUser(registrar, nil)
+	user, err := h.server.CAs[h.caName].registry.GetUser(registrar, nil)
 	if err != nil {
 		return fmt.Errorf("Registrar does not exist: %s", err)
 	}
