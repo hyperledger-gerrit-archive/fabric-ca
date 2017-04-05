@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
@@ -67,6 +68,9 @@ type Server struct {
 
 	// A map of CA configs stored by CA file as key
 	caConfigMap map[string]*CAConfig
+
+	// channel for communication between http.serve and main threads.
+	wait chan bool
 }
 
 // Init initializes a fabric-ca server
@@ -460,6 +464,7 @@ func (s *Server) listenAndServe() (err error) {
 	if s.BlockingStart {
 		return s.serve()
 	}
+	s.wait = make(chan bool)
 	go s.serve()
 
 	return nil
@@ -479,6 +484,9 @@ func (s *Server) serve() error {
 	}
 	s.serveError = http.Serve(listener, s.mux)
 	log.Errorf("Server has stopped serving: %s", s.serveError)
+	if s.wait != nil {
+		s.wait <- true
+	}
 	s.closeListener()
 	return s.serveError
 }
@@ -531,11 +539,28 @@ func (s *Server) closeListener() error {
 		return nil
 	}
 	err := s.listener.Close()
+	s.listener = nil
 	if err == nil {
 		log.Info("The server closed its listener endpoint")
 	} else {
 		log.Errorf("The server failed to close its listener endpoint; err=%s", err)
 	}
-	s.listener = nil
+	if s.wait == nil {
+		return err
+	}
+	// Wait for message on wait channel from the http.serve thread. If message
+	// is not recevied in three seconds, return
+	for i := 0; i < 3; i++ {
+		select {
+		case <-s.wait:
+			log.Debugf("Received server stopped message")
+			close(s.wait)
+			return err
+		default:
+			log.Debugf("Waiting for server to stop")
+			time.Sleep(time.Second)
+		}
+	}
+	log.Debugf("Stopped waiting for server to stop")
 	return err
 }
