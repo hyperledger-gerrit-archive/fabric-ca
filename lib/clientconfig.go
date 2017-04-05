@@ -32,6 +32,7 @@ type ClientConfig struct {
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
+	CAInfo     api.GetCAInfoRequest
 }
 
 // Enroll a client given the server's URL and the client's home directory.

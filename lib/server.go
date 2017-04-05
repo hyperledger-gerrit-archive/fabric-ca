@@ -58,8 +58,6 @@ type Server struct {
 	listener net.Listener
 	// An error which occurs when serving
 	serveError error
-	// Pointer to CA instance
-	*CA
 	// A map of CAs stored by CA name as key
 	CAs map[string]*CA
 }
@@ -92,8 +90,9 @@ func (s *Server) Start() (err error) {
 		return err
 	}
 
-	s.CAs = make(map[string]*CA)
 	var ca *CA
+	s.CAs = make(map[string]*CA)
+	s.mux = http.NewServeMux()
 
 	if len(s.Config.CAfiles) != 0 {
 		log.Infof("CAs to be started: %s", s.Config.CAfiles)
@@ -103,10 +102,7 @@ func (s *Server) Start() (err error) {
 		} else {
 			caFiles = s.Config.CAfiles
 		}
-
 		for _, caFile := range caFiles {
-			caFile = strings.TrimSpace(caFile)
-
 			caFile, err = util.MakeFileAbs(caFile, s.HomeDir)
 			if err != nil {
 				return err
@@ -115,6 +111,7 @@ func (s *Server) Start() (err error) {
 			if err != nil {
 				return err
 			}
+
 			log.Infof("CA %s has been added to server ", ca.Config.CA.Name)
 		}
 	}
@@ -123,12 +120,8 @@ func (s *Server) Start() (err error) {
 	if err != nil {
 		return err
 	}
-	s.CA = ca
 
 	log.Infof("CA '%s' has been added to server ", ca.Config.CA.Name)
-
-	// Register http handlers
-	s.registerHandlers()
 
 	// Start listening and serving
 	return s.listenAndServe()
@@ -201,11 +194,12 @@ func (s *Server) initConfig() (err error) {
 	if cfg.Debug {
 		log.Level = log.LevelDebug
 	}
-
 	return nil
 }
 
 func (s *Server) loadStandardCA() (*CA, error) {
+	log.Debug("Loading standard CA")
+
 	ca := &CA{}
 	ca.Config = new(ServerConfig)
 
@@ -231,6 +225,7 @@ func (s *Server) loadCA(caFile string) (*CA, error) {
 
 	exists := util.FileExists(caFile)
 	if !exists {
+		log.Errorf("%s file does not exist", caFile)
 		return nil, fmt.Errorf("%s file does not exist", caFile)
 	}
 
@@ -264,6 +259,10 @@ func (s *Server) loadCA(caFile string) (*CA, error) {
 		}
 	}
 
+	if ca.Config.CA.Name == "" {
+		return nil, errors.New("No CA name provide CA configuration file. CA name is required")
+	}
+
 	util.CheckForMissingValues(ca.Config, s.Config)
 
 	if !viper.IsSet("registry.maxenrollments") {
@@ -289,29 +288,33 @@ func (s *Server) addCA(ca *CA) (*CA, error) {
 
 	s.CAs[ca.Config.CA.Name] = ca
 
+	// Register http handlers
+	s.registerHandlers(ca.Config.CA.Name)
+
 	return ca, nil
 }
 
 // Register all endpoint handlers
-func (s *Server) registerHandlers() {
-	s.mux = http.NewServeMux()
-	s.registerHandler("info", newInfoHandler, noAuth)
-	s.registerHandler("register", newRegisterHandler, token)
-	s.registerHandler("enroll", newEnrollHandler, basic)
-	s.registerHandler("reenroll", newReenrollHandler, token)
-	s.registerHandler("revoke", newRevokeHandler, token)
-	s.registerHandler("tcert", newTCertHandler, token)
+func (s *Server) registerHandlers(caName string) {
+	log.Debugf("Registering handlers for: %s", caName)
+
+	s.registerHandler(fmt.Sprintf("cainfo/%s", caName), newInfoHandler, noAuth, caName)
+	s.registerHandler(fmt.Sprintf("register/%s", caName), newRegisterHandler, token, caName)
+	s.registerHandler(fmt.Sprintf("enroll/%s", caName), newEnrollHandler, basic, caName)
+	s.registerHandler(fmt.Sprintf("reenroll/%s", caName), newReenrollHandler, token, caName)
+	s.registerHandler(fmt.Sprintf("revoke/%s", caName), newRevokeHandler, token, caName)
+	s.registerHandler(fmt.Sprintf("tcert/%s", caName), newTCertHandler, token, caName)
 }
 
 // Register an endpoint handler
 func (s *Server) registerHandler(
 	path string,
-	getHandler func(server *Server) (http.Handler, error),
-	at authType) {
+	getHandler func(server *Server, caName string) (http.Handler, error),
+	at authType, caName string) {
 
 	var handler http.Handler
 
-	handler, err := getHandler(s)
+	handler, err := getHandler(s, caName)
 	if err != nil {
 		log.Warningf("Endpoint '%s' is disabled: %s", path, err)
 		return
@@ -320,6 +323,7 @@ func (s *Server) registerHandler(
 		server:   s,
 		authType: at,
 		next:     handler,
+		caName:   caName,
 	}
 	s.mux.Handle("/"+path, handler)
 	// TODO: Remove the following line once all SDKs stop using the prefixed paths

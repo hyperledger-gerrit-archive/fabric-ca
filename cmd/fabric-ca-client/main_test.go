@@ -392,17 +392,6 @@ func testRevoke(t *testing.T) {
 		t.Errorf("client revoke -u -s -a failed: %s", err)
 	}
 
-	serial, aki, err = getSerialAKIByID("testRegister")
-	if err != nil {
-		t.Error(err)
-	}
-
-	// Revoked user's affiliation: hyperledger.bank_c
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
-	if err != nil {
-		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
-	}
-
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister3", "-s", "", "-a", ""})
 	if err != nil {
 		t.Errorf("client revoke -u -e failed: %s", err)
@@ -411,7 +400,7 @@ func testRevoke(t *testing.T) {
 	// testRegister2's affiliation: hyperledger.bank_b, revoker's affiliation: hyperledger.bank_a
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister2", "-s", "", "-a", ""})
 	if err == nil {
-		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
+		t.Errorf("Revoker does not have the correct affiliation to revoke user testRegister2, should have failed")
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -548,8 +537,8 @@ func TestClientCommandsTLS(t *testing.T) {
 }
 
 func TestCleanUp(t *testing.T) {
-	os.Remove("../../testdata/cert.pem")
-	os.Remove("../../testdata/key.pem")
+	os.Remove("../../testdata/ca-cert.pem")
+	os.Remove("../../testdata/ca-key.pem")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
 	os.RemoveAll(mspDir)
@@ -566,7 +555,10 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.Config.DB.Datasource)
 	acc := lib.NewCertDBAccessor(testdb)
 
-	certs, _ := acc.GetCertificatesByID("admin")
+	certs, err := acc.GetCertificatesByID(id)
+	if err != nil {
+		return "", "", err
+	}
 
 	block, _ := pem.Decode([]byte(certs[0].PEM))
 	if block == nil {
