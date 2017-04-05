@@ -29,6 +29,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cfssl/config"
 	cfcsr "github.com/cloudflare/cfssl/csr"
@@ -145,7 +146,11 @@ func (s *Server) Stop() error {
 	if s.listener == nil {
 		return errors.New("server is not currently started")
 	}
+	log.Debug("Server stopping")
 	err := s.listener.Close()
+	log.Debug("Server stopped")
+	time.Sleep(time.Second)
+	log.Debug("Server stopped after sleep for 1 second")
 	s.listener = nil
 	return err
 }
@@ -716,9 +721,9 @@ func (s *Server) addIdentity(id *ServerConfigIdentity, errIfFound bool) error {
 	return nil
 }
 
-func (s *Server) addAffiliation(path, parentPath string) error {
+func (s *Server) addAffiliation(path, prekey string) (err error) {
 	log.Debugf("Adding affiliation %s", path)
-	return s.registry.InsertAffiliation(path, parentPath)
+	return s.registry.InsertAffiliation(path, prekey)
 }
 
 // CertDBAccessor returns the certificate DB accessor for server
