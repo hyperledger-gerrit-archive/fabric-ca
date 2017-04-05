@@ -580,17 +580,18 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 		return nil
 	}
 
-	maxEnrollments, err := ca.getMaxEnrollments(id.MaxEnrollments)
+	id.MaxEnrollments, err = getMaxEnrollments(id.MaxEnrollments, ca.Config.Registry.MaxEnrollments)
 	if err != nil {
 		return err
 	}
+
 	rec := spi.UserInfo{
 		Name:           id.Name,
 		Pass:           id.Pass,
 		Type:           id.Type,
 		Affiliation:    id.Affiliation,
 		Attributes:     ca.convertAttrs(id.Attrs),
-		MaxEnrollments: maxEnrollments,
+		MaxEnrollments: id.MaxEnrollments,
 	}
 	err = ca.registry.InsertUser(rec)
 	if err != nil {
