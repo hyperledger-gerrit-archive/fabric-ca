@@ -19,6 +19,7 @@ package lib
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -716,9 +717,17 @@ func (s *Server) addIdentity(id *ServerConfigIdentity, errIfFound bool) error {
 	return nil
 }
 
-func (s *Server) addAffiliation(path, parentPath string) error {
-	log.Debugf("Adding affiliation %s", path)
-	return s.registry.InsertAffiliation(path, parentPath)
+func (s *Server) addAffiliation(path, parentPath string) (err error) {
+	var aff spi.Affiliation
+	aff, err = s.registry.GetAffiliation(path)
+	if err == sql.ErrNoRows {
+		log.Debugf("Adding affiliation %s", path)
+		err = s.registry.InsertAffiliation(path, parentPath)
+	}
+	if aff != nil {
+		log.Debugf("Affiliation %s already exists, skip add", path)
+	}
+	return
 }
 
 // CertDBAccessor returns the certificate DB accessor for server
