@@ -19,6 +19,7 @@ package lib
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -716,9 +717,21 @@ func (s *Server) addIdentity(id *ServerConfigIdentity, errIfFound bool) error {
 	return nil
 }
 
-func (s *Server) addAffiliation(path, parentPath string) error {
-	log.Debugf("Adding affiliation %s", path)
-	return s.registry.InsertAffiliation(path, parentPath)
+func (s *Server) addAffiliation(path, prekey string) (err error) {
+	var aff spi.Affiliation
+	aff, err = s.registry.GetAffiliation(path)
+	// If the error is ErrNoRows (which means affiliation is not in the DB), then
+	// add the affiliation to the DB. Any other error from GetAffiliation and
+	// any error from InsertAffiliation is returned to the caller
+	if err == sql.ErrNoRows {
+		log.Debugf("Adding affiliation %s", path)
+		err = s.registry.InsertAffiliation(path, prekey)
+	}
+	// If affiliation exists in the DB then don't add the affiliation to the DB
+	if aff != nil {
+		log.Debugf("Affiliation %s already exists, skipping add", path)
+	}
+	return
 }
 
 // CertDBAccessor returns the certificate DB accessor for server
