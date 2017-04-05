@@ -541,22 +541,7 @@ func (ca *CA) convertAttrs(inAttrs map[string]string) []api.Attribute {
 // Get max enrollments relative to the configured max
 func (ca *CA) getMaxEnrollments(requestedMax int) (int, error) {
 	configuredMax := ca.Config.Registry.MaxEnrollments
-	if requestedMax < 0 {
-		return configuredMax, nil
-	}
-	if configuredMax == 0 {
-		// no limit, so grant any request
-		return requestedMax, nil
-	}
-	if requestedMax == 0 && configuredMax != 0 {
-		return 0, fmt.Errorf("Infinite enrollments is not permitted; max is %d",
-			configuredMax)
-	}
-	if requestedMax > configuredMax {
-		return 0, fmt.Errorf("Max enrollments of %d is not permitted; max is %d",
-			requestedMax, configuredMax)
-	}
-	return requestedMax, nil
+	return checkMaxEnrollments(requestedMax, configuredMax)
 }
 
 // Make all file names in the config absolute

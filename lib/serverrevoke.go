@@ -102,7 +102,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 			return err2
 		}
 
-		err2 = h.checkAffiliations(cert.Subject.CommonName, userInfo.Affiliation)
+		err2 = h.checkAffiliations(cert.Subject.CommonName, userInfo)
 		if err2 != nil {
 			return err2
 		}
@@ -130,7 +130,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 				return notFound(w, err)
 			}
 
-			err = h.checkAffiliations(cert.Subject.CommonName, userInfo.Affiliation)
+			err = h.checkAffiliations(cert.Subject.CommonName, userInfo)
 			if err != nil {
 				return err
 			}
@@ -167,17 +167,23 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	return cfsslapi.SendResponse(w, result)
 }
 
-func (h *revokeHandler) checkAffiliations(revoker string, affiliation string) error {
-	log.Debugf("Check to see if revoker %s has affiliations to revoke: %s", revoker, affiliation)
+func (h *revokeHandler) checkAffiliations(revoker string, revoking spi.UserInfo) error {
+	log.Debugf("Check to see if revoker %s has affiliations to revoke: %s", revoker, revoking.Name)
 	revokerAffiliation, err := h.server.getUserAffiliation(revoker)
 	if err != nil {
 		return err
 	}
 
-	log.Debugf("Affiliation of revoker: %s, affiliation of user being revoked: %s", revokerAffiliation, affiliation)
+	log.Debugf("Affiliation of revoker: %s, affiliation of user being revoked: %s", revokerAffiliation, revoking.Affiliation)
 
-	if !strings.HasPrefix(affiliation, revokerAffiliation) {
-		return fmt.Errorf("Revoker %s does not have proper affiliation to revoke user", revoker)
+	if revoker != "" && revoking.Affiliation != "" {
+		revokingAffiliation := strings.Split(revoking.Affiliation, ".")
+		revokerAffiliation := strings.Split(revokerAffiliation, ".")
+		for i := range revokerAffiliation {
+			if revokerAffiliation[i] != revokingAffiliation[i] {
+				return fmt.Errorf("Revoker %s does not have proper affiliation to revoke user %s", revoker, revoking.Name)
+			}
+		}
 	}
 
 	return nil
