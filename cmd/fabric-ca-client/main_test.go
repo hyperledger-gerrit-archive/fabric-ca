@@ -30,7 +30,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
@@ -102,6 +101,11 @@ const jsonConfig = `{
   }
 }`
 
+const (
+	serverPort  = 7054
+	testdataDir = "homeDir"
+)
+
 var (
 	defYaml    string
 	fabricCADB = path.Join(tdDir, db)
@@ -142,22 +146,18 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 func TestClientCommandsNoTLS(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.HomeDir = tdDir
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "banks.bank_a.Dep1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "banks.bank_a")
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "hyperledger")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
 
 	aff := make(map[string]interface{})
-	aff["banks"] = []string{"bank_a", "bank_b", "bank_c"}
+	aff["hyperledger"] = []string{"org1", "org2", "org3"}
+	aff["hyperledger2"] = []string{}
 
 	srv.Config.Affiliations = aff
 
@@ -317,7 +317,7 @@ func testRegisterEnvVar(t *testing.T) {
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
 	os.Setenv("FABRIC_CA_CLIENT_ID_NAME", "testRegister2")
-	os.Setenv("FABRIC_CA_CLIENT_ID_AFFILIATION", "banks.bank_b")
+	os.Setenv("FABRIC_CA_CLIENT_ID_AFFILIATION", "hyperledger2")
 	os.Setenv("FABRIC_CA_CLIENT_ID_TYPE", "client")
 
 	err := RunMain([]string{cmdName, "register"})
@@ -326,8 +326,8 @@ func testRegisterEnvVar(t *testing.T) {
 	}
 
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_NAME")
-	os.Unsetenv("FABRIC_CA_CLIENT_TLS_ID_GROUP")
-	os.Unsetenv("FABRIC_CA_CLIENT_TLS_ID_TYPE")
+	os.Unsetenv("FABRIC_CA_CLIENT_ID_AFFILIATION")
+	os.Unsetenv("FABRIC_CA_CLIENT_ID_TYPE")
 
 	os.Remove(defYaml)
 }
@@ -337,7 +337,7 @@ func testRegisterCommandLine(t *testing.T) {
 	t.Log("Testing Register CMD")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "banks.bank_a", "--id.type", "client", "--id.attr", "hf.test=a=b"})
+	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attr", "hf.test=a=b"})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
@@ -371,7 +371,7 @@ func testRevoke(t *testing.T) {
 
 	aki = strings.ToUpper(aki)
 
-	// Revoker's affiliation: banks.bank_a
+	// Revoker's affiliation: hyperledger.org1
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "nonexistinguser"})
 	if err == nil {
 		t.Errorf("Non existing user being revoked, should have failed")
@@ -397,7 +397,7 @@ func testRevoke(t *testing.T) {
 		t.Error(err)
 	}
 
-	// Revoked user's affiliation: banks.bank_c
+	// Revoked user's affiliation: hyperledger.org3
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
 	if err != nil {
 		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
@@ -408,6 +408,7 @@ func testRevoke(t *testing.T) {
 		t.Errorf("client revoke -u -e failed: %s", err)
 	}
 
+	// testRegister2's affiliation: hyperledger.org2, revoker's affiliation: hyperledger.org1
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister2", "-s", "", "-a", ""})
 	if err == nil {
 		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
@@ -435,10 +436,10 @@ func testBogus(t *testing.T) {
 func TestClientCommandsUsingConfigFile(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -467,15 +468,10 @@ func TestClientCommandsUsingConfigFile(t *testing.T) {
 func TestClientCommandsTLSEnvVar(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "bank1")
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -512,15 +508,10 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 func TestClientCommandsTLS(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "bank1")
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -558,27 +549,6 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 	err := RunMain([]string{cmdName, "register", "-c", testYaml})
 	if err == nil {
 		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
-	}
-}
-
-func getServer() *lib.Server {
-	return &lib.Server{
-		HomeDir: ".",
-		Config:  getServerConfig(),
-	}
-}
-
-func getServerConfig() *lib.ServerConfig {
-	return &lib.ServerConfig{
-		Debug: true,
-		Port:  7054,
-		CA: lib.ServerConfigCA{
-			Keyfile:  keyfile,
-			Certfile: certfile,
-		},
-		CSR: csr.CertificateRequest{
-			CN: "TestCN",
-		},
 	}
 }
 
