@@ -26,6 +26,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
@@ -110,6 +111,10 @@ func (s *Server) Stop() error {
 		return errors.New("server is not currently started")
 	}
 	err := s.listener.Close()
+	log.Debug("Server stopped")
+	// Sleep for a second before returning to prevent the caller
+	// from starting this server again too soon
+	time.Sleep(time.Second)
 	s.listener = nil
 	return err
 }
