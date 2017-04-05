@@ -132,6 +132,10 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 		},
 		"org2": nil,
 	}
+	affiliations[affiliationName] = map[string]interface{}{
+		"department1": nil,
+		"department2": nil,
+	}
 	srv := &Server{
 		Config: &ServerConfig{
 			Port:         port,
