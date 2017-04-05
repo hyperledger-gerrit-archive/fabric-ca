@@ -36,9 +36,9 @@ import (
 )
 
 const (
-	rootPort         = 7055
+	rootPort         = 7075
 	rootDir          = "rootDir"
-	intermediatePort = 7056
+	intermediatePort = 7076
 	intermediateDir  = "intDir"
 	testdataDir      = "../testdata"
 	pportEnvVar      = "FABRIC_CA_SERVER_PROFILE_PORT"
@@ -340,8 +340,8 @@ func invalidTokenAuthorization(t *testing.T) {
 	client := getRootClient()
 
 	emptyByte := make([]byte, 0)
-
-	req, err := http.NewRequest("POST", "http://localhost:7055/enroll", bytes.NewReader(emptyByte))
+	url := fmt.Sprintf("http://localhost:%d/enroll", rootPort)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(emptyByte))
 	if err != nil {
 		t.Error(err)
 	}
@@ -375,8 +375,8 @@ func invalidBasicAuthorization(t *testing.T) {
 	client := getRootClient()
 
 	emptyByte := make([]byte, 0)
-
-	req, err := http.NewRequest("POST", "http://localhost:7055/register", bytes.NewReader(emptyByte))
+	url := fmt.Sprintf("http://localhost:%d/register", rootPort)
+	req, err := http.NewRequest("POST", url, bytes.NewReader(emptyByte))
 	if err != nil {
 		t.Error(err)
 	}
@@ -515,6 +515,12 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 	if err != nil {
 		t.Fatal("Failed to start server: ", err)
 	}
+	defer func() {
+		srv.Stop()
+		if err != nil {
+			t.Error("Failed to stop server: ", err)
+		}
+	}()
 
 	intermediatesrv := getServer(intermediatePort, testdataDir, "", 0, t)
 	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml", "ca/intermediateca/ca2/fabric-ca-server-config.yaml"}
@@ -530,11 +536,6 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 
 	if !util.FileExists("../testdata/ca/intermediateca/ca1/ca-chain.pem") {
 		t.Error("Failed to enroll intermediate ca")
-	}
-
-	err = srv.Stop()
-	if err != nil {
-		t.Error("Failed to stop server: ", err)
 	}
 }
 
