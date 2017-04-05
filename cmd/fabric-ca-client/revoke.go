@@ -23,9 +23,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
-	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var errInput = errors.New("Invalid usage; either --eid or both --serial and --aki are required")
@@ -62,11 +60,6 @@ var revokeCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(revokeCmd)
-	revokeFlags := revokeCmd.Flags()
-	util.FlagString(revokeFlags, "eid", "e", "", "Enrollment ID (Optional)")
-	util.FlagString(revokeFlags, "serial", "s", "", "Serial Number")
-	util.FlagString(revokeFlags, "aki", "a", "", "AKI")
-	util.FlagString(revokeFlags, "reason", "r", "", "Reason for revoking")
 }
 
 // The client revoke main logic
@@ -74,10 +67,6 @@ func runRevoke(cmd *cobra.Command) error {
 	log.Debug("Revoke Entered")
 
 	var err error
-
-	enrollmentID := viper.GetString("eid")
-	serial := viper.GetString("serial")
-	aki := viper.GetString("aki")
 
 	client := lib.Client{
 		HomeDir: filepath.Dir(cfgFileName),
@@ -89,30 +78,22 @@ func runRevoke(cmd *cobra.Command) error {
 		return err
 	}
 
-	if enrollmentID == "" {
-		if serial == "" || aki == "" {
-			cmd.Usage()
+	if clientCfg.Revoke.Name == "" {
+		if clientCfg.Revoke.Serial == "" || clientCfg.Revoke.AKI == "" {
 			return errInput
 		}
 	} else {
-		if serial != "" || aki != "" {
-			cmd.Usage()
+		if clientCfg.Revoke.Serial != "" || clientCfg.Revoke.AKI != "" {
 			return errInput
 		}
-	}
-
-	reasonInput := viper.GetString("reason")
-	var reason int
-	if reasonInput != "" {
-		reason = util.RevocationReasonCodes[reasonInput]
 	}
 
 	err = id.Revoke(
 		&api.RevocationRequest{
-			Name:   enrollmentID,
-			Serial: serial,
-			AKI:    aki,
-			Reason: reason,
+			Name:   clientCfg.Revoke.Name,
+			Serial: clientCfg.Revoke.Serial,
+			AKI:    clientCfg.Revoke.AKI,
+			Reason: clientCfg.Revoke.Reason,
 		})
 
 	if err == nil {
