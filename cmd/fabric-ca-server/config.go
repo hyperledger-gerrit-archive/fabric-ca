@@ -290,6 +290,10 @@ func configInit() (err error) {
 		return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 	}
 
+	if serverCfg.CA.Name == "" {
+		return fmt.Errorf("ca.name property is required but is missing in the configuration file")
+	}
+
 	return nil
 }
 
@@ -320,13 +324,17 @@ func createDefaultConfigFile() error {
 	if err != nil {
 		return err
 	}
-	// Get domain name
-	mydomain := strings.Join(strings.Split(myhost, ".")[1:], ".")
+	// Get domain name to be used as CA name
+	caName := strings.Join(strings.Split(myhost, ".")[1:], ".")
+	// If myhost does not have a domain, then use hostname for ca name
+	if caName == "" {
+		caName = myhost
+	}
 	// Do string subtitution to get the default config
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
-	cfg = strings.Replace(cfg, "<<<CANAME>>>", mydomain, 1)
+	cfg = strings.Replace(cfg, "<<<CANAME>>>", caName, 1)
 	// Now write the file
 	err = os.MkdirAll(filepath.Dir(cfgFileName), 0755)
 	if err != nil {
