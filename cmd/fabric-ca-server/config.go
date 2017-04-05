@@ -140,8 +140,8 @@ ca:
 #############################################################################
 registry:
   # Maximum number of times a password/secret can be reused for enrollment
-  # (default: 0, which means there is no limit)
-  maxEnrollments: 0
+  # (default: -1, which means there is no limit)
+  maxenrollments: -1
 
   # Contains identity information which is used when LDAP is disabled
   identities:
@@ -149,6 +149,7 @@ registry:
        pass: <<<ADMINPW>>>
        type: client
        affiliation: ""
+       maxenrollments: -1
        attrs:
           hf.Registrar.Roles: "client,user,peer,validator,auditor,ca"
           hf.Registrar.DelegateRoles: "client,user,validator,auditor"
@@ -291,7 +292,7 @@ cafiles:
 #    url - The URL of the parent server
 #    caname - Name of the CA to enroll with on the server
 #
-# Enrollment section used to enroll an identity with fabric-ca server
+# Enrollment section used to enroll an identity with root fabric-ca server
 #    hosts - A comma-separated list of host names which the certificate should
 #    be valid for
 #    profile - Name of the signing profile to use in issuing the certificate
@@ -353,7 +354,6 @@ func configInit() (err error) {
 	}
 
 	// Read the config
-	// viper.SetConfigFile(cfgFileName)
 	viper.AutomaticEnv() // read in environment variables that match
 	err = lib.UnmarshalConfig(serverCfg, viper.GetViper(), cfgFileName, true, true)
 	if err != nil {
