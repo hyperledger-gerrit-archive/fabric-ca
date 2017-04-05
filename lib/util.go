@@ -110,7 +110,7 @@ func GetIntermediateServer(idx int, t *testing.T) *Server {
 		intermediatePort,
 		path.Join(intermediateDir, strconv.Itoa(idx)),
 		getRootServerURL(),
-		0,
+		-1,
 		t)
 }
 

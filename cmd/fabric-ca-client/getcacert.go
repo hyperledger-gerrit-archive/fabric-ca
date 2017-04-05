@@ -59,7 +59,7 @@ func runGetCACert() error {
 		Config:  clientCfg,
 	}
 
-	si, err := client.GetServerInfo()
+	si, err := client.GetCAInfo(clientCfg.CAInfo.CAName)
 	if err != nil {
 		return err
 	}

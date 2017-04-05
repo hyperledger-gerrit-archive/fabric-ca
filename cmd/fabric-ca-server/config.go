@@ -100,7 +100,7 @@ tls:
   keyfile: ca-key.pem
   clientauth:
     type: noclientcert
-    certfiles: 			# Comma Separated list of root certificate files (e.g. root.pem, root2.pem)
+    certfiles:
 
 #############################################################################
 #  The CA section contains information related to the Certificate Authority
@@ -138,8 +138,8 @@ ca:
 #############################################################################
 registry:
   # Maximum number of times a password/secret can be reused for enrollment
-  # (default: 0, which means there is no limit)
-  maxEnrollments: 0
+  # (default: -1, which means there is no limit)
+  maxEnrollments: -1
 
   # Contains user information which is used when LDAP is disabled
   identities:
@@ -187,7 +187,8 @@ ldap:
    # The URL of the LDAP server
    url: ldap://<adminDN>:<adminPassword>@<host>:<port>/<base>
    tls:
-      certfiles: ldap-server-cert.pem				# Comma Separated (e.g. root.pem, root2.pem)
+      certfiles:
+        - ldap-server-cert.pem
       client:
          certfile: ldap-client-cert.pem
          keyfile: ldap-client-key.pem
@@ -295,6 +296,7 @@ func configInit() (err error) {
 			"tls.clientauth.certfiles",
 			"cafiles",
 			"db.tls.certfiles",
+			"ldap.tls.certfiles",
 		}
 		err = util.ViperUnmarshal(serverCfg, sliceFields)
 		if err != nil {

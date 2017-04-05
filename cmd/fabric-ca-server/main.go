@@ -39,7 +39,6 @@ var (
 				return err
 			}
 			cmd.SilenceUsage = true
-			cmd.SilenceErrors = true
 			util.CmdRunBegin()
 			return nil
 		},

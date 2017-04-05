@@ -61,7 +61,11 @@ func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, erro
 	if err != nil {
 		return nil, err
 	}
-	err = i.Post("tcert", reqBody, nil)
+	if req.CAName == "" {
+		log.Info("No CA name specified in client requested, defaulting to 'ca'")
+		req.CAName = "ca"
+	}
+	err = i.Post(fmt.Sprintf("tcert/%s", req.CAName), reqBody, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +78,7 @@ func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, erro
 // Register registers a new identity
 // @param req The registration request
 func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationResponse, err error) {
-	log.Debugf("Register %+v", &req)
+	log.Debugf("Register %+v", req)
 	if req.Name == "" {
 		return nil, errors.New("Register was called without a Name set")
 	}
@@ -87,9 +91,14 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 		return nil, err
 	}
 
+	if req.CAName == "" {
+		log.Info("No CA name specified in client request, defaulting to 'ca'")
+		req.CAName = "ca"
+	}
+
 	// Send a post to the "register" endpoint with req as body
 	resp := &api.RegistrationResponse{}
-	err = i.Post("register", reqBody, resp)
+	err = i.Post(fmt.Sprintf("register/%s", req.CAName), reqBody, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +110,7 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 // Reenroll reenrolls an existing Identity and returns a new Identity
 // @param req The reenrollment request
 func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, error) {
-	log.Debugf("Reenrolling %s", &req)
+	log.Debugf("Reenrolling %s", req)
 
 	csrPEM, key, err := i.client.GenCSR(req.CSR, i.GetName())
 	if err != nil {
@@ -119,8 +128,12 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 	if err != nil {
 		return nil, err
 	}
+	if req.CAName == "" {
+		log.Info("No CA name specified in client requested, defaulting to 'ca'")
+		req.CAName = "ca"
+	}
 	var result enrollmentResponseNet
-	err = i.Post("reenroll", body, &result)
+	err = i.Post(fmt.Sprintf("reenroll/%s", req.CAName), body, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +142,16 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 
 // Revoke the identity associated with 'id'
 func (i *Identity) Revoke(req *api.RevocationRequest) error {
-	log.Debugf("Entering identity.Revoke %+v", &req)
+	log.Debugf("Entering identity.Revoke %+v", req)
 	reqBody, err := util.Marshal(req, "RevocationRequest")
 	if err != nil {
 		return err
 	}
-	err = i.Post("revoke", reqBody, nil)
+	if req.CAName == "" {
+		log.Info("No CA name specified in client requested, defaulting to 'ca'")
+		req.CAName = "ca"
+	}
+	err = i.Post(fmt.Sprintf("revoke/%s", req.CAName), reqBody, nil)
 	if err != nil {
 		return err
 	}
