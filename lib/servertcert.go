@@ -36,35 +36,16 @@ type tcertHandler struct {
 	server  *Server
 	mgr     *tcert.Mgr
 	keyTree *tcert.KeyTree
+	caName  string
 }
 
 // newTCertHandler is constructor for tcert handler
 func newTCertHandler(server *Server) (h http.Handler, err error) {
-	handler, err := initTCertHandler(server)
-	if err != nil {
-		return nil, fmt.Errorf("Failed to initialize TCert handler: %s", err)
-	}
-	return handler, nil
-}
-
-func initTCertHandler(server *Server) (h http.Handler, err error) {
-	log.Debug("Initializing TCert handler")
-	keyfile := server.CA.Config.CA.Keyfile
-	certfile := server.CA.Config.CA.Certfile
-	mgr, err := tcert.LoadMgr(keyfile, certfile)
-	if err != nil {
-		return nil, err
-	}
-	// FIXME: The root prekey must be stored persistently in DB and retrieved here if not found
-	rootKey, err := genRootKey(server.csp)
-	if err != nil {
-		return nil, err
-	}
-	keyTree := tcert.NewKeyTree(server.csp, rootKey)
 	handler := &cfsslapi.HTTPHandler{
-		Handler: &tcertHandler{server: server, mgr: mgr, keyTree: keyTree},
+		Handler: &tcertHandler{server: server},
 		Methods: []string{"POST"},
 	}
+
 	return handler, nil
 }
 
@@ -88,6 +69,16 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 	err = util.Unmarshal(body, req, "tcert request")
 	if err != nil {
 		return err
+	}
+
+	h.caName = req.CAName
+	if h.caName == "" {
+		h.caName = DefaultCAName
+	}
+
+	err = h.initTCertHandler(h.server)
+	if err != nil {
+		return fmt.Errorf("Failed to initialize TCert handler: %s", err)
 	}
 
 	// Get an X509 certificate from the authorization header associated with the caller
@@ -121,6 +112,7 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 		ValidityPeriod: req.ValidityPeriod,
 		PreKey:         prekeyStr,
 	}
+
 	resp, err := h.mgr.GetBatch(tcertReq, cert)
 	if err != nil {
 		return err
@@ -134,9 +126,28 @@ func (h *tcertHandler) handle(w http.ResponseWriter, r *http.Request) error {
 
 }
 
+func (h *tcertHandler) initTCertHandler(server *Server) (err error) {
+	log.Debug("Initializing TCert handler")
+	keyfile := server.caMap[h.caName].Config.CA.Keyfile
+	certfile := server.caMap[h.caName].Config.CA.Certfile
+
+	h.mgr, err = tcert.LoadMgr(keyfile, certfile)
+	if err != nil {
+		return err
+	}
+	// FIXME: The root prekey must be stored persistently in DB and retrieved here if not found
+	rootKey, err := genRootKey(server.caMap[h.caName].csp)
+	if err != nil {
+		return err
+	}
+	h.keyTree = tcert.NewKeyTree(server.caMap[h.caName].csp, rootKey)
+
+	return nil
+}
+
 // getUserinfo returns the users requested attribute values and user's affiliation path
 func (h *tcertHandler) getUserInfo(id string, attrNames []string) ([]tcert.Attribute, []string, error) {
-	user, err := h.server.registry.GetUser(id, attrNames)
+	user, err := h.server.caMap[h.caName].registry.GetUser(id, attrNames)
 	if err != nil {
 		return nil, nil, err
 	}

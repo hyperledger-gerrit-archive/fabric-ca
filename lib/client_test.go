@@ -54,7 +54,7 @@ func TestClient(t *testing.T) {
 
 	c := getClient()
 
-	testGetServerInfo(c, t)
+	testGetCAInfo(c, t)
 	testRegister(c, t)
 	testEnrollIncorrectPassword(c, t)
 	testDoubleEnroll(c, t)
@@ -71,9 +71,11 @@ func TestClient(t *testing.T) {
 
 }
 
-func testGetServerInfo(c *Client, t *testing.T) {
-
-	si, err := c.GetServerInfo()
+func testGetCAInfo(c *Client, t *testing.T) {
+	req := &api.GetCAInfoRequest{
+		CAName: DefaultCAName,
+	}
+	si, err := c.GetCAInfo(req)
 	if err != nil {
 		t.Fatalf("Failed to get server info: %s", err)
 	}

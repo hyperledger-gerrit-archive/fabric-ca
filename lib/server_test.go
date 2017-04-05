@@ -106,7 +106,7 @@ func TestRootServer(t *testing.T) {
 	}
 	user1 = eresp.Identity
 	// The admin ID should have 1 cert in the DB now
-	recs, err = server.CertDBAccessor().GetCertificatesByID("admin")
+	recs, err = server.CA.CertDBAccessor().GetCertificatesByID("admin")
 	if err != nil {
 		t.Errorf("Could not get admin's certs from DB: %s", err)
 	}
@@ -294,7 +294,6 @@ func invalidTokenAuthorization(t *testing.T) {
 	req.Header.Set("authorization", token)
 
 	err = client.SendReq(req, nil)
-
 	if err.Error() != "Error response from server was: Authorization failure" {
 		t.Error("Incorrect auth type set, request should have failed with authorization error")
 	}
@@ -363,11 +362,52 @@ func TestMultiCA(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
+	// Non-existent CA specified by client
+	clientCA := getRootClient()
+	_, err = clientCA.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+		CAName: "ca3",
+	})
+	if err == nil {
+		t.Error("Should have failed, client using ca name of 'ca3' but no CA exist by that name on server")
+	}
+
+	//Send enroll request to specific CA
+	clientCA1 := getRootClient()
+	_, err = clientCA1.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+		CAName: "ca1",
+	})
+	if err != nil {
+		t.Error("Failed to enroll, error: ", err)
+	}
+
+	clientCA2 := getRootClient()
+	_, err = clientCA2.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+		CAName: "ca2",
+	})
+	if err != nil {
+		t.Error("Failed to enroll, error: ", err)
+	}
+
+	// No ca name specified should sent to default CA 'ca'
+	clientCA3 := getRootClient()
+	_, err = clientCA3.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err != nil {
+		t.Error("Failed to enroll, error: ", err)
+	}
+
 	err = srv.Stop()
 	if err != nil {
 		t.Error("Failed to stop server:", err)
 	}
-
 	cleanMultiCADir()
 
 }

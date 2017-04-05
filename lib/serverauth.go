@@ -19,7 +19,9 @@ package lib
 import (
 	"bytes"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -49,6 +51,11 @@ type fcaAuthHandler struct {
 	server   *Server
 	authType authType
 	next     http.Handler
+	caName   string
+}
+
+type caname struct {
+	CAName string
 }
 
 var authError = cerr.NewBadRequest(errors.New("Authorization failure"))
@@ -65,6 +72,34 @@ func (ah *fcaAuthHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Handle performs authentication
 func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) error {
 	log.Debugf("Received request\n%s", util.HTTPRequestToString(r))
+
+	// read body
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		log.Debugf("Failed to read body: %s", err)
+		return authError
+	}
+	r.Body = ioutil.NopCloser(bytes.NewReader(body))
+
+	var req caname
+
+	if len(body) != 0 {
+		err = json.Unmarshal(body, &req)
+		if err != nil {
+			return err
+		}
+	}
+
+	ah.caName = req.CAName
+	if ah.caName == "" {
+		ah.caName = DefaultCAName
+	}
+
+	// Look up CA to see if CA exist by that name
+	if _, ok := ah.server.caMap[ah.caName]; !ok {
+		return fmt.Errorf("No CA exist by the name '%s'", ah.caName)
+	}
+
 	authHdr := r.Header.Get("authorization")
 	switch ah.authType {
 	case noAuth:
@@ -81,7 +116,7 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 				log.Debugf("Basic auth is not allowed; found %s", authHdr)
 				return errBasicAuthNotAllowed
 			}
-			u, err := ah.server.registry.GetUser(user, nil)
+			u, err := ah.server.caMap[ah.caName].registry.GetUser(user, nil)
 			if err != nil {
 				log.Debugf("Failed to get user '%s': %s", user, err)
 				return authError
@@ -97,15 +132,9 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		}
 		return authError
 	case token:
-		// read body
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			log.Debugf("Failed to read body: %s", err)
-			return authError
-		}
-		r.Body = ioutil.NopCloser(bytes.NewReader(body))
+
 		// verify token
-		cert, err2 := util.VerifyToken(ah.server.csp, authHdr, body)
+		cert, err2 := util.VerifyToken(ah.server.caMap[ah.caName].csp, authHdr, body)
 		if err2 != nil {
 			log.Debugf("Failed to verify token: %s", err2)
 			return authError
@@ -131,12 +160,13 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		aki = strings.ToLower(strings.TrimLeft(aki, "0"))
 		serial = strings.ToLower(strings.TrimLeft(serial, "0"))
 
-		certs, err := ah.server.CertDBAccessor().GetCertificate(serial, aki)
+		certs, err := ah.server.caMap[ah.caName].CertDBAccessor().GetCertificate(serial, aki)
 		if err != nil {
 			return authError
 		}
 
 		if len(certs) == 0 {
+			log.Error("No certificates found for provided serial and aki")
 			return authError
 		}
 

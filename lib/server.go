@@ -109,8 +109,11 @@ func (s *Server) Start() (err error) {
 		if err != nil {
 			return err
 		}
-
 		for _, caFile := range caFiles {
+			caFile, err = util.MakeFileAbs(caFile, s.HomeDir)
+			if err != nil {
+				return err
+			}
 			_, err = s.loadCA(caFile, false)
 			if err != nil {
 				return err
@@ -223,6 +226,7 @@ func (s *Server) loadCA(caFile string, renew bool) (*CA, error) {
 
 	exists := util.FileExists(caFile)
 	if !exists {
+		log.Errorf("%s file does not exist", caFile)
 		return nil, fmt.Errorf("%s file does not exist", caFile)
 	}
 
@@ -260,6 +264,10 @@ func (s *Server) loadCA(caFile string, renew bool) (*CA, error) {
 		caConfig.DB.Datasource = filepath.Base(caConfig.DB.Datasource)
 	}
 
+	if caConfig.CA.Name == "" {
+		return nil, errors.New("No CA name provide CA configuration file. CA name is required")
+	}
+
 	if !viper.IsSet("registry.maxenrollments") {
 		caConfig.Registry.MaxEnrollments = s.CA.Config.Registry.MaxEnrollments
 	}
@@ -294,7 +302,7 @@ func (s *Server) addCA(ca *CA, renew bool) (*CA, error) {
 // Register all endpoint handlers
 func (s *Server) registerHandlers() {
 	s.mux = http.NewServeMux()
-	s.registerHandler("info", newInfoHandler, noAuth)
+	s.registerHandler("cainfo", newInfoHandler, noAuth)
 	s.registerHandler("register", newRegisterHandler, token)
 	s.registerHandler("enroll", newEnrollHandler, basic)
 	s.registerHandler("reenroll", newReenrollHandler, token)
@@ -315,6 +323,7 @@ func (s *Server) registerHandler(
 		log.Warningf("Endpoint '%s' is disabled: %s", path, err)
 		return
 	}
+
 	handler = &fcaAuthHandler{
 		server:   s,
 		authType: at,

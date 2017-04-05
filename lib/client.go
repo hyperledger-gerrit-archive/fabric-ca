@@ -152,18 +152,22 @@ type GetServerInfoResponse struct {
 	CAChain []byte
 }
 
-// GetServerInfo returns generic server information
-func (c *Client) GetServerInfo() (*GetServerInfoResponse, error) {
+// GetCAInfo returns generic CA information
+func (c *Client) GetCAInfo(req *api.GetCAInfoRequest) (*GetServerInfoResponse, error) {
 	err := c.Init()
 	if err != nil {
 		return nil, err
 	}
-	req, err := c.newGet("info")
+	body, err := util.Marshal(req, "GetCAInfo")
+	if err != nil {
+		return nil, err
+	}
+	cainforeq, err := c.newPost("cainfo", body)
 	if err != nil {
 		return nil, err
 	}
 	netSI := &serverInfoResponseNet{}
-	err = c.SendReq(req, netSI)
+	err = c.SendReq(cainforeq, netSI)
 	if err != nil {
 		return nil, err
 	}
@@ -195,7 +199,7 @@ type EnrollmentResponse struct {
 // Enroll enrolls a new identity
 // @param req The enrollment request
 func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error) {
-	log.Debugf("Enrolling %+v", &req)
+	log.Debugf("Enrolling %+v", req)
 
 	err := c.Init()
 	if err != nil {
@@ -209,14 +213,21 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 		return nil, err
 	}
 
-	// Get the body of the request
-	sreq := signer.SignRequest{
-		Hosts:   signer.SplitHosts(req.Hosts),
-		Request: string(csrPEM),
-		Profile: req.Profile,
-		Label:   req.Label,
+	if req.CAName == "" {
+		log.Info("No CA name specified in client request, defaulting to 'ca'")
+		req.CAName = DefaultCAName
 	}
-	body, err := util.Marshal(sreq, "SignRequest")
+
+	reqNet := api.EnrollmentRequestNet{
+		CAName: req.CAName,
+	}
+
+	reqNet.Hosts = signer.SplitHosts(req.Hosts)
+	reqNet.Request = string(csrPEM)
+	reqNet.Profile = req.Profile
+	reqNet.Label = req.Label
+
+	body, err := util.Marshal(reqNet, "SignRequest")
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +270,7 @@ func (c *Client) newEnrollmentResponse(result *enrollmentResponseNet, id string,
 
 // GenCSR generates a CSR (Certificate Signing Request)
 func (c *Client) GenCSR(req *api.CSRInfo, id string) ([]byte, []byte, error) {
-	log.Debugf("GenCSR %+v", &req)
+	log.Debugf("GenCSR %+v", req)
 
 	err := c.Init()
 	if err != nil {
@@ -393,6 +404,7 @@ func (c *Client) newPost(endpoint string, reqBody []byte) (*http.Request, error)
 	if err != nil {
 		return nil, fmt.Errorf("Failed posting to %s: %s", curl, err)
 	}
+
 	return req, nil
 }
 
@@ -441,6 +453,9 @@ func (c *Client) SendReq(req *http.Request, result interface{}) (err error) {
 	}
 	var body *cfsslapi.Response
 	if respBody != nil && len(respBody) > 0 {
+		if resp.StatusCode == 404 {
+			return errors.New(string(respBody))
+		}
 		body = new(cfsslapi.Response)
 		err = json.Unmarshal(respBody, body)
 		if err != nil {

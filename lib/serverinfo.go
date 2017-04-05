@@ -17,22 +17,26 @@ limitations under the License.
 package lib
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"net/http"
 
 	cfapi "github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
 )
 
 // infoHandler handles the GET /info request
 type infoHandler struct {
 	server *Server
+	caName string
 }
 
 // newInfoHandler is the constructor for the infoHandler
 func newInfoHandler(server *Server) (h http.Handler, err error) {
 	return &cfapi.HTTPHandler{
 		Handler: &infoHandler{server: server},
-		Methods: []string{"GET"},
+		Methods: []string{"POST"},
 	}, nil
 }
 
@@ -47,8 +51,27 @@ type serverInfoResponseNet struct {
 // Handle is the handler for the GET /info request
 func (ih *infoHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	log.Debug("Received request for server info")
+
+	reqBody, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	r.Body.Close()
+
+	// Parse request body
+	var req api.GetCAInfoRequest
+	err = json.Unmarshal(reqBody, &req)
+	if err != nil {
+		return err
+	}
+
+	ih.caName = req.CAName
+	if ih.caName == "" {
+		ih.caName = DefaultCAName
+	}
+
 	resp := &serverInfoResponseNet{}
-	err := ih.server.fillCAInfo(resp)
+	err = ih.server.caMap[ih.caName].fillCAInfo(resp)
 	if err != nil {
 		return err
 	}

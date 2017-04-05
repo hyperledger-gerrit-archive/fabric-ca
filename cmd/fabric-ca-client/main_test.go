@@ -371,46 +371,36 @@ func testRevoke(t *testing.T) {
 
 	aki = strings.ToUpper(aki)
 
-	// Revoker's affiliation: banks.bank_a
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "nonexistinguser"})
+	// Revoker's affiliation: hyperledger.bank_a
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "nonexistinguser"})
 	if err == nil {
 		t.Errorf("Non existing user being revoked, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", serial})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "", "--revoke.serial", serial})
 	if err == nil {
 		t.Errorf("Only serial specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", "", "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "", "--revoke.serial", "", "--revoke.aki", aki})
 	if err == nil {
 		t.Errorf("Only aki specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.serial", serial, "--revoke.aki", aki})
 	if err != nil {
-		t.Errorf("client revoke -u -s -a failed: %s", err)
+		t.Errorf("client revoke -u --revoke.serial --revoke.aki failed: %s", err)
 	}
 
-	serial, aki, err = getSerialAKIByID("testRegister")
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister3", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
-		t.Error(err)
+		t.Errorf("client revoke -u --revoke.name failed: %s", err)
 	}
 
-	// Revoked user's affiliation: banks.bank_c
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
-	if err != nil {
-		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
-	}
-
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister3", "-s", "", "-a", ""})
-	if err != nil {
-		t.Errorf("client revoke -u -e failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister2", "-s", "", "-a", ""})
+	// testRegister2's affiliation: hyperledger.bank_b, revoker's affiliation: hyperledger.bank_a
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister2", "--revoke.serial", "", "--revoke.aki", ""})
 	if err == nil {
-		t.Errorf("Revoker does not have the correct affiliation to revoke, should have failed")
+		t.Errorf("Revoker does not have the correct affiliation to revoke user testRegister2, should have failed")
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -547,8 +537,8 @@ func TestClientCommandsTLS(t *testing.T) {
 }
 
 func TestCleanUp(t *testing.T) {
-	os.Remove("../../testdata/cert.pem")
-	os.Remove("../../testdata/key.pem")
+	os.Remove("../../testdata/ca-cert.pem")
+	os.Remove("../../testdata/ca-key.pem")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
 	os.RemoveAll(mspDir)
@@ -595,7 +585,10 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	acc := lib.NewCertDBAccessor(testdb)
 
-	certs, _ := acc.GetCertificatesByID("admin")
+	certs, err := acc.GetCertificatesByID(id)
+	if err != nil {
+		return "", "", err
+	}
 
 	block, _ := pem.Decode([]byte(certs[0].PEM))
 	if block == nil {

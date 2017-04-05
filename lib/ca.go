@@ -81,10 +81,6 @@ func NewCA(homeDir string, config *CAConfig, server *Server, renew bool) (*CA, e
 		server:  server,
 	}
 
-	if ca == nil {
-		return nil, errors.New("Failed to create CA instance")
-	}
-
 	if len(ca.server.bootstrapRegistry.Identities) != 0 {
 		ca.Config.Registry.Identities = ca.server.bootstrapRegistry.Identities
 	}
