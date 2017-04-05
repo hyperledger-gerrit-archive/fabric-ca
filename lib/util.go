@@ -84,9 +84,10 @@ func LoadPEMCertPool(certFiles []string) (*x509.CertPool, error) {
 	return certPool, nil
 }
 
-// UnmarshalConfig ...
-func UnmarshalConfig(config interface{}, vp *viper.Viper, caFile string, server, viperIssue327WorkAround bool) error {
-	vp.SetConfigFile(caFile)
+// UnmarshalConfig will use the viperunmarshal workaround to unmarshal a
+// configuration file into a struct
+func UnmarshalConfig(config interface{}, vp *viper.Viper, configFile string, server, viperIssue327WorkAround bool) error {
+	vp.SetConfigFile(configFile)
 	err := vp.ReadInConfig()
 	if err != nil {
 		return fmt.Errorf("Failed to read config file: %s", err)
@@ -105,27 +106,63 @@ func UnmarshalConfig(config interface{}, vp *viper.Viper, caFile string, server,
 		}
 		err = util.ViperUnmarshal(config, sliceFields, vp)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 		}
 		if server {
 			serverCfg := config.(*ServerConfig)
 			err = vp.Unmarshal(&serverCfg.CAcfg)
 			if err != nil {
-				return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+				return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 			}
 		}
 	} else {
 		err = vp.Unmarshal(config)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 		}
 		if server {
 			serverCfg := config.(*ServerConfig)
 			err = vp.Unmarshal(&serverCfg.CAcfg)
 			if err != nil {
-				return fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+				return fmt.Errorf("Incorrect format in file '%s': %s", configFile, err)
 			}
 		}
 	}
 	return nil
+}
+
+func getMaxEnrollments(userMaxEnrollment int, caMaxEnrollment int) (int, error) {
+	log.Debugf("Max enrollment value verification - User specified max enrollment: %d, CA max enrollment: %d", userMaxEnrollment, caMaxEnrollment)
+	if userMaxEnrollment < -1 {
+		return 0, fmt.Errorf("Max enrollment in registration request may not be less than -1, but was %d", userMaxEnrollment)
+	}
+	switch caMaxEnrollment {
+	case -1:
+		if userMaxEnrollment == 0 {
+			// The user is requesting the matching limit of the CA, so gets infinite
+			return -1, nil
+		}
+		// There is no CA max enrollment limit, so simply use the user requested value
+		return userMaxEnrollment, nil
+	case 0:
+		// The CA max enrollment is 0, so registration is disabled.
+		return 0, errors.New("Registration is disabled")
+	default:
+		switch userMaxEnrollment {
+		case -1:
+			// User requested infinite enrollments is not allowed
+			return 0, errors.New("Registration for infinite enrollments is not allowed")
+		case 0:
+			// User is requesting the current CA maximum
+			return caMaxEnrollment, nil
+		default:
+			// User is requesting a specific positive value; make sure it doesn't exceed the CA maximum.
+			if userMaxEnrollment > caMaxEnrollment {
+				return 0, fmt.Errorf("Requested enrollments (%d) exceeds maximum allowable enrollments (%d)",
+					userMaxEnrollment, caMaxEnrollment)
+			}
+			// otherwise, use the requested maximum
+			return userMaxEnrollment, nil
+		}
+	}
 }
