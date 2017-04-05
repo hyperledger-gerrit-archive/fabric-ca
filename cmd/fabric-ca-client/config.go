@@ -124,6 +124,7 @@ id:
   name:
   type:
   affiliation:
+  maxenrollments: -1
   attributes:
     - name:
       value:

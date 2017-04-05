@@ -140,8 +140,8 @@ ca:
 #############################################################################
 registry:
   # Maximum number of times a password/secret can be reused for enrollment
-  # (default: 0, which means there is no limit)
-  maxEnrollments: 0
+  # (default: -1, which means there is no limit)
+  maxEnrollments: -1
 
   # Contains identity information which is used when LDAP is disabled
   identities:
@@ -330,6 +330,11 @@ func configInit() (err error) {
 	err = tls.AbsTLSClient(&serverCfg.CAcfg.LDAP.TLS, filepath.Dir(cfgFileName))
 	if err != nil {
 		return err
+	}
+
+	// If max enrollments is not set, set the value to -1 which means there is no limit on the number of enrollments
+	if !viper.IsSet("registry.maxenrollments") {
+		serverCfg.CAcfg.Registry.MaxEnrollments = -1
 	}
 
 	return nil
