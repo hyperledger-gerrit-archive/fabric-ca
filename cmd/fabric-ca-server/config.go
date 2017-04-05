@@ -307,7 +307,12 @@ func configInit() (err error) {
 	}
 
 	if serverCfg.CA.Name == "" {
-		return fmt.Errorf(caNameReqMsg)
+		return errors.New(caNameReqMsg)
+	}
+
+	// If max enrollments is not set, set the value to -1 which means there is no limit on the number of enrollments
+	if !viper.IsSet("registry.maxenrollments") {
+		serverCfg.Registry.MaxEnrollments = -1
 	}
 
 	return nil

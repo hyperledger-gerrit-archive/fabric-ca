@@ -726,6 +726,11 @@ func (s *Server) CertDBAccessor() *CertDBAccessor {
 	return s.certDBAccessor
 }
 
+// DBAccessor returns the registry DB accessor for server
+func (s *Server) DBAccessor() spi.UserRegistry {
+	return s.registry
+}
+
 func (s *Server) convertAttrs(inAttrs map[string]string) []api.Attribute {
 	var outAttrs []api.Attribute
 	for name, value := range inAttrs {
