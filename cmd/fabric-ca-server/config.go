@@ -305,6 +305,10 @@ func configInit() (err error) {
 		}
 	}
 
+	if !viper.IsSet("registry.maxenrollments") {
+		serverCfg.Registry.MaxEnrollments = -1
+	}
+
 	return nil
 }
 

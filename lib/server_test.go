@@ -22,8 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path"
-	"strconv"
 	"testing"
 	"time"
 
@@ -43,7 +41,7 @@ const (
 )
 
 func TestServerInit(t *testing.T) {
-	server := getRootServer(t)
+	server := GetRootServer(t)
 	if server == nil {
 		return
 	}
@@ -68,7 +66,7 @@ func TestRootServer(t *testing.T) {
 	var recs []CertRecord
 
 	// Start the server
-	server := getRootServer(t)
+	server := GetRootServer(t)
 	if server == nil {
 		return
 	}
@@ -160,7 +158,7 @@ func TestIntermediateServer(t *testing.T) {
 	var err error
 
 	// Start the root server
-	rootServer := getRootServer(t)
+	rootServer := GetRootServer(t)
 	if rootServer == nil {
 		return
 	}
@@ -181,7 +179,7 @@ func TestIntermediateServer(t *testing.T) {
 	}
 }
 func TestRunningTLSServer(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
 
 	srv.Config.TLS.Enabled = true
 	srv.Config.TLS.CertFile = "../testdata/tls_server-cert.pem"
@@ -221,7 +219,7 @@ func TestRunningTLSServer(t *testing.T) {
 func TestDefaultDatabase(t *testing.T) {
 	TestEnd(t)
 
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
 
 	err := srv.Start()
 	if err != nil {
@@ -243,7 +241,7 @@ func TestDefaultDatabase(t *testing.T) {
 
 func TestBadAuthHeader(t *testing.T) {
 	// Start the server
-	server := getRootServer(t)
+	server := GetRootServer(t)
 	if server == nil {
 		return
 	}
@@ -325,9 +323,156 @@ func TestTLSAuthClient(t *testing.T) {
 	testClientAuth(t)
 }
 
+func TestMaxEnrollmentCombinations(t *testing.T) {
+	os.RemoveAll(rootDir)
+
+	t.Log("Test Max Enrollment combinations")
+
+	// Starting server/ca with infinite enrollments
+	srv := GetServer(rootPort, rootDir, "", -1, t)
+
+	err := srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	client := getRootClient()
+	id, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err != nil {
+		t.Error("Enrollment failed, error: ", err)
+	}
+
+	id.Identity.Store()
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+
+	srv.Config.Registry.MaxEnrollments = 0
+
+	// Starting server again with enrollments disabled
+	err = srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+	// Enroll request
+	client = getRootClient()
+	_, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err == nil {
+		t.Fatalf("Should have failed, enrollments disabled on server/ca")
+	}
+
+	// Registering user with missing max enrollment value
+	resp, err := id.Identity.Register(&api.RegistrationRequest{
+		Name:        "testuser",
+		Type:        "client",
+		Affiliation: "org2",
+	})
+	if err != nil {
+		t.Error("Failed to register, error: ", err)
+	}
+
+	// Check to see if user got the proper value set for max enrollment
+	db := srv.DBAccessor()
+	user, err := db.GetUserInfo("testuser")
+	if err != nil {
+		t.Error("Failed to get user info, error: ", err)
+	}
+	if user.MaxEnrollments != -1 {
+		t.Error("Failed to correctly set max enrollment value")
+	}
+
+	// Register user with max enrollment of 4 on a CA with enrollments disabled
+	resp, err = id.Identity.Register(&api.RegistrationRequest{
+		Name:           "testuser2",
+		Type:           "client",
+		Affiliation:    "org2",
+		MaxEnrollments: 4,
+	})
+	if err != nil {
+		t.Error("Failed to register, error: ", err)
+	}
+
+	// Check to see if user got the proper value set for max enrollment
+	user, err = db.GetUserInfo("testuser2")
+	if err != nil {
+		t.Error("Failed to get user info, error: ", err)
+	}
+	if user.MaxEnrollments != 4 {
+		t.Error("Failed to correctly set max enrollment value")
+	}
+
+	_, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "testuser",
+		Secret: resp.Secret,
+	})
+	if err == nil {
+		t.Error("Currently enrollments are disabled on CA, should have failed")
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+
+	srv.Config.Registry.MaxEnrollments = 5
+
+	// Start server again with max enrollments of 5
+	err = srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	// Register a user with max enrollment greater than allowed by CA
+	resp, err = id.Identity.Register(&api.RegistrationRequest{
+		Name:           "testuser3",
+		Type:           "client",
+		Affiliation:    "org2",
+		MaxEnrollments: 10,
+	})
+	if err == nil {
+		t.Error("Max enrollments in registeration request is greater than allowed by CA, should have failed registeration")
+	}
+
+	// Register a user with infinite enrollments on a CA that does not allow infinite enrollments
+	resp, err = id.Identity.Register(&api.RegistrationRequest{
+		Name:           "testuser3",
+		Type:           "client",
+		Affiliation:    "org2",
+		MaxEnrollments: -1,
+	})
+	if err == nil {
+		t.Error("Max enrollments in registeration request is infinite which is greater than allowed by CA, should have failed registeration")
+	}
+
+	// Register a user with infinite enrollments than allowed by CA
+	resp, err = id.Identity.Register(&api.RegistrationRequest{
+		Name:           "testuser3",
+		Type:           "client",
+		Affiliation:    "org2",
+		MaxEnrollments: 4,
+	})
+	if err != nil {
+		t.Error("Failed to register with valid max enrollment value, error: ", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+
+}
+
 // Configure server to start server with no client authentication required
 func testNoClientCert(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
 	srv = getTLSConfig(srv, "NoClientCert", []string{})
 
 	err := srv.Start()
@@ -360,7 +505,7 @@ func testNoClientCert(t *testing.T) {
 // Configure server to start with no client authentication required
 // Root2.pem does not exists, server should still start because no client auth is requred
 func testInvalidRootCertWithNoClientAuth(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
 	srv = getTLSConfig(srv, "NoClientCert", []string{"../testdata/root.pem", "../testdata/root2.pem"})
 
 	err := srv.Start()
@@ -379,7 +524,7 @@ func testInvalidRootCertWithNoClientAuth(t *testing.T) {
 // Configure server to start with client authentication required
 // Root2.pem does not exists, server should fail to start
 func testInvalidRootCertWithClientAuth(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
 	srv = getTLSConfig(srv, "RequireAndVerifyClientCert", []string{"../testdata/root.pem", "../testdata/root2.pem"})
 
 	err := srv.Start()
@@ -390,7 +535,7 @@ func testInvalidRootCertWithClientAuth(t *testing.T) {
 
 // Configure server to start with client authentication required
 func testClientAuth(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
 	srv = getTLSConfig(srv, "RequireAndVerifyClientCert", []string{"../testdata/root.pem"})
 
 	err := srv.Start()
@@ -440,7 +585,7 @@ func testClientAuth(t *testing.T) {
 
 func testIntermediateServer(idx int, t *testing.T) {
 	// Init the intermediate server
-	intermediateServer := getIntermediateServer(idx, t)
+	intermediateServer := GetIntermediateServer(idx, t)
 	if intermediateServer == nil {
 		return
 	}
@@ -462,59 +607,9 @@ func TestEnd(t *testing.T) {
 	os.Remove("../testdata/ca-cert.pem")
 	os.Remove("../testdata/ca-key.pem")
 	os.Remove("../testdata/fabric-ca-server.db")
+	os.RemoveAll("../testdata/msp")
 	os.RemoveAll(rootDir)
 	os.RemoveAll(intermediateDir)
-}
-
-func getRootServerURL() string {
-	return fmt.Sprintf("http://admin:adminpw@localhost:%d", rootPort)
-}
-
-func getRootServer(t *testing.T) *Server {
-	return getServer(rootPort, rootDir, "", 0, t)
-}
-
-func getIntermediateServer(idx int, t *testing.T) *Server {
-	return getServer(
-		intermediatePort,
-		path.Join(intermediateDir, strconv.Itoa(idx)),
-		getRootServerURL(),
-		0,
-		t)
-}
-
-func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
-	if home != testdataDir {
-		os.RemoveAll(home)
-	}
-	affiliations := map[string]interface{}{
-		"hyperledger": map[string]interface{}{
-			"fabric":    []string{"ledger", "orderer", "security"},
-			"fabric-ca": nil,
-			"sdk":       nil,
-		},
-		"org2": nil,
-	}
-	srv := &Server{
-		Config: &ServerConfig{
-			Port:         port,
-			Debug:        true,
-			Affiliations: affiliations,
-			Registry: ServerConfigRegistry{
-				MaxEnrollments: maxEnroll,
-			},
-		},
-		HomeDir:         home,
-		ParentServerURL: parentURL,
-	}
-	// The bootstrap user's affiliation is the empty string, which
-	// means the user is at the affiliation root
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-		return nil
-	}
-	return srv
 }
 
 func getRootClient() *Client {

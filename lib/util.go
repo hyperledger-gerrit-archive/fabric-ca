@@ -24,9 +24,21 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
+	"strconv"
+	"testing"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
+)
+
+const (
+	rootPort         = 7055
+	rootDir          = "rootDir"
+	intermediatePort = 7056
+	intermediateDir  = "intDir"
+	testdataDir      = "../testdata"
 )
 
 var clientAuthTypes = map[string]tls.ClientAuthType{
@@ -81,4 +93,58 @@ func LoadPEMCertPool(certFiles []string) (*x509.CertPool, error) {
 	}
 
 	return certPool, nil
+}
+
+func getRootServerURL() string {
+	return fmt.Sprintf("http://admin:adminpw@localhost:%d", rootPort)
+}
+
+// GetRootServer creates a server with root configuration
+func GetRootServer(t *testing.T) *Server {
+	return GetServer(rootPort, rootDir, "", -1, t)
+}
+
+// GetIntermediateServer creates a server with intermediate server configuration
+func GetIntermediateServer(idx int, t *testing.T) *Server {
+	return GetServer(
+		intermediatePort,
+		path.Join(intermediateDir, strconv.Itoa(idx)),
+		getRootServerURL(),
+		0,
+		t)
+}
+
+// GetServer creates and returns a pointer to a server struct
+func GetServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
+	if home != testdataDir {
+		os.RemoveAll(home)
+	}
+	affiliations := map[string]interface{}{
+		"hyperledger": map[string]interface{}{
+			"fabric":    []string{"ledger", "orderer", "security"},
+			"fabric-ca": nil,
+			"sdk":       nil,
+		},
+		"org2": nil,
+	}
+	srv := &Server{
+		Config: &ServerConfig{
+			Port:         port,
+			Debug:        true,
+			Affiliations: affiliations,
+			Registry: ServerConfigRegistry{
+				MaxEnrollments: maxEnroll,
+			},
+		},
+		HomeDir:         home,
+		ParentServerURL: parentURL,
+	}
+	// The bootstrap user's affiliation is the empty string, which
+	// means the user is at the affiliation root
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "hyperledger")
+	if err != nil {
+		t.Errorf("Failed to register bootstrap user: %s", err)
+		return nil
+	}
+	return srv
 }

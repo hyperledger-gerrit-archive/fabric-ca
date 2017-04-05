@@ -340,7 +340,7 @@ func (u *DBUser) GetName() string {
 }
 
 // Login the user with a password
-func (u *DBUser) Login(pass string) error {
+func (u *DBUser) Login(pass string, caMaxEnrollments int) error {
 	log.Debugf("DB: Login user %s with max enrollments of %d and state of %d", u.Name, u.MaxEnrollments, u.State)
 
 	// Check the password
@@ -348,40 +348,46 @@ func (u *DBUser) Login(pass string) error {
 		return errors.New("Incorrect password")
 	}
 
-	// If the maxEnrollments is set (i.e. >= 0), make sure we haven't exceeded this number of logins.
-	// The state variable keeps track of the number of previously successful logins.
-	if u.MaxEnrollments >= 0 {
-
-		// If maxEnrollments is set to 0, user has unlimited enrollment
-		if u.MaxEnrollments != 0 {
-			if u.State >= u.MaxEnrollments {
-				return fmt.Errorf("No more enrollments left. The maximum number of enrollments is %d", u.MaxEnrollments)
-			}
-		}
-
-		// Not exceeded, so attempt to increment the count
-		state := u.State + 1
-		res, err := u.db.Exec(u.db.Rebind("UPDATE users SET state = ? WHERE (id = ?)"), state, u.Name)
-		if err != nil {
-			return fmt.Errorf("Failed to update state of user %s to %d: %s", u.Name, state, err)
-		}
-
-		numRowsAffected, err := res.RowsAffected()
-
-		if err != nil {
-			return fmt.Errorf("db.RowsAffected failed: %s", err)
-		}
-
-		if numRowsAffected == 0 {
-			return fmt.Errorf("no rows were affected when updating the state of user %s", u.Name)
-		}
-
-		if numRowsAffected != 1 {
-			return fmt.Errorf("%d rows were affected when updating the state of user %s", numRowsAffected, u.Name)
-		}
-
-		log.Debugf("Successfully incremented state for user %s to %d", u.Name, state)
+	if u.MaxEnrollments == 0 {
+		return fmt.Errorf("Zero is an invalid value for max enrollment user %s", u.Name)
 	}
+
+	// var maxEnrollment int
+	if u.MaxEnrollments > caMaxEnrollments || (u.MaxEnrollments == -1 && caMaxEnrollments != -1) {
+		log.Debugf("Max enrollment value (%d) of user is greater than allowed by CA, using CA max enrollment value of %d", u.MaxEnrollments, caMaxEnrollments)
+		u.MaxEnrollments = caMaxEnrollments
+	}
+
+	// If maxEnrollments is set to -1, user has unlimited enrollment
+	// If the maxEnrollments is set (i.e. >= 1), make sure we haven't exceeded this number of logins.
+	// The state variable keeps track of the number of previously successful logins.
+	if u.MaxEnrollments != -1 {
+		if u.State >= u.MaxEnrollments {
+			return fmt.Errorf("No more enrollments left. The maximum number of enrollments is %d", u.MaxEnrollments)
+		}
+	}
+
+	// Not exceeded, so attempt to increment the count
+	state := u.State + 1
+	res, err := u.db.Exec(u.db.Rebind("UPDATE users SET state = ? WHERE (id = ?)"), state, u.Name)
+	if err != nil {
+		return fmt.Errorf("Failed to update state of user %s to %d: %s", u.Name, state, err)
+	}
+
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("db.RowsAffected failed: %s", err)
+	}
+
+	if numRowsAffected == 0 {
+		return fmt.Errorf("No rows were affected when updating the state of user %s", u.Name)
+	}
+
+	if numRowsAffected != 1 {
+		return fmt.Errorf("%d rows were affected when updating the state of user %s", numRowsAffected, u.Name)
+	}
+
+	log.Debugf("Successfully incremented state for user %s to %d", u.Name, state)
 
 	log.Debugf("DB: user %s successfully logged in", u.Name)
 
