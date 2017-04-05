@@ -42,8 +42,7 @@ var (
 )
 
 func TestClient(t *testing.T) {
-
-	server := getServer(ctport1, path.Join(serversDir, "c1"), "", 1, t)
+	server := TestGetServer(ctport1, path.Join(serversDir, "c1"), "", 1, t)
 	if server == nil {
 		return
 	}
@@ -250,7 +249,7 @@ func testLoadBadCSRInfo(c *Client, t *testing.T) {
 func TestCustomizableMaxEnroll(t *testing.T) {
 	os.Remove("../testdata/fabric-ca-server.db")
 
-	srv := getServer(ctport2, path.Join(serversDir, "c2"), "", 3, t)
+	srv := TestGetServer(ctport2, path.Join(serversDir, "c2"), "", 3, t)
 	if srv == nil {
 		return
 	}
