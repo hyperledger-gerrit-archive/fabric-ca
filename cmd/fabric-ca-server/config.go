@@ -36,6 +36,7 @@ const (
 	cmdName      = "fabric-ca-server"
 	envVarPrefix = "FABRIC_CA_SERVER"
 	homeEnvVar   = "FABRIC_CA_SERVER_HOME"
+	caNameReqMsg = "ca.name property is required but is missing from the configuration file"
 )
 
 const (
@@ -290,6 +291,10 @@ func configInit() (err error) {
 		return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 	}
 
+	if serverCfg.CA.Name == "" {
+		return fmt.Errorf(caNameReqMsg)
+	}
+
 	return nil
 }
 
@@ -315,18 +320,19 @@ func createDefaultConfigFile() error {
 	if len(pass) == 0 {
 		return errors.New("An empty password in the '-b user:pass' option is not permitted")
 	}
+
 	// Get hostname
 	myhost, err := os.Hostname()
 	if err != nil {
 		return err
 	}
-	// Get domain name
-	mydomain := strings.Join(strings.Split(myhost, ".")[1:], ".")
+	caName := getDefaultCAName(myhost)
+
 	// Do string subtitution to get the default config
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
-	cfg = strings.Replace(cfg, "<<<CANAME>>>", mydomain, 1)
+	cfg = strings.Replace(cfg, "<<<CANAME>>>", caName, 1)
 	// Now write the file
 	err = os.MkdirAll(filepath.Dir(cfgFileName), 0755)
 	if err != nil {
@@ -334,4 +340,21 @@ func createDefaultConfigFile() error {
 	}
 	// Now write the file
 	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0644)
+}
+
+// Strips characters until the first '.' from hostname and returns the resulting string
+// For example, if the hostname is server1.acme.com), it returns amce.com
+// If the hostname is server1, it returns server1
+func getDefaultCAName(hostname string) (caName string) {
+	// Get domain name to be used as CA name
+	i := strings.Index(hostname, ".")
+	if i == -1 {
+		// If myhost does not have a domain, then use hostname for ca name
+		caName = hostname
+	} else {
+		// If hostname is something like 'blah.' (which is not a valid hostname)
+		// then empty string is returned
+		caName = hostname[i+1 : len(hostname)]
+	}
+	return
 }

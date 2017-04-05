@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -41,6 +42,7 @@ var (
 
 // Create a config element in unexpected format
 var badSyntaxYaml = "bad.yaml"
+var ymlWithoutCAName = "noCAName.yml"
 
 // Unsupported file type
 var unsupportedFileType = "config.txt"
@@ -74,6 +76,9 @@ func errorTest(in *TestData, t *testing.T) {
 func TestErrors(t *testing.T) {
 	os.Unsetenv(homeEnvVar)
 	_ = ioutil.WriteFile(badSyntaxYaml, []byte("signing: true\n"), 0644)
+	exp := regexp.MustCompile(".*<<<CANAME>>>.*")
+	cfg := exp.ReplaceAllString(defaultCfgTemplate, "")
+	_ = ioutil.WriteFile(ymlWithoutCAName, []byte(cfg), 0644)
 
 	errorCases := []TestData{
 		{[]string{cmdName, "init", "-c", initYaml}, "option is required"},
@@ -88,12 +93,18 @@ func TestErrors(t *testing.T) {
 		{[]string{cmdName, "bogus", "-c", initYaml, "-b", "user:pass"}, "unknown command"},
 		{[]string{cmdName, "start", "-c"}, "needs an argument:"},
 		{[]string{cmdName, "start", "-c", startYaml, "-b", "user:pass", "ca.key"}, "too many arguments"},
+		{[]string{cmdName, "start", "-c", ymlWithoutCAName, "-b", "user:pass"}, caNameReqMsg},
 	}
-
+	// Explicitly set the default for ca.name to "", this is to test if server
+	// does not start if ca.name is not specified
+	viper.SetDefault("ca.name", "")
 	for _, e := range errorCases {
 		errorTest(&e, t)
 		_ = os.Remove(initYaml)
 	}
+	// We are done with all error cases. Now, set the ca.name default value to
+	// "acme.com", as ca.name is a required property for server to start
+	viper.SetDefault("ca.name", "acme.com")
 }
 
 func TestValid(t *testing.T) {
@@ -182,12 +193,36 @@ func checkConfigAndDBLoc(t *testing.T, args TestData, cfgFile string, dsFile str
 	}
 }
 
+// Tests for the getDefaultCAName function
+func TestDefaultCAName(t *testing.T) {
+	var testCases = []struct {
+		input    string // input
+		expected string // expected result
+	}{
+		{"server1.acme.com", "acme.com"},
+		{"server1.net1.acme.com", "net1.acme.com"},
+		{"server2", "server2"},
+		// invalid cases
+		{"foo.", ""},
+		{".", ""},
+		{".com", "com"},
+	}
+	for _, tc := range testCases {
+		n := getDefaultCAName(tc.input)
+		if n != tc.expected {
+			t.Errorf("getDefaultCAName returned unexpected value '%s' for '%s', expected value is '%s'",
+				n, tc.input, tc.expected)
+		}
+	}
+}
+
 func TestClean(t *testing.T) {
 	defYaml := util.GetDefaultConfigFile(cmdName)
 	os.Remove(defYaml)
 	os.Remove(initYaml)
 	os.Remove(startYaml)
 	os.Remove(badSyntaxYaml)
+	os.Remove(ymlWithoutCAName)
 	os.Remove(unsupportedFileType)
 	os.Remove("ca-key.pem")
 	os.Remove("ca-cert.pem")
