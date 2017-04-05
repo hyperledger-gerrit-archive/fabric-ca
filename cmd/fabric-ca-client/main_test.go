@@ -30,7 +30,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
@@ -103,6 +102,11 @@ const jsonConfig = `{
   }
 }`
 
+const (
+	serverPort  = 7054
+	testdataDir = "homeDir"
+)
+
 var (
 	defYaml    string
 	fabricCADB = path.Join(tdDir, db)
@@ -143,7 +147,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 func TestClientCommandsNoTLS(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.HomeDir = tdDir
 	srv.Config.Debug = true
 
@@ -331,7 +335,7 @@ func testRegisterEnvVar(t *testing.T) {
 
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_NAME")
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_AFFILIATION")
-	os.Unsetenv("FABRIC_CA_CLIENT_TLS_ID_TYPE")
+	os.Unsetenv("FABRIC_CA_CLIENT_ID_TYPE")
 
 	os.Remove(defYaml)
 }
@@ -436,7 +440,6 @@ func testRevoke(t *testing.T) {
 	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
 	if err != nil {
 		t.Errorf("User with root affiliation failed to revoke, error: %s", err)
-
 	}
 
 	os.Remove(defYaml) // Delete default config file
@@ -510,10 +513,10 @@ func testBogus(t *testing.T) {
 func TestClientCommandsUsingConfigFile(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -542,15 +545,10 @@ func TestClientCommandsUsingConfigFile(t *testing.T) {
 func TestClientCommandsTLSEnvVar(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "bank1")
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -587,15 +585,10 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 func TestClientCommandsTLS(t *testing.T) {
 	os.Remove(fabricCADB)
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "bank1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "bank1")
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -629,7 +622,7 @@ func TestClientCommandsTLS(t *testing.T) {
 func TestMultiCA(t *testing.T) {
 	cleanMultiCADir()
 
-	srv = getServer()
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.HomeDir = "../../testdata"
 	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
 	srv.CA.Config.CSR.Hosts = []string{"hostname"}
@@ -662,7 +655,7 @@ func TestMultiCA(t *testing.T) {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "register", "-c", testYaml, "-d", "--id.name", "testuser", "--id.type", "user", "--id.affiliation", "org1", "--caname", "rootca1"})
+	err = RunMain([]string{cmdName, "register", "-c", testYaml, "-d", "--id.name", "testuser", "--id.type", "user", "--id.affiliation", "org2", "--caname", "rootca1"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
@@ -699,6 +692,7 @@ func TestCleanUp(t *testing.T) {
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
 	os.RemoveAll(mspDir)
+	os.RemoveAll("keystore")
 	cleanMultiCADir()
 }
 
@@ -720,40 +714,6 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 	err := RunMain([]string{cmdName, "register", "-c", testYaml})
 	if err == nil {
 		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
-	}
-}
-
-func getServer() *lib.Server {
-	return &lib.Server{
-		HomeDir: ".",
-		Config:  getServerConfig(),
-		CA: lib.CA{
-			Config: getCAConfig(),
-		},
-	}
-}
-
-func getServerConfig() *lib.ServerConfig {
-	return &lib.ServerConfig{
-		Debug: true,
-		Port:  7054,
-	}
-}
-
-func getCAConfig() *lib.CAConfig {
-	affiliations := map[string]interface{}{
-		"org1": nil,
-	}
-
-	return &lib.CAConfig{
-		CA: lib.CAInfo{
-			Keyfile:  keyfile,
-			Certfile: certfile,
-		},
-		Affiliations: affiliations,
-		CSR: csr.CertificateRequest{
-			CN: "TestCN",
-		},
 	}
 }
 

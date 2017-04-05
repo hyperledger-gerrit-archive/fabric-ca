@@ -124,7 +124,13 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 				log.Debugf("Failed to get identity '%s': %s", user, err)
 				return authError
 			}
-			err = u.Login(pwd)
+			serverMaxEnrollments := ah.server.caMap[req.CAName].Config.Registry.MaxEnrollments
+			if serverMaxEnrollments == 0 {
+				msg := fmt.Sprintf("Enrollments are disabled; user '%s' cannot enroll", user)
+				log.Debugf(msg)
+				return errors.New(msg)
+			}
+			err = u.Login(pwd, serverMaxEnrollments)
 			if err != nil {
 				log.Debugf("Failed to login '%s': %s", user, err)
 				return authError
