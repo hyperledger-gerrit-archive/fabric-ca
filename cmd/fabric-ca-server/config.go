@@ -82,6 +82,8 @@ port: 7054
 # Enables debug logging (default: false)
 debug: false
 
+cafiles:
+
 #############################################################################
 #  TLS section for the server's listening port
 #
@@ -293,6 +295,8 @@ func configInit() (err error) {
 		sliceFields := []string{
 			"csr.hosts",
 			"tls.clientauth.certfiles",
+			"cafiles",
+			"db.tls.certfiles",
 		}
 		err = util.ViperUnmarshal(serverCfg, sliceFields)
 		if err != nil {
