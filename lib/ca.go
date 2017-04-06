@@ -86,6 +86,7 @@ func NewCA(homeDir string, config *CAConfig, server *Server, renew bool) (*CA, e
 	}
 
 	err := ca.init(renew)
+
 	if err != nil {
 		return nil, err
 	}
@@ -424,8 +425,9 @@ func (ca *CA) initEnrollmentSigner() (err error) {
 	}
 
 	// Make sure the policy reflects the new remote
-	if ca.server.Config.Remote != "" {
-		err = policy.OverrideRemotes(ca.server.Config.Remote)
+	remote := ca.server.Config.Remote
+	if remote != "" {
+		err = policy.OverrideRemotes(remote)
 		if err != nil {
 			return fmt.Errorf("Failed initializing enrollment signer: %s", err)
 		}
@@ -437,7 +439,7 @@ func (ca *CA) initEnrollmentSigner() (err error) {
 			"cert-file": c.CA.Certfile,
 			"key-file":  c.CA.Keyfile,
 		},
-		ForceRemote: ca.server.Config.Remote != "",
+		ForceRemote: remote != "",
 	}
 	ca.enrollSigner, err = universal.NewSigner(root, policy)
 	if err != nil {

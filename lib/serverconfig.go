@@ -43,5 +43,6 @@ type ServerConfig struct {
 	Remote  string `skip:"true"`
 	Client  *ClientConfig
 	// caCfg is the default CA's config
-	CAcfg CAConfig `skip:"true"`
+	CAcfg   CAConfig `skip:"true"`
+	CAfiles []string `help:"CA configuration files"`
 }
