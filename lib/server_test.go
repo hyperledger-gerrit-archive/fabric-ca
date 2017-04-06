@@ -470,6 +470,53 @@ func TestMaxEnrollmentCombinations(t *testing.T) {
 
 }
 
+func TestMultiCA(t *testing.T) {
+	t.Log("TestMultiCA...")
+	srv := GetServer(rootPort, testdataDir, "", -1, t)
+	srv.Config.CAfiles = []string{"ca/ca1/fabric-ca-server-config.yaml", "ca/ca1/fabric-ca-server-config.yaml", "ca/ca2/fabric-ca-server-config.yaml"}
+	srv.Config.CSR.Hosts = []string{"hostname"}
+	t.Logf("Server configuration: %+v\n", srv.Config)
+
+	// Starting server with two cas with same name
+	err := srv.Start()
+	if err == nil {
+		t.Error("Trying to create two CAs by the same name, server start should have failed")
+	}
+
+	// Starting server with a missing ca config file
+	srv.Config.CAfiles = []string{"ca/ca1/fabric-ca-server-config.yaml", "ca/ca2/fabric-ca-server-config.yaml", "ca/ca3/fabric-ca-server-config.yaml"}
+	err = srv.Start()
+	if err == nil {
+		t.Error("Should have failed to start server, missing ca config file")
+	}
+
+	srv.Config.CAfiles = []string{"ca/ca1/fabric-ca-server-config.yaml", "ca/ca2/fabric-ca-server-config.yaml"}
+	t.Logf("Server configuration: %+v\n\n", srv.Config)
+
+	err = srv.Start()
+	if err != nil {
+		t.Error("Failed to start server:", err)
+	}
+
+	if srv.CAs["ca1"].Config.CA.Name != "ca1" {
+		t.Error("Failed to correctly add ca1")
+	}
+
+	if srv.CAs["ca2"].Config.CA.Name != "ca2" {
+		t.Error("Failed to correctly add ca2")
+	}
+
+	time.Sleep(1 * time.Second)
+
+	err = srv.Stop()
+	if err != nil {
+		t.Error("Failed to stop server:", err)
+	}
+
+	cleanMultiCADir()
+
+}
+
 // Configure server to start server with no client authentication required
 func testNoClientCert(t *testing.T) {
 	srv := GetServer(rootPort, testdataDir, "", -1, t)
@@ -610,6 +657,15 @@ func TestEnd(t *testing.T) {
 	os.RemoveAll("../testdata/msp")
 	os.RemoveAll(rootDir)
 	os.RemoveAll(intermediateDir)
+}
+
+func cleanMultiCADir() {
+	os.Remove("../testdata/ca/ca1/ca-cert.pem")
+	os.Remove("../testdata/ca/ca1/ca-key.pem")
+	os.Remove("../testdata/ca/ca1/fabric-ca-server.db")
+	os.Remove("../testdata/ca/ca2/ca-cert.pem")
+	os.Remove("../testdata/ca/ca2/ca-key.pem")
+	os.Remove("../testdata/ca/ca2/fabric-ca2-server.db")
 }
 
 func getRootClient() *Client {

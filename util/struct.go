@@ -89,3 +89,33 @@ func parse(ptr interface{}, cb func(*Field) error, parent *Field) error {
 	}
 	return nil
 }
+
+// CheckForMissingValues checks the CA config struct for missing values and
+// replaces them with value from server config struct
+func CheckForMissingValues(src, dst interface{}) {
+	s := reflect.ValueOf(src).Elem()
+	d := reflect.ValueOf(dst).Elem()
+
+	for i := 0; i < s.NumField(); i++ {
+		sf := s.Field(i)
+		kind := sf.Kind()
+		df := d.Field(i)
+
+		switch kind {
+		case reflect.String:
+			if sf.String() == "" {
+				sf.SetString(df.String())
+			}
+		case reflect.Slice:
+			if sf.Len() == 0 {
+				sf.Set(df)
+			}
+		case reflect.Ptr:
+			if sf.IsNil() {
+				sf.Set(df)
+			}
+		case reflect.Struct:
+			CheckForMissingValues(sf.Addr().Interface(), df.Addr().Interface())
+		}
+	}
+}
