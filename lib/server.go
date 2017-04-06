@@ -17,6 +17,9 @@ limitations under the License.
 package lib
 
 import (
+	_ "net/http/pprof" // enables profiling
+)
+import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -387,7 +390,7 @@ func (s *Server) initDB() error {
 		}
 	}
 
-	log.Debugf("Initializing '%s' data base at '%s'", db.Type, db.Datasource)
+	log.Debugf("Initializing '%s' database at '%s'", db.Type, db.Datasource)
 
 	switch db.Type {
 	case defaultDatabaseType:
@@ -431,7 +434,7 @@ func (s *Server) initDB() error {
 			return err
 		}
 	}
-	log.Infof("Initialized %s data base at %s", db.Type, db.Datasource)
+	log.Infof("Initialized %s database at %s", db.Type, db.Datasource)
 	return nil
 }
 
@@ -598,6 +601,16 @@ func (s *Server) listenAndServe() (err error) {
 		log.Infof("Listening at http://%s", addr)
 	}
 	s.listener = listener
+
+	// Start listening for profile requests
+	if c.Profile {
+		pport := 6060
+		addr1 := net.JoinHostPort(c.Address, strconv.Itoa(pport))
+		go func() {
+			log.Infof("Profiling enabled...listening for profile requests at port %d", pport)
+			log.Error(http.ListenAndServe(addr1, nil))
+		}()
+	}
 
 	// Start serving requests, either blocking or non-blocking
 	if s.BlockingStart {

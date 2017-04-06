@@ -44,6 +44,7 @@ type ServerConfig struct {
 	Port         int    `def:"7054" opt:"p" help:"Listening port of fabric-ca-server"`
 	Address      string `def:"0.0.0.0" help:"Listening address of fabric-ca-server"`
 	Debug        bool   `def:"false" opt:"d" help:"Enable debug level logging"`
+	Profile      bool   `def:"false" opt:"P" help:"Starts listening on port 6060 for profile requests"`
 	TLS          tls.ServerTLSConfig
 	CSP          *factory.FactoryOpts
 	CA           ServerConfigCA
