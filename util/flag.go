@@ -193,7 +193,9 @@ func ViperUnmarshal(cfg interface{}, stringSliceFields []string) error {
 		name := path[0]
 		if len(path) > 1 {
 			for _, field2 := range path[1:] {
-				m = m[name].(map[string]interface{})
+				if _, ok := m[name]; ok {
+					m = m[name].(map[string]interface{})
+				}
 				name = field2
 			}
 		}

@@ -55,6 +55,7 @@ type ServerConfig struct {
 	DB           ServerConfigDB
 	Remote       string `skip:"true"`
 	Client       *ClientConfig
+	CAfiles      []string `help:"CA configuration files"`
 }
 
 // ServerConfigCA is the CA config for the fabric-ca server
