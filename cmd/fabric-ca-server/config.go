@@ -253,7 +253,7 @@ var (
 	cfgFileName string
 	// serverCfg is the server's config
 	serverCfg *lib.ServerConfig
-	// caCfg is the default CA's config
+	// caCfg is the CA's config
 	caCfg *lib.CAConfig
 )
 
@@ -295,6 +295,8 @@ func configInit() (err error) {
 		sliceFields := []string{
 			"csr.hosts",
 			"tls.clientauth.certfiles",
+			"cafiles",
+			"db.tls.certfiles",
 		}
 		err = util.ViperUnmarshal(serverCfg, sliceFields)
 		if err != nil {

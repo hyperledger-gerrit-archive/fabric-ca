@@ -42,4 +42,5 @@ type ServerConfig struct {
 	TLS     tls.ServerTLSConfig
 	Remote  string `skip:"true"`
 	Client  *ClientConfig
+	CAfiles []string `help:"CA configuration files"`
 }
