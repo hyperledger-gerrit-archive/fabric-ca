@@ -24,11 +24,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/spf13/viper"
 
 	_ "github.com/go-sql-driver/mysql" // import to support MySQL
 	_ "github.com/lib/pq"              // import to support Postgres
@@ -60,6 +62,8 @@ type Server struct {
 	serveError error
 	// Server's default CA
 	CA
+	// A map of CAs stored by CA name as key
+	caMap map[string]*CA
 }
 
 // Init initializes a fabric-ca server
@@ -95,6 +99,23 @@ func (s *Server) Start() (err error) {
 	err = s.Init(false)
 	if err != nil {
 		return err
+	}
+
+	if len(s.Config.CAfiles) != 0 {
+		log.Infof("CAs to be started: %s", s.Config.CAfiles)
+		var caFiles []string
+
+		caFiles, err = util.NormalizeFileList(s.Config.CAfiles, s.HomeDir)
+		if err != nil {
+			return err
+		}
+
+		for _, caFile := range caFiles {
+			_, err = s.loadCA(caFile, false)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	// Register http handlers
@@ -174,11 +195,14 @@ func (s *Server) initConfig() (err error) {
 	}
 
 	s.makeFileNamesAbsolute()
+	s.caMap = make(map[string]*CA)
 
 	return nil
 }
 
 func (s *Server) initDefaultCA(renew bool) (*CA, error) {
+	log.Debug("Initializing default ca")
+
 	ca, err := NewCA(s.HomeDir, s.CA.Config, s, renew)
 	if err != nil {
 		return nil, err
@@ -188,11 +212,81 @@ func (s *Server) initDefaultCA(renew bool) (*CA, error) {
 		ca.Config.CA.Name = DefaultCAName
 	}
 
-	if len(s.bootstrapRegistry.Identities) != 0 {
-		ca.Config.Registry.Identities = s.bootstrapRegistry.Identities
+	return s.addCA(ca, renew)
+}
+
+func (s *Server) loadCA(caFile string, renew bool) (*CA, error) {
+	log.Infof("Loading CA from %s", caFile)
+	var err error
+
+	caConfig := new(CAConfig)
+
+	exists := util.FileExists(caFile)
+	if !exists {
+		return nil, fmt.Errorf("%s file does not exist", caFile)
 	}
 
-	ca.Init(false)
+	viper.SetConfigFile(caFile)
+	err = viper.ReadInConfig()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to read config file: %s", err)
+	}
+
+	// Unmarshal the config into 'serverCfg'
+	// When viper bug https://github.com/spf13/viper/issues/327 is fixed
+	// and vendored, the work around code can be deleted.
+	viperIssue327WorkAround := true
+	if viperIssue327WorkAround {
+		sliceFields := []string{
+			"csr.hosts",
+			"tls.clientauth.certfiles",
+			"db.tls.certfiles",
+			"cafiles",
+		}
+		err = util.ViperUnmarshal(caConfig, sliceFields)
+		if err != nil {
+			return nil, fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+		}
+	} else {
+		err = viper.Unmarshal(caConfig)
+		if err != nil {
+			return nil, fmt.Errorf("Incorrect format in file '%s': %s", caFile, err)
+		}
+	}
+
+	util.CopyMissingValues(s.CA.Config, caConfig)
+
+	if caConfig.DB.Type == defaultDatabaseType {
+		caConfig.DB.Datasource = filepath.Base(caConfig.DB.Datasource)
+	}
+
+	if !viper.IsSet("registry.maxenrollments") {
+		caConfig.Registry.MaxEnrollments = s.CA.Config.Registry.MaxEnrollments
+	}
+
+	if !viper.IsSet("db.tls.enabled") {
+		caConfig.DB.TLS.Enabled = s.CA.Config.DB.TLS.Enabled
+	}
+
+	ca, err := NewCA(filepath.Dir(caFile), caConfig, s, renew)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.addCA(ca, renew)
+
+}
+
+func (s *Server) addCA(ca *CA, renew bool) (*CA, error) {
+	log.Infof("Adding CA %s to server", ca.Config.CA.Name)
+
+	if _, ok := s.caMap[ca.Config.CA.Name]; ok {
+		return nil, fmt.Errorf("CA by name '%s' already exists", ca.Config.CA.Name)
+	}
+
+	s.caMap[ca.Config.CA.Name] = ca
+
+	log.Infof("CA '%s' has been added to server ", ca.Config.CA.Name)
 
 	return ca, nil
 }
