@@ -387,7 +387,15 @@ func testRevoke(t *testing.T) {
 		t.Errorf("Only aki specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
+	// When serial, aki and enrollment id are specified in a revoke request,
+	// fabric ca server returns an error if the serial and aki do not belong
+	// to the enrollment ID.
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "blah", "-s", serial, "-a", aki})
+	if err == nil {
+		t.Errorf("The Serial and AKI are not associated with the enrollment ID: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", serial, "-a", aki})
 	if err != nil {
 		t.Errorf("client revoke -u -s -a failed: %s", err)
 	}
