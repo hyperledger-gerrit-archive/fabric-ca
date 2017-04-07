@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -91,8 +92,17 @@ func (s *Server) Start() (err error) {
 	}
 
 	var ca *CA
+
+	if s.Config.CAcount != 0 && len(s.Config.CAfiles) > 0 {
+		return fmt.Errorf("Can't set values for both cacount and cafiles")
+	}
+
 	s.CAs = make(map[string]*CA)
 	s.mux = http.NewServeMux()
+
+	if s.Config.CAcount >= 1 {
+		s.createDefaultCAConfigs(s.Config.CAcount)
+	}
 
 	if len(s.Config.CAfiles) != 0 {
 		log.Infof("CAs to be started: %s", s.Config.CAfiles)
@@ -122,6 +132,7 @@ func (s *Server) Start() (err error) {
 	}
 
 	log.Infof("CA '%s' has been added to server ", ca.Config.CA.Name)
+	log.Infof("%d CA instance(s) running on server", len(s.CAs))
 
 	// Start listening and serving
 	return s.listenAndServe()
@@ -216,6 +227,7 @@ func (s *Server) loadStandardCA() (*CA, error) {
 	return s.addCA(ca)
 }
 
+// loadCA loads up a CA's configuration from the specified
 func (s *Server) loadCA(caFile string) (*CA, error) {
 	log.Infof("Loading CA from %s", caFile)
 	var err error
@@ -279,6 +291,7 @@ func (s *Server) loadCA(caFile string) (*CA, error) {
 
 }
 
+// addCA adds the CA to the server and registers its handlers
 func (s *Server) addCA(ca *CA) (*CA, error) {
 	log.Infof("Adding CA %s to server", ca.Config.CA.Name)
 
@@ -292,6 +305,41 @@ func (s *Server) addCA(ca *CA) (*CA, error) {
 	s.registerHandlers(ca.Config.CA.Name)
 
 	return ca, nil
+}
+
+// createDefaultCAConfigs creates specified number of default CA configuration files
+func (s *Server) createDefaultCAConfigs(cacount int) error {
+	log.Debugf("Creating %d default CA configuration files", cacount)
+
+	cashome, err := util.MakeFileAbs("ca", s.HomeDir)
+	if err != nil {
+		return err
+	}
+
+	os.Mkdir(cashome, 0755)
+
+	for i := 1; i <= cacount; i++ {
+		cahome := fmt.Sprintf(cashome+"/ca%d", i)
+		cfgFileName := filepath.Join(cahome, "fabric-ca-config.yaml")
+
+		caName := fmt.Sprintf("ca%d", i)
+		cfg := strings.Replace(defaultCACfgTemplate, "<<<CANAME>>>", caName, 1)
+
+		s.Config.CAfiles = append(s.Config.CAfiles, cfgFileName)
+
+		// Now write the file
+		err := os.MkdirAll(filepath.Dir(cfgFileName), 0755)
+		if err != nil {
+			return err
+		}
+
+		err = ioutil.WriteFile(cfgFileName, []byte(cfg), 0644)
+		if err != nil {
+			return err
+		}
+
+	}
+	return nil
 }
 
 // Register all endpoint handlers

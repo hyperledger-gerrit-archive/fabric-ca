@@ -170,10 +170,25 @@ func TestDBLocation(t *testing.T) {
 	os.Unsetenv("FABRIC_CA_SERVER_DB_DATASOURCE")
 }
 
+func TestDefaultMultiCAs(t *testing.T) {
+	blockingStart = false
+
+	err := RunMain([]string{cmdName, "start", "-p", "7055", "-c", startYaml, "-d", "-b", "user:pass", "--cacount", "4"})
+	if err != nil {
+		t.Error("Failed to start server with multiple default CAs using the --cacount flag from command line: ", err)
+	}
+
+	if !util.FileExists("ca/ca4/fabric-ca-server.db") {
+		t.Error("Failed to create 4 default CA instances")
+	}
+
+	os.RemoveAll("ca")
+}
+
 func TestMultiCA(t *testing.T) {
 	blockingStart = false
 
-	err := RunMain([]string{cmdName, "start", "-d", "-p", "7055", "-c", "../../testdata/test.yaml", "-b", "user:pass", "--cafiles", "ca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/ca2/fabric-ca-server-config.yaml"})
+	err := RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", "user:pass", "--cacount", "0", "--cafiles", "ca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/ca2/fabric-ca-server-config.yaml"})
 	if err != nil {
 		t.Error("Failed to start server with multiple CAs using the --cafiles flag from command line: ", err)
 	}
@@ -182,8 +197,12 @@ func TestMultiCA(t *testing.T) {
 		t.Error("Failed to create 2 CA instances")
 	}
 
-	cleanUpMultiCAFiles()
+	err = RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", "user:pass", "--cacount", "1", "--cafiles", "ca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/ca2/fabric-ca-server-config.yaml"})
+	if err == nil {
+		t.Error("Should have failed to start server, can't specify values for both --cacount and --cafiles")
+	}
 
+	cleanUpMultiCAFiles()
 }
 
 // Run server with specified args and check if the configuration and datasource

@@ -56,6 +56,7 @@ type ServerConfig struct {
 	Remote       string `skip:"true"`
 	Client       *ClientConfig
 	CAfiles      []string `help:"CA configuration files"`
+	CAcount      int      `def:"0" help:"Number of CA instances to start"`
 }
 
 // ServerConfigCA is the CA config for the fabric-ca server

@@ -34,6 +34,67 @@ import (
 )
 
 const (
+	// defaultCACfgTemplate is the a CA's default configuration file template
+	defaultCACfgTemplate = `#############################################################################
+#   This is a configuration file for the fabric-ca-server command.
+#
+#   COMMAND LINE ARGUMENTS AND ENVIRONMENT VARIABLES
+#   ------------------------------------------------
+#   Each configuration element can be overridden via command line
+#   arguments or environment variables.  The precedence for determining
+#   the value of each element is as follows:
+#   1) command line argument
+#      Examples:
+#      a) --port 443
+#         To set the listening port
+#      b) --ca-keyfile ../mykey.pem
+#         To set the "keyfile" element in the "ca" section below;
+#         note the '-' separator character.
+#   2) environment variable
+#      Examples:
+#      a) FABRIC_CA_SERVER_PORT=443
+#         To set the listening port
+#      b) FABRIC_CA_SERVER_CA_KEYFILE="../mykey.pem"
+#         To set the "keyfile" element in the "ca" section below;
+#         note the '_' separator character.
+#   3) configuration file
+#   4) default value (if there is one)
+#      All default values are shown beside each element below.
+#
+#   FILE NAME ELEMENTS
+#   ------------------
+#   All filename elements below end with the word "file".
+#   For example, see "certfile" and "keyfile" in the "ca" section.
+#   The value of each filename element can be a simple filename, a
+#   relative path, or an absolute path.  If the value is not an
+#   absolute path, it is interpretted as being relative to the location
+#   of this configuration file.
+#
+#############################################################################
+
+#############################################################################
+#  The CA section contains information related to the Certificate Authority
+#  including the name of the CA, which should be unique for all members
+#  of a blockchain network.  It also includes the key and certificate files
+#  used when issuing enrollment certificates (ECerts) and transaction
+#  certificates (TCerts).
+#  The chainfile (if it exists) contains the certificate chain which
+#  should be trusted for this CA, where the 1st in the chain is always the
+#  root CA certificate.
+#############################################################################
+ca:
+  # Name of this CA
+  name: <<<CANAME>>>
+  # Key file (default: ca-key.pem)
+  keyfile: ca-key.pem
+  # Certificate file (default: ca-cert.pem)
+  certfile: ca-cert.pem
+  # Chain file (default: chain-cert.pem)
+  chainfile: ca-chain.pem
+`
+)
+
+const (
 	rootPort         = 7055
 	rootDir          = "rootDir"
 	intermediatePort = 7056
