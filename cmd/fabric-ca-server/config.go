@@ -115,7 +115,7 @@ tls:
 #############################################################################
 ca:
   # Name of this CA
-  name: <<<CANAME>>>
+  name:
   # Key file (default: ca-key.pem)
   keyfile: ca-key.pem
   # Certificate file (default: ca-cert.pem)
@@ -342,10 +342,6 @@ func configInit() (err error) {
 		}
 	}
 
-	if serverCfg.CAcfg.CA.Name == "" {
-		return fmt.Errorf(caNameReqMsg)
-	}
-
 	return nil
 }
 
@@ -372,21 +368,17 @@ func createDefaultConfigFile() error {
 		return errors.New("An empty password in the '-b user:pass' option is not permitted")
 	}
 
-	var myhost, caName string
+	var myhost string
 	var err error
 	myhost, err = os.Hostname()
 	if err != nil {
 		return err
 	}
 
-	// Get hostname
-	caName = getCAName(myhost)
-
 	// Do string subtitution to get the default config
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
-	cfg = strings.Replace(cfg, "<<<CANAME>>>", caName, 1)
 	// Now write the file
 	err = os.MkdirAll(filepath.Dir(cfgFileName), 0755)
 	if err != nil {
