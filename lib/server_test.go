@@ -350,7 +350,7 @@ func TestMultiCA(t *testing.T) {
 
 	err = srv.Start()
 	if err != nil {
-		t.Error("Failed to start server:", err)
+		t.Fatal("Failed to start server:", err)
 	}
 
 	if !util.FileExists("../testdata/ca/rootca/ca1/fabric-ca-server.db") {
@@ -444,7 +444,42 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 
 	err = srv.Stop()
 	if err != nil {
-		t.Error("Failed to stop server:", err)
+		t.Error("Failed to stop server: ", err)
+	}
+}
+
+func TestDefaultMultiCA(t *testing.T) {
+	t.Log("TestDefaultMultiCA...")
+	srv := getServer(rootPort, "multica", "", -1, t)
+	srv.Config.CAcount = 4 // Starting 4 default CA instances
+	srv.Config.CAfiles = []string{"fabric-ca1-config.yaml"}
+
+	err := srv.Start()
+	if err == nil {
+		t.Error("Both cacount and cafiles set, should have failed to start server")
+	}
+
+	srv.Config.CAfiles = []string{}
+
+	err = srv.Start()
+	if err != nil {
+		t.Error("Failed to start server: ", err)
+	}
+
+	//Send enroll request to specific CA
+	clientCA1 := getRootClient()
+	_, err = clientCA1.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+		CAName: "ca4",
+	})
+	if err != nil {
+		t.Error("Failed to enroll, error: ", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Error("Failed to stop server: ", err)
 	}
 }
 
@@ -587,6 +622,7 @@ func TestEnd(t *testing.T) {
 	os.Remove("../testdata/fabric-ca-server.db")
 	os.RemoveAll(rootDir)
 	os.RemoveAll(intermediateDir)
+	os.RemoveAll("multica")
 	cleanMultiCADir()
 }
 
