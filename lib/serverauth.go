@@ -94,6 +94,8 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		req.CAName = ah.server.CA.Config.CA.Name
 	}
 
+	log.Debugf("Directing traffic to CA %s", req.CAName)
+
 	// Look up CA to see if CA exist by that name
 	if _, ok := ah.server.caMap[req.CAName]; !ok {
 		return fmt.Errorf("CA '%s' does not exist", req.CAName)
