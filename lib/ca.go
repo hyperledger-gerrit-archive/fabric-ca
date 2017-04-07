@@ -284,7 +284,7 @@ func (ca *CA) initConfig() (err error) {
 			return fmt.Errorf("Failed to initialize CA's home directory: %s", err)
 		}
 	}
-	log.Info("CA Home Directory: ", ca.HomeDir)
+	log.Debug("CA Home Directory: ", ca.HomeDir)
 	// Init config if not set
 	if ca.Config == nil {
 		ca.Config = new(CAConfig)

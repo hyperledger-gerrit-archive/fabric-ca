@@ -21,6 +21,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -95,10 +96,18 @@ func (s *Server) Start() (err error) {
 		return err
 	}
 
+	if s.Config.CAcount != 0 && len(s.Config.CAfiles) > 0 {
+		return fmt.Errorf("Can't set values for both cacount and cafiles")
+	}
+
 	s.Config.TLS.ClientAuth.CertFiles = util.NormalizeStringSlice(s.Config.TLS.ClientAuth.CertFiles)
 
+	if s.Config.CAcount >= 1 {
+		s.createDefaultCAConfigs(s.Config.CAcount)
+	}
+
 	if len(s.Config.CAfiles) != 0 {
-		log.Infof("CAs to be started: %s", s.Config.CAfiles)
+		log.Debugf("CAs to be started: %s", s.Config.CAfiles)
 		var caFiles []string
 
 		caFiles, err = util.NormalizeFileList(s.Config.CAfiles, s.HomeDir)
@@ -115,6 +124,8 @@ func (s *Server) Start() (err error) {
 
 	// Register http handlers
 	s.registerHandlers()
+
+	log.Debugf("%d CA instance(s) running on server", len(s.caMap))
 
 	// Start listening and serving
 	return s.listenAndServe()
@@ -216,6 +227,7 @@ func (s *Server) initDefaultCA(ca *CA, renew bool) error {
 	return nil
 }
 
+// loadCA loads up a CA's configuration from the specified
 func (s *Server) loadCA(caFile string, renew bool) error {
 	log.Infof("Loading CA from %s", caFile)
 	var err error
@@ -293,8 +305,9 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 
 }
 
+// addCA adds the CA to the server and registers its handlers
 func (s *Server) addCA(ca *CA) error {
-	log.Infof("Adding CA %s to server", ca.Config.CA.Name)
+	log.Debugf("Adding CA %s to server", ca.Config.CA.Name)
 
 	if _, ok := s.caMap[ca.Config.CA.Name]; ok {
 		return fmt.Errorf("CA by name '%s' already exists", ca.Config.CA.Name)
@@ -302,8 +315,43 @@ func (s *Server) addCA(ca *CA) error {
 
 	s.caMap[ca.Config.CA.Name] = ca
 
-	log.Infof("CA '%s' has been added to server ", ca.Config.CA.Name)
+	log.Infof("Home directory for CA '%s': %s", ca.Config.CA.Name, ca.HomeDir)
 
+	return nil
+}
+
+// createDefaultCAConfigs creates specified number of default CA configuration files
+func (s *Server) createDefaultCAConfigs(cacount int) error {
+	log.Debugf("Creating %d default CA configuration files", cacount)
+
+	cashome, err := util.MakeFileAbs("ca", s.HomeDir)
+	if err != nil {
+		return err
+	}
+
+	os.Mkdir(cashome, 0755)
+
+	for i := 1; i <= cacount; i++ {
+		cahome := fmt.Sprintf(cashome+"/ca%d", i)
+		cfgFileName := filepath.Join(cahome, "fabric-ca-config.yaml")
+
+		caName := fmt.Sprintf("ca%d", i)
+		cfg := strings.Replace(defaultCACfgTemplate, "<<<CANAME>>>", caName, 1)
+
+		s.Config.CAfiles = append(s.Config.CAfiles, cfgFileName)
+
+		// Now write the file
+		err := os.MkdirAll(filepath.Dir(cfgFileName), 0755)
+		if err != nil {
+			return err
+		}
+
+		err = ioutil.WriteFile(cfgFileName, []byte(cfg), 0644)
+		if err != nil {
+			return err
+		}
+
+	}
 	return nil
 }
 
