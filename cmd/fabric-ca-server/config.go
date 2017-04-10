@@ -100,7 +100,7 @@ tls:
   keyfile: ca-key.pem
   clientauth:
     type: noclientcert
-    certfiles: 			# Comma Separated list of root certificate files (e.g. root.pem, root2.pem)
+    certfiles:
 
 #############################################################################
 #  The CA section contains information related to the Certificate Authority
@@ -298,8 +298,16 @@ func configInit() (err error) {
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 		}
+		err = viper.Unmarshal(&serverCfg.CAcfg)
+		if err != nil {
+			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+		}
 	} else {
 		err = viper.Unmarshal(serverCfg)
+		if err != nil {
+			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+		}
+		err = viper.Unmarshal(&serverCfg.CAcfg)
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 		}
