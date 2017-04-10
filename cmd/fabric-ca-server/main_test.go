@@ -73,6 +73,35 @@ func errorTest(in *TestData, t *testing.T) {
 	}
 }
 
+// Tests for the getCAName function
+func TestGetCAName(t *testing.T) {
+	var testCases = []struct {
+		input    string // input
+		expected string // expected result
+	}{
+		{"server1.acme.com", "acme.com"},
+		{"server1.net1.acme.com", "net1.acme.com"},
+		{".com", "com"},
+		// invalid cases
+		{"server2", "err"},
+		{"foo.", "err"},
+		{".", "err"},
+	}
+	for _, tc := range testCases {
+		n, err := getCAName(tc.input)
+		if err != nil {
+			if tc.expected != "err" {
+				t.Error(err.Error())
+			}
+		} else {
+			if n != tc.expected {
+				t.Errorf("getCAName returned unexpected value '%s' for '%s', expected value is '%s'",
+					n, tc.input, tc.expected)
+			}
+		}
+	}
+}
+
 func TestErrors(t *testing.T) {
 	os.Unsetenv(homeEnvVar)
 	_ = ioutil.WriteFile(badSyntaxYaml, []byte("signing: true\n"), 0644)
