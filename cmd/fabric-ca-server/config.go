@@ -253,6 +253,8 @@ var (
 	cfgFileName string
 	// serverCfg is the server's config
 	serverCfg *lib.ServerConfig
+	// caCfg is the default CA's config
+	caCfg *lib.CAConfig
 )
 
 // Initialize config
@@ -298,11 +300,24 @@ func configInit() (err error) {
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 		}
+		err = viper.Unmarshal(caCfg)
+		if err != nil {
+			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+		}
 	} else {
 		err = viper.Unmarshal(serverCfg)
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
 		}
+		err = viper.Unmarshal(caCfg)
+		if err != nil {
+			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+		}
+	}
+
+	// If max enrollments is not set, set the value to -1 which means there is no limit on the number of enrollments
+	if !viper.IsSet("registry.maxenrollments") {
+		caCfg.Registry.MaxEnrollments = -1
 	}
 
 	return nil
