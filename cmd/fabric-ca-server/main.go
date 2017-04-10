@@ -73,6 +73,11 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	caCfg = &lib.CAConfig{}
+	err = util.RegisterFlags(pflags, caCfg, tags)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // The fabric-ca server main
@@ -116,5 +121,8 @@ func getServer() *lib.Server {
 		Config:          serverCfg,
 		BlockingStart:   blockingStart,
 		ParentServerURL: viper.GetString("url"),
+		CA: lib.CA{
+			Config: caCfg,
+		},
 	}
 }

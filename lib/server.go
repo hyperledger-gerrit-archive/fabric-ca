@@ -28,6 +28,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/util"
 
 	_ "github.com/go-sql-driver/mysql" // import to support MySQL
 	_ "github.com/lib/pq"              // import to support Postgres
@@ -49,6 +50,8 @@ type Server struct {
 	Config *ServerConfig
 	// The parent server URL, which is non-null if this is an intermediate server
 	ParentServerURL string
+	// The bootstrap users to be loaded into CA registry
+	bootstrapRegistry CAConfigRegistry
 	// The server mux
 	mux *http.ServeMux
 	// The current listener for this server
@@ -67,12 +70,13 @@ func (s *Server) Init(renew bool) (err error) {
 		return err
 	}
 
-	ca, err := s.loadCA(renew)
+	ca, err := s.initDefaultCA(renew)
 	if err != nil {
 		return err
 	}
 
 	s.CA = *ca
+
 	// Successful initialization
 	return nil
 }
@@ -123,12 +127,12 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 		return errors.New("empty user and/or pass not allowed")
 	}
 
-	id := ServerConfigIdentity{
+	id := CAConfigIdentity{
 		Name:           user,
 		Pass:           pass,
 		Type:           "user",
 		Affiliation:    affiliation,
-		MaxEnrollments: s.Config.Registry.MaxEnrollments,
+		MaxEnrollments: s.CA.Config.Registry.MaxEnrollments,
 		Attrs: map[string]string{
 			"hf.Registrar.Roles":         "client,user,peer,validator,auditor",
 			"hf.Registrar.DelegateRoles": "client,user,validator,auditor",
@@ -136,8 +140,9 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 			"hf.IntermediateCA":          "true",
 		},
 	}
-	registry := &s.Config.Registry
-	registry.Identities = append(registry.Identities, id)
+
+	s.bootstrapRegistry.Identities = append(s.bootstrapRegistry.Identities, id)
+
 	log.Debugf("Registered bootstrap identity: %+v", &id)
 	return nil
 }
@@ -168,22 +173,26 @@ func (s *Server) initConfig() (err error) {
 		log.Level = log.LevelDebug
 	}
 
+	s.makeFileNamesAbsolute()
+
 	return nil
 }
 
-func (s *Server) loadCA(renew bool) (*CA, error) {
-	ca, err := NewCA(s.HomeDir, s.ParentServerURL, s.Config, renew)
+func (s *Server) initDefaultCA(renew bool) (*CA, error) {
+	ca, err := NewCA(s.HomeDir, s.CA.Config, s, renew)
 	if err != nil {
 		return nil, err
-	}
-
-	if ca == nil {
-		return nil, errors.New("Failed to create CA instance")
 	}
 
 	if ca.Config.CA.Name == "" {
 		ca.Config.CA.Name = DefaultCAName
 	}
+
+	if len(s.bootstrapRegistry.Identities) != 0 {
+		ca.Config.Registry.Identities = s.bootstrapRegistry.Identities
+	}
+
+	ca.Init(false)
 
 	return ca, nil
 }
@@ -304,4 +313,20 @@ func (s *Server) serve() error {
 		s.listener = nil
 	}
 	return s.serveError
+}
+
+// Make all file names in the config absolute
+func (s *Server) makeFileNamesAbsolute() error {
+	fields := []*string{
+		&s.Config.TLS.CertFile,
+		&s.Config.TLS.KeyFile,
+	}
+	for _, namePtr := range fields {
+		abs, err := util.MakeFileAbs(*namePtr, s.HomeDir)
+		if err != nil {
+			return err
+		}
+		*namePtr = abs
+	}
+	return nil
 }

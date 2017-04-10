@@ -159,7 +159,7 @@ func TestClientCommandsNoTLS(t *testing.T) {
 	aff := make(map[string]interface{})
 	aff["banks"] = []string{"bank_a", "bank_b", "bank_c"}
 
-	srv.Config.Affiliations = aff
+	srv.CA.Config.Affiliations = aff
 
 	err = srv.Start()
 	if err != nil {
@@ -565,6 +565,10 @@ func getServer() *lib.Server {
 	return &lib.Server{
 		HomeDir: ".",
 		Config:  getServerConfig(),
+		CA: lib.CA{
+			HomeDir: ".",
+			Config:  getCAConfig(),
+		},
 	}
 }
 
@@ -572,7 +576,12 @@ func getServerConfig() *lib.ServerConfig {
 	return &lib.ServerConfig{
 		Debug: true,
 		Port:  7054,
-		CA: lib.ServerConfigCA{
+	}
+}
+
+func getCAConfig() *lib.CAConfig {
+	return &lib.CAConfig{
+		CA: lib.CAInfo{
 			Keyfile:  keyfile,
 			Certfile: certfile,
 		},
@@ -583,7 +592,7 @@ func getServerConfig() *lib.ServerConfig {
 }
 
 func getSerialAKIByID(id string) (serial, aki string, err error) {
-	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.Config.DB.Datasource)
+	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	acc := lib.NewCertDBAccessor(testdb)
 
 	certs, _ := acc.GetCertificatesByID("admin")
