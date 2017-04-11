@@ -117,7 +117,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 		user, err := registry.GetUser(req.Name, nil)
 		if err != nil {
-			err = fmt.Errorf("Failed to get user %s: %s", req.Name, err)
+			err = fmt.Errorf("Failed to get identity %s: %s", req.Name, err)
 			return notFound(w, err)
 		}
 
@@ -126,7 +126,7 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 			var userInfo spi.UserInfo
 			userInfo, err = registry.GetUserInfo(req.Name)
 			if err != nil {
-				err = fmt.Errorf("Failed to get user info %s: %s", req.Name, err)
+				err = fmt.Errorf("Failed to get identity info %s: %s", req.Name, err)
 				return notFound(w, err)
 			}
 
@@ -174,10 +174,10 @@ func (h *revokeHandler) checkAffiliations(revoker string, affiliation string) er
 		return err
 	}
 
-	log.Debugf("Affiliation of revoker: %s, affiliation of user being revoked: %s", revokerAffiliation, affiliation)
+	log.Debugf("Affiliation of revoker: %s, affiliation of identity being revoked: %s", revokerAffiliation, affiliation)
 
 	if !strings.HasPrefix(affiliation, revokerAffiliation) {
-		return fmt.Errorf("Revoker %s does not have proper affiliation to revoke user", revoker)
+		return fmt.Errorf("Revoker %s does not have proper affiliation to revoke identity", revoker)
 	}
 
 	return nil
