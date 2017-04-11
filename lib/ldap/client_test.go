@@ -30,7 +30,7 @@ func TestLDAP(t *testing.T) {
 func testLDAP(proto string, port int, t *testing.T) {
 	//dn := "uid=admin,ou=system"
 	//pwd := "secret"
-	dn := "cn=admin,dc=example,dc=org"
+	dn := "cn=admin,dc=example,dc=com"
 	pwd := "admin"
 	//host, err := os.Hostname()
 	//if err != nil {
@@ -38,7 +38,7 @@ func testLDAP(proto string, port int, t *testing.T) {
 	//	return
 	//}
 	host := "localhost"
-	base := "dc=example,dc=org"
+	base := "dc=example,dc=com"
 	url := fmt.Sprintf("%s://%s:%s@%s:%d/%s", proto, dn, pwd, host, port, base)
 	c, err := NewClient(&Config{URL: url})
 	if err != nil {

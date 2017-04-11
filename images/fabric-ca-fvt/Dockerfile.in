@@ -13,7 +13,7 @@ ENV PGVER _PGVER_
 RUN echo "#!/bin/sh\nexit 0" > /usr/sbin/policy-rc.d
 
 # Update system
-RUN apt-get -y update --no-install-recommends && apt-get -y install locales
+RUN apt-get -y update && apt-get -y install --no-install-recommends locales
 RUN sed -i -e 's/^[[:blank:]]*#[[:blank:]]*en_US.UTF-8[[:blank:]]*UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 RUN printf "LANG=en_US.UTF-8\nLANGUAGE=en_US.UTF-8\n" > /etc/default/locale
 RUN dpkg-reconfigure locales && update-locale LANG=en_US.UTF-8
@@ -21,8 +21,9 @@ RUN dpkg-reconfigure locales && update-locale LANG=en_US.UTF-8
 # Install more test depedencies
 RUN echo "mysql-server mysql-server/root_password password mysql" | debconf-set-selections
 RUN echo "mysql-server mysql-server/root_password_again password mysql" | debconf-set-selections
-RUN apt-get -y install --no-install-recommends bc vim lsof sqlite3 haproxy postgresql-$PGVER postgresql-client-common \
-                       isag jq git html2text debconf-utils zsh htop python2.7-minimal \
+RUN apt-get -y install --no-install-recommends bc vim lsof sqlite3 haproxy postgresql-$PGVER \
+                       postgresql-client-common postgresql-contrib-$PGVER isag jq git html2text \
+                       debconf-utils zsh htop python2.7-minimal libpython2.7-stdlib \
                        mysql-client  mysql-common mysql-server
 RUN apt-get -y autoremove
 
@@ -30,9 +31,24 @@ RUN apt-get -y autoremove
 RUN echo $PGUSER:$PGUSER | chpasswd
 RUN mkdir -p $PGDATA && chown postgres:postgres $PGDATA
 RUN su $PGUSER -c "/usr/lib/postgresql/$PGVER/bin/initdb -D $PGDATA"
-RUN su $PGUSER -c "/usr/lib/postgresql/$PGVER/bin/pg_ctl start -D $PGDATA" && sleep 10 && psql -U postgres -h localhost -c "ALTER USER $PGUSER WITH PASSWORD '$PGPASSWORD';" && su postgres -c "/usr/lib/postgresql/$PGVER/bin/pg_ctl stop" 
+RUN su $PGUSER -c "/usr/lib/postgresql/$PGVER/bin/pg_ctl start -D $PGDATA" &&\
+                   sleep 10 &&\
+                   psql -U postgres -h localhost -c "ALTER USER $PGUSER WITH PASSWORD '$PGPASSWORD';" &&\
+                   su postgres -c "/usr/lib/postgresql/$PGVER/bin/pg_ctl stop"
 RUN echo "host all  all    0.0.0.0/0  trust" >> ${PGDATA}/pg_hba.conf
 RUN echo "listen_addresses='*'" >> ${PGDATA}/postgresql.conf
+
+# Install slapd
+RUN printf  "slapd slapd/internal/generated_adminpw password admin\n\
+slapd slapd/password2 password admin\n\
+slapd slapd/internal/adminpw password admin\n\
+slapd slapd/password1 password admin\n\
+slapd slapd/domain string example.com\n\
+slapd shared/organization string example.com" | debconf-set-selections &&\
+   sudo apt-get -y install --no-install-recommends slapd ldap-utils
+RUN sed -i \
+   's@^[[:blank:]]*SLAPD_SERVICES=.*@SLAPD_SERVICES="ldap://127.0.0.1:10389/ ldapi:///"@'\
+   /etc/default/slapd
 
 # Install fabric-ca dependencies
 RUN go get github.com/go-sql-driver/mysql

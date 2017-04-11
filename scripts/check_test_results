@@ -22,4 +22,9 @@ if [ "$INSUFFICIENT_COVERAGE" != "" ]; then
    echo "*** END INSUFFICIENT TEST COVERAGE (less than 75%) ***"
    SC=1
 fi
+INDETERMINATE=`awk '$1 == "ok"' $TEST_RESULTS`
+if test -z "$INDETERMINATE"; then
+   echo "*** TEST RESULTS INDETERMINATE ***"
+   SC=1
+fi
 exit $SC
