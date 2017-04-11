@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 if [ $# -ne 1 ]; then
    echo "Usage: check_test_results <results-file>"
@@ -20,6 +20,11 @@ if [ "$INSUFFICIENT_COVERAGE" != "" ]; then
    echo "*** BEGIN INSUFFICIENT TEST COVERAGE (less than 75%) ***"
    echo "$INSUFFICIENT_COVERAGE"
    echo "*** END INSUFFICIENT TEST COVERAGE (less than 75%) ***"
+   SC=1
+fi
+INDETERMINATE=`awk '$1 == "ok"' $TEST_RESULTS`
+if test -z "$INDETERMINATE"; then
+   echo "*** TEST RESULTS INDETERMINATE ***"
    SC=1
 fi
 exit $SC

@@ -1,12 +1,12 @@
 # User primary group
-dn: cn=jsmith,dc=example,dc=org
+dn: cn=jsmith,dc=example,dc=com
 cn: jsmith
 objectClass: top
 objectClass: posixGroup
 gidNumber: 10000
 
 # User account
-dn: uid=jsmith,dc=example,dc=org
+dn: uid=jsmith,dc=example,dc=com
 cn: John Smith
 givenName: John
 sn: Smith
