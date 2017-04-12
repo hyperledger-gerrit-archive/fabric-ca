@@ -99,12 +99,15 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 		userInfo, err2 := registry.GetUserInfo(certificate.ID)
 		if err2 != nil {
-			return err2
+			msg := fmt.Sprintf("Failed to find user: %s", err2)
+			log.Errorf(msg)
+			return dbErr(w, errors.New(msg))
 		}
 
-		err2 = h.checkAffiliations(cert.Subject.CommonName, userInfo.Affiliation)
-		if err2 != nil {
-			return err2
+		err = h.checkAffiliations(cert.Subject.CommonName, userInfo.Affiliation)
+		if err != nil {
+			log.Error(err)
+			return authErr(w, err)
 		}
 
 		err = certDBAccessor.RevokeCertificate(req.Serial, req.AKI, req.Reason)
@@ -132,7 +135,8 @@ func (h *revokeHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 
 			err = h.checkAffiliations(cert.Subject.CommonName, userInfo.Affiliation)
 			if err != nil {
-				return err
+				log.Error(err)
+				return authErr(w, err)
 			}
 
 			userInfo.State = -1
@@ -177,7 +181,7 @@ func (h *revokeHandler) checkAffiliations(revoker string, affiliation string) er
 	log.Debugf("Affiliation of revoker: %s, affiliation of user being revoked: %s", revokerAffiliation, affiliation)
 
 	if !strings.HasPrefix(affiliation, revokerAffiliation) {
-		return fmt.Errorf("Revoker %s does not have proper affiliation to revoke user", revoker)
+		return fmt.Errorf("%s does not have proper affiliation to revoke user", revoker)
 	}
 
 	return nil
