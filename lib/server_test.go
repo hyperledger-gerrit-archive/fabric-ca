@@ -156,6 +156,65 @@ func TestRootServer(t *testing.T) {
 	}
 }
 
+// TestProfiling tests if profiling endpoint can be accessed when profiling is
+// enabled and not accessible when disabled (default)
+func TestProfiling(t *testing.T) {
+	t.Log("start TestProfiling")
+	pport := rootPort + 1000
+	url := fmt.Sprintf("http://localhost:%d/debug/pprof/heap", pport)
+
+	// Start the server with profiling disabled
+	server := getServer(rootPort, rootDir, "", 0, 0, t)
+	if server == nil {
+		return
+	}
+	err := server.Start()
+	if err != nil {
+		t.Fatalf("Server start failed: %s", err)
+	}
+	time.Sleep(1 * time.Second)
+	resp1, err2 := sendProfileReq(url, t)
+	if err2 == nil && resp1.StatusCode == 200 {
+		responseData, _ := ioutil.ReadAll(resp1.Body)
+		t.Errorf("Expected error response for profile request %s but got good response: %s",
+			url, responseData)
+	}
+	server.Stop()
+	time.Sleep(1 * time.Second)
+
+	// Start the server with profiling enabled
+	server = getServer(rootPort, rootDir, "", 0, pport, t)
+	if server == nil {
+		return
+	}
+	err = server.Start()
+	if err != nil {
+		t.Fatalf("Server start failed: %s", err)
+	}
+	defer server.Stop()
+	time.Sleep(1 * time.Second)
+
+	resp, err1 := sendProfileReq(url, t)
+	if err1 != nil || resp.StatusCode != 200 {
+		if err1 == nil {
+			responseData, _ := ioutil.ReadAll(resp.Body)
+			err1 = fmt.Errorf("Invalid response %s with code %d returned for the request %s",
+				string(responseData), resp.StatusCode, url)
+		}
+		t.Errorf("Failed to send request to %s: %s", url, err1)
+	}
+}
+
+func sendProfileReq(url string, t *testing.T) (resp *http.Response, err error) {
+	req, err := http.NewRequest("GET", url, bytes.NewReader([]byte{}))
+	if err != nil {
+		t.Fatalf("Failed to create request for url %s: %s", url, err)
+	}
+	var tr = new(http.Transport)
+	httpClient := &http.Client{Transport: tr}
+	return httpClient.Do(req)
+}
+
 func TestIntermediateServer(t *testing.T) {
 	var err error
 
@@ -180,8 +239,9 @@ func TestIntermediateServer(t *testing.T) {
 		t.Errorf("Root server stop failed: %s", err)
 	}
 }
+
 func TestRunningTLSServer(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := getServer(rootPort, testdataDir, "", 0, 0, t)
 
 	srv.Config.TLS.Enabled = true
 	srv.Config.TLS.CertFile = "../testdata/tls_server-cert.pem"
@@ -221,7 +281,7 @@ func TestRunningTLSServer(t *testing.T) {
 func TestDefaultDatabase(t *testing.T) {
 	TestEnd(t)
 
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := getServer(rootPort, testdataDir, "", 0, 0, t)
 
 	err := srv.Start()
 	if err != nil {
@@ -327,7 +387,7 @@ func TestTLSAuthClient(t *testing.T) {
 
 // Configure server to start server with no client authentication required
 func testNoClientCert(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := getServer(rootPort, testdataDir, "", 0, 0, t)
 	srv = getTLSConfig(srv, "NoClientCert", []string{})
 
 	err := srv.Start()
@@ -360,7 +420,7 @@ func testNoClientCert(t *testing.T) {
 // Configure server to start with no client authentication required
 // Root2.pem does not exists, server should still start because no client auth is requred
 func testInvalidRootCertWithNoClientAuth(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := getServer(rootPort, testdataDir, "", 0, 0, t)
 	srv = getTLSConfig(srv, "NoClientCert", []string{"../testdata/root.pem", "../testdata/root2.pem"})
 
 	err := srv.Start()
@@ -379,7 +439,7 @@ func testInvalidRootCertWithNoClientAuth(t *testing.T) {
 // Configure server to start with client authentication required
 // Root2.pem does not exists, server should fail to start
 func testInvalidRootCertWithClientAuth(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := getServer(rootPort, testdataDir, "", 0, 0, t)
 	srv = getTLSConfig(srv, "RequireAndVerifyClientCert", []string{"../testdata/root.pem", "../testdata/root2.pem"})
 
 	err := srv.Start()
@@ -390,7 +450,7 @@ func testInvalidRootCertWithClientAuth(t *testing.T) {
 
 // Configure server to start with client authentication required
 func testClientAuth(t *testing.T) {
-	srv := getServer(rootPort, testdataDir, "", 0, t)
+	srv := getServer(rootPort, testdataDir, "", 0, 0, t)
 	srv = getTLSConfig(srv, "RequireAndVerifyClientCert", []string{"../testdata/root.pem"})
 
 	err := srv.Start()
@@ -471,7 +531,7 @@ func getRootServerURL() string {
 }
 
 func getRootServer(t *testing.T) *Server {
-	return getServer(rootPort, rootDir, "", 0, t)
+	return getServer(rootPort, rootDir, "", 0, 0, t)
 }
 
 func getIntermediateServer(idx int, t *testing.T) *Server {
@@ -480,10 +540,12 @@ func getIntermediateServer(idx int, t *testing.T) *Server {
 		path.Join(intermediateDir, strconv.Itoa(idx)),
 		getRootServerURL(),
 		0,
+		0,
 		t)
 }
 
-func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
+func getServer(port int, home, parentURL string, maxEnroll int,
+	pport int, t *testing.T) *Server {
 	if home != testdataDir {
 		os.RemoveAll(home)
 	}
@@ -495,6 +557,13 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 		},
 		"org2": nil,
 	}
+	var pconfig ProfileConfig
+	if pport > 0 {
+		pconfig = ProfileConfig{
+			Enabled: true,
+			Port:    pport,
+		}
+	}
 	srv := &Server{
 		Config: &ServerConfig{
 			Port:         port,
@@ -503,6 +572,7 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 			Registry: ServerConfigRegistry{
 				MaxEnrollments: maxEnroll,
 			},
+			Profile: pconfig,
 		},
 		HomeDir:         home,
 		ParentServerURL: parentURL,
