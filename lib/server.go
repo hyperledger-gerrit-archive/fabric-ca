@@ -17,6 +17,10 @@ limitations under the License.
 package lib
 
 import (
+	_ "net/http/pprof" // enables profiling
+)
+
+import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -598,6 +602,16 @@ func (s *Server) listenAndServe() (err error) {
 		log.Infof("Listening at http://%s", addr)
 	}
 	s.listener = listener
+
+	// Start listening for profile requests
+	if c.Profile.Enabled {
+		addr1 := net.JoinHostPort(c.Address, strconv.Itoa(c.Profile.Port))
+		go func() {
+			log.Infof("Profiling enabled...listening for profile requests at port %d",
+				c.Profile.Port)
+			log.Error(http.ListenAndServe(addr1, nil))
+		}()
+	}
 
 	// Start serving requests, either blocking or non-blocking
 	if s.BlockingStart {

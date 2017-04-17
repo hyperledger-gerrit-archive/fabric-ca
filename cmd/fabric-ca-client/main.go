@@ -23,6 +23,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -33,17 +34,38 @@ var rootCmd = &cobra.Command{
 	Use:   cmdName,
 	Short: longName,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		wd, err := os.Getwd()
+		if err != nil {
+			wd = os.Getenv("HOME")
+		}
+		opt := profile.ProfilePath(wd)
+		switch profileMode {
+		case "cpu":
+			p = profile.Start(opt, profile.CPUProfile)
+		case "heap":
+			p = profile.Start(opt, profile.MemProfileRate(2048))
+		default:
+			// no profiling...do nothing
+		}
 		util.CmdRunBegin()
-
 		cmd.SilenceUsage = true
 		cmd.SilenceErrors = true
-
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		if profileMode != "" && p != nil {
+			p.Stop()
+		}
 		return nil
 	},
 }
 
 var (
 	persistentFlags pflag.FlagSet
+	profileMode     string
+	p               interface {
+		Stop()
+	}
 )
 
 func init() {
@@ -62,6 +84,7 @@ func init() {
 	// Set global flags used by all commands
 	pflags := rootCmd.PersistentFlags()
 	pflags.StringVarP(&cfgFileName, "config", "c", cfg, "Configuration file")
+	pflags.StringVarP(&profileMode, "profile.mode", "", "", "Profiling mode. Valid values are cpu, heap")
 	util.FlagString(pflags, "myhost", "m", host,
 		"Hostname to include in the certificate signing request during enrollment")
 
@@ -74,7 +97,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 // The fabric-ca client main
