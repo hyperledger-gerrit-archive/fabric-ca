@@ -1,0 +1,73 @@
+{
+  "serverURL": "https://admin:adminpw@localhost:9888",
+  "numClients": 20,
+  "numReqsPerClient": 200,
+  "reqsPerSecond": 0,
+  "testSeq": [
+    {"name": "register-enroll"},
+    {"name": "get-tcerts"},
+    {"name": "re-enroll"},
+    {
+      "name": "get-tcerts",
+      "repeat": 1
+    },
+    {"name": "revoke"},
+    {"name": "get-cacert"}
+  ],
+  "affiliations": [
+    "org1",
+    "org2",
+    "org1.department1",
+    "org1.department2",
+    "org2.department1",
+    "org2.department2"
+  ],
+  "caConfigHome": "config",
+  "caClientConfig": {
+  	"URL": "",
+  	"csr": {
+  		"cn": "",
+  		"names": [
+  			{
+  				"C": "US",
+  				"ST": "North Carolina",
+  				"L": "Raleigh",
+  				"O": "Hyperledger",
+  				"OU": "Fabric"
+  			}
+  		],
+  		"hosts": [
+  		]
+  	},
+  	"id": {
+  		"name": "",
+  		"type": "",
+  		"affiliation": ""
+  	},
+  	"enrollment": {
+  		"hosts": "",
+  		"profile": "",
+  		"label": ""
+  	},
+    "tls": {
+      "enabled": true,
+      "certfileslist": ["/opt/gopath/src/github.com/hyperledger/fabric-ca/testdata/root.pem"],
+      "client": {
+        "certfile": "",
+        "keyfile": ""
+      }
+    }
+  },
+  "tcertReq": {
+    "count": 10,
+    "prekey": "",
+    "disable_kdf": true,
+    "encrypt_attrs": true
+  },
+  "revokeReq": {
+    "id": "",
+    "aki": "revokeaki",
+    "serial": "",
+    "reason": 1
+  }
+}
