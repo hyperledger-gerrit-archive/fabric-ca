@@ -23,6 +23,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -33,17 +34,30 @@ var rootCmd = &cobra.Command{
 	Use:   cmdName,
 	Short: longName,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		checkAndEnableProfiling()
 		util.CmdRunBegin()
-
 		cmd.SilenceUsage = true
 		cmd.SilenceErrors = true
-
+		return nil
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) error {
+		if profileMode != "" && p != nil {
+			p.Stop()
+		}
 		return nil
 	},
 }
 
+const (
+	fabricCAClientProfileMode = "FABRIC_CA_CLIENT_PROFILE_MODE"
+)
+
 var (
 	persistentFlags pflag.FlagSet
+	profileMode     string
+	p               interface {
+		Stop()
+	}
 )
 
 func init() {
@@ -75,7 +89,6 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
-
 }
 
 // The fabric-ca client main
@@ -87,7 +100,6 @@ func main() {
 
 // RunMain is the fabric-ca client main
 func RunMain(args []string) error {
-
 	// Save the os.Args
 	saveOsArgs := os.Args
 	os.Args = args
@@ -99,4 +111,28 @@ func RunMain(args []string) error {
 	os.Args = saveOsArgs
 
 	return err
+}
+
+// checkAndEnableProfiling checks for the FABRIC_CA_CLIENT_PROFILE_MODE
+// env variable, if it is set to "cpu", cpu profiling is enbled;
+// if it is set to "heap", heap profiling is enabled
+func checkAndEnableProfiling() {
+	profileMode = strings.ToLower(os.Getenv(fabricCAClientProfileMode))
+	if profileMode != "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			wd = os.Getenv("HOME")
+		}
+		opt := profile.ProfilePath(wd)
+		switch profileMode {
+		case "cpu":
+			p = profile.Start(opt, profile.CPUProfile)
+		case "heap":
+			p = profile.Start(opt, profile.MemProfileRate(2048))
+		default:
+			log.Fatalf("Invalid value for the %s environment variable; found '%s', expecting 'cpu' or 'heap'",
+				fabricCAClientProfileMode, profileMode)
+			os.Exit(1)
+		}
+	}
 }
