@@ -1,0 +1,40 @@
+---
+serverURL: http://admin:adminpw@localhost:7054
+numClients: 20
+numReqsPerClient: 200
+testSeq:
+- name: register-enroll
+- name: get-tcerts
+- name: re-enroll
+- name: get-tcerts
+  repeat: 1
+  req:
+    count: 10
+    prekey: ''
+    disable_kdf: true
+    encrypt_attrs: true
+- name: revoke
+  req:
+    id: ''
+    aki: revokeaki
+    serial: ''
+    reason: 1
+- name: get-cacert
+affiliation: org1
+caClientConfig:
+  URL: ''
+  csr:
+    cn: ''
+    names:
+    - C: US
+      ST: North Carolina
+      L: Raleigh
+      O: Hyperledger
+      OU: Fabric
+    hosts: []
+  tls:
+    enabled: true
+    certfileslist:
+    client:
+      certfile: ''
+      keyfile: ''

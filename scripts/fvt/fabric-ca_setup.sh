@@ -253,7 +253,7 @@ done
 : ${TIMEOUT:="10"}
 : ${HTTP_PORT:="3755"}
 : ${DBNAME:="fabric_ca"}
-: ${MAXENROLL:="1"}
+: ${MAXENROLL:="10"}
 : ${AUTH:="true"}
 : ${DRIVER:="sqlite3"}
 : ${FABRIC_CA_INSTANCES:=1}
