@@ -51,6 +51,11 @@ The following are guidelines to follow when contributing:
 
 ## Additional info
 
+### Profiling
+Profiling can be enabled on the Fabric CA server and client. To enable profiling on the server, set the FABRIC_CA_SERVER_PROFILE_PORT environment
+variable to a valid, available port number and start the server. The server will start listening for profile requests at the specified port. Then run `go tool pprof` with server's profiling URL (http://<server host>:<profiling port>/debug/pprof/<profile|heap|block>) as an argument, it will download and examine a live profile. To enable profiling on the client, set the FABRIC_CA_CLIENT_PROFILE_MODE environment variable to either "heap"
+or "cpu" to enable heap, cpu profiling respectively. A file containing profiling data is created in the present working directory of the client. Heap profiling data is written to **mem.pprof** and cpu profiling data is written to **cpu.pprof**. You can run `go tool pprof <client executable> <profiling file>` to analyze the profiling data.
+
 ### FVT
 
 See [FVT tests](scripts/fvt/README.md) for information on functional verification test cases.
