@@ -44,6 +44,7 @@ type ServerConfig struct {
 	Port         int    `def:"7054" opt:"p" help:"Listening port of fabric-ca-server"`
 	Address      string `def:"0.0.0.0" help:"Listening address of fabric-ca-server"`
 	Debug        bool   `def:"false" opt:"d" help:"Enable debug level logging"`
+	Profile      ProfileConfig
 	TLS          tls.ServerTLSConfig
 	CSP          *factory.FactoryOpts
 	CA           ServerConfigCA
@@ -86,6 +87,12 @@ type ServerConfigIdentity struct {
 	Affiliation    string
 	MaxEnrollments int
 	Attrs          map[string]string
+}
+
+// ProfileConfig is the profile information in the server's config
+type ProfileConfig struct {
+	Enabled bool `def:"false" opt:"P" help:"Start listening for profiling requests	"`
+	Port    int  `def:"6060" help:"Listening port for profiling requests"`
 }
 
 func (sc *ServerConfigIdentity) String() string {
