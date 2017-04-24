@@ -131,6 +131,8 @@ build/image/openldap/payload : \
 build/image/fabric-ca-fvt/payload: \
 	build/docker/bin/fabric-ca-client \
 	build/docker/bin/fabric-ca-server \
+	images/fabric-ca-fvt/base.ldif \
+	images/fabric-ca-fvt/add-users.ldif \
 	images/fabric-ca-fvt/start.sh
 build/image/%/payload:
 	@echo "Copying $^ to $@"
