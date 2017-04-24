@@ -294,6 +294,9 @@ func configInit() (err error) {
 		sliceFields := []string{
 			"csr.hosts",
 			"tls.clientauth.certfiles",
+			"db.tls.certfiles",
+			"ldap.tls.certfiles",
+			"tls.clientauth.certfiles",
 		}
 		err = util.ViperUnmarshal(serverCfg, sliceFields)
 		if err != nil {

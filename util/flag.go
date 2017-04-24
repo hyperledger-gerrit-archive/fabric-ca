@@ -188,15 +188,26 @@ func ViperUnmarshal(cfg interface{}, stringSliceFields []string) error {
 	}
 	settings := viper.AllSettings()
 	for _, field := range stringSliceFields {
+		var ok bool
 		path := strings.Split(field, ".")
 		m := settings
 		name := path[0]
+		// If it is a top level option check to see if nil before continuing
+		if _, ok = m[name]; !ok {
+			continue
+		}
+
 		if len(path) > 1 {
 			for _, field2 := range path[1:] {
+				// Inspect nested options to see if nil before proceeding with assertion
+				if _, ok = m[name]; !ok {
+					break
+				}
 				m = m[name].(map[string]interface{})
 				name = field2
 			}
 		}
+		// Only do casting if path was valid
 		m[name] = cast.ToStringSlice(m[name])
 	}
 	return decoder.Decode(settings)
