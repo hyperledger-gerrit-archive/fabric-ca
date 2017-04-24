@@ -67,7 +67,7 @@ type EnrollmentRequest struct {
 	// Label is the label to use in HSM operations
 	Label string `json:"label,omitempty" help:"Label to use in HSM operations"`
 	// CSR is Certificate Signing Request info
-	CSR *CSRInfo `json:"csr,omitempty" help:"Certificate Signing Request info"`
+	CSR CSRInfo `json:"csr,omitempty" help:"Certificate Signing Request info"`
 	// CAName is the name of the CA to connect to
 	CAName string `skip:"true"`
 }
@@ -82,7 +82,7 @@ type ReenrollmentRequest struct {
 	// Label is the label to use in HSM operations
 	Label string `json:"label,omitempty"`
 	// CSR is Certificate Signing Request info
-	CSR *CSRInfo `json:"csr,omitempty"`
+	CSR CSRInfo `json:"csr,omitempty"`
 	// CAName is the name of the CA to connect to
 	CAName string `skip:"true"`
 }
@@ -144,12 +144,12 @@ type GetCAInfoRequest struct {
 
 // CSRInfo is Certificate Signing Request information
 type CSRInfo struct {
-	CN           string               `json:"CN"`
+	CN           string               `json:"CN" help:"The common name field of the certificate signing request"`
 	Names        []csr.Name           `json:"names,omitempty"`
-	Hosts        []string             `json:"hosts,omitempty"`
+	Hosts        []string             `json:"hosts,omitempty" help:"A list of space-separated host names in a certificate signing request"`
 	KeyRequest   *csr.BasicKeyRequest `json:"key,omitempty"`
 	CA           *csr.CAConfig        `json:"ca,omitempty"`
-	SerialNumber string               `json:"serial_number,omitempty"`
+	SerialNumber string               `json:"serial_number,omitempty" help:"The serial number in a certificate signing request"`
 }
 
 // Attribute is a name and value pair

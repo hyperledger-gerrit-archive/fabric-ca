@@ -66,14 +66,7 @@ func init() {
 
 	clientCfg = &lib.ClientConfig{}
 
-	tags := map[string]string{
-		"help.csr.cn":           "The common name field of the certificate signing request",
-		"help.csr.serialnumber": "The serial number in a certificate signing request",
-		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request",
-	}
-
-	err = util.RegisterFlags(pflags, clientCfg, tags, "tls", "debug", "url", "csr", "caname")
-
+	err = util.RegisterFlags(pflags, clientCfg, nil, "tls", "debug", "url", "caname")
 	if err != nil {
 		panic(err)
 	}

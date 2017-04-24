@@ -99,25 +99,6 @@ tls:
     keyfile:
 
 #############################################################################
-#  Certificate Signing Request section for generating the CSR for
-#  an enrollment certificate (ECert)
-#############################################################################
-csr:
-  cn: <<<ENROLLMENT_ID>>>
-  names:
-    - C: US
-      ST: North Carolina
-      L:
-      O: Hyperledger
-      OU: Fabric
-  hosts:
-    - <<<MYHOST>>>
-  ca:
-    pathlen:
-    pathlenzero:
-    expiry:
-
-#############################################################################
 #  Registration section used to register a new identity with fabric-ca server
 #############################################################################
 id:
@@ -130,11 +111,28 @@ id:
 
 #############################################################################
 #  Enrollment section used to enroll an identity with fabric-ca server
+#
+#  Certificate Signing Request (CSR) section for generating the CSR for
+#  an enrollment certificate (ECert)
 #############################################################################
 enrollment:
   hosts:
   profile:
   label:
+  csr:
+    cn: <<<ENROLLMENT_ID>>>
+    names:
+      - C: US
+        ST: North Carolina
+        L:
+        O: Hyperledger
+        OU: Fabric
+    hosts:
+      - <<<MYHOST>>>
+    ca:
+      pathlen:
+      pathlenzero:
+      expiry:
 `
 )
 
@@ -197,6 +195,7 @@ func configInit(command string) error {
 	viperIssue327WorkAround := true
 	if viperIssue327WorkAround {
 		sliceFields := []string{
+			"enrollment.csr.hosts",
 			"tls.certfiles",
 		}
 		err = util.ViperUnmarshal(clientCfg, sliceFields, viper.GetViper())

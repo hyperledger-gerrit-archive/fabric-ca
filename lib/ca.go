@@ -188,9 +188,6 @@ func (ca *CA) getCACertAndKey() (cert, key []byte, err error) {
 		if clientCfg.Enrollment.Profile == "" {
 			clientCfg.Enrollment.Profile = "ca"
 		}
-		if clientCfg.Enrollment.CSR == nil {
-			clientCfg.Enrollment.CSR = &api.CSRInfo{}
-		}
 		if clientCfg.Enrollment.CSR.CA == nil {
 			clientCfg.Enrollment.CSR.CA = &cfcsr.CAConfig{PathLength: 0, PathLenZero: true}
 		}
