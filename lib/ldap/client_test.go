@@ -22,7 +22,7 @@ import (
 )
 
 func TestLDAP(t *testing.T) {
-	testLDAP("ldap", 10389, t)
+	testLDAP("ldap", 389, t)
 	//testLDAP("ldaps", 10636, t)
 	testLDAPNegative(t)
 }
@@ -30,27 +30,27 @@ func TestLDAP(t *testing.T) {
 func testLDAP(proto string, port int, t *testing.T) {
 	//dn := "uid=admin,ou=system"
 	//pwd := "secret"
-	dn := "cn=admin,dc=example,dc=org"
-	pwd := "admin"
+	dn := "cn=admin,dc=example,dc=com"
+	pwd := "adminpw"
 	//host, err := os.Hostname()
 	//if err != nil {
 	//	t.Errorf("testLDAP os.Hostname failed: %s", err)
 	//	return
 	//}
 	host := "localhost"
-	base := "dc=example,dc=org"
+	base := "dc=example,dc=com"
 	url := fmt.Sprintf("%s://%s:%s@%s:%d/%s", proto, dn, pwd, host, port, base)
 	c, err := NewClient(&Config{URL: url})
 	if err != nil {
 		t.Errorf("ldap.NewClient failure: %s", err)
 		return
 	}
-	user, err := c.GetUser("jsmith", []string{"mail"})
+	user, err := c.GetUser("testUser", []string{"mail"})
 	if err != nil {
 		t.Errorf("ldap.Client.GetUser failure: %s", err)
 		return
 	}
-	err = user.Login("jsmithpw")
+	err = user.Login("testUserpw")
 	if err != nil {
 		t.Errorf("ldap.User.Login failure: %s", err)
 	}
@@ -66,7 +66,7 @@ func testLDAP(proto string, port int, t *testing.T) {
 	if email == "" {
 		t.Errorf("ldap.User.GetAttribute failed: no mail found")
 	}
-	t.Logf("email for user 'jsmith' is %s", email)
+	t.Logf("email for user 'testUser' is %s", email)
 }
 
 func testLDAPNegative(t *testing.T) {
