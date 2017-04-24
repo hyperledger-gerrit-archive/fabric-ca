@@ -182,14 +182,12 @@ func (ca *CA) getCACertAndKey() (cert, key []byte, err error) {
 		// This is an intermediate CA, so call the parent fabric-ca-server
 		// to get the key and cert
 		clientCfg := ca.Config.Client
+		fmt.Printf("clientCfg: %+v\n\n", clientCfg)
 		if clientCfg == nil {
 			clientCfg = &ClientConfig{}
 		}
 		if clientCfg.Enrollment.Profile == "" {
 			clientCfg.Enrollment.Profile = "ca"
-		}
-		if clientCfg.Enrollment.CSR == nil {
-			clientCfg.Enrollment.CSR = &api.CSRInfo{}
 		}
 		if clientCfg.Enrollment.CSR.CA == nil {
 			clientCfg.Enrollment.CSR.CA = &cfcsr.CAConfig{PathLength: 0, PathLenZero: true}
