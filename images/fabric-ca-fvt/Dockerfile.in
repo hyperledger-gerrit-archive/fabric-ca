@@ -22,8 +22,8 @@ RUN dpkg-reconfigure locales && update-locale LANG=en_US.UTF-8
 RUN echo "mysql-server mysql-server/root_password password mysql" | debconf-set-selections
 RUN echo "mysql-server mysql-server/root_password_again password mysql" | debconf-set-selections
 RUN apt-get -y install --no-install-recommends bc vim lsof sqlite3 haproxy postgresql-$PGVER postgresql-client-common \
-                       isag jq git html2text debconf-utils zsh htop python2.7-minimal \
-                       mysql-client  mysql-common mysql-server
+                       isag jq git html2text debconf-utils zsh htop python$PGVER-minimal \
+                       libpython$PGVER-stdlib mysql-client  mysql-common mysql-server
 RUN apt-get -y autoremove
 
 # Configure and start postgres
@@ -43,7 +43,7 @@ RUN go get github.com/lib/pq
 RUN touch /usr/local/bin/docker && chmod 777 /usr/local/bin/docker
 
 # Use python2, not 3
-RUN ln -s /usr/bin/python2.7 /usr/local/bin/python && chmod 777 /usr/local/bin/python
+RUN ln -s /usr/bin/python$PGVER /usr/local/bin/python && chmod 777 /usr/local/bin/python
 
 # Generate version-agnostic postgres command
 RUN ln -s /usr/lib/postgresql/$PGVER/bin/postgres /usr/local/bin/postgres && chmod 777 /usr/local/bin/postgres
