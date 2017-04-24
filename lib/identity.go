@@ -103,7 +103,7 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, error) {
 	log.Debugf("Reenrolling %s", &req)
 
-	csrPEM, key, err := i.client.GenCSR(req.CSR, i.GetName())
+	csrPEM, key, err := i.client.GenCSR(&req.CSR, i.GetName())
 	if err != nil {
 		return nil, err
 	}

@@ -30,7 +30,6 @@ type ClientConfig struct {
 	MSPDir     string `def:"msp" opt:"M" help:"Membership Service Provider directory"`
 	TLS        tls.ClientTLSConfig
 	Enrollment api.EnrollmentRequest
-	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
 	Revoke     api.RevocationRequest
 }
@@ -52,7 +51,6 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 	}
 	c.URL = purl.String()
 	c.TLS.Enabled = purl.Scheme == "https"
-	c.Enrollment.CSR = &c.CSR
 	client := &Client{HomeDir: home, Config: c}
 	return client.Enroll(&c.Enrollment)
 }

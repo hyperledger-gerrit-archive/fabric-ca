@@ -152,7 +152,7 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 	}
 
 	// Generate the CSR
-	csrPEM, key, err := c.GenCSR(req.CSR, req.Name)
+	csrPEM, key, err := c.GenCSR(&req.CSR, req.Name)
 	if err != nil {
 		log.Debugf("Enroll failure generating CSR: %s", err)
 		return nil, err

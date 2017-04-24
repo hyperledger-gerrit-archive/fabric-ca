@@ -88,7 +88,7 @@ func runReenroll() error {
 		Hosts:   clientCfg.Enrollment.Hosts,
 		Label:   clientCfg.Enrollment.Label,
 		Profile: clientCfg.Enrollment.Profile,
-		CSR:     &clientCfg.CSR,
+		CSR:     clientCfg.Enrollment.CSR,
 	}
 
 	resp, err := id.Reenroll(req)

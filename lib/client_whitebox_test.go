@@ -103,7 +103,7 @@ func getEnrollmentPayload(t *testing.T, c *Client) ([]byte, error) {
 	}
 
 	// Generate the CSR
-	csrPEM, _, err := c.GenCSR(req.CSR, req.Name)
+	csrPEM, _, err := c.GenCSR(&req.CSR, req.Name)
 	if err != nil {
 		t.Logf("Enroll failure generating CSR: %s", err)
 		return nil, err
