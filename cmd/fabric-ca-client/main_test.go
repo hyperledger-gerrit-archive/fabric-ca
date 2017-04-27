@@ -31,6 +31,7 @@ import (
 	"testing"
 
 	"github.com/cloudflare/cfssl/csr"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
@@ -118,7 +119,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 
 	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-m", myhost})
 	if err == nil {
-		t.Errorf("No username/password provided, should have errored")
+		t.Errorf("Server is not running, should have errored")
 	}
 
 	fileBytes, err := ioutil.ReadFile(defYaml)
@@ -137,7 +138,6 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 	}
 
 	os.Remove(defYaml)
-
 }
 
 func TestClientCommandsNoTLS(t *testing.T) {
@@ -194,14 +194,14 @@ func testConfigFileTypes(t *testing.T) {
 	// client/server config properties -- for example, props/prop/properties
 	// file type
 	err := RunMain([]string{cmdName, "enroll", "-u",
-		"http://admin:adminpw@localhost:7054", "-c", "config/client-config.txt"})
+		"http://admin:adminpw@localhost:7090", "-c", "config/client-config.txt"})
 	if err == nil {
 		t.Errorf("Enroll command invoked with -c config/client-config.txt should have failed: %v",
 			err.Error())
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-u",
-		"http://admin:adminpw@localhost:7054", "-c", "config/client-config.mf"})
+		"http://admin:adminpw@localhost:7090", "-c", "config/client-config.mf"})
 	if err == nil {
 		t.Errorf("Enroll command invoked with -c config/client-config.mf should have failed: %v",
 			err.Error())
@@ -221,34 +221,39 @@ func testConfigFileTypes(t *testing.T) {
 	w.Flush()
 
 	err = RunMain([]string{cmdName, "enroll", "-u",
-		"http://admin:adminpw@localhost:7054", "-c", fName})
+		"http://admin:adminpw@localhost:7090", "-c", fName})
 	if err != nil {
 		t.Errorf("Enroll command invoked with -c %s failed: %v",
 			fName, err.Error())
 	}
-
-	// Reset the config file name
-	cfgFileName = util.GetDefaultConfigFile("fabric-ca-client")
 	os.RemoveAll("./config")
 }
 
 // TestGetCACert tests fabric-ca-client getcacert
 func testGetCACert(t *testing.T) {
-	t.Log("Testing getcacert")
+	t.Log("Testing getcacert command")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 	os.Remove(defYaml) // Clean up any left over config file
 	os.RemoveAll("msp")
-	err := RunMain([]string{cmdName, "getcacert", "-d", "-u", "http://localhost:7054"})
+
+	err := RunMain([]string{cmdName, "getcacert", "-d", "-u", "http://localhost:7090"})
 	if err != nil {
-		t.Errorf("getcainfo failed: %s", err)
+		t.Errorf("getcacert failed: %s", err)
 	}
+
 	err = RunMain([]string{cmdName, "getcacert", "-d", "-u", "http://localhost:9999"})
 	if err == nil {
 		t.Error("getcacert with bogus URL should have failed but did not")
 	}
+
 	err = RunMain([]string{cmdName, "getcacert", "-d"})
 	if err == nil {
 		t.Error("getcacert with no URL should have failed but did not")
+	}
+
+	err = RunMain([]string{cmdName, "getcacert", "Z"})
+	if err == nil {
+		t.Error("getcacert called with bogus argument, should have failed")
 	}
 	os.RemoveAll("cacerts")
 	os.RemoveAll("msp")
@@ -257,7 +262,7 @@ func testGetCACert(t *testing.T) {
 
 // TestEnroll tests fabric-ca-client enroll
 func testEnroll(t *testing.T) {
-	t.Log("Testing Enroll CMD")
+	t.Log("Testing Enroll command")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
 	os.Remove(defYaml) // Clean up any left over config file
@@ -268,29 +273,40 @@ func testEnroll(t *testing.T) {
 		t.Errorf("No username/password provided, should have errored")
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin:adminpw@localhost:7054"})
+	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin:adminpw@localhost:7090"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
 	testReenroll(t)
 
-	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin2:adminpw2@localhost:7055"})
+	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin2:adminpw2@localhost:7091"})
 	if err == nil {
-		t.Error("Should have failed, client config file should have incorrect port (7055) for server")
+		t.Error("Should have failed, client config file should have incorrect port (7091) for server")
 	}
 
+	err = RunMain([]string{cmdName, "enroll", "Z"})
+	if err == nil {
+		t.Error("enroll called with bogus argument, should have failed")
+	}
 	os.Remove(defYaml)
 }
 
 // TestReenroll tests fabric-ca-client reenroll
 func testReenroll(t *testing.T) {
-	t.Log("Testing Reenroll CMD")
+	t.Log("Testing Reenroll command")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"})
+	err := RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7090",
+		"--enrollment.hosts", "host1,host2"})
 	if err != nil {
 		t.Errorf("client reenroll --url -f failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7090",
+		"--enrollment.hosts", "host1,host2", "Z"})
+	if err == nil {
+		t.Error("reenroll called with bogus argument, should have failed")
 	}
 
 	os.Remove(defYaml)
@@ -298,27 +314,27 @@ func testReenroll(t *testing.T) {
 
 // testRegisterConfigFile tests fabric-ca-client register using the config file
 func testRegisterConfigFile(t *testing.T) {
-	t.Log("Testing Register CMD")
-	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+	t.Log("Testing Register command using config file")
 
-	err := RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin2:adminpw2@localhost:7054"})
+	err := RunMain([]string{cmdName, "enroll", "-d", "-c",
+		"../../testdata/fabric-ca-client-config.yaml", "-u",
+		"http://admin2:adminpw2@localhost:7090"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "register", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml"})
+	err = RunMain([]string{cmdName, "register", "-d", "-c",
+		"../../testdata/fabric-ca-client-config.yaml"})
 	if err != nil {
 		t.Errorf("client register failed using config file: %s", err)
 	}
-
-	os.Remove(defYaml)
 }
 
 // testRegisterEnvVar tests fabric-ca-client register using environment variables
 func testRegisterEnvVar(t *testing.T) {
-	t.Log("Testing Register CMD")
-	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+	t.Log("Testing Register command using env variables")
 
+	os.Setenv("FABRIC_CA_CLIENT_HOME", "../../testdata/")
 	os.Setenv("FABRIC_CA_CLIENT_ID_NAME", "testRegister2")
 	os.Setenv("FABRIC_CA_CLIENT_ID_AFFILIATION", "company1")
 	os.Setenv("FABRIC_CA_CLIENT_ID_TYPE", "client")
@@ -328,44 +344,48 @@ func testRegisterEnvVar(t *testing.T) {
 		t.Errorf("client register failed using environment variables: %s", err)
 	}
 
+	os.Unsetenv("FABRIC_CA_CLIENT_HOME")
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_NAME")
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_AFFILIATION")
 	os.Unsetenv("FABRIC_CA_CLIENT_TLS_ID_TYPE")
-
-	os.Remove(defYaml)
 }
 
 // testRegisterCommandLine tests fabric-ca-client register using command line input
 func testRegisterCommandLine(t *testing.T) {
-	t.Log("Testing Register CMD")
-	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+	t.Log("Testing Register using command line options")
+	os.Setenv("FABRIC_CA_CLIENT_HOME", "../../testdata/")
 
-	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attr", "hf.test=a=b"})
+	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3",
+		"--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attr",
+		"hf.test=a=b"})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4", "--id.affiliation", "company2", "--id.type", "client"})
+	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4",
+		"--id.affiliation", "company2", "--id.type", "client"})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
 
 	os.Remove(defYaml) // Delete default config file
 
-	err = RunMain([]string{cmdName, "register", "-u", "http://localhost:7055"})
+	err = RunMain([]string{cmdName, "register", "-u", "http://localhost:7091"})
 	if err == nil {
-		t.Error("Should have failed, client config file should have incorrect port (7055) for server")
+		t.Error("Should have failed, client config file should have incorrect port (7091) for server")
 	}
 
-	os.Remove(defYaml)
+	err = RunMain([]string{cmdName, "register", "-u", "http://localhost:7090", "Y"})
+	if err == nil {
+		t.Error("register called with bogus argument, should have failed")
+	}
+	os.Unsetenv("FABRIC_CA_CLIENT_HOME")
 }
 
 // TestRevoke tests fabric-ca-client revoke
 func testRevoke(t *testing.T) {
-	t.Log("Testing Revoke CMD")
-	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
-
-	os.Remove(defYaml) // Delete default config file
+	t.Log("Testing Revoke command")
+	os.Setenv("FABRIC_CA_CLIENT_HOME", "../../testdata/")
 
 	err := RunMain([]string{cmdName, "revoke"})
 	if err == nil {
@@ -378,23 +398,27 @@ func testRevoke(t *testing.T) {
 	}
 
 	// Revoker's affiliation: hyperledger.org1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "nonexistinguser"})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-e", "nonexistinguser"})
 	if err == nil {
 		t.Errorf("Non existing user being revoked, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", serial})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-s", serial})
 	if err == nil {
 		t.Errorf("Only serial specified, should have failed")
 	}
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "", "-s", "", "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-a", aki})
 	if err == nil {
 		t.Errorf("Only aki specified, should have failed")
 	}
 
 	// revoker's affiliation: company1, revoking affiliation: ""
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-s", serial, "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-s", serial, "-a", aki})
 	if err == nil {
 		t.Errorf("Should have failed, admin2 cannot revoke root affiliation")
 	}
@@ -402,49 +426,60 @@ func testRevoke(t *testing.T) {
 	// When serial, aki and enrollment id are specified in a revoke request,
 	// fabric ca server returns an error if the serial and aki do not belong
 	// to the enrollment ID.
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "blah", "-s", serial, "-a", aki})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-e", "blah", "-s", serial, "-a", aki})
 	if err == nil {
 		t.Errorf("The Serial and AKI are not associated with the enrollment ID: %s", err)
 	}
 
 	// Revoked user's affiliation: hyperledger.org3
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister3", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-e", "testRegister3"})
 	if err == nil {
 		t.Errorf("Should have failed, admin2 does not have authority revoke")
 	}
 
 	// testRegister2's affiliation: company1, revoker's affiliation: company1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister2", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-e", "testRegister2"})
 	if err != nil {
 		t.Errorf("Failed to revoke proper affiliation hierarchy")
 	}
 
 	// testRegister4's affiliation: company2, revoker's affiliation: company1
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister4", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090", "-e",
+		"testRegister4"})
 	if err == nil {
 		t.Errorf("Should have failed have different affiliation path")
 	}
 
 	// Enroll admin with root affiliation and test revoking with root
-	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin:adminpw@localhost:7054"})
+	err = RunMain([]string{cmdName, "enroll", "-u", "http://admin:adminpw@localhost:7090"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
 	// testRegister4's affiliation: company2, revoker's affiliation: "" (root)
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7054", "-e", "testRegister4", "-s", "", "-a", ""})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090",
+		"-e", "testRegister4"})
 	if err != nil {
 		t.Errorf("User with root affiliation failed to revoke")
 	}
 
 	os.Remove(defYaml) // Delete default config file
 
-	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7055"})
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7091"})
 	if err == nil {
-		t.Error("Should have failed, client config file should have incorrect port (7055) for server")
+		t.Error("Should have failed, client config file should have incorrect port (7091) for server")
 
 	}
 
+	err = RunMain([]string{cmdName, "revoke", "-u", "http://localhost:7090", "U"})
+	if err == nil {
+		t.Error("revoke called with bogus argument, should have failed")
+
+	}
+	os.Unsetenv("FABRIC_CA_CLIENT_HOME")
 	os.RemoveAll(filepath.Dir(defYaml))
 }
 
@@ -477,7 +512,9 @@ func TestClientCommandsUsingConfigFile(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-c",
+		"../../testdata/fabric-ca-client-config.yaml", "-u",
+		"https://admin:adminpw@localhost:7090", "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
@@ -518,7 +555,8 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 	os.Setenv(clientKeyEnvVar, tlsClientKeyFile)
 	os.Setenv(clientCertEnvVar, tlsClientCertFile)
 
-	err = RunMain([]string{cmdName, "enroll", "-d", "-c", testYaml, "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-c", testYaml,
+		"-u", "https://admin:adminpw@localhost:7090", "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
@@ -559,12 +597,16 @@ func TestClientCommandsTLS(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
+		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		tlsClientCertFile, "-u", "https://admin:adminpw@localhost:7090", "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles", rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile", tlsClientCertExpired, "-u", "https://admin:adminpw@localhost:7054", "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
+		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		tlsClientCertExpired, "-u", "https://admin:adminpw@localhost:7090", "-d"})
 	if err == nil {
 		t.Errorf("Expired certificate used for TLS connection, should have failed")
 	}
@@ -590,6 +632,29 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 	}
 }
 
+// TestProcessAttributes tests processAttributes function
+func TestProcessAttributes(t *testing.T) {
+	var attrs []api.Attribute
+	clientCfg := &lib.ClientConfig{
+		ID: api.RegistrationRequest{
+			Attr:       "foo=bar",
+			Attributes: attrs,
+		},
+	}
+	// This should not result in "index out of range" error
+	processAttributes(clientCfg)
+
+	// add an attribute to attributes array and call processAttributes
+	clientCfg.ID.Attributes[0] = api.Attribute{
+		Name:  "revoker",
+		Value: "true",
+	}
+	processAttributes(clientCfg)
+	if clientCfg.ID.Attributes[0].Name != "foo" {
+		t.Errorf("Attribute was not correctly added to the attributes array by processAttributes function")
+	}
+}
+
 func getServer() *lib.Server {
 	return &lib.Server{
 		HomeDir: ".",
@@ -604,7 +669,7 @@ func getServer() *lib.Server {
 func getServerConfig() *lib.ServerConfig {
 	return &lib.ServerConfig{
 		Debug: true,
-		Port:  7054,
+		Port:  7090,
 	}
 }
 

@@ -29,34 +29,31 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// getCACertCmd represents the "getcacert" command
-var getCACertCmd = &cobra.Command{
-	Use:   "getcacert -u http://serverAddr:serverPort -M <MSP-directory>",
-	Short: "Get CA certificate chain",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 {
-			cmd.Help()
+func newGetCACertCommand(c *ClientCmd) *cobra.Command {
+	getCACertCmd := &cobra.Command{
+		Use:   "getcacert -u http://serverAddr:serverPort -M <MSP-directory>",
+		Short: "Get CA certificate chain",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("Unrecognized arguments found: %v\n%s", args, cmd.UsageString())
+			}
+			err := runGetCACert(c)
+			if err != nil {
+				return err
+			}
 			return nil
-		}
-		err := runGetCACert()
-		if err != nil {
-			return err
-		}
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(getCACertCmd)
+		},
+	}
+	return getCACertCmd
 }
 
 // The client "getcacert" main logic
-func runGetCACert() error {
-	log.Debug("Entered runGetCACert")
-
+func runGetCACert(c *ClientCmd) error {
+	log.Debug("GetCACert entered")
+	log.Debugf("c.clientCfg: %v\n", c.clientCfg)
 	client := &lib.Client{
-		HomeDir: filepath.Dir(cfgFileName),
-		Config:  clientCfg,
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
 	}
 
 	si, err := client.GetServerInfo()
@@ -70,6 +67,7 @@ func runGetCACert() error {
 // Store the CAChain in the CACerts folder of MSP (Membership Service Provider)
 func storeCAChain(config *lib.ClientConfig, si *lib.GetServerInfoResponse) error {
 	mspDir := config.MSPDir
+	log.Debugf("MSPDir:%s\n", mspDir)
 	if !util.FileExists(mspDir) {
 		return fmt.Errorf("Directory does not exist: %s", mspDir)
 	}

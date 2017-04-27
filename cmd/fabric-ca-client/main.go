@@ -18,65 +18,9 @@ package main
 
 import (
 	"os"
-	"strings"
 
-	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
 )
-
-// rootCmd is the base command for the Hyerledger Fabric CA client
-var rootCmd = &cobra.Command{
-	Use:   cmdName,
-	Short: longName,
-	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		util.CmdRunBegin()
-
-		cmd.SilenceUsage = true
-		cmd.SilenceErrors = true
-
-		return nil
-	},
-}
-
-var (
-	persistentFlags pflag.FlagSet
-)
-
-func init() {
-	// Get the default config file path
-	cfg := util.GetDefaultConfigFile(cmdName)
-
-	// All env variables must be prefixed
-	viper.SetEnvPrefix(envVarPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-
-	host, err := os.Hostname()
-	if err != nil {
-		log.Error(err)
-	}
-
-	// Set global flags used by all commands
-	pflags := rootCmd.PersistentFlags()
-	pflags.StringVarP(&cfgFileName, "config", "c", cfg, "Configuration file")
-	util.FlagString(pflags, "myhost", "m", host,
-		"Hostname to include in the certificate signing request during enrollment")
-
-	clientCfg = &lib.ClientConfig{}
-	tags := map[string]string{
-		"help.csr.cn":           "The common name field of the certificate signing request",
-		"help.csr.serialnumber": "The serial number in a certificate signing request",
-		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request",
-	}
-	err = util.RegisterFlags(pflags, clientCfg, tags)
-	if err != nil {
-		panic(err)
-	}
-
-}
 
 // The fabric-ca client main
 func main() {
@@ -93,7 +37,8 @@ func RunMain(args []string) error {
 	os.Args = args
 
 	// Execute the command
-	err := rootCmd.Execute()
+	ccmd := NewCommand()
+	err := ccmd.Execute()
 
 	// Restore original os.Args
 	os.Args = saveOsArgs

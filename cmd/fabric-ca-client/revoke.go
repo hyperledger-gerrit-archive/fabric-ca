@@ -18,6 +18,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
 
 	"github.com/cloudflare/cfssl/log"
@@ -30,48 +31,45 @@ import (
 
 var errInput = errors.New("Invalid usage; either --eid or both --serial and --aki are required")
 
-// initCmd represents the init command
-var revokeCmd = &cobra.Command{
-	Use:   "revoke",
-	Short: "Revoke an identity",
-	Long:  "Revoke an identity with fabric-ca server",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		err := configInit(cmd.Name())
-		if err != nil {
-			return err
-		}
+func newRevokeCommand(c *ClientCmd) *cobra.Command {
+	revokeCmd := &cobra.Command{
+		Use:   "revoke",
+		Short: "Revoke an identity",
+		Long:  "Revoke an identity with fabric-ca server",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			err := configInit(c, cmd.Name())
+			if err != nil {
+				return err
+			}
 
-		log.Debugf("Client configuration settings: %+v", clientCfg)
+			log.Debugf("Client configuration settings: %+v", c.clientCfg)
 
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 {
-			cmd.Help()
 			return nil
-		}
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("Unrecognized arguments found: %v\n%s", args, cmd.UsageString())
+			}
 
-		err := runRevoke(cmd)
-		if err != nil {
-			return err
-		}
+			err := runRevoke(c, cmd)
+			if err != nil {
+				return err
+			}
 
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(revokeCmd)
+			return nil
+		},
+	}
 	revokeFlags := revokeCmd.Flags()
 	util.FlagString(revokeFlags, "eid", "e", "", "Enrollment ID (Optional)")
 	util.FlagString(revokeFlags, "serial", "s", "", "Serial Number")
 	util.FlagString(revokeFlags, "aki", "a", "", "AKI")
 	util.FlagString(revokeFlags, "reason", "r", "", "Reason for revoking")
+	return revokeCmd
 }
 
 // The client revoke main logic
-func runRevoke(cmd *cobra.Command) error {
-	log.Debug("Revoke Entered")
+func runRevoke(c *ClientCmd, cmd *cobra.Command) error {
+	log.Debug("Revoke entered")
 
 	var err error
 
@@ -80,8 +78,8 @@ func runRevoke(cmd *cobra.Command) error {
 	aki := viper.GetString("aki")
 
 	client := lib.Client{
-		HomeDir: filepath.Dir(cfgFileName),
-		Config:  clientCfg,
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
 	}
 
 	id, err := client.LoadMyIdentity()

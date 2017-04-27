@@ -25,7 +25,6 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -188,7 +187,8 @@ ldap:
    # The URL of the LDAP server
    url: ldap://<adminDN>:<adminPassword>@<host>:<port>/<base>
    tls:
-      certfiles: ldap-server-cert.pem				# Comma Separated (e.g. root.pem, root2.pem)
+      certfiles:
+        - ldap-server-cert.pem
       client:
          certfile: ldap-client-cert.pem
          keyfile: ldap-client-key.pem
@@ -273,37 +273,29 @@ cafiles:
 `
 )
 
-var (
-	// cfgFileName is the name of the config file
-	cfgFileName string
-	// serverCfg is the server's config
-	serverCfg *lib.ServerConfig
-)
-
 // Initialize config
-func configInit() (err error) {
-
+func configInit(s *ServerCmd) (err error) {
 	// Make the config file name absolute
-	if !filepath.IsAbs(cfgFileName) {
-		cfgFileName, err = filepath.Abs(cfgFileName)
+	if !filepath.IsAbs(s.cfgFileName) {
+		s.cfgFileName, err = filepath.Abs(s.cfgFileName)
 		if err != nil {
 			return fmt.Errorf("Failed to get full path of config file: %s", err)
 		}
 	}
 
 	// If the config file doesn't exist, create a default one
-	if !util.FileExists(cfgFileName) {
-		err = createDefaultConfigFile()
+	if !util.FileExists(s.cfgFileName) {
+		err = createDefaultConfigFile(s.cfgFileName)
 		if err != nil {
 			return fmt.Errorf("Failed to create default configuration file: %s", err)
 		}
-		log.Infof("Created default configuration file at %s", cfgFileName)
+		log.Infof("Created default configuration file at %s", s.cfgFileName)
 	} else {
-		log.Infof("Configuration file location: %s", cfgFileName)
+		log.Infof("Configuration file location: %s", s.cfgFileName)
 	}
 
 	// Read the config
-	viper.SetConfigFile(cfgFileName)
+	viper.SetConfigFile(s.cfgFileName)
 	viper.AutomaticEnv() // read in environment variables that match
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -321,33 +313,33 @@ func configInit() (err error) {
 			"cafiles",
 			"db.tls.certfiles",
 		}
-		err = util.ViperUnmarshal(serverCfg, sliceFields, viper.GetViper())
+		err = util.ViperUnmarshal(s.serverCfg, sliceFields, viper.GetViper())
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", s.cfgFileName, err)
 		}
-		err = viper.Unmarshal(&serverCfg.CAcfg)
+		err = viper.Unmarshal(&s.serverCfg.CAcfg)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", s.cfgFileName, err)
 		}
 	} else {
-		err = viper.Unmarshal(serverCfg)
+		err = viper.Unmarshal(s.serverCfg)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", s.cfgFileName, err)
 		}
-		err = viper.Unmarshal(&serverCfg.CAcfg)
+		err = viper.Unmarshal(&s.serverCfg.CAcfg)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", s.cfgFileName, err)
 		}
 	}
 
-	if serverCfg.CAcfg.CA.Name == "" {
+	if s.serverCfg.CAcfg.CA.Name == "" {
 		return fmt.Errorf(caNameReqMsg)
 	}
 
 	return nil
 }
 
-func createDefaultConfigFile() error {
+func createDefaultConfigFile(cfgFileName string) error {
 	// Create a default config, but only if they provided an administrative
 	// user ID and password
 	up := viper.GetString("boot")
