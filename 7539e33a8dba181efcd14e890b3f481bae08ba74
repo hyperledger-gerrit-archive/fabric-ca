@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Binh Nguyen <binhn@us.ibm.com>
+Code-Review+2: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-by: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-at: Thu, 27 Apr 2017 11:35:01 +0000
+Reviewed-on: http://gerrit.hyperledger.org/r/7955
+Project: fabric-ca
+Branch: refs/heads/master
