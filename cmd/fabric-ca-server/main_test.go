@@ -43,7 +43,6 @@ var (
 
 // Create a config element in unexpected format
 var badSyntaxYaml = "bad.yaml"
-var ymlWithoutCAName = "noCAName.yml"
 
 // Unsupported file type
 var unsupportedFileType = "config.txt"
@@ -99,18 +98,15 @@ func TestGetCAName(t *testing.T) {
 func TestErrors(t *testing.T) {
 	os.Unsetenv(homeEnvVar)
 	_ = ioutil.WriteFile(badSyntaxYaml, []byte("signing: true\n"), 0644)
-	exp := regexp.MustCompile(".*<<<CANAME>>>.*")
-	cfg := exp.ReplaceAllString(defaultCfgTemplate, "")
-	_ = ioutil.WriteFile(ymlWithoutCAName, []byte(cfg), 0644)
 
 	errorCases := []TestData{
 		{[]string{cmdName, "init", "-c", initYaml}, "option is required"},
-		{[]string{cmdName, "init", "-n", "acme.com", "-b", "user::"}, "Failed to read"},
+		{[]string{cmdName, "init", "-c", initYaml, "-n", "acme.com", "-b", "user::"}, "Failed to read"},
 		{[]string{cmdName, "init", "-b", "user:pass", "-n", "acme.com", "ca.key"}, "too many arguments"},
 		{[]string{cmdName, "init", "-c", badSyntaxYaml, "-b", "user:pass"}, "Incorrect format"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", fmt.Sprintf("%s:foo", longUserName)}, "than 1024 characters"},
 		{[]string{cmdName, "init", "-c", fmt.Sprintf("/tmp/%s.yaml", longFileName), "-b", "user:pass"}, "file name too long"},
-		{[]string{cmdName, "init", "-c", unsupportedFileType}, "Unsupported Config Type"},
+		{[]string{cmdName, "init", "-b", "user:pass", "-c", unsupportedFileType}, "Unsupported Config Type"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", "user"}, "missing a colon"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", "user:"}, "empty password"},
 		{[]string{cmdName, "bogus", "-c", initYaml, "-b", "user:pass"}, "unknown command"},
@@ -258,7 +254,6 @@ func TestClean(t *testing.T) {
 	os.Remove(initYaml)
 	os.Remove(startYaml)
 	os.Remove(badSyntaxYaml)
-	os.Remove(ymlWithoutCAName)
 	os.Remove(fmt.Sprintf("/tmp/%s.yaml", longFileName))
 	os.Remove(unsupportedFileType)
 	os.Remove("ca-key.pem")
@@ -273,12 +268,12 @@ func TestClean(t *testing.T) {
 func cleanUpMultiCAFiles() {
 	caFolder := "../../testdata/ca/rootca"
 	nestedFolders := []string{"ca1", "ca2"}
-	removeFiles := []string{"ca-cert.pem", "ca-key.pem", "fabric-ca-server.db", "fabric-ca2-server.db"}
+	removeFiles := []string{"msp", "ca-cert.pem", "ca-key.pem", "fabric-ca-server.db", "fabric-ca2-server.db"}
 
 	for _, nestedFolder := range nestedFolders {
 		path := filepath.Join(caFolder, nestedFolder)
 		for _, file := range removeFiles {
-			os.Remove(filepath.Join(path, file))
+			os.RemoveAll(filepath.Join(path, file))
 		}
 	}
 

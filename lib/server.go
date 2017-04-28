@@ -251,6 +251,12 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 	}
 
 	util.CopyMissingValues(s.CA.Config, caConfig)
+	// SWOpts is a pointer, we don't want CA config to point to
+	// default ca config. SWOpts will be initialized when CA
+	// is created and initialized (see NewCA)
+	if s.CA.Config.CSP != nil {
+		s.CA.Config.CSP.SwOpts = nil
+	}
 
 	caConfig.CA.Certfile = filepath.Base(caConfig.CA.Certfile)
 	caConfig.CA.Keyfile = filepath.Base(caConfig.CA.Keyfile)

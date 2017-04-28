@@ -438,7 +438,8 @@ func TestMultiCA(t *testing.T) {
 
 func TestMultiCAWithIntermediate(t *testing.T) {
 	srv := getServer(rootPort, testdataDir, "", 0, t)
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
 	srv.CA.Config.CSR.Hosts = []string{"hostname"}
 	t.Logf("Server configuration: %+v\n", srv.Config)
 
@@ -449,7 +450,8 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 	}
 
 	intermediatesrv := getServer(intermediatePort, testdataDir, "", 0, t)
-	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml", "ca/intermediateca/ca2/fabric-ca-server-config.yaml"}
+	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml",
+		"ca/intermediateca/ca2/fabric-ca-server-config.yaml"}
 	intermediatesrv.CA.Config.CSR.Hosts = []string{"hostname"}
 
 	// Start it
@@ -458,6 +460,7 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 		t.Fatalf("Intermediate server start failed: %s", err)
 	}
 	time.Sleep(time.Second)
+
 	// Stop it
 	intermediatesrv.Stop()
 
@@ -637,6 +640,7 @@ func testIntermediateServer(idx int, t *testing.T) {
 	time.Sleep(time.Second)
 	// Stop it
 	intermediateServer.Stop()
+	time.Sleep(time.Second)
 }
 
 // TestSqliteLocking tests to ensure that "database is locked"
@@ -697,6 +701,7 @@ func TestEnd(t *testing.T) {
 	os.Remove("../testdata/ca-cert.pem")
 	os.Remove("../testdata/ca-key.pem")
 	os.Remove("../testdata/fabric-ca-server.db")
+	os.RemoveAll("../testdata/msp")
 	os.RemoveAll(rootDir)
 	os.RemoveAll(intermediateDir)
 	os.RemoveAll("multica")
@@ -708,18 +713,17 @@ func cleanMultiCADir() {
 	caFolder := "../testdata/ca"
 	toplevelFolders := []string{"intermediateca", "rootca"}
 	nestedFolders := []string{"ca1", "ca2"}
-	removeFiles := []string{"ca-cert.pem", "ca-key.pem", "fabric-ca-server.db", "fabric-ca2-server.db", "ca-chain.pem"}
+	removeFiles := []string{"msp", "ca-cert.pem", "ca-key.pem", "fabric-ca-server.db",
+		"fabric-ca2-server.db", "ca-chain.pem"}
 
 	for _, topFolder := range toplevelFolders {
 		for _, nestedFolder := range nestedFolders {
 			path := filepath.Join(caFolder, topFolder, nestedFolder)
 			for _, file := range removeFiles {
-				os.Remove(filepath.Join(path, file))
+				os.RemoveAll(filepath.Join(path, file))
 			}
 		}
 	}
-
-	os.RemoveAll("../testdata/ca/intermediateca/ca1/msp")
 }
 
 func getRootServerURL() string {

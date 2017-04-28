@@ -26,47 +26,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// initCmd represents the init command
-var reenrollCmd = &cobra.Command{
-	Use:   "reenroll",
-	Short: "Reenroll an identity",
-	Long:  "Reenroll an identity with fabric-ca server",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		err := configInit(cmd.Name())
-		if err != nil {
-			return err
-		}
+func newReenrollCommand(c *ClientCmd) *cobra.Command {
+	reenrollCmd := &cobra.Command{
+		Use:   "reenroll",
+		Short: "Reenroll an identity",
+		Long:  "Reenroll an identity with fabric-ca server",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			err := configInit(c, cmd.Name())
+			if err != nil {
+				return err
+			}
 
-		log.Debugf("Client configuration settings: %+v", clientCfg)
+			log.Debugf("Client configuration settings: %+v", c.clientCfg)
 
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 {
-			cmd.Help()
 			return nil
-		}
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("Unrecognized arguments found: %v\n%s", args, cmd.UsageString())
+			}
 
-		err := runReenroll()
-		if err != nil {
-			return err
-		}
+			err := runReenroll(c)
+			if err != nil {
+				return err
+			}
 
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(reenrollCmd)
+			return nil
+		},
+	}
+	return reenrollCmd
 }
 
 // The client reenroll main logic
-func runReenroll() error {
-	log.Debug("Entered Reenroll")
+func runReenroll(c *ClientCmd) error {
+	log.Debug("Reenroll entered")
 
 	client := lib.Client{
-		HomeDir: filepath.Dir(cfgFileName),
-		Config:  clientCfg,
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
 	}
 
 	id, err := client.LoadMyIdentity()
@@ -75,11 +72,11 @@ func runReenroll() error {
 	}
 
 	req := &api.ReenrollmentRequest{
-		Hosts:   clientCfg.Enrollment.Hosts,
-		Label:   clientCfg.Enrollment.Label,
-		Profile: clientCfg.Enrollment.Profile,
-		CSR:     &clientCfg.CSR,
-		CAName:  clientCfg.CAName,
+		Hosts:   c.clientCfg.Enrollment.Hosts,
+		Label:   c.clientCfg.Enrollment.Label,
+		Profile: c.clientCfg.Enrollment.Profile,
+		CSR:     &c.clientCfg.CSR,
+		CAName:  c.clientCfg.CAName,
 	}
 
 	resp, err := id.Reenroll(req)
@@ -92,7 +89,7 @@ func runReenroll() error {
 		return err
 	}
 
-	err = storeCAChain(clientCfg, &resp.ServerInfo)
+	err = storeCAChain(c.clientCfg, &resp.ServerInfo)
 	if err != nil {
 		return err
 	}
