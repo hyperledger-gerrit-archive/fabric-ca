@@ -150,7 +150,7 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet, caname
 		Type:           req.Type,
 		Affiliation:    req.Affiliation,
 		Attributes:     req.Attributes,
-		MaxEnrollments: maxEnrollments,
+		MaxEnrollments: req.MaxEnrollments,
 	}
 
 	registry := h.server.caMap[caname].registry
