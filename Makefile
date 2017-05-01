@@ -150,8 +150,11 @@ container-tests: docker ldap-tests
 ldap-tests: openldap
 	@scripts/run_ldap_tests
 
-fvt-tests: fabric-ca-client fabric-ca-server
+fvt-tests: 
 	@scripts/run_fvt_tests
+
+ci-tests: docker-fvt unit-tests
+	@docker run -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca hyperledger/fabric-ca-fvt
 
 %-docker-clean:
 	$(eval TARGET = ${patsubst %-docker-clean,%,${@}})
