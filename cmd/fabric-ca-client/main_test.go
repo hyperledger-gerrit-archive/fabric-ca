@@ -663,6 +663,7 @@ func cleanMultiCADir() {
 		for _, file := range removeFiles {
 			os.Remove(filepath.Join(path, file))
 		}
+		os.RemoveAll(filepath.Join(path, "msp"))
 	}
 }
 

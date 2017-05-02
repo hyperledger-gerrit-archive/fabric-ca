@@ -327,7 +327,7 @@ func TestTLSAuthClient(t *testing.T) {
 	testClientAuth(t)
 }
 
-func TestMultiCA(t *testing.T) {
+func TestMultiCAConfigs(t *testing.T) {
 	t.Log("TestMultiCA...")
 	srv := getServer(rootPort, testdataDir, "", 0, t)
 	srv.Config.CAfiles = []string{"ca/ca1/fabric-ca-server-config.yaml", "ca/ca1/fabric-ca-server-config.yaml", "ca/ca2/fabric-ca-server-config.yaml"}
@@ -349,6 +349,7 @@ func TestMultiCA(t *testing.T) {
 
 	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml", "ca/rootca/ca3/fabric-ca-server-config.yaml"}
 	err = srv.Start()
+	t.Logf("Starting 3 CAs with a duplicated CN name: %s", err)
 	if err == nil {
 		t.Error("Should have failed to start server, CN name is the same across rootca2 and rootca3")
 	}
@@ -445,7 +446,7 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 	// Starting server with two cas with same name
 	err := srv.Start()
 	if err != nil {
-		t.Error("Failed to stop server: ", err)
+		t.Fatal("Failed to start server: ", err)
 	}
 
 	intermediatesrv := getServer(intermediatePort, testdataDir, "", 0, t)
@@ -455,7 +456,7 @@ func TestMultiCAWithIntermediate(t *testing.T) {
 	// Start it
 	err = intermediatesrv.Start()
 	if err != nil {
-		t.Fatalf("Intermediate server start failed: %s", err)
+		t.Errorf("Intermediate server start failed: %s", err)
 	}
 	time.Sleep(time.Second)
 	// Stop it
@@ -701,6 +702,7 @@ func TestEnd(t *testing.T) {
 	os.RemoveAll(intermediateDir)
 	os.RemoveAll("multica")
 	os.RemoveAll(serversDir)
+	os.RemoveAll("../testdata/msp")
 	cleanMultiCADir()
 }
 
@@ -716,10 +718,10 @@ func cleanMultiCADir() {
 			for _, file := range removeFiles {
 				os.Remove(filepath.Join(path, file))
 			}
+			os.RemoveAll(filepath.Join(path, "msp"))
 		}
 	}
 
-	os.RemoveAll("../testdata/ca/intermediateca/ca1/msp")
 }
 
 func getRootServerURL() string {
