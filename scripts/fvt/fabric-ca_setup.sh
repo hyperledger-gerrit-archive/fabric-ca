@@ -280,10 +280,10 @@ export CA_CFG_PATH
 #      else honor the envvar
 #        else (default) turn off tls
 if test -n "$TLS_ON"; then
-   TLS_DISABLE='false'
+   TLS_DISABLE='false'; LDAP_PORT=636; LDAP_PROTO="ldaps://"
 else
    case "$FABRIC_TLS" in
-      true) TLS_DISABLE='false';TLS_ON='true'; ;;
+      true) TLS_DISABLE='false';TLS_ON='true'; LDAP_PORT=636; LDAP_PROTO="ldaps://" ;;
      false) TLS_DISABLE='true' ;TLS_ON='false' ;;
          *) TLS_DISABLE='true' ;TLS_ON='false' ;;
    esac
