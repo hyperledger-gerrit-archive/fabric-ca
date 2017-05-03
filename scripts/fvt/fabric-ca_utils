@@ -5,8 +5,9 @@ export FABRIC_CA_SERVEREXEC="/usr/local/bin/fabric-ca-server"
 export TESTDATA="$FABRIC_CA/testdata"
 export SCRIPTDIR="$FABRIC_CA/scripts/fvt"
 export MYSQL_PORT="3306"
-export POSTGRES_PORT="5432"
 export LDAP_PORT="389"
+export LDAP_PROTO="ldap://"
+export POSTGRES_PORT="5432"
 export PGPASSWORD='postgres'
 export MSP_KEY_DIR='msp/keystore'
 export MSP_CERT_DIR='msp/signcerts'
@@ -459,7 +460,7 @@ cat > $runconfig <<EOF
    $registry
    "ldap": {
       "enabled": $LDAP_ENABLE,
-      "url": "ldap://CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com",
+      "url": "${LDAP_PROTO}CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com",
       "tls": {
          "certfiles": [ "$ROOTCERT" ],
          "client": {
@@ -644,12 +645,12 @@ ca:
 $registry
 ldap:
   enabled: $LDAP_ENABLE
-  url: ldap://CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com
+  url: ${LDAP_PROTO}CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com
   tls:
     certfiles:
       - $ROOTCERT
     client:
-      certfile: $TESTDATA/tls_server-key.pem
+      certfile: $TESTDATA/tls_server-cert.pem
       keyfile: $TESTDATA/tls_server-key.pem
 affiliations:
   bank_a:
