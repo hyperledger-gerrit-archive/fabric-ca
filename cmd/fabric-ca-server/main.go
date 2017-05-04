@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -86,6 +87,9 @@ func main() {
 
 // RunMain is the fabric-ca server main
 func RunMain(args []string) error {
+
+	// Change go's default logger to write to stdout rather than to stderr
+	log.SetOutput(os.Stdout)
 
 	// Save the os.Args
 	saveOsArgs := os.Args

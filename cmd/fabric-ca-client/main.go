@@ -19,10 +19,11 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
-	"github.com/cloudflare/cfssl/log"
+	cflog "github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/profile"
@@ -74,7 +75,7 @@ func init() {
 
 	host, err := os.Hostname()
 	if err != nil {
-		log.Error(err)
+		cflog.Error(err)
 	}
 
 	// Set global flags used by all commands
@@ -104,6 +105,10 @@ func main() {
 
 // RunMain is the fabric-ca client main
 func RunMain(args []string) error {
+
+	// Change logging from stderr to stdout
+	log.SetOutput(os.Stdout)
+
 	// Save the os.Args
 	saveOsArgs := os.Args
 	os.Args = args
