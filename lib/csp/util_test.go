@@ -93,6 +93,7 @@ func TestInitBCCSP(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed initialization 3 of BCCSP: %s", err)
 	}
+	os.RemoveAll(mspDir)
 }
 
 func TestKeyGenerate(t *testing.T) {

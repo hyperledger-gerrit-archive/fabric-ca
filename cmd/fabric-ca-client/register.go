@@ -25,47 +25,44 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// initCmd represents the init command
-var registerCmd = &cobra.Command{
-	Use:   "register",
-	Short: "Register an identity",
-	Long:  "Register an identity with fabric-ca server",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		err := configInit(cmd.Name())
-		if err != nil {
-			return err
-		}
+func (c *ClientCmd) newRegisterCommand() *cobra.Command {
+	registerCmd := &cobra.Command{
+		Use:   "register",
+		Short: "Register an identity",
+		Long:  "Register an identity with fabric-ca server",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			err := c.configInit(cmd.Name(), true)
+			if err != nil {
+				return err
+			}
 
-		log.Debugf("Client configuration settings: %+v", clientCfg)
+			log.Debugf("Client configuration settings: %+v", c.clientCfg)
 
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 {
-			cmd.Help()
 			return nil
-		}
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("Unrecognized arguments found: %v\n%s", args, cmd.UsageString())
+			}
 
-		err := runRegister()
-		if err != nil {
-			return err
-		}
+			err := c.runRegister()
+			if err != nil {
+				return err
+			}
 
-		return nil
-	},
-}
-
-func init() {
-	rootCmd.AddCommand(registerCmd)
+			return nil
+		},
+	}
+	return registerCmd
 }
 
 // The client register main logic
-func runRegister() error {
-	log.Debug("Entered Register")
+func (c *ClientCmd) runRegister() error {
+	log.Debug("Register entered")
 
 	client := lib.Client{
-		HomeDir: filepath.Dir(cfgFileName),
-		Config:  clientCfg,
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
 	}
 
 	id, err := client.LoadMyIdentity()
@@ -73,8 +70,8 @@ func runRegister() error {
 		return err
 	}
 
-	clientCfg.ID.CAName = clientCfg.CAName
-	resp, err := id.Register(&clientCfg.ID)
+	c.clientCfg.ID.CAName = c.clientCfg.CAName
+	resp, err := id.Register(&c.clientCfg.ID)
 	if err != nil {
 		return err
 	}

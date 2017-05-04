@@ -166,49 +166,41 @@ bccsp:
 `
 )
 
-var (
-	// cfgFileName is the name of the client's config file
-	cfgFileName string
-
-	// clientCfg is the client's config
-	clientCfg *lib.ClientConfig
-)
-
-func configInit(command string) error {
+func (c *ClientCmd) configInit(command string, checkEnrollment bool) error {
 	var err error
 
-	if cfgFileName != "" {
-		log.Infof("User provided config file: %s\n", cfgFileName)
+	if c.cfgFileName != "" {
+		log.Infof("User provided config file: %s\n", c.cfgFileName)
 	}
 
 	// Make the config file name absolute
-	if !filepath.IsAbs(cfgFileName) {
-		cfgFileName, err = filepath.Abs(cfgFileName)
+	if !filepath.IsAbs(c.cfgFileName) {
+		c.cfgFileName, err = filepath.Abs(c.cfgFileName)
 		if err != nil {
 			return fmt.Errorf("Failed to get full path of config file: %s", err)
 		}
 	}
 
-	if command != "enroll" {
-		err = checkForEnrollment()
+	if checkEnrollment {
+		err = checkForEnrollment(c.cfgFileName, c.clientCfg)
 		if err != nil {
 			return err
 		}
 	}
 
 	// If the config file doesn't exist, create a default one
-	if !util.FileExists(cfgFileName) {
-		err = createDefaultConfigFile()
+	if !util.FileExists(c.cfgFileName) {
+		err = c.createDefaultConfigFile()
 		if err != nil {
 			return fmt.Errorf("Failed to create default configuration file: %s", err)
 		}
-		log.Infof("Created a default configuration file at %s", cfgFileName)
+		log.Infof("Created a default configuration file at %s", c.cfgFileName)
 	} else {
-		log.Infof("Configuration file location: %s", cfgFileName)
+		log.Infof("Configuration file location: %s", c.cfgFileName)
 	}
 
 	// Call viper to read the config
-	viper.SetConfigFile(cfgFileName)
+	viper.SetConfigFile(c.cfgFileName)
 	viper.AutomaticEnv() // read in environment variables that match
 	err = viper.ReadInConfig()
 	if err != nil {
@@ -224,31 +216,30 @@ func configInit(command string) error {
 			"csr.hosts",
 			"tls.certfiles",
 		}
-		err = util.ViperUnmarshal(clientCfg, sliceFields, viper.GetViper())
+		err = util.ViperUnmarshal(c.clientCfg, sliceFields, viper.GetViper())
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", c.cfgFileName, err)
 		}
 	} else {
-		err = viper.Unmarshal(clientCfg)
+		err = viper.Unmarshal(c.clientCfg)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return fmt.Errorf("Incorrect format in file '%s': %s", c.cfgFileName, err)
 		}
 	}
 
-	purl, err := url.Parse(clientCfg.URL)
+	purl, err := url.Parse(c.clientCfg.URL)
 	if err != nil {
 		return err
 	}
 
-	clientCfg.TLS.Enabled = purl.Scheme == "https"
-
-	if clientCfg.ID.Attr != "" {
-		processAttributes()
+	c.clientCfg.TLS.Enabled = purl.Scheme == "https"
+	if c.clientCfg.ID.Attr != "" {
+		processAttributes(c.clientCfg)
 	}
 	return nil
 }
 
-func createDefaultConfigFile() error {
+func (c *ClientCmd) createDefaultConfigFile() error {
 	// Create a default config, if URL provided via CLI or envar update config files
 	var cfg string
 	fabricCAServerURL := viper.GetString("url")
@@ -274,17 +265,17 @@ func createDefaultConfigFile() error {
 	cfg = strings.Replace(cfg, "<<<ENROLLMENT_ID>>>", user, 1)
 
 	// Create the directory if necessary
-	cfgDir := filepath.Dir(cfgFileName)
+	cfgDir := filepath.Dir(c.cfgFileName)
 	err = os.MkdirAll(cfgDir, 0755)
 	if err != nil {
 		return err
 	}
 	// Now write the file
-	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0755)
+	return ioutil.WriteFile(c.cfgFileName, []byte(cfg), 0755)
 }
 
 // processAttributes parses attributes from command line
-func processAttributes() {
+func processAttributes(clientCfg *lib.ClientConfig) {
 	splitAttr := strings.Split(clientCfg.ID.Attr, "=")
 	if len(clientCfg.ID.Attributes) == 0 {
 		clientCfg.ID.Attributes = make([]api.Attribute, 1)
@@ -293,11 +284,11 @@ func processAttributes() {
 	clientCfg.ID.Attributes[0].Value = strings.Join(splitAttr[1:], "")
 }
 
-func checkForEnrollment() error {
+func checkForEnrollment(cfgFileName string, cfg *lib.ClientConfig) error {
 	log.Debug("Checking for enrollment")
 	client := lib.Client{
 		HomeDir: filepath.Dir(cfgFileName),
-		Config:  clientCfg,
+		Config:  cfg,
 	}
 	return client.CheckEnrollment()
 }
