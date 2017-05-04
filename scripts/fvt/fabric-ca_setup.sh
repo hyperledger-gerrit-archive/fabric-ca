@@ -280,12 +280,12 @@ export CA_CFG_PATH
 #      else honor the envvar
 #        else (default) turn off tls
 if test -n "$TLS_ON"; then
-   TLS_DISABLE='false'; LDAP_PORT=636; LDAP_PROTO="ldaps://"
+   TLS_DISABLE='false'; LDAP_PORT=636; LDAP_PROTO="ldaps://";sslmode="require"
 else
    case "$FABRIC_TLS" in
-      true) TLS_DISABLE='false';TLS_ON='true'; LDAP_PORT=636; LDAP_PROTO="ldaps://" ;;
-     false) TLS_DISABLE='true' ;TLS_ON='false' ;;
-         *) TLS_DISABLE='true' ;TLS_ON='false' ;;
+      true) TLS_DISABLE='false';TLS_ON='true'; LDAP_PORT=636; LDAP_PROTO="ldaps://";sslmode="require" ;;
+     false) TLS_DISABLE='true' ;TLS_ON='false'; sslmode="disable" ;;
+         *) TLS_DISABLE='true' ;TLS_ON='false'; sslmode="disable" ;;
    esac
 fi
 
@@ -297,7 +297,7 @@ test -n "$SRC_KEY" && cp "$SRC_KEY" $DST_KEY
 RUNCONFIG="$DATADIR/runFabricCaFvt.yaml"
 
 case $DRIVER in
-   postgres) DATASRC="dbname=$DBNAME host=127.0.0.1 port=$POSTGRES_PORT user=postgres password=postgres sslmode=disable" ;;
+   postgres) DATASRC="dbname=$DBNAME host=127.0.0.1 port=$POSTGRES_PORT user=postgres password=postgres sslmode=$sslmode" ;;
    sqlite3)  DATASRC="$DATADIR/$DBNAME" ;;
    mysql)    DATASRC="root:mysql@tcp(localhost:$MYSQL_PORT)/$DBNAME?parseTime=true" ;;
 esac
