@@ -57,11 +57,15 @@ func InitBCCSP(optsPtr **factory.FactoryOpts, homeDir string) (bccsp.BCCSP, erro
 		opts = *optsPtr
 	}
 	if opts == nil {
-		opts = &factory.DefaultOpts
+		defaultOpts := factory.DefaultOpts
+		opts = &defaultOpts
+		opts.SwOpts = nil
 	}
 	if strings.ToUpper(opts.ProviderName) == "SW" {
 		if opts.SwOpts == nil {
-			opts.SwOpts = factory.DefaultOpts.SwOpts
+			swOpts := *factory.DefaultOpts.SwOpts
+			swOpts.FileKeystore = nil
+			opts.SwOpts = &swOpts
 		}
 		// Only override the KeyStorePath if it was left empty
 		if opts.SwOpts.FileKeystore == nil ||
@@ -97,7 +101,7 @@ func BccspBackedSigner(caFile, keyFile string, policy *config.Signing, csp bccsp
 	_, cspSigner, parsedCa, err := GetSignerFromCertFile(caFile, csp)
 	if err != nil {
 		// Fallback: attempt to read out of keyFile and import
-		log.Debugf("No key found in BCCSP keystore, attempting fallback")
+		log.Debugf("No key found in BCCSP keystore, attempting fallback: %v", err)
 		var key bccsp.Key
 		key, err = ImportBCCSPKeyFromPEM(keyFile, csp, false)
 		if err != nil {
