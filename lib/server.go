@@ -16,11 +16,7 @@ limitations under the License.
 
 package lib
 
-import (
-	_ "net/http/pprof" // enables profiling
-)
-
-import (
+import ( // enables profiling
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -28,19 +24,29 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	// import to support profiling
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 
-	_ "github.com/go-sql-driver/mysql" // import to support MySQL
-	_ "github.com/lib/pq"              // import to support Postgres
-	_ "github.com/mattn/go-sqlite3"    // import to support SQLite3
+	// import to support MySQL
+	_ "github.com/go-sql-driver/mysql"
+
+	// import to support Postgres
+	_ "github.com/lib/pq"
+
+	// import to support Postgres
+	_ "github.com/mattn/go-sqlite3"
 )
+
+// import to support SQLite3
 
 const (
 	defaultClientAuth         = "noclientcert"
@@ -144,9 +150,7 @@ func (s *Server) Stop() error {
 	if s.listener == nil {
 		return errors.New("server is not currently started")
 	}
-	err := s.listener.Close()
-	s.listener = nil
-	return err
+	return s.closeListener()
 }
 
 // RegisterBootstrapUser registers the bootstrap user with appropriate privileges
@@ -391,6 +395,7 @@ func (s *Server) listenAndServe() (err error) {
 		c.Port = DefaultServerPort
 	}
 	addr := net.JoinHostPort(c.Address, strconv.Itoa(c.Port))
+	addrStr := fmt.Sprintf("http://%s", addr)
 
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
@@ -427,22 +432,23 @@ func (s *Server) listenAndServe() (err error) {
 
 		listener, err = tls.Listen("tcp", addr, config)
 		if err != nil {
-			return fmt.Errorf("TLS listen failed: %s", err)
+			return fmt.Errorf("TLS listen failed for %s: %s", addrStr, err)
 		}
-		log.Infof("Listening at https://%s", addr)
+		log.Infof("Listening at %s", addrStr)
 	} else {
 		listener, err = net.Listen("tcp", addr)
 		if err != nil {
-			return fmt.Errorf("TCP listen failed: %s", err)
+			return fmt.Errorf("TCP listen failed for %s: %s", addrStr, err)
 		}
-		log.Infof("Listening at http://%s", addr)
 	}
 	s.listener = listener
 
+	// Fix for https://jira.hyperledger.org/browse/FAB-3100
+	time.Sleep(time.Second)
+
 	err = s.checkAndEnableProfiling()
 	if err != nil {
-		s.listener.Close()
-		s.listener = nil
+		s.closeListener()
 		return fmt.Errorf("TCP listen for profiling failed: %s", err)
 	}
 
@@ -457,10 +463,7 @@ func (s *Server) listenAndServe() (err error) {
 func (s *Server) serve() error {
 	s.serveError = http.Serve(s.listener, s.mux)
 	log.Errorf("Server has stopped serving: %s", s.serveError)
-	if s.listener != nil {
-		s.listener.Close()
-		s.listener = nil
-	}
+	s.closeListener()
 	return s.serveError
 }
 
@@ -506,4 +509,14 @@ func (s *Server) makeFileNamesAbsolute() error {
 		*namePtr = abs
 	}
 	return nil
+}
+
+// closeListener closes the listening endpoint
+func (s *Server) closeListener() error {
+	if s.listener == nil {
+		return nil
+	}
+	err := s.listener.Close()
+	s.listener = nil
+	return err
 }
