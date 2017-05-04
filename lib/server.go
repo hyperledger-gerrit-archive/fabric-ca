@@ -17,10 +17,6 @@ limitations under the License.
 package lib
 
 import (
-	_ "net/http/pprof" // enables profiling
-)
-
-import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -28,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof" // import to support profiling
 	"os"
 	"path/filepath"
 	"strconv"
@@ -144,15 +141,13 @@ func (s *Server) Stop() error {
 	if s.listener == nil {
 		return errors.New("server is not currently started")
 	}
-	err := s.listener.Close()
-	s.listener = nil
-	return err
+	return s.closeListener()
 }
 
 // RegisterBootstrapUser registers the bootstrap user with appropriate privileges
 func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 	// Initialize the config, setting defaults, etc
-	log.Debugf("RegisterBootstrapUser - identity: %s, Pass: %s, affiliation: %s", user, pass, affiliation)
+	log.Debugf("Register bootstrap user: name=%s, affiliation=%s", user, affiliation)
 
 	if user == "" || pass == "" {
 		return errors.New("Empty identity name and/or pass not allowed")
@@ -391,6 +386,7 @@ func (s *Server) listenAndServe() (err error) {
 		c.Port = DefaultServerPort
 	}
 	addr := net.JoinHostPort(c.Address, strconv.Itoa(c.Port))
+	addrStr := fmt.Sprintf("http://%s", addr)
 
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
@@ -427,22 +423,20 @@ func (s *Server) listenAndServe() (err error) {
 
 		listener, err = tls.Listen("tcp", addr, config)
 		if err != nil {
-			return fmt.Errorf("TLS listen failed: %s", err)
+			return fmt.Errorf("TLS listen failed for %s: %s", addrStr, err)
 		}
-		log.Infof("Listening at https://%s", addr)
+		log.Infof("Listening on %s", addrStr)
 	} else {
 		listener, err = net.Listen("tcp", addr)
 		if err != nil {
-			return fmt.Errorf("TCP listen failed: %s", err)
+			return fmt.Errorf("TCP listen failed for %s: %s", addrStr, err)
 		}
-		log.Infof("Listening at http://%s", addr)
 	}
 	s.listener = listener
 
 	err = s.checkAndEnableProfiling()
 	if err != nil {
-		s.listener.Close()
-		s.listener = nil
+		s.closeListener()
 		return fmt.Errorf("TCP listen for profiling failed: %s", err)
 	}
 
@@ -451,16 +445,25 @@ func (s *Server) listenAndServe() (err error) {
 		return s.serve()
 	}
 	go s.serve()
+
 	return nil
 }
 
 func (s *Server) serve() error {
-	s.serveError = http.Serve(s.listener, s.mux)
-	log.Errorf("Server has stopped serving: %s", s.serveError)
-	if s.listener != nil {
-		s.listener.Close()
-		s.listener = nil
+	listener := s.listener
+	if listener == nil {
+		// This can happen as follows:
+		// 1) listenAndServe above is called with s.BlockingStart set to false
+		//    and returns to the caller
+		// 2) the caller immediately calls s.Stop, which sets s.listener to nil
+		// 3) the go routine runs and calls this function
+		// So this prevents the panic which was reported in
+		// in https://jira.hyperledger.org/browse/FAB-3100.
+		return nil
 	}
+	s.serveError = http.Serve(listener, s.mux)
+	log.Errorf("Server has stopped serving: %s", s.serveError)
+	s.closeListener()
 	return s.serveError
 }
 
@@ -506,4 +509,19 @@ func (s *Server) makeFileNamesAbsolute() error {
 		*namePtr = abs
 	}
 	return nil
+}
+
+// closeListener closes the listening endpoint
+func (s *Server) closeListener() error {
+	if s.listener == nil {
+		return nil
+	}
+	err := s.listener.Close()
+	if err == nil {
+		log.Info("The server closed its listener endpoint")
+	} else {
+		log.Errorf("The server failed to close its listener endpoint; err=%s", err)
+	}
+	s.listener = nil
+	return err
 }
