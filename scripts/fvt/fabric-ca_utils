@@ -14,6 +14,7 @@ export MSP_CERT_DIR='msp/signcerts'
 export ROOTCERT="$TESTDATA/root.pem"
 export CA_HOST_ADDRESS="127.0.0.1"
 export CA_DEFAULT_PORT="7054"
+export FABRIC_CA_DATA="/etc/hyperledger/fabric-ca"
 
 DATE='date +%Y-%m-%d'
 TIME='date +%I:%M:%S%p'
@@ -443,8 +444,8 @@ cat > $runconfig <<EOF
           "enabled": "$TLS_ON",
           "certfiles": [ "$ROOTCERT" ],
           "client": {
-             "certfile": "$TESTDATA/tls_server-cert.pem",
-             "keyfile": "$TESTDATA/tls_server-key.pem"
+             "certfile": "$FABRIC_CA_DATA/tls_client-cert.pem",
+             "keyfile": "$FABRIC_CA_DATA/tls_client-key.pem"
           }
        }
    },
@@ -464,8 +465,8 @@ cat > $runconfig <<EOF
       "tls": {
          "certfiles": [ "$ROOTCERT" ],
          "client": {
-            "certfile": "$TESTDATA/tls_server-cert.pem",
-            "keyfile": "$TESTDATA/tls_server-key.pem"
+            "certfile": "$FABRIC_CA_DATA/tls_client-cert.pem",
+            "keyfile": "$FABRIC_CA_DATA/tls_client-key.pem"
          }
       }
    },
@@ -633,8 +634,8 @@ db:
      certfiles:
        - $ROOTCERT
      client:
-       certfile: $TESTDATA/tls_server-cert.pem
-       keyfile: $TESTDATA/tls_server-key.pem
+       certfile: $FABRIC_CA_DATA/tls_client-cert.pem
+       keyfile: $FABRIC_CA_DATA/tls_client-key.pem
 tls:
   enabled: $TLS_ON
   certfile: $TESTDATA/tls_server-cert.pem
@@ -650,8 +651,8 @@ ldap:
     certfiles:
       - $ROOTCERT
     client:
-      certfile: $TESTDATA/tls_server-cert.pem
-      keyfile: $TESTDATA/tls_server-key.pem
+      certfile: $FABRIC_CA_DATA/tls_client-cert.pem
+      keyfile: $FABRIC_CA_DATA/tls_client-key.pem
 affiliations:
   bank_a:
     - department1
