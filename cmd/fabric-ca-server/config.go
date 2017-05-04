@@ -287,49 +287,41 @@ cafiles:
 `
 )
 
-var (
-	// cfgFileName is the name of the config file
-	cfgFileName string
-	// serverCfg is the server's config
-	serverCfg *lib.ServerConfig
-)
-
 // Initialize config
-func configInit() (err error) {
-
+func (s *ServerCmd) configInit() (err error) {
 	// Make the config file name absolute
-	if !filepath.IsAbs(cfgFileName) {
-		cfgFileName, err = filepath.Abs(cfgFileName)
+	if !filepath.IsAbs(s.cfgFileName) {
+		s.cfgFileName, err = filepath.Abs(s.cfgFileName)
 		if err != nil {
 			return fmt.Errorf("Failed to get full path of config file: %s", err)
 		}
 	}
 
 	// If the config file doesn't exist, create a default one
-	if !util.FileExists(cfgFileName) {
-		err = createDefaultConfigFile()
+	if !util.FileExists(s.cfgFileName) {
+		err = s.createDefaultConfigFile()
 		if err != nil {
 			return fmt.Errorf("Failed to create default configuration file: %s", err)
 		}
-		log.Infof("Created default configuration file at %s", cfgFileName)
+		log.Infof("Created default configuration file at %s", s.cfgFileName)
 	} else {
-		log.Infof("Configuration file location: %s", cfgFileName)
+		log.Infof("Configuration file location: %s", s.cfgFileName)
 	}
 
 	// Read the config
 	// viper.SetConfigFile(cfgFileName)
 	viper.AutomaticEnv() // read in environment variables that match
-	err = lib.UnmarshalConfig(serverCfg, viper.GetViper(), cfgFileName, true, true)
+	err = lib.UnmarshalConfig(s.serverCfg, viper.GetViper(), s.cfgFileName, true, true)
 	if err != nil {
 		return err
 	}
 
-	err = tls.AbsTLSClient(&serverCfg.CAcfg.DB.TLS, filepath.Dir(cfgFileName))
+	err = tls.AbsTLSClient(&s.serverCfg.CAcfg.DB.TLS, filepath.Dir(s.cfgFileName))
 	if err != nil {
 		return err
 	}
 
-	err = tls.AbsTLSClient(&serverCfg.CAcfg.LDAP.TLS, filepath.Dir(cfgFileName))
+	err = tls.AbsTLSClient(&s.serverCfg.CAcfg.LDAP.TLS, filepath.Dir(s.cfgFileName))
 	if err != nil {
 		return err
 	}
@@ -337,7 +329,7 @@ func configInit() (err error) {
 	return nil
 }
 
-func createDefaultConfigFile() error {
+func (s *ServerCmd) createDefaultConfigFile() error {
 	// Create a default config, but only if they provided an administrative
 	// user ID and password
 	up := viper.GetString("boot")
@@ -373,32 +365,12 @@ func createDefaultConfigFile() error {
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
 
 	// Now write the file
-	cfgDir := filepath.Dir(cfgFileName)
+	cfgDir := filepath.Dir(s.cfgFileName)
 	err = os.MkdirAll(cfgDir, 0755)
 	if err != nil {
 		return err
 	}
 
 	// Now write the file
-	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0644)
-}
-
-// getCAName returns CA Name
-// If ca.name property is specified (via the environment variable
-// 'FABRIC_CA_SERVER_CA_NAME' or the command line option '--ca.name' or
-// in the configuration file), then its value is returned
-// If ca.name property is not specified, domain is extracted from the hostname and is
-// returned
-// If domain is empty, then hostname is returned
-func getCAName(hostname string) (caName string) {
-	caName = viper.GetString("ca.name")
-	if caName != "" {
-		return caName
-	}
-
-	caName = strings.Join(strings.Split(hostname, ".")[1:], ".")
-	if caName == "" {
-		caName = hostname
-	}
-	return caName
+	return ioutil.WriteFile(s.cfgFileName, []byte(cfg), 0644)
 }
