@@ -391,6 +391,7 @@ func (s *Server) listenAndServe() (err error) {
 		c.Port = DefaultServerPort
 	}
 	addr := net.JoinHostPort(c.Address, strconv.Itoa(c.Port))
+	addrStr := fmt.Sprintf("http://%s", addr)
 
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
@@ -427,15 +428,27 @@ func (s *Server) listenAndServe() (err error) {
 
 		listener, err = tls.Listen("tcp", addr, config)
 		if err != nil {
-			return fmt.Errorf("TLS listen failed: %s", err)
+			return fmt.Errorf("TLS listen failed for %s: %s", addrStr, err)
 		}
-		log.Infof("Listening at https://%s", addr)
+		log.Infof("Listening at %s", addrStr)
 	} else {
-		listener, err = net.Listen("tcp", addr)
-		if err != nil {
-			return fmt.Errorf("TCP listen failed: %s", err)
+		for i := 0; i < 10; i++ {
+			// The following call has been known to return nil, nil.
+			// In this case, we try up to 10 times before giving up.
+			listener, err = net.Listen("tcp", addr)
+			if err != nil {
+				return fmt.Errorf("TCP listen failed for %s: %s", addrStr, err)
+			}
+			if listener != nil {
+				log.Infof("Listening at %s", addrStr)
+				break
+			}
+			log.Warning("Failed to listen at %s", addrStr)
 		}
-		log.Infof("Listening at http://%s", addr)
+		if listener == nil {
+			// Even after 10 attempts, we still fail to listen so return error
+			return fmt.Errorf("Could not listen at %s", addrStr)
+		}
 	}
 	s.listener = listener
 
