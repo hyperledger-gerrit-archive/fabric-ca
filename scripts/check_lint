@@ -1,5 +1,7 @@
 #!/bin/bash
 
+GOLINT="$GOPATH/bin/golint"
+
 function runlint {
    for dir in `ls`
    do
@@ -8,21 +10,21 @@ function runlint {
          vendor|bin|testdata|scripts)
            ;;
         *)
-           golint $dir/...
+           $GOLINT $dir/...
            ;;
         esac
       fi
    done
 }
 
-if [ ! -f $GOPATH/bin/golint ]; then
+if [ ! -f $GOLINT ]; then
    echo "Installing golint ..."
    go get -u github.com/golang/lint/golint
 fi
 
 echo "Running lint ..."
 found=$(runlint)
-# found=`golint \`find . -name "*.go" | grep -v "./vendor"\` 2>&1`
+
 if [ "$found" != "" ]; then
    echo "YOU MUST FIX THE FOLLOWING LINT PROBLEMS:"
    echo "$found"
