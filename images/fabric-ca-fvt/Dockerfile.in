@@ -36,6 +36,7 @@ RUN apt-get -y install --no-install-recommends bc vim lsof sqlite3 haproxy postg
 RUN apt-get -y install ssl-cert
 RUN apt-get -y autoremove
 
+
 # Configure and start postgres
 RUN echo $PGUSER:$PGUSER | chpasswd
 RUN mkdir -p $PGDATA && chown postgres:postgres $PGDATA
@@ -104,6 +105,7 @@ RUN chmod +x /usr/local/bin/fabric-ca-server
 # Clean up APT when done.
 RUN apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+RUN mysql_ssl_rsa_setup -d /var/lib/mysql --uid=mysql
 WORKDIR ${GOPATH}/src/github.com/hyperledger/fabric-ca
 RUN cp $FABRIC_CA_DATA/start.sh /
 ENTRYPOINT [ "/start.sh" ]
