@@ -12,6 +12,7 @@ export PGPASSWORD='postgres'
 export MSP_KEY_DIR='msp/keystore'
 export MSP_CERT_DIR='msp/signcerts'
 export ROOTCERT="$TESTDATA/root.pem"
+export MYSQL_ROOTCERT="/var/lib/mysql/ca.pem"
 export CA_HOST_ADDRESS="127.0.0.1"
 export CA_DEFAULT_PORT="7054"
 export FABRIC_CA_DATA="/etc/hyperledger/fabric-ca"
@@ -633,6 +634,7 @@ db:
      enabled: $TLS_ON
      certfiles:
        - $ROOTCERT
+       - $MYSQL_ROOTCERT
      client:
        certfile: $FABRIC_CA_DATA/tls_client-cert.pem
        keyfile: $FABRIC_CA_DATA/tls_client-key.pem
@@ -650,6 +652,7 @@ ldap:
   tls:
     certfiles:
       - $ROOTCERT
+      - $MYSQL_ROOTCERT
     client:
       certfile: $FABRIC_CA_DATA/tls_client-cert.pem
       keyfile: $FABRIC_CA_DATA/tls_client-key.pem
