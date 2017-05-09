@@ -396,7 +396,7 @@ func TestGetUser(t *testing.T) {
 	viper.BindEnv("url", "FABRIC_CA_CLIENT_URL")
 	os.Setenv("FABRIC_CA_CLIENT_URL", "http://foo:bar@localhost:7054")
 
-	user, pass, err := GetUser()
+	user, pass, err := GetUser(viper.GetViper())
 	if err != nil {
 		t.Error(err)
 	}

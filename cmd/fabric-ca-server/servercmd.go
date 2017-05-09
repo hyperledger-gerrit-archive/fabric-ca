@@ -33,6 +33,8 @@ import (
 type ServerCmd struct {
 	// rootCmd is the cobra command
 	rootCmd *cobra.Command
+	// My viper instance
+	myViper *viper.Viper
 	// blockingStart indicates whether to block after starting the server or not
 	blockingStart bool
 	// cfgFileName is the name of the configuration file
@@ -45,6 +47,7 @@ type ServerCmd struct {
 func NewCommand(blockingStart bool) *ServerCmd {
 	s := &ServerCmd{
 		blockingStart: blockingStart,
+		myViper:       viper.New(),
 	}
 	s.init()
 	return s
@@ -69,7 +72,7 @@ func (s *ServerCmd) init() {
 				return err
 			}
 			cmd.SilenceUsage = true
-			util.CmdRunBegin()
+			util.CmdRunBegin(s.myViper)
 			return nil
 		},
 	}
@@ -122,13 +125,13 @@ func (s *ServerCmd) registerFlags() {
 	cfg := util.GetDefaultConfigFile(cmdName)
 
 	// All env variables must be prefixed
-	viper.SetEnvPrefix(envVarPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	s.myViper.SetEnvPrefix(envVarPrefix)
+	s.myViper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// Set specific global flags used by all commands
 	pflags := s.rootCmd.PersistentFlags()
 	pflags.StringVarP(&s.cfgFileName, "config", "c", cfg, "Configuration file")
-	util.FlagString(pflags, "boot", "b", "",
+	util.FlagString(s.myViper, pflags, "boot", "b", "",
 		"The user:pass for bootstrap admin which is required to build default config file")
 
 	// Register flags for all tagged and exported fields in the config
@@ -138,12 +141,12 @@ func (s *ServerCmd) registerFlags() {
 		"help.csr.serialnumber": "The serial number in a certificate signing request to a parent fabric-ca-server",
 		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request to a parent fabric-ca-server",
 	}
-	err := util.RegisterFlags(pflags, s.serverCfg, nil)
+	err := util.RegisterFlags(s.myViper, pflags, s.serverCfg, nil)
 	if err != nil {
 		panic(err)
 	}
 	s.serverCfg.CAcfg = lib.CAConfig{}
-	err = util.RegisterFlags(pflags, &s.serverCfg.CAcfg, tags)
+	err = util.RegisterFlags(s.myViper, pflags, &s.serverCfg.CAcfg, tags)
 	if err != nil {
 		panic(err)
 	}

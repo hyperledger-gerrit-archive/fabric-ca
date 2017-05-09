@@ -51,7 +51,7 @@ func (c *ClientCmd) newEnrollCommand() *cobra.Command {
 // The client enroll main logic
 func (c *ClientCmd) runEnroll(cmd *cobra.Command) error {
 	log.Debug("Enroll entered")
-	_, _, err := util.GetUser()
+	_, _, err := util.GetUser(c.myViper)
 	if err != nil {
 		return err
 	}

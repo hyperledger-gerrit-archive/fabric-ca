@@ -25,7 +25,6 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/util"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -92,16 +91,10 @@ func TestErrors(t *testing.T) {
 		{[]string{cmdName, "start", "-c", startYaml, "-b", "user:pass", "ca.key"}, "too many arguments"},
 	}
 
-	// Explicitly set the default for ca.name to "", this is to test if server
-	// does not start if ca.name is not specified
-	viper.SetDefault("ca.name", "")
 	for _, e := range errorCases {
 		errorTest(&e, t)
 		_ = os.Remove(initYaml)
 	}
-	// We are done with all error cases. Now, set the ca.name default value to
-	// "acme.com", as ca.name is a required property for server to start
-	viper.SetDefault("ca.name", "acme.com")
 }
 
 func TestValid(t *testing.T) {

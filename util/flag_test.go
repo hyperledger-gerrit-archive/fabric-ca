@@ -57,7 +57,7 @@ func TestRegisterFlags(t *testing.T) {
 	tags := map[string]string{
 		"help.fb.int": "This is an int field",
 	}
-	err := RegisterFlags(&pflag.FlagSet{}, &A{}, tags)
+	err := RegisterFlags(viper.GetViper(), &pflag.FlagSet{}, &A{}, tags)
 	if err != nil {
 		t.Errorf("Failed to register flags: %s", err)
 	}
