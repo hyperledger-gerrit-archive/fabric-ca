@@ -39,6 +39,8 @@ const (
 type ClientCmd struct {
 	// rootCmd is the base command for the Hyerledger Fabric CA client
 	rootCmd *cobra.Command
+	// My viper instance
+	myViper *viper.Viper
 	// cfgFileName is the name of the configuration file
 	cfgFileName string
 	// clientCfg is the client's configuration
@@ -53,7 +55,9 @@ type ClientCmd struct {
 
 // NewCommand returns new ClientCmd ready for running
 func NewCommand() *ClientCmd {
-	c := &ClientCmd{}
+	c := &ClientCmd{
+		myViper: viper.New(),
+	}
 	c.init()
 	return c
 }
@@ -75,7 +79,7 @@ func (c *ClientCmd) init() {
 			if err != nil {
 				return err
 			}
-			util.CmdRunBegin()
+			util.CmdRunBegin(c.myViper)
 
 			cmd.SilenceUsage = true
 
@@ -102,8 +106,8 @@ func (c *ClientCmd) registerFlags() {
 	cfg := util.GetDefaultConfigFile(cmdName)
 
 	// All env variables must be prefixed
-	viper.SetEnvPrefix(envVarPrefix)
-	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	c.myViper.SetEnvPrefix(envVarPrefix)
+	c.myViper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	host, err := os.Hostname()
 	if err != nil {
@@ -113,7 +117,7 @@ func (c *ClientCmd) registerFlags() {
 	// Set global flags used by all commands
 	pflags := c.rootCmd.PersistentFlags()
 	pflags.StringVarP(&c.cfgFileName, "config", "c", cfg, "Configuration file")
-	util.FlagString(pflags, "myhost", "m", host,
+	util.FlagString(c.myViper, pflags, "myhost", "m", host,
 		"Hostname to include in the certificate signing request during enrollment")
 
 	c.clientCfg = &lib.ClientConfig{}
@@ -122,7 +126,7 @@ func (c *ClientCmd) registerFlags() {
 		"help.csr.serialnumber": "The serial number in a certificate signing request",
 		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request",
 	}
-	err = util.RegisterFlags(pflags, c.clientCfg, tags)
+	err = util.RegisterFlags(c.myViper, pflags, c.clientCfg, tags)
 	if err != nil {
 		panic(err)
 	}

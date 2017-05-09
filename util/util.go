@@ -466,8 +466,13 @@ func Fatal(format string, v ...interface{}) {
 }
 
 // GetUser returns username and password from CLI input
-func GetUser() (string, string, error) {
-	fabricCAServerURL := viper.GetString("url")
+func GetUser(v *viper.Viper) (string, string, error) {
+	var fabricCAServerURL string
+	if v != nil {
+		fabricCAServerURL = v.GetString("url")
+	} else {
+		fabricCAServerURL = viper.GetString("url")
+	}
 
 	URL, err := url.Parse(fabricCAServerURL)
 	if err != nil {

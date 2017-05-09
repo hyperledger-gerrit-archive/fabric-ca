@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -309,9 +308,8 @@ func (s *ServerCmd) configInit() (err error) {
 	}
 
 	// Read the config
-	// viper.SetConfigFile(cfgFileName)
-	viper.AutomaticEnv() // read in environment variables that match
-	err = lib.UnmarshalConfig(s.serverCfg, viper.GetViper(), s.cfgFileName, true, true)
+	s.myViper.AutomaticEnv() // read in environment variables that match
+	err = lib.UnmarshalConfig(s.serverCfg, s.myViper, s.cfgFileName, true, true)
 	if err != nil {
 		return err
 	}
@@ -332,7 +330,7 @@ func (s *ServerCmd) configInit() (err error) {
 func (s *ServerCmd) createDefaultConfigFile() error {
 	// Create a default config, but only if they provided an administrative
 	// user ID and password
-	up := viper.GetString("boot")
+	up := s.myViper.GetString("boot")
 	if up == "" {
 		return errors.New("The '-b user:pass' option is required")
 	}

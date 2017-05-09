@@ -270,11 +270,11 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 		caConfig.DB.Datasource = filepath.Base(caConfig.DB.Datasource)
 	}
 
-	if !viper.IsSet("registry.maxenrollments") {
+	if !caViper.IsSet("registry.maxenrollments") {
 		caConfig.Registry.MaxEnrollments = s.CA.Config.Registry.MaxEnrollments
 	}
 
-	if !viper.IsSet("db.tls.enabled") {
+	if !caViper.IsSet("db.tls.enabled") {
 		caConfig.DB.TLS.Enabled = s.CA.Config.DB.TLS.Enabled
 	}
 
