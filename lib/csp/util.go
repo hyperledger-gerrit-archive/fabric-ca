@@ -20,7 +20,9 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -258,4 +260,58 @@ func makeFileAbs(file, dir string) (string, error) {
 		return "", fmt.Errorf("Failed making '%s' absolute based on '%s'", file, dir)
 	}
 	return path, nil
+}
+
+// LoadX509KeyPair reads and parses a public/private key pair from a pair
+// of files. The files must contain PEM encoded data. The certificate file
+// may contain intermediate certificates following the leaf certificate to
+// form a certificate chain. On successful return, Certificate.Leaf will
+// be nil because the parsed form of the certificate is not retained.
+//
+// This function originated from crypto/tls/tls.go and was adapted to use a
+// BCCSP Signer
+func LoadX509KeyPair(certFile string, csp bccsp.BCCSP) (tls.Certificate, error) {
+	fail := func(err error) (tls.Certificate, error) { return tls.Certificate{}, err }
+
+	certPEMBlock, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return tls.Certificate{}, err
+	}
+
+	var cert tls.Certificate
+	var skippedBlockTypes []string
+	for {
+		var certDERBlock *pem.Block
+		certDERBlock, certPEMBlock = pem.Decode(certPEMBlock)
+		if certDERBlock == nil {
+			break
+		}
+		if certDERBlock.Type == "CERTIFICATE" {
+			cert.Certificate = append(cert.Certificate, certDERBlock.Bytes)
+		} else {
+			skippedBlockTypes = append(skippedBlockTypes, certDERBlock.Type)
+		}
+	}
+
+	if len(cert.Certificate) == 0 {
+		if len(skippedBlockTypes) == 0 {
+			return fail(errors.New("tls: failed to find any PEM data in certificate input"))
+		}
+		if len(skippedBlockTypes) == 1 && strings.HasSuffix(skippedBlockTypes[0], "PRIVATE KEY") {
+			return fail(errors.New("tls: failed to find certificate PEM data in certificate input, but did find a private key; PEM inputs may have been switched"))
+		}
+		return fail(fmt.Errorf("tls: failed to find \"CERTIFICATE\" PEM block in certificate input after skipping PEM blocks of the following types: %v", skippedBlockTypes))
+	}
+
+	x509Cert, err := x509.ParseCertificate(cert.Certificate[0])
+	if err != nil {
+		return fail(err)
+	}
+
+	_, cert.PrivateKey, err = GetSignerFromCert(x509Cert, csp)
+	if err != nil {
+		return fail(fmt.Errorf("Could not get the private key that matches %s: %s", certFile, err))
+	}
+
+	return cert, nil
 }

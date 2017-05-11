@@ -34,6 +34,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/lib/csp"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 
@@ -395,9 +396,13 @@ func (s *Server) listenAndServe() (err error) {
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
 		var cer tls.Certificate
-		cer, err = tls.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile)
+		cer, err = csp.LoadX509KeyPair(c.TLS.CertFile, s.csp)
 		if err != nil {
-			return err
+			log.Debugf("Could not load TLS certificate with BCCSP, attempting fallback: %s", err)
+			cer, err = tls.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile)
+			if err != nil {
+				return err
+			}
 		}
 
 		if c.TLS.ClientAuth.Type == "" {
