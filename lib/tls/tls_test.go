@@ -39,11 +39,31 @@ func TestGetClientTLSConfig(t *testing.T) {
 		},
 	}
 
-	AbsTLSClient(cfg, configDir)
+	err := AbsTLSClient(cfg, configDir)
+	if err != nil {
+		t.Errorf("Failed to get absolute path for client TLS config: %s", err)
+	}
 
-	_, err := GetClientTLSConfig(cfg)
+	_, err = GetClientTLSConfig(cfg)
 	if err != nil {
 		t.Errorf("Failed to get TLS Config: %s", err)
+	}
+
+}
+
+func TestAbsServerTLSConfig(t *testing.T) {
+
+	cfg := &ServerTLSConfig{
+		KeyFile:  "tls_client-key.pem",
+		CertFile: "tls_client-cert.pem",
+		ClientAuth: ClientAuth{
+			CertFiles: []string{"root.pem"},
+		},
+	}
+
+	err := AbsTLSServer(cfg, configDir)
+	if err != nil {
+		t.Errorf("Failed to get absolute path for server TLS config: %s", err)
 	}
 
 }

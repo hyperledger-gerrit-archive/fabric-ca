@@ -91,6 +91,13 @@ mspdir:
 
 #############################################################################
 #    TLS section for secure socket connection
+#
+#  Certfiles - PEM-encoded list of trusted root certificate files
+#  Client:
+#    Certfile - PEM-encoded certificate file for when client authentication
+#    is enabled on server
+#    Keyfile - PEM-encoded key file for when client authentication
+#    is enabled on server
 #############################################################################
 tls:
   # TLS section for secure socket connection
@@ -102,6 +109,17 @@ tls:
 #############################################################################
 #  Certificate Signing Request section for generating the CSR for
 #  an enrollment certificate (ECert)
+#
+#  CN - Used by CAs to determine which domain the certificate is to be generated for
+#  Names -  A list of name objects. Each name object should contain at least one
+#  "C", "L", "O", "OU", or "ST" value (or any combination of these). These values are:
+#      "C": country
+#      "L": locality or municipality (such as city or town name)
+#      "O": organisation
+#      "OU": organisational unit, such as the department responsible for owning the key;
+#      it can also be used for a "Doing Business As" (DBS) name
+#      "ST": the state or province
+#  Hosts - A list of space-separated host names which the certificate should be valid for
 #
 #  NOTE: The serialnumber field below, if specified, becomes part of the issued
 #  certificate's DN (Distinquished Name).  For example, one use case for this is
@@ -131,10 +149,17 @@ csr:
 
 #############################################################################
 #  Registration section used to register a new identity with fabric-ca server
+#
+#  ID - Unique name of the identity
+#  Type - Type of identity being registered (e.g. 'peer, app, user')
+#  Maxenrollment - The maximum number of times the secret can be reused to enroll
+#  Affiliation - The identity's affiliation
+#  Attributes - List of name/value pairs of attribute for identity
 #############################################################################
 id:
   name:
   type:
+  maxenrollments:
   affiliation:
   attributes:
     - name:
@@ -142,12 +167,18 @@ id:
 
 #############################################################################
 #  Enrollment section used to enroll an identity with fabric-ca server
+#
+#  Profile - Name of the signing profile to use in issuing the certificate
+#  Label - Label to use in HSM operations
 #############################################################################
 enrollment:
   hosts:
   profile:
   label:
 
+#############################################################################
+# Name of the CA to connect to within the fabric-ca server
+#############################################################################
 # Name of the CA to connect to within the fabric-ca server
 caname:
 
