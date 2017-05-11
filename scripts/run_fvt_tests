@@ -33,6 +33,7 @@ done
 
 echo "Finished running fvt tests"
 grep RC: $RESULTLOG
+sleep 1
 echo $RC >> $RESULTLOG
 ) | tee -a $RESULTLOG 2>&1
 RC=$(tail -n1 $RESULTLOG)
