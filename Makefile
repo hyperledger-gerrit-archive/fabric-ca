@@ -47,7 +47,7 @@ BASEIMAGE_RELEASE = 0.3.0
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 DOCKER_ORG = hyperledger
-IMAGES = $(PROJECT_NAME) openldap
+IMAGES = $(PROJECT_NAME)
 FVTIMAGE = $(PROJECT_NAME)-fvt
 
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
