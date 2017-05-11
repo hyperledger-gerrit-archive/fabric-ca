@@ -408,8 +408,7 @@ func (s *Server) listenAndServe() (err error) {
 
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
-		var cer tls.Certificate
-		cer, err = tls.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile)
+		cer, err := util.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile, s.csp)
 		if err != nil {
 			return err
 		}
@@ -434,7 +433,7 @@ func (s *Server) listenAndServe() (err error) {
 		}
 
 		config := &tls.Config{
-			Certificates: []tls.Certificate{cer},
+			Certificates: []tls.Certificate{*cer},
 			ClientAuth:   clientAuth,
 			ClientCAs:    certPool,
 		}
