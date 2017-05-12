@@ -27,6 +27,7 @@
 
 PROJECT_NAME   = fabric-ca
 BASE_VERSION   = 1.0.0
+PREV_VERSION   = 1.0.0-alpha
 IS_RELEASE     = false
 
 ifneq ($(IS_RELEASE),true)
@@ -59,6 +60,9 @@ all: rename docker unit-tests
 
 rename: .FORCE
 	@scripts/rename-repo
+
+changelog:
+	@scripts/changelog.sh v$(PREV_VERSION) v$(BASE_VERSION)
 
 docker: $(patsubst %,build/image/%/$(DUMMY), $(IMAGES))
 
