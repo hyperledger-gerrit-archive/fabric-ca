@@ -35,7 +35,7 @@ import (
 type serverContext struct {
 	req            *http.Request
 	resp           http.ResponseWriter
-	server         *Server
+	endpoint       *Endpoint
 	ca             *CA
 	enrollmentID   string
 	enrollmentCert *x509.Certificate
@@ -47,11 +47,11 @@ type serverContext struct {
 }
 
 // newServerContext is the constructor for a serverContext
-func newServerContext(r *http.Request, w http.ResponseWriter, s *Server) *serverContext {
+func newServerContext(r *http.Request, w http.ResponseWriter, e *Endpoint) *serverContext {
 	return &serverContext{
-		req:    r,
-		resp:   w,
-		server: s,
+		req:      r,
+		resp:     w,
+		endpoint: e,
 	}
 }
 
@@ -156,7 +156,7 @@ func (ctx *serverContext) GetCA() (*CA, error) {
 			return nil, err
 		}
 		// Get the CA by its name
-		ctx.ca, err = ctx.server.GetCA(name)
+		ctx.ca, err = ctx.endpoint.Server.GetCA(name)
 		if err != nil {
 			return nil, err
 		}
