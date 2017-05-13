@@ -354,6 +354,16 @@ func (s *Server) createDefaultCAConfigs(cacount int) error {
 	return nil
 }
 
+// GetCA returns the CA given its name
+func (s *Server) GetCA(name string) (*CA, error) {
+	// Lookup the CA from the server
+	ca := s.caMap[name]
+	if ca == nil {
+		return nil, newErr(ErrCANotFound, 404, "CA '%s' does not exist", name)
+	}
+	return ca, nil
+}
+
 // Register all endpoint handlers
 func (s *Server) registerHandlers() {
 	s.mux = http.NewServeMux()
