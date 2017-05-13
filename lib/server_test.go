@@ -412,7 +412,7 @@ func invalidBasicAuthorization(t *testing.T) {
 
 	err = client.SendReq(req, nil)
 	if err == nil {
-		t.Error("Incorrect auth type set, request should have failed with authorization error")
+		t.Error("Incorrect auth type set for register request; it should have failed but passed")
 	}
 }
 
