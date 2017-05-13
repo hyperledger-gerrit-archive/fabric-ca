@@ -18,18 +18,15 @@ package lib
 
 import (
 	"bytes"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
 
 	"github.com/cloudflare/cfssl/api"
 	cerr "github.com/cloudflare/cfssl/errors"
 	"github.com/cloudflare/cfssl/log"
-	"github.com/cloudflare/cfssl/revoke"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -103,84 +100,27 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 
 	r.Header.Set(caHdrName, req.CAName)
 
-	authHdr := r.Header.Get("authorization")
+	ctx := newServerRequestContext(r, w, ah.server)
+	var id string
 	switch ah.authType {
 	case noAuth:
 		// No authentication required
 		return nil
 	case basic:
-		if authHdr == "" {
-			log.Debug("No authorization header")
-			return errNoAuthHdr
-		}
-		user, pwd, ok := r.BasicAuth()
-		if ok {
-			if ah.authType != basic {
-				log.Debugf("Basic auth is not allowed; found %s", authHdr)
-				return errBasicAuthNotAllowed
-			}
-			u, err := ah.server.caMap[req.CAName].registry.GetUser(user, nil)
-			if err != nil {
-				log.Debugf("Failed to get identity '%s': %s", user, err)
-				return authError
-			}
-			err = u.Login(pwd)
-			if err != nil {
-				log.Debugf("Failed to login '%s': %s", user, err)
-				return authError
-			}
-			log.Debug("Identity/Pass was correct")
-			r.Header.Set(enrollmentIDHdrName, user)
-			return nil
-		}
-		return authError
-	case token:
-
-		// verify token
-		cert, err2 := util.VerifyToken(ah.server.caMap[req.CAName].csp, authHdr, body)
-		if err2 != nil {
-			log.Debugf("Failed to verify token: %s", err2)
-			return authError
-		}
-		id := util.GetEnrollmentIDFromX509Certificate(cert)
-		log.Debugf("Checking for revocation/expiration of certificate owned by '%s'", id)
-
-		// VerifyCertificate ensures that the certificate passed in hasn't
-		// expired and checks the CRL for the server.
-		revokedOrExpired, checked := revoke.VerifyCertificate(cert)
-		if revokedOrExpired {
-			log.Debugf("Certificate owned by '%s' has expired", id)
-			return authError
-		}
-		if !checked {
-			log.Debug("A failure occurred while checking for revocation and expiration")
-			return authError
-		}
-
-		aki := hex.EncodeToString(cert.AuthorityKeyId)
-		serial := util.GetSerialAsHex(cert.SerialNumber)
-
-		aki = strings.ToLower(strings.TrimLeft(aki, "0"))
-		serial = strings.ToLower(strings.TrimLeft(serial, "0"))
-
-		certs, err := ah.server.caMap[req.CAName].CertDBAccessor().GetCertificate(serial, aki)
+		id, err = ctx.BasicAuthentication()
 		if err != nil {
-			return authError
+			return err
 		}
-
-		if len(certs) == 0 {
-			log.Error("No certificates found for provided serial and aki")
-			return authError
+		log.Debugf("Successful basic authentication of '%s'", id)
+		r.Header.Set(enrollmentIDHdrName, id)
+		return nil
+	case token:
+		id, err = ctx.TokenAuthentication()
+		if err != nil {
+			return err
 		}
-
-		for _, certificate := range certs {
-			if certificate.Status == "revoked" {
-				return authError
-			}
-		}
-
-		log.Debugf("Successful authentication of '%s'", id)
-		r.Header.Set(enrollmentIDHdrName, util.GetEnrollmentIDFromX509Certificate(cert))
+		log.Debugf("Successful token authentication of '%s'", id)
+		r.Header.Set(enrollmentIDHdrName, id)
 		return nil
 	default: // control should never reach here
 		log.Errorf("No handler for the authentication type: %d", ah.authType)
