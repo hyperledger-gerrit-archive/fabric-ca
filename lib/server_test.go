@@ -35,6 +35,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -118,13 +119,19 @@ func TestRootServer(t *testing.T) {
 		t.Errorf("Admin should have 1 cert in DB but found %d", len(recs))
 	}
 	// User1 should not be allowed to register
-	_, err = user1.Register(&api.RegistrationRequest{
+	user2Registration := &api.RegistrationRequest{
 		Name:        "user2",
 		Type:        "user",
 		Affiliation: "hyperledger.fabric-ca",
-	})
+	}
+	_, err = user1.Register(user2Registration)
 	if err == nil {
-		t.Errorf("Failed to register user1: %s", err)
+		t.Error("User1 should have failed to register user2")
+	}
+	// Admin should be allowed to register user2
+	_, err = admin.Register(user2Registration)
+	if err != nil {
+		t.Errorf("Admin failed to register user2: %s", err)
 	}
 	// User1 renew
 	eresp, err = user1.Reenroll(&api.ReenrollmentRequest{})
@@ -135,12 +142,22 @@ func TestRootServer(t *testing.T) {
 	// User1 should not be allowed to revoke admin
 	err = user1.Revoke(&api.RevocationRequest{Name: "admin"})
 	if err == nil {
-		t.Error("User1 should not be be allowed to revoke admin")
+		t.Error("User1 should not be allowed to revoke admin")
+	}
+	// User1 should not be allowed to revoke user2 because of affiliation
+	err = user1.Revoke(&api.RevocationRequest{Name: "user2"})
+	if err == nil {
+		t.Error("User1 should not be allowed to revoke user2 because of affiliation")
 	}
 	// User1 get's batch of tcerts
 	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
 	if err != nil {
 		t.Fatalf("Failed to get tcerts for user1: %s", err)
+	}
+	// Admin should not be allowed to revoke an invalid cert
+	err = admin.Revoke(&api.RevocationRequest{AKI: "foo", Serial: "bar"})
+	if err == nil {
+		t.Error("Admin should have failed to revoke foo/bar")
 	}
 	// Revoke user1's identity
 	err = admin.Revoke(&api.RevocationRequest{Name: "user1"})
@@ -377,7 +394,7 @@ func invalidTokenAuthorization(t *testing.T) {
 	req.Header.Set("authorization", token)
 
 	err = client.SendReq(req, nil)
-	if err.Error() != "Error response from server was: Authorization failure" {
+	if err == nil {
 		t.Error("Incorrect auth type set, request should have failed with authorization error")
 	}
 }
@@ -395,7 +412,7 @@ func invalidBasicAuthorization(t *testing.T) {
 	req.SetBasicAuth("admin", "adminpw")
 
 	err = client.SendReq(req, nil)
-	if err.Error() != "Error response from server was: Authorization failure" {
+	if err == nil {
 		t.Error("Incorrect auth type set, request should have failed with authorization error")
 	}
 }
@@ -718,6 +735,23 @@ func testIntermediateServer(idx int, t *testing.T) {
 	time.Sleep(time.Second)
 	// Stop it
 	intermediateServer.Stop()
+}
+
+func TestUnmarshalConfig(t *testing.T) {
+	cfg := &ServerConfig{}
+	cfgFile := "../testdata/testviperunmarshal.yaml"
+	err := UnmarshalConfig(cfg, viper.GetViper(), cfgFile, true, true)
+	if err != nil {
+		t.Errorf("UnmarshalConfig workaround=true failed: %s", err)
+	}
+	err = UnmarshalConfig(cfg, viper.GetViper(), cfgFile, true, false)
+	if err != nil {
+		t.Errorf("UnmarshalConfig workaround=false failed: %s", err)
+	}
+	err = UnmarshalConfig(cfg, viper.GetViper(), "foo.yaml", true, false)
+	if err == nil {
+		t.Error("UnmarshalConfig invalid file passed but should have failed")
+	}
 }
 
 // TestSqliteLocking tests to ensure that "database is locked"

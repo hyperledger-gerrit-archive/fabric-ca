@@ -343,19 +343,6 @@ func (c *Client) LoadCSRInfo(path string) (*api.CSRInfo, error) {
 	return &csrInfo, nil
 }
 
-// NewGet create a new GET request
-func (c *Client) newGet(endpoint string) (*http.Request, error) {
-	curl, err := c.getURL(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	req, err := http.NewRequest("GET", curl, bytes.NewReader([]byte{}))
-	if err != nil {
-		return nil, fmt.Errorf("Failed creating GET request for %s: %s", curl, err)
-	}
-	return req, nil
-}
-
 // NewPost create a new post request
 func (c *Client) newPost(endpoint string, reqBody []byte) (*http.Request, error) {
 	curl, err := c.getURL(endpoint)
