@@ -22,10 +22,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 
-	cfapi "github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/csr"
 	cferr "github.com/cloudflare/cfssl/errors"
 	"github.com/cloudflare/cfssl/log"
@@ -39,23 +36,6 @@ var (
 	basicConstraintsOID = asn1.ObjectIdentifier{2, 5, 29, 19}
 )
 
-// newEnrollHandler is the constructor for the enroll handler
-func newEnrollHandler(server *Server) (h http.Handler, err error) {
-	return newSignHandler(server, "enroll")
-}
-
-// newReenrollHandler is the constructor for the reenroll handler
-func newReenrollHandler(server *Server) (h http.Handler, err error) {
-	return newSignHandler(server, "reenroll")
-}
-
-// signHandler for enroll or reenroll requests
-type signHandler struct {
-	server *Server
-	// "enroll" or "reenroll"
-	endpoint string
-}
-
 // The enrollment response from the server
 type enrollmentResponseNet struct {
 	// Base64 encoded PEM-encoded ECert
@@ -64,72 +44,64 @@ type enrollmentResponseNet struct {
 	ServerInfo serverInfoResponseNet
 }
 
-// newSignHandler is the constructor for an enroll or reenroll handler
-func newSignHandler(server *Server, endpoint string) (h http.Handler, err error) {
-	// NewHandler is constructor for register handler
-	return &cfapi.HTTPHandler{
-		Handler: &signHandler{server: server, endpoint: endpoint},
-		Methods: []string{"POST"},
-	}, nil
+// Handle an enroll request, guarded by basic authentication
+func enrollHandler(ctx *serverRequestContext) (interface{}, error) {
+	id, err := ctx.BasicAuthentication()
+	if err != nil {
+		return nil, err
+	}
+	return handleEnroll(ctx, id)
 }
 
-// Handle an enroll or reenroll request.
-// Authentication has already occurred for both enroll and reenroll prior
-// to calling this function in auth.go.
-func (sh *signHandler) Handle(w http.ResponseWriter, r *http.Request) error {
-
-	log.Debugf("Received request for endpoint %s", sh.endpoint)
-
-	// Read the request's body
-	body, err := ioutil.ReadAll(r.Body)
+// Handle a reenroll request, guarded by token authentication
+func reenrollHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Authenticate the caller
+	id, err := ctx.TokenAuthentication()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	r.Body.Close()
+	return handleEnroll(ctx, id)
+}
 
+// Handle the common processing for enroll and reenroll
+func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
 	var req api.EnrollmentRequestNet
-
-	err = util.Unmarshal(body, &req, sh.endpoint)
+	err := ctx.ReadBody(&req)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	log.Debugf("Enrollment request: %+v\n", req)
-
-	caname := r.Header.Get(caHdrName)
-
-	// Make any authorization checks needed, depending on the contents
-	// of the CSR (Certificate Signing Request)
-	err = sh.csrAuthCheck(&req.SignRequest, r)
+	// Get the targeted CA
+	ca, err := ctx.GetCA()
 	if err != nil {
-		return err
+		return nil, err
 	}
-
+	// Authorization the caller, depending on the contents of the
+	// CSR (Certificate Signing Request)
+	err = csrAuthCheck(id, &req.SignRequest, ca)
+	if err != nil {
+		return nil, err
+	}
 	// Sign the certificate
-	cert, err := sh.server.caMap[caname].enrollSigner.Sign(req.SignRequest)
+	cert, err := ca.enrollSigner.Sign(req.SignRequest)
 	if err != nil {
-		err = fmt.Errorf("Failed signing for endpoint %s: %s", sh.endpoint, err)
-		log.Error(err.Error())
-		return err
+		return nil, fmt.Errorf("Signing failure: %s", err)
 	}
-
-	// Send the response with the cert and the server info
+	// Add server info to the response
 	resp := &enrollmentResponseNet{Cert: util.B64Encode(cert)}
-	err = sh.server.caMap[caname].fillCAInfo(&resp.ServerInfo)
+	err = ca.fillCAInfo(&resp.ServerInfo)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	return cfapi.SendResponse(w, resp)
+	// Success
+	return resp, nil
 }
 
 // Make any authorization checks needed, depending on the contents
 // of the CSR (Certificate Signing Request).
 // In particular, if the request is for an intermediate CA certificate,
 // the caller must have the "hf.IntermediateCA" attribute.
-func (sh *signHandler) csrAuthCheck(req *signer.SignRequest, r *http.Request) error {
+func csrAuthCheck(id string, req *signer.SignRequest, ca *CA) error {
 	// Decode and parse the request into a CSR so we can make checks
-	caname := r.Header.Get(caHdrName)
 	block, _ := pem.Decode([]byte(req.Request))
 	if block == nil {
 		return cferr.New(cferr.CSRError, cferr.DecodeFailed)
@@ -148,15 +120,15 @@ func (sh *signHandler) csrAuthCheck(req *signer.SignRequest, r *http.Request) er
 			var constraints csr.BasicConstraints
 			var rest []byte
 			if rest, err = asn1.Unmarshal(val.Value, &constraints); err != nil {
-				return cferr.Wrap(cferr.CSRError, cferr.ParseFailed, err)
+				return newErr(ErrBadCSR, 400, "Failed parsing CSR constraints: %s", err)
 			} else if len(rest) != 0 {
-				return cferr.Wrap(cferr.CSRError, cferr.ParseFailed, errors.New("x509: trailing data after X.509 BasicConstraints"))
+				return newErr(ErrBadCSR, 400, "Trailing data after X.509 BasicConstraints")
 			}
 			if constraints.IsCA {
 				log.Debug("CSR request received for an intermediate CA")
 				// This is a request for a CA certificate, so make sure the caller
 				// has the 'hf.IntermediateCA' attribute
-				return sh.server.caMap[caname].userHasAttribute(r.Header.Get(enrollmentIDHdrName), "hf.IntermediateCA")
+				return ca.userHasAttribute(id, "hf.IntermediateCA")
 			}
 		}
 	}

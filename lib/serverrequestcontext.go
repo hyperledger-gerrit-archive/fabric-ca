@@ -35,7 +35,7 @@ import (
 type serverRequestContext struct {
 	req            *http.Request
 	resp           http.ResponseWriter
-	server         *Server
+	endpoint       *Endpoint
 	ca             *CA
 	enrollmentID   string
 	enrollmentCert *x509.Certificate
@@ -47,11 +47,11 @@ type serverRequestContext struct {
 }
 
 // newServerRequestContext is the constructor for a serverRequestContext
-func newServerRequestContext(r *http.Request, w http.ResponseWriter, s *Server) *serverRequestContext {
+func newServerRequestContext(r *http.Request, w http.ResponseWriter, e *Endpoint) *serverRequestContext {
 	return &serverRequestContext{
-		req:    r,
-		resp:   w,
-		server: s,
+		req:      r,
+		resp:     w,
+		endpoint: e,
 	}
 }
 
@@ -158,7 +158,7 @@ func (ctx *serverRequestContext) GetCA() (*CA, error) {
 			return nil, err
 		}
 		// Get the CA by its name
-		ctx.ca, err = ctx.server.GetCA(name)
+		ctx.ca, err = ctx.endpoint.Server.GetCA(name)
 		if err != nil {
 			return nil, err
 		}
@@ -202,9 +202,9 @@ func (ctx *serverRequestContext) getCAName() (string, error) {
 	if ca != "" {
 		return ca, nil
 	}
-	// Next, check the request body
+	// Next, check the request body, if there is one
 	var body caNameReqBody
-	err := ctx.ReadBody(&body)
+	_, err := ctx.TryReadBody(&body)
 	if err != nil {
 		return "", err
 	}
@@ -213,19 +213,31 @@ func (ctx *serverRequestContext) getCAName() (string, error) {
 
 // ReadBody reads the request body and JSON unmarshals into 'body'
 func (ctx *serverRequestContext) ReadBody(body interface{}) error {
-	buf, err := ctx.ReadBodyBytes()
+	empty, err := ctx.TryReadBody(body)
 	if err != nil {
 		return err
 	}
-	if len(buf) == 0 {
+	if empty {
 		return newErr(ErrEmptyReqBody, 400, "Empty request body")
 	}
-	err = json.Unmarshal(buf, body)
-	if err != nil {
-		return newErr(ErrBadReqBody, 400, "Invalid request body: %s; body=%s",
-			err, string(buf))
-	}
 	return nil
+}
+
+// TryReadBody reads the request body into 'body' if not empty
+func (ctx *serverRequestContext) TryReadBody(body interface{}) (bool, error) {
+	buf, err := ctx.ReadBodyBytes()
+	if err != nil {
+		return false, err
+	}
+	empty := len(buf) == 0
+	if !empty {
+		err = json.Unmarshal(buf, body)
+		if err != nil {
+			return true, newErr(ErrBadReqBody, 400, "Invalid request body: %s; body=%s",
+				err, string(buf))
+		}
+	}
+	return empty, nil
 }
 
 // ReadBodyBytes reads the request body and returns bytes
