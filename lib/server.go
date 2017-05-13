@@ -17,10 +17,6 @@ limitations under the License.
 package lib
 
 import (
-	_ "net/http/pprof" // enables profiling
-)
-
-import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
@@ -28,6 +24,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	_ "net/http/pprof" // import to support profiling
 	"os"
 	"path"
 	"path/filepath"
@@ -367,35 +364,28 @@ func (s *Server) GetCA(name string) (*CA, error) {
 // Register all endpoint handlers
 func (s *Server) registerHandlers() {
 	s.mux = http.NewServeMux()
-	s.registerHandler("cainfo", newInfoHandler, noAuth)
-	s.registerHandler("register", newRegisterHandler, token)
-	s.registerHandler("enroll", newEnrollHandler, basic)
-	s.registerHandler("reenroll", newReenrollHandler, token)
-	s.registerHandler("revoke", newRevokeHandler, token)
-	s.registerHandler("tcert", newTCertHandler, token)
+	post := []string{"POST"}
+	getAndPost := []string{"GET", "POST"}
+	s.registerHandler("cainfo", getAndPost, cainfoHandler)
+	s.registerHandler("register", post, registerHandler)
+	s.registerHandler("enroll", post, enrollHandler)
+	s.registerHandler("reenroll", post, reenrollHandler)
+	s.registerHandler("revoke", post, revokeHandler)
+	s.registerHandler("tcert", post, tcertHandler)
 }
 
-// Register an endpoint handler
+// Register a handler
 func (s *Server) registerHandler(
 	path string,
-	getHandler func(server *Server) (http.Handler, error),
-	at authType) {
-
-	var handler http.Handler
-
-	handler, err := getHandler(s)
-	if err != nil {
-		log.Warningf("Endpoint '%s' is disabled: %s", path, err)
-		return
+	methods []string,
+	handler func(ctx *serverContext) (interface{}, error)) {
+	endpoint := &Endpoint{
+		Methods: methods,
+		Handler: handler,
+		Server:  s,
 	}
-
-	handler = &fcaAuthHandler{
-		server:   s,
-		authType: at,
-		next:     handler,
-	}
-	s.mux.Handle("/"+path, handler)
-	s.mux.Handle("/api/v1/"+path, handler)
+	s.mux.Handle("/"+path, endpoint)
+	s.mux.Handle("/api/v1/"+path, endpoint)
 }
 
 // Starting listening and serving
