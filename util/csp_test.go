@@ -22,9 +22,14 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 
+	"crypto/x509"
+	"errors"
+
 	. "github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric-ca/util/mocks"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/stretchr/testify/assert"
 )
 
 var csp bccsp.BCCSP
@@ -184,4 +189,16 @@ func TestBccspBackedSigner(t *testing.T) {
 
 func TestClean(t *testing.T) {
 	os.RemoveAll("csp")
+}
+
+func TestGetSignerFromCertInvalidArgs(t *testing.T) {
+	_, _, err := GetSignerFromCert(nil, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "CSP was not initialized")
+
+	csp := &mocks.BCCSP{}
+	csp.On("KeyImport", (*x509.Certificate)(nil), &bccsp.X509PublicKeyImportOpts{Temporary: true}).Return(bccsp.Key(nil), errors.New("mock key import error"))
+	_, _, err = GetSignerFromCert(nil, csp)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Failed to import certificate's public key: mock key import error")
 }
