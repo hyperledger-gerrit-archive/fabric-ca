@@ -408,13 +408,6 @@ func (s *Server) listenAndServe() (err error) {
 
 	c := s.Config
 
-	// Set default listening address and port
-	if c.Address == "" {
-		c.Address = DefaultServerAddr
-	}
-	if c.Port == 0 {
-		c.Port = DefaultServerPort
-	}
 	addr := net.JoinHostPort(c.Address, strconv.Itoa(c.Port))
 	var addrStr string
 
