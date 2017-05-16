@@ -66,7 +66,9 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 	c.Enrollment.CAName = c.CAName
 	c.URL = purl.String()
 	c.TLS.Enabled = purl.Scheme == "https"
-	c.Enrollment.CSR = &c.CSR
+	if c.Enrollment.CSR == nil {
+		c.Enrollment.CSR = &c.CSR
+	}
 	client := &Client{HomeDir: home, Config: c}
 	return client.Enroll(&c.Enrollment)
 }
