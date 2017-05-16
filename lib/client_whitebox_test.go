@@ -17,10 +17,12 @@ package lib
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
 	"testing"
 
+	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
@@ -36,7 +38,7 @@ const (
 
 var clientConfig = path.Join(testdataDir, "client-config.json")
 
-func TestClient1(t *testing.T) {
+func TestCWBClient1(t *testing.T) {
 	server := getServer(whitePort, path.Join(serversDir, "c1"), "", 1, t)
 	if server == nil {
 		t.Fatal("Failed to get server")
@@ -57,7 +59,7 @@ func TestClient1(t *testing.T) {
 // 1) Test over HTTP to get an standard ecert
 // 2) Test over HTTPS with client auth disabled
 // 3) Test over HTTPS with client auth enabled, using standard ecert from #1
-func TestTLSClientAuth(t *testing.T) {
+func TestCWBTLSClientAuth(t *testing.T) {
 	os.RemoveAll(testTLSClientAuthDir)
 	defer os.RemoveAll(testTLSClientAuthDir)
 	//
@@ -194,6 +196,7 @@ func enrollAndCheck(t *testing.T, c *Client, body []byte, authHeader string) {
 		t.Errorf("Enrollment with bad basic auth header '%s' should have failed",
 			authHeader)
 	}
+	os.RemoveAll("../testdata/msp")
 }
 
 func getEnrollmentPayload(t *testing.T, c *Client) ([]byte, error) {
@@ -269,5 +272,154 @@ func getTestClient(port int) *Client {
 	return &Client{
 		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
 		HomeDir: testdataDir,
+	}
+}
+
+func TestCWBCAConfigStat(t *testing.T) {
+	wd, err := os.Getwd()
+	t.Logf("starting DIR %s", wd)
+	if err != nil {
+		t.Fatalf("failed to get cwd")
+	}
+	td, err := ioutil.TempDir(testdataDir, "CAConfigStat")
+	if err != nil {
+		t.Fatalf("failed to get tmp dir")
+	}
+	os.Chdir(td)
+	t.Logf("test DIR %s", td)
+
+	ca := &CA{}
+	ca.Config = &CAConfig{}
+	ca.HomeDir = "."
+	fileInfo, err := os.Stat(".")
+	if err != nil {
+		t.Fatalf("os.Stat failed on current dir")
+	}
+	oldmode := fileInfo.Mode()
+	err = os.Chmod(".", 0000)
+	if err != nil {
+		t.Fatalf("Chmod on %s failed", testdataDir)
+	}
+
+	ca.Config.DB.Type = ""
+	err = ca.initDB()
+	t.Logf("initDB err: %v", err)
+	if err == nil {
+		t.Errorf("initDB should have failed (getcwd failure)")
+	}
+	_ = os.Chmod(".", oldmode)
+	ca.Config.DB.Datasource = ""
+	ca.HomeDir = ""
+
+	os.RemoveAll(td)
+	os.Chdir(wd)
+	t.Logf("changing to initialDIR %s", wd)
+}
+
+func ls(d string) {
+	files, _ := ioutil.ReadDir(d)
+	for _, f := range files {
+		fmt.Println(f.Name())
+	}
+}
+
+func TestCWBCAConfig(t *testing.T) {
+	wd, err := os.Getwd()
+	t.Logf("wd: %v", wd)
+	ca := &CA{}
+	t.Logf("==========CA %v", ca)
+
+	ls(testdataDir)
+	//Error cases
+	err = ca.fillCAInfo(nil)
+	t.Logf("fillCAInfo err: %v", err)
+	if err == nil {
+		t.Error("ca.fileCAInfo should have failed but passed")
+	}
+	_, err = ca.getCAChain()
+	t.Logf("getCAChain err: %v", err)
+	if err == nil {
+		t.Error("getCAChain:1 should have failed but passed")
+	}
+	ca.Config = &CAConfig{}
+	ca.Config.Intermediate.ParentServer.URL = "foo"
+	_, err = ca.getCAChain()
+	t.Logf("getCAChain err: %v", err)
+	if err == nil {
+		t.Error("getCAChain:2 should have failed but passed")
+	}
+	ca.Config.DB.Type = "postgres"
+	err = ca.initDB()
+	t.Logf("initDB err: %v", err)
+	if err == nil {
+		t.Error("initDB postgres should have failed but passed")
+	}
+	ca.Config.DB.Type = "mysql"
+	err = ca.initDB()
+	t.Logf("initDB err: %v", err)
+	if err == nil {
+		t.Error("initDB mysql should have failed but passed")
+	}
+
+	ca.Config.DB.Type = "unknown"
+	err = ca.initDB()
+	t.Logf("initDB err: %v", err)
+	if err == nil {
+		t.Error("initDB unknown should have failed but passed")
+	}
+
+	ca.Config.LDAP.Enabled = true
+	ca.server = &Server{}
+	err = ca.initUserRegistry()
+	t.Logf("initUserRegistry err: %v", err)
+	if err == nil {
+		t.Error("initConfig LDAP passed but should have failed")
+	}
+
+	//Non error cases
+	ca.Config.CA.Chainfile = "../testdata/ec.pem"
+	_, err = ca.getCAChain()
+	t.Logf("getCAChain err: %v", err)
+	if err != nil {
+		t.Errorf("Failed to getCAChain: %s", err)
+	}
+	err = ca.initConfig()
+	if err != nil {
+		t.Errorf("initConfig failed: %s", err)
+	}
+	ca = &CA{}
+	err = ca.initConfig()
+	if err != nil {
+		t.Errorf("ca.initConfig default failed: %s", err)
+	}
+	ca.HomeDir = ""
+	err = ca.initConfig()
+	if err != nil {
+		t.Errorf("initConfig failed: %s", err)
+	}
+	ca.Config = new(CAConfig)
+	ca.Config.CA.Certfile = "../testdata/ec_cert.pem"
+	ca.Config.CA.Keyfile = "../testdata/ec_key.pem"
+	err = ca.initConfig()
+	if err != nil {
+		t.Errorf("initConfig failed: %s", err)
+	}
+	s := &Server{}
+	err = s.initConfig()
+	if err != nil {
+		t.Errorf("server.initConfig default failed: %s", err)
+	}
+	ls(testdataDir)
+}
+
+func TestCWBNewCertificateRequest(t *testing.T) {
+	c := &Client{}
+	req := &api.CSRInfo{
+		Names:      []csr.Name{},
+		Hosts:      []string{},
+		KeyRequest: csr.NewBasicKeyRequest(),
+	}
+	if c.newCertificateRequest(req) == nil {
+		t.Error("newCertificateRequest failed")
 	}
 }
