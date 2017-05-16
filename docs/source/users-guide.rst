@@ -122,7 +122,10 @@ The following starts the `fabric-ca-server` with default settings.
     # fabric-ca-server start -b admin:adminpw
 
 The `-b` option provides the enrollment ID and secret for a bootstrap
-administrator.  A default configuration file named `fabric-ca-server-config.yaml`
+administrator; this is required if LDAP is not enabled with the "ldap.enabled"
+setting.
+
+A default configuration file named `fabric-ca-server-config.yaml`
 is created in the local directory which can be customized.
 
 Start Server via Docker
@@ -161,7 +164,7 @@ The following shows the Fabric CA server usage message.
 
     Flags:
           --address string                  Listening address of fabric-ca-server (default "0.0.0.0")
-      -b, --boot string                     The user:pass for bootstrap admin which is required to build default config file
+      -b, --boot string                     The user:pass for bootstrap admin; it is required to build default config file when ldap.enabled is false
           --ca.certfile string              PEM-encoded CA certificate file (default "ca-cert.pem")
           --ca.keyfile string               PEM-encoded CA key file (default "ca-key.pem")
           --cacount int                     Number of non-default CA instances
@@ -604,9 +607,11 @@ Initialize the Fabric CA server as follows:
 
     # fabric-ca-server init -b admin:adminpw
 
-The ``-b`` (bootstrap identity) option is required for initialization. At
-least one bootstrap identity is required to start the Fabric CA server. The
-server configuration file contains a Certificate Signing Request (CSR)
+The ``-b`` (bootstrap identity) option is required for initialization when
+LDAP is disabled. At least one bootstrap identity is required to start the
+Fabric CA server; this identity is the server administrator.
+
+The server configuration file contains a Certificate Signing Request (CSR)
 section that can be configured. The following is a sample CSR.
 
 If you are going to connect to the Fabric CA server remotely over TLS,
