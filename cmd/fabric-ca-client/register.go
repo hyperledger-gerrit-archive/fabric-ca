@@ -31,6 +31,11 @@ var registerCmd = &cobra.Command{
 	Short: "Register an identity",
 	Long:  "Register an identity with fabric-ca server",
 	PreRunE: func(cmd *cobra.Command, args []string) error {
+		if len(args) > 0 {
+			cmd.Help()
+			return fmt.Errorf(extraArgsError, args)
+		}
+
 		err := configInit(cmd.Name())
 		if err != nil {
 			return err
@@ -41,11 +46,6 @@ var registerCmd = &cobra.Command{
 		return nil
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if len(args) > 0 {
-			cmd.Help()
-			return nil
-		}
-
 		err := runRegister()
 		if err != nil {
 			return err
