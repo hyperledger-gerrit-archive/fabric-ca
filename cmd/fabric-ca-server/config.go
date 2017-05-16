@@ -327,26 +327,30 @@ func configInit() (err error) {
 }
 
 func createDefaultConfigFile() error {
-	// Create a default config, but only if they provided an administrative
-	// user ID and password
-	up := viper.GetString("boot")
-	if up == "" {
-		return errors.New("The '-b user:pass' option is required")
-	}
-	ups := strings.Split(up, ":")
-	if len(ups) < 2 {
-		return fmt.Errorf("The value '%s' on the command line is missing a colon separator", up)
-	}
-	if len(ups) > 2 {
-		ups = []string{ups[0], strings.Join(ups[1:], ":")}
-	}
-	user := ups[0]
-	pass := ups[1]
-	if len(user) >= 1024 {
-		return fmt.Errorf("The identity name must be less than 1024 characters: '%s'", user)
-	}
-	if len(pass) == 0 {
-		return errors.New("An empty password in the '-b user:pass' option is not permitted")
+	var user, pass string
+	ldapEnabled := viper.GetBool("ldap.enabled")
+	if !ldapEnabled {
+		// Create a default config, but only if they provided an administrative
+		// user ID and password
+		up := viper.GetString("boot")
+		if up == "" {
+			return errors.New("The '-b user:pass' option is required")
+		}
+		ups := strings.Split(up, ":")
+		if len(ups) < 2 {
+			return fmt.Errorf("The value '%s' on the command line is missing a colon separator", up)
+		}
+		if len(ups) > 2 {
+			ups = []string{ups[0], strings.Join(ups[1:], ":")}
+		}
+		user = ups[0]
+		pass = ups[1]
+		if len(user) >= 1024 {
+			return fmt.Errorf("The identity name must be less than 1024 characters: '%s'", user)
+		}
+		if len(pass) == 0 {
+			return errors.New("An empty password in the '-b user:pass' option is not permitted")
+		}
 	}
 
 	var myhost string
