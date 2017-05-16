@@ -123,7 +123,7 @@ func NewUserRegistryPostgres(datasource string, clientTLSConfig *tls.ClientTLSCo
 	if clientTLSConfig.Enabled {
 		if len(clientTLSConfig.CertFiles) > 0 {
 			root := clientTLSConfig.CertFiles[0]
-			connStr = fmt.Sprintf("%s sslrootcert=%s", connStr, root)
+			connStr = fmt.Sprintf("%s sslrootcert=%v", connStr, root)
 		}
 
 		cert := clientTLSConfig.Client.CertFile
