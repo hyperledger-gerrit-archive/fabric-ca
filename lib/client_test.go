@@ -58,6 +58,7 @@ func TestClient(t *testing.T) {
 
 	c := getTestClient(ctport1)
 
+	testLoadIdentity(c, t)
 	testGetCAInfo(c, t)
 	testRegister(c, t)
 	testEnrollIncorrectPassword(c, t)
@@ -72,6 +73,8 @@ func TestClient(t *testing.T) {
 	testLoadBadCSRInfo(c, t)
 
 	server.Stop()
+
+	testWhenServerIsDown(c, t)
 
 }
 
@@ -251,6 +254,21 @@ func testLoadBadCSRInfo(c *Client, t *testing.T) {
 	}
 }
 
+func testLoadIdentity(c *Client, t *testing.T) {
+	_, err := c.LoadIdentity("foo", "bar")
+	if err == nil {
+		t.Error("testLoadIdentity foo/bar passed but should have failed")
+	}
+	_, err = c.LoadIdentity("foo", "../testdata/ec.pem")
+	if err == nil {
+		t.Error("testLoadIdentity foo passed but should have failed")
+	}
+	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem")
+	if err != nil {
+		t.Errorf("testLoadIdentity failed: %s", err)
+	}
+}
+
 func TestCustomizableMaxEnroll(t *testing.T) {
 	os.Remove("../testdata/fabric-ca-server.db")
 
@@ -312,7 +330,7 @@ func testIncorrectEnrollment(t *testing.T) {
 
 	id, err := c.LoadMyIdentity()
 	if err != nil {
-		t.Fatal("Failed to load identity")
+		t.Fatalf("Failed to load identity: %s", err)
 	}
 
 	req := &api.RegistrationRequest{
@@ -333,7 +351,7 @@ func TestNormalizeUrl(t *testing.T) {
 	if err != nil {
 		t.Errorf("normalizeURL empty: %s", err)
 	}
-	_, err = NormalizeURL("http://host:7054:x/path")
+	_, err = NormalizeURL("http://host:x/path")
 	if err != nil {
 		t.Errorf("normalizeURL colons: %s", err)
 	}
@@ -341,6 +359,15 @@ func TestNormalizeUrl(t *testing.T) {
 	if err != nil {
 		t.Errorf("normalizeURL failed: %s", err)
 	}
+	_, err = NormalizeURL("[")
+	if err == nil {
+		t.Errorf("NormalizeURL '[' should have failed")
+	}
+	_, err = NormalizeURL("http://[/path")
+	if err == nil {
+		t.Errorf("NormalizeURL 'http://[/path]' should have failed")
+	}
+
 }
 
 func TestSendBadPost(t *testing.T) {
@@ -348,12 +375,64 @@ func TestSendBadPost(t *testing.T) {
 
 	c.Config = new(ClientConfig)
 
+	// Bad URL
 	curl := "fake"
 	reqBody := []byte("")
 	req, _ := http.NewRequest("POST", curl, bytes.NewReader(reqBody))
 	err := c.SendReq(req, nil)
 	if err == nil {
-		t.Error("Sending post should have failed")
+		t.Error("Sending post with bad URL should have failed")
+	}
+
+	// No authorization header
+	curl = "/api/v1/register"
+	reqBody = []byte("")
+	req, _ = http.NewRequest("POST", curl, bytes.NewReader(reqBody))
+	err = c.SendReq(req, nil)
+	if err == nil {
+		t.Error("Sending register with no authorization header should have failed")
+	}
+
+	// Bad authorization header
+	curl = "/api/v1/register"
+	reqBody = []byte("")
+	req, _ = http.NewRequest("POST", curl, bytes.NewReader(reqBody))
+	req.Header.Add("Authorization", "bad-auth")
+	err = c.SendReq(req, nil)
+	if err == nil {
+		t.Error("Sending register with bad authorization header should have failed")
+	}
+}
+
+func testWhenServerIsDown(c *Client, t *testing.T) {
+	enrollReq := &api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	}
+	_, err := c.Enroll(enrollReq)
+	if err == nil {
+		t.Error("Enroll while server is down should have failed")
+	}
+	id, err := c.LoadMyIdentity()
+	if err != nil {
+		t.Fatalf("LoadMyIdentity failed: %s", err)
+	}
+	_, err = id.Reenroll(&api.ReenrollmentRequest{})
+	if err == nil {
+		t.Error("Reenroll while server is down should have failed")
+	}
+	registration := &api.RegistrationRequest{
+		Name:        "TestUser",
+		Type:        "Client",
+		Affiliation: "hyperledger",
+	}
+	_, err = id.Register(registration)
+	if err == nil {
+		t.Error("Register while server is down should have failed")
+	}
+	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+	if err == nil {
+		t.Error("GetTCertBatch while server is down should have failed")
 	}
 }
 

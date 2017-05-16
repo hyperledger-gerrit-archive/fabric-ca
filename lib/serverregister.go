@@ -30,9 +30,6 @@ import (
 
 // Handle a register request
 func registerHandler(ctx *serverContext) (interface{}, error) {
-	// Read request body
-	var req api.RegistrationRequestNet
-	err := ctx.ReadBody(&req)
 	// Authenticate
 	callerID, err := ctx.TokenAuthentication()
 	if err != nil {
@@ -40,6 +37,12 @@ func registerHandler(ctx *serverContext) (interface{}, error) {
 	}
 	// Get the target CA
 	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
+	}
+	// Read request body
+	var req api.RegistrationRequestNet
+	err = ctx.ReadBody(&req)
 	if err != nil {
 		return nil, err
 	}
@@ -76,15 +79,13 @@ func registerUser(req *api.RegistrationRequestNet, registrar string, ca *CA) (st
 
 	err = validateID(req, ca)
 	if err != nil {
-		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
-		return "", err
+		return "", fmt.Errorf("Registration of '%s' failed in validation: %s", req.Name, err)
 	}
 
 	secret, err = registerUserID(req, ca)
 
 	if err != nil {
-		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
-		return "", err
+		return "", fmt.Errorf("Registration of '%s' failed: %s", req.Name, err)
 	}
 
 	return secret, nil

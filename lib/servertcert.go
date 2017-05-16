@@ -29,14 +29,14 @@ func tcertHandler(ctx *serverContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Read request body
-	req := &api.GetTCertBatchRequestNet{}
-	err = ctx.ReadBody(req)
+	// Get the targeted CA
+	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
 	}
-	// Get the targeted CA
-	ca, err := ctx.GetCA()
+	// Read request body
+	req := &api.GetTCertBatchRequestNet{}
+	err = ctx.ReadBody(req)
 	if err != nil {
 		return nil, err
 	}
