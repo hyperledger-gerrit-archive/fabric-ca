@@ -264,9 +264,6 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		if clientCfg.Enrollment.Profile == "" {
 			clientCfg.Enrollment.Profile = "ca"
 		}
-		if clientCfg.Enrollment.CSR == nil {
-			clientCfg.Enrollment.CSR = &api.CSRInfo{}
-		}
 		log.Debugf("Intermediate enrollment request: %v", clientCfg.Enrollment)
 		var resp *EnrollmentResponse
 		resp, err = clientCfg.Enroll(ca.Config.Intermediate.ParentServer.URL, ca.HomeDir)
@@ -407,7 +404,7 @@ func (ca *CA) initConfig() (err error) {
 		defaultIssuedCertificateExpiration,
 		false)
 	// Set log level if debug is true
-	if ca.server.Config.Debug {
+	if ca.server != nil && ca.server.Config != nil && ca.server.Config.Debug {
 		log.Level = log.LevelDebug
 	}
 	ca.normalizeStringSlices()
@@ -728,14 +725,14 @@ func (ca *CA) convertAttrs(inAttrs map[string]string) []api.Attribute {
 // Get max enrollments relative to the configured max
 func (ca *CA) getMaxEnrollments(requestedMax int) (int, error) {
 	configuredMax := ca.Config.Registry.MaxEnrollments
-	if requestedMax < 0 {
+	if requestedMax == 0 {
 		return configuredMax, nil
 	}
-	if configuredMax == 0 {
+	if configuredMax == -1 {
 		// no limit, so grant any request
 		return requestedMax, nil
 	}
-	if requestedMax == 0 && configuredMax != 0 {
+	if requestedMax == -1 && configuredMax != -1 {
 		return 0, fmt.Errorf("Infinite enrollments is not permitted; max is %d",
 			configuredMax)
 	}
