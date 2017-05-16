@@ -125,8 +125,7 @@ func (d *Accessor) InsertUser(user spi.UserInfo) error {
 	})
 
 	if err != nil {
-		log.Errorf("Error adding identity %s to the database: %s", user.Name, err)
-		return err
+		return fmt.Errorf("Error adding identity '%s' to the database: %s", user.Name, err)
 	}
 
 	numRowsAffected, err := res.RowsAffected()
@@ -174,7 +173,7 @@ func (d *Accessor) UpdateUser(user spi.UserInfo) error {
 
 	attributes, err := json.Marshal(user.Attributes)
 	if err != nil {
-		return err
+		return fmt.Errorf("Failed to marshal user attributes: %s", err)
 	}
 
 	res, err := d.db.NamedExec(updateUser, &UserRecord{
@@ -188,14 +187,13 @@ func (d *Accessor) UpdateUser(user spi.UserInfo) error {
 	})
 
 	if err != nil {
-		log.Errorf("Failed to update identity record [error: %s]", err)
-		return err
+		return fmt.Errorf("Failed to update identity record: %s", err)
 	}
 
 	numRowsAffected, err := res.RowsAffected()
 
 	if numRowsAffected == 0 {
-		return fmt.Errorf("Failed to update the identity record")
+		return errors.New("Failed to update any identity records")
 	}
 
 	if numRowsAffected != 1 {
