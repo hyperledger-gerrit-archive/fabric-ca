@@ -21,6 +21,7 @@ import (
 	"path"
 	"testing"
 
+	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
@@ -171,5 +172,74 @@ func getTestClient(port int) *Client {
 	return &Client{
 		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
 		HomeDir: testdataDir,
+	}
+}
+
+func TestCAConfig(t *testing.T) {
+	ca := &CA{}
+	err := ca.fillCAInfo(nil)
+	if err == nil {
+		t.Error("ca.fileCAInfo should have failed but passed")
+	}
+	_, err = ca.getCAChain()
+	if err == nil {
+		t.Error("getCAChain:1 should have failed but passed")
+	}
+	ca.Config = &CAConfig{}
+	ca.Config.Intermediate.ParentServer.URL = "foo"
+	_, err = ca.getCAChain()
+	if err == nil {
+		t.Error("getCAChain:2 should have failed but passed")
+	}
+	ca.Config.CA.Chainfile = "../testdata/ec.pem"
+	_, err = ca.getCAChain()
+	if err != nil {
+		t.Errorf("Failed to getCAChain: %s", err)
+	}
+	ca.Config.DB.Type = "postgres"
+	err = ca.initDB()
+	if err == nil {
+		t.Error("initDB postgres should have failed but passed")
+	}
+	ca.Config.DB.Type = "mysql"
+	err = ca.initDB()
+	if err == nil {
+		t.Error("initDB mysql should have failed but passed")
+	}
+	ca.Config.DB.Type = "unknown"
+	err = ca.initDB()
+	if err == nil {
+		t.Error("initDB unknown should have failed but passed")
+	}
+	err = ca.initConfig()
+	if err != nil {
+		t.Errorf("initConfig failed: %s", err)
+	}
+	ca.Config.LDAP.Enabled = true
+	err = ca.initUserRegistry()
+	if err == nil {
+		t.Error("initConfig LDAP passed but should have failed")
+	}
+	ca = &CA{}
+	err = ca.initConfig()
+	if err != nil {
+		t.Errorf("ca.initConfig default failed: %s", err)
+	}
+	s := &Server{}
+	err = s.initConfig()
+	if err != nil {
+		t.Errorf("server.initConfig default failed: %s", err)
+	}
+}
+
+func TestNewCertificateRequest(t *testing.T) {
+	c := &Client{}
+	req := &api.CSRInfo{
+		Names:      []csr.Name{},
+		Hosts:      []string{},
+		KeyRequest: csr.NewBasicKeyRequest(),
+	}
+	if c.newCertificateRequest(req) == nil {
+		t.Error("newCertificateRequest failed")
 	}
 }
