@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"testing"
@@ -128,6 +129,17 @@ func TestErrors(t *testing.T) {
 	// We are done with all error cases. Now, set the ca.name default value to
 	// "acme.com", as ca.name is a required property for server to start
 	viper.SetDefault("ca.name", "acme.com")
+}
+
+func TestLDAP(t *testing.T) {
+	testDir := "ldap-test"
+	os.RemoveAll(testDir)
+	defer os.RemoveAll(testDir)
+	err := RunMain([]string{cmdName, "init", "-c",
+		path.Join(testDir, "config.yaml"), "--ldap.enabled", "--ldap.url", "ldap://CN=admin@localhost:389/dc=example,dc=com"})
+	if err != nil {
+		t.Errorf("Failed to start server with LDAP enabled: %s", err)
+	}
 }
 
 func TestValid(t *testing.T) {
