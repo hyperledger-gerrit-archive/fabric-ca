@@ -29,6 +29,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cloudflare/cfssl/certdb"
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/tls"
@@ -63,6 +64,12 @@ func TestServerInit(t *testing.T) {
 	if err != nil {
 		t.Errorf("Third Server init renew failed: %s", err)
 	}
+	server.Config.CAcfg.CA.Certfile = "../testdata/ec.pem"
+	server.Config.CAcfg.CA.Keyfile = "../testdata/ec-key.pem"
+	err = server.Init(false)
+	if err != nil {
+		t.Errorf("Server init with known key/cert files failed: %s", err)
+	}
 }
 
 func TestRootServer(t *testing.T) {
@@ -96,6 +103,7 @@ func TestRootServer(t *testing.T) {
 		Name:        "user1",
 		Type:        "user",
 		Affiliation: "hyperledger.fabric.security",
+		Attributes:  []api.Attribute{api.Attribute{Name: "attr1", Value: "val1"}},
 	})
 	if err != nil {
 		t.Fatalf("Failed to register user1: %s", err)
@@ -110,12 +118,27 @@ func TestRootServer(t *testing.T) {
 	}
 	user1 = eresp.Identity
 	// The admin ID should have 1 cert in the DB now
-	recs, err = server.CA.CertDBAccessor().GetCertificatesByID("admin")
+	dba := server.CA.CertDBAccessor()
+	recs, err = dba.GetCertificatesByID("admin")
 	if err != nil {
 		t.Errorf("Could not get admin's certs from DB: %s", err)
 	}
 	if len(recs) != 1 {
 		t.Errorf("Admin should have 1 cert in DB but found %d", len(recs))
+	}
+	_, err = dba.GetUnexpiredCertificates()
+	if err != nil {
+		t.Errorf("Failed to get unexpired certificates: %s", err)
+	}
+	dba = &CertDBAccessor{}
+	_, err = dba.RevokeCertificatesByID("", 0)
+	if err == nil {
+		t.Error("dba.RevokeCertificatesByID on empty accessor should have failed")
+	}
+	var cr certdb.CertificateRecord
+	err = dba.InsertCertificate(cr)
+	if err == nil {
+		t.Error("dba.InsertCertificate on empty accessor should have failed")
 	}
 	// User1 should not be allowed to register
 	user2Registration := &api.RegistrationRequest{
@@ -149,6 +172,11 @@ func TestRootServer(t *testing.T) {
 		t.Error("User1 should not be allowed to revoke user2 because of affiliation")
 	}
 	// User1 get's batch of tcerts
+	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1, AttrNames: []string{"attr1"}})
+	if err != nil {
+		t.Fatalf("Failed to get tcerts for user1: %s", err)
+	}
+	// User1 get's batch of tcerts with attributes
 	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
 	if err != nil {
 		t.Fatalf("Failed to get tcerts for user1: %s", err)
@@ -318,7 +346,7 @@ func TestRunningTLSServer(t *testing.T) {
 }
 
 func TestDefaultDatabase(t *testing.T) {
-	TestEnd(t)
+	TestServerClean(t)
 
 	srv := getServer(rootPort, testdataDir, "", 0, t)
 
@@ -355,6 +383,11 @@ func TestBadAuthHeader(t *testing.T) {
 
 	invalidTokenAuthorization(t)
 	invalidBasicAuthorization(t)
+	perEndpointNegativeTests("info", "none", t)
+	perEndpointNegativeTests("enroll", "basic", t)
+	perEndpointNegativeTests("reenroll", "token", t)
+	perEndpointNegativeTests("register", "token", t)
+	perEndpointNegativeTests("tcert", "token", t)
 
 	err = server.Stop()
 	if err != nil {
@@ -370,31 +403,63 @@ func invalidTokenAuthorization(t *testing.T) {
 
 	req, err := http.NewRequest("POST", "http://localhost:7055/enroll", bytes.NewReader(emptyByte))
 	if err != nil {
-		t.Error(err)
+		t.Errorf("Failed creating new request: %s", err)
 	}
 
-	CSP := factory.GetDefault()
-
-	cert, err := ioutil.ReadFile("../testdata/ec.pem")
-	if err != nil {
-		t.Error(err)
-	}
-
-	key, err := util.ImportBCCSPKeyFromPEM("../testdata/ec-key.pem", CSP, true)
-	if err != nil {
-		t.Errorf("Failed importing key %s", err)
-	}
-
-	token, err := util.CreateToken(CSP, cert, key, emptyByte)
-	if err != nil {
-		t.Errorf("Failed to add token authorization header: %s", err)
-	}
-
-	req.Header.Set("authorization", token)
+	addTokenAuthHeader(req, t)
 
 	err = client.SendReq(req, nil)
 	if err == nil {
 		t.Error("Incorrect auth type set, request should have failed with authorization error")
+	}
+}
+
+func addTokenAuthHeader(req *http.Request, t *testing.T) {
+	CSP := factory.GetDefault()
+	cert, err := ioutil.ReadFile("../testdata/ec.pem")
+	if err != nil {
+		t.Fatalf("Failed reading ec.pem: %s", err)
+	}
+	key, err := util.ImportBCCSPKeyFromPEM("../testdata/ec-key.pem", CSP, true)
+	if err != nil {
+		t.Fatalf("Failed importing key %s", err)
+	}
+	emptyByte := make([]byte, 0)
+	token, err := util.CreateToken(CSP, cert, key, emptyByte)
+	if err != nil {
+		t.Fatalf("Failed to add token authorization header: %s", err)
+	}
+	req.Header.Set("authorization", token)
+}
+
+func perEndpointNegativeTests(endpoint string, authType string, t *testing.T) {
+	client := getRootClient()
+	emptyByte := make([]byte, 0)
+	turl := fmt.Sprintf("http://localhost:7055/%s?ca=bogus", endpoint)
+	req, err := http.NewRequest("POST", turl, bytes.NewReader(emptyByte))
+	if err != nil {
+		t.Fatalf("Failed in NewRequest with %s", turl)
+	}
+	err = client.SendReq(req, nil)
+	if err == nil {
+		if authType != "" {
+			t.Fatalf("No authorization header; should have failed for %s", turl)
+		} else {
+			t.Fatalf("Bad CA should have failed for %s", turl)
+		}
+	}
+	switch authType {
+	case "none":
+	case "basic":
+		req.SetBasicAuth("admin", "adminpw")
+	case "token":
+		addTokenAuthHeader(req, t)
+	default:
+		t.Fatalf("Invalid auth type: %s", authType)
+	}
+	err = client.SendReq(req, nil)
+	if err == nil {
+		t.Errorf("Invalid CA should have failed for %s", turl)
 	}
 }
 
@@ -595,6 +660,10 @@ func TestDefaultMultiCA(t *testing.T) {
 	})
 	if err != nil {
 		t.Error("Failed to enroll, error: ", err)
+	}
+
+	if srv.DBAccessor() == nil {
+		t.Error("No registry found")
 	}
 
 	err = srv.Stop()
@@ -807,18 +876,6 @@ func TestSqliteLocking(t *testing.T) {
 	}
 }
 
-func TestEnd(t *testing.T) {
-	os.Remove("../testdata/ca-cert.pem")
-	os.Remove("../testdata/ca-key.pem")
-	os.Remove("../testdata/fabric-ca-server.db")
-	os.RemoveAll(rootDir)
-	os.RemoveAll(intermediateDir)
-	os.RemoveAll("multica")
-	os.RemoveAll(serversDir)
-	os.RemoveAll("../testdata/msp")
-	cleanMultiCADir()
-}
-
 func cleanMultiCADir() {
 	caFolder := "../testdata/ca"
 	toplevelFolders := []string{"intermediateca", "rootca"}
@@ -917,4 +974,16 @@ func getTLSConfig(srv *Server, clientAuthType string, clientRootCerts []string) 
 	srv.Config.TLS.ClientAuth.CertFiles = clientRootCerts
 
 	return srv
+}
+
+func TestServerClean(t *testing.T) {
+	os.Remove("../testdata/ca-cert.pem")
+	os.Remove("../testdata/ca-key.pem")
+	os.Remove("../testdata/fabric-ca-server.db")
+	os.RemoveAll(rootDir)
+	os.RemoveAll(intermediateDir)
+	os.RemoveAll("multica")
+	os.RemoveAll(serversDir)
+	os.RemoveAll("../testdata/msp")
+	cleanMultiCADir()
 }

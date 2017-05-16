@@ -59,6 +59,7 @@ type Client struct {
 func (c *Client) Init() error {
 	if !c.initialized {
 		cfg := c.Config
+		log.Debugf("Initializing client with config: %+v", cfg)
 		if cfg.MSPDir == "" {
 			cfg.MSPDir = "msp"
 		}
@@ -164,8 +165,7 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 	// Generate the CSR
 	csrPEM, key, err := c.GenCSR(req.CSR, req.Name)
 	if err != nil {
-		log.Debugf("Enroll failure generating CSR: %s", err)
-		return nil, err
+		return nil, fmt.Errorf("Failure generating CSR: %s", err)
 	}
 
 	reqNet := &api.EnrollmentRequestNet{
@@ -301,6 +301,11 @@ func (c *Client) StoreMyIdentity(cert []byte) error {
 
 // LoadIdentity loads an identity from disk
 func (c *Client) LoadIdentity(keyFile, certFile string) (*Identity, error) {
+	log.Debug("Loading identity: keyFile=%s, certFile=%s", keyFile, certFile)
+	err := c.Init()
+	if err != nil {
+		return nil, err
+	}
 	cert, err := util.ReadFile(certFile)
 	if err != nil {
 		log.Debugf("No cert found at %s", certFile)
@@ -466,10 +471,7 @@ func NormalizeURL(addr string) (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	if u.Opaque != "" {
-		u.Host = net.JoinHostPort(u.Scheme, u.Opaque)
-		u.Opaque = ""
-	} else if u.Path != "" && !strings.Contains(u.Path, ":") {
+	if u.Path != "" && !strings.Contains(u.Path, ":") {
 		u.Host = net.JoinHostPort(u.Path, util.GetServerPort())
 		u.Path = ""
 	} else if u.Scheme == "" {

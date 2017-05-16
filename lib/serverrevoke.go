@@ -28,12 +28,6 @@ import (
 
 // Handle an revoke request
 func revokeHandler(ctx *serverContext) (interface{}, error) {
-	// Parse revoke request body
-	var req api.RevocationRequestNet
-	err := ctx.ReadBody(&req)
-	if err != nil {
-		return nil, err
-	}
 	// Authentication
 	id, err := ctx.TokenAuthentication()
 	if err != nil {
@@ -49,6 +43,12 @@ func revokeHandler(ctx *serverContext) (interface{}, error) {
 	err = ca.userHasAttribute(id, "hf.Revoker")
 	if err != nil {
 		return nil, newErr(ErrNotRevoker, 401, "Caller does not have authority to revoke")
+	}
+	// Parse revoke request body
+	var req api.RevocationRequestNet
+	err = ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
 	}
 
 	req.AKI = strings.TrimLeft(strings.ToLower(req.AKI), "0")
