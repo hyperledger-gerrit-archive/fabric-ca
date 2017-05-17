@@ -543,6 +543,39 @@ func (csp *impl) KeyImport(raw interface{}, opts bccsp.KeyImportOpts) (k bccsp.K
 
 		return k, nil
 
+	case *bccsp.RSAPrivateKeyImportOpts:
+		der, ok := raw.([]byte)
+		if !ok {
+			return nil, errors.New("[RSADERPrivateKeyImportOpts] Invalid raw material. Expected byte array.")
+		}
+
+		if len(der) == 0 {
+			return nil, errors.New("[RSADERPrivateKeyImportOpts] Invalid raw. It must not be nil.")
+		}
+
+		lowLevelKey, err := utils.DERToPrivateKey(der)
+		if err != nil {
+			return nil, fmt.Errorf("Failed converting PKIX to RSA public key [%s]", err)
+		}
+
+		rsaSK, ok := lowLevelKey.(*rsa.PrivateKey)
+		if !ok {
+			return nil, errors.New("Failed casting to RSA public key. Invalid raw material.")
+		}
+
+		k = &rsaPrivateKey{rsaSK}
+
+		// If the key is not Ephemeral, store it.
+		if !opts.Ephemeral() {
+			// Store the key
+			err = csp.ks.StoreKey(k)
+			if err != nil {
+				return nil, fmt.Errorf("Failed storing ECDSA key [%s]", err)
+			}
+		}
+
+		return k, nil
+
 	case *bccsp.RSAGoPublicKeyImportOpts:
 		lowLevelKey, ok := raw.(*rsa.PublicKey)
 		if !ok {
