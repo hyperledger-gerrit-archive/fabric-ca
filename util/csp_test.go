@@ -172,7 +172,7 @@ func TestGetSignerFromCertFile(t *testing.T) {
 		testGetSignerFromCertFile(t, "../testdata/ec.pem", "../testdata/ec.pem", 1)
 	})
 	t.Run("rsa", func(t *testing.T) {
-		testGetSignerFromCertFile(t, "../testdata/rsa-key.pem", "../testdata/rsa.pem", 1)
+		testGetSignerFromCertFile(t, "../testdata/rsa-key.pem", "../testdata/rsa.pem", 0)
 	})
 	t.Run("wrongcert", func(t *testing.T) {
 		testGetSignerFromCertFile(t, "../testdata/ec-key.pem", "../testdata/test.pem", 2)
