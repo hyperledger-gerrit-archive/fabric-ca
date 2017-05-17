@@ -80,6 +80,8 @@ func init() {
 	// Set global flags used by all commands
 	pflags := rootCmd.PersistentFlags()
 	pflags.StringVarP(&cfgFileName, "config", "c", cfg, "Configuration file")
+	pflags.StringSliceVarP(
+		&cfgAttrs, "id.attr", "", nil, "Attribute of the form <name>=<value>")
 	util.FlagString(pflags, "myhost", "m", host,
 		"Hostname to include in the certificate signing request during enrollment")
 
