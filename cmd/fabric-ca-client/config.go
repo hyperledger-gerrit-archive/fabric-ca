@@ -170,6 +170,10 @@ var (
 	// cfgFileName is the name of the client's config file
 	cfgFileName string
 
+	// cfgAttrs are the attributes specified via flags or env variables
+	// and translated to Attributes field in registration
+	cfgAttrs []string
+
 	// clientCfg is the client's config
 	clientCfg *lib.ClientConfig
 )
@@ -242,9 +246,8 @@ func configInit(command string) error {
 
 	clientCfg.TLS.Enabled = purl.Scheme == "https"
 
-	if clientCfg.ID.Attr != "" {
-		processAttributes()
-	}
+	processAttributes()
+
 	return nil
 }
 
@@ -283,14 +286,16 @@ func createDefaultConfigFile() error {
 	return ioutil.WriteFile(cfgFileName, []byte(cfg), 0755)
 }
 
-// processAttributes parses attributes from command line
+// processAttributes parses attributes from command line or env variable
 func processAttributes() {
-	splitAttr := strings.Split(clientCfg.ID.Attr, "=")
-	if len(clientCfg.ID.Attributes) == 0 {
-		clientCfg.ID.Attributes = make([]api.Attribute, 1)
+	if cfgAttrs != nil {
+		clientCfg.ID.Attributes = make([]api.Attribute, len(cfgAttrs))
+		for idx, attr := range cfgAttrs {
+			splitAttr := strings.Split(attr, "=")
+			clientCfg.ID.Attributes[idx].Name = splitAttr[0]
+			clientCfg.ID.Attributes[idx].Value = strings.Join(splitAttr[1:], "")
+		}
 	}
-	clientCfg.ID.Attributes[0].Name = splitAttr[0]
-	clientCfg.ID.Attributes[0].Value = strings.Join(splitAttr[1:], "")
 }
 
 func checkForEnrollment() error {
