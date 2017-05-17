@@ -324,3 +324,20 @@ func (opts *X509PublicKeyImportOpts) Algorithm() string {
 func (opts *X509PublicKeyImportOpts) Ephemeral() bool {
 	return opts.Temporary
 }
+
+// RSAPrivateKeyImportOpts contains options for ECDSA secret key importation in DER format
+// or PKCS#8 format.
+type RSAPrivateKeyImportOpts struct {
+	Temporary bool
+}
+
+// Algorithm returns the key importation algorithm identifier (to be used).
+func (opts *RSAPrivateKeyImportOpts) Algorithm() string {
+	return RSA
+}
+
+// Ephemeral returns true if the key to generate has to be ephemeral,
+// false otherwise.
+func (opts *RSAPrivateKeyImportOpts) Ephemeral() bool {
+	return opts.Temporary
+}

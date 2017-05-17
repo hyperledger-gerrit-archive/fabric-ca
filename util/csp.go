@@ -27,6 +27,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path"
+	"path/filepath"
 	"strings"
 	_ "time" // for ocspSignerFromConfig
 
@@ -279,7 +280,15 @@ func ImportBCCSPKeyFromPEM(keyFile string, myCSP bccsp.BCCSP, temporary bool) (b
 		}
 		return sk, nil
 	case *rsa.PrivateKey:
-		return nil, fmt.Errorf("Failed to import RSA key from %s; RSA private key import is not supported", keyFile)
+		priv := x509.MarshalPKCS1PrivateKey(key.(*rsa.PrivateKey))
+		if err != nil {
+			return nil, fmt.Errorf("Failed to convert RSA private key from %s: %s", keyFile, err.Error())
+		}
+		sk, err := myCSP.KeyImport(priv, &bccsp.RSAPrivateKeyImportOpts{Temporary: temporary})
+		if err != nil {
+			return nil, fmt.Errorf("Failed to import ECDSA private key from %s: %s", keyFile, err.Error())
+		}
+		return sk, nil
 	default:
 		return nil, fmt.Errorf("Failed to import key from %s: invalid secret key type", keyFile)
 	}
