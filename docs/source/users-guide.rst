@@ -177,7 +177,6 @@ The following shows the Fabric CA server usage message.
           --db.tls.enabled                  Enable TLS for client connection
           --db.type string                  Type of database; one of: sqlite3, postgres, mysql (default "sqlite3")
       -d, --debug                           Enable debug level logging
-          --intermediate.enrollment.hosts string      Comma-separated host list
           --intermediate.enrollment.label string      Label to use in HSM operations
           --intermediate.enrollment.profile string    Name of the signing profile to use in issuing the certificate
           --intermediate.parentserver.caname string   Name of the CA to connect to on fabric-ca-serve
@@ -220,7 +219,6 @@ The following shows the Fabric CA client usage message:
           --csr.hosts stringSlice        A list of space-separated host names in a certificate signing request
           --csr.serialnumber string      The serial number in a certificate signing request
       -d, --debug                        Enable debug level logging
-          --enrollment.hosts string      Comma-separated host list
           --enrollment.label string      Label to use in HSM operations
           --enrollment.profile string    Name of the signing profile to use in issuing the certificate
           --id.affiliation string        The identity's affiliation
@@ -238,7 +236,11 @@ The following shows the Fabric CA client usage message:
 
     Use "fabric-ca-client [command] --help" for more information about a command.
 
-Note that command line options that are string slices (lists) can be specified either by specifying the option with space-separated list elements or by specifying the option multiple times, each with a string value that make up the list. For example, to specify ``host1`` and ``host2`` for `csr.hosts` option, you can either pass `--csr.hosts "host1 host2"` or `--csr.hosts host1 --csr.hosts host2`
+Note that command line options that are string slices (lists) can be specified either
+by specifying the option with space-separated list elements or by specifying the option
+multiple times, each with a string value that make up the list. For example, to specify
+``host1`` and ``host2`` for `csr.hosts` option, you can either pass `--csr.hosts
+"host1 host2"` or `--csr.hosts host1 --csr.hosts host2`
 
 `Back to Top`_
 
@@ -439,8 +441,6 @@ the server's home directory (see `Fabric CA Server <#server>`__ section more inf
     #    caname - Name of the CA to enroll with on the server
     #
     # enrollment section used to enroll intermediate CA with root CA
-    #    hosts - A comma-separated list of host names which the certificate should
-    #    be valid for
     #    profile - Name of the signing profile to use in issuing the certificate
     #    label - Label to use in HSM operations
     #
@@ -458,7 +458,6 @@ the server's home directory (see `Fabric CA Server <#server>`__ section more inf
         caname:
 
       enrollment:
-        hosts:
         profile:
         label:
 
@@ -536,7 +535,6 @@ the client's home directory (see `Fabric CA Client <#client>`__ section more inf
     #  Enrollment section used to enroll an identity with Fabric CA server
     #############################################################################
     enrollment:
-      hosts:
       profile:
       label:
 

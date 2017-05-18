@@ -308,11 +308,15 @@ func testReenroll(t *testing.T) {
 	t.Log("Testing Reenroll CMD")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"})
+	err := RunMain([]string{cmdName, "reenroll", "-u", "http://localhost:7054", "--csr.hosts", "host1"})
 	if err != nil {
 		t.Errorf("client reenroll --url -f failed: %s", err)
 	}
 
+	err = util.CheckHostsInCert(filepath.Join(filepath.Dir(defYaml), "msp", "signcerts", "cert.pem"), "host1")
+	if err != nil {
+		t.Error(err)
+	}
 	os.Remove(defYaml)
 }
 
@@ -480,10 +484,10 @@ func testProfiling(t *testing.T) {
 		mProfExpected bool
 		cProfExpected bool
 	}{
-		{"heap", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, true, false},
-		{"cpu", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, false, true},
-		{"", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, false, false},
-		{"xxx", []string{cmdName, "reenroll", "-u", "http://localhost:7054", "--enrollment.hosts", "host1,host2"}, false, false},
+		{"heap", []string{cmdName, "reenroll", "-u", "http://localhost:7054"}, true, false},
+		{"cpu", []string{cmdName, "reenroll", "-u", "http://localhost:7054"}, false, true},
+		{"", []string{cmdName, "reenroll", "-u", "http://localhost:7054"}, false, false},
+		{"xxx", []string{cmdName, "reenroll", "-u", "http://localhost:7054"}, false, false},
 	}
 	wd, err := os.Getwd()
 	if err != nil {

@@ -21,6 +21,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -598,4 +599,28 @@ func NormalizeFileList(files []string, homeDir string) ([]string, error) {
 	}
 
 	return files, nil
+}
+
+// CheckHostsInCert checks to see if host correctly inserted into certificate
+func CheckHostsInCert(certFile string, host string) error {
+	certBytes, err := ioutil.ReadFile(certFile)
+	if err != nil {
+		return fmt.Errorf("Failed to read file: %s", err)
+	}
+
+	cert, err := GetX509CertificateFromPEM(certBytes)
+	if err != nil {
+		return fmt.Errorf("Failed to get certificate: %s", err)
+	}
+	// Run through the extensions for the certificates
+	for _, ext := range cert.Extensions {
+		// asn1 identifier for 'Subject Alternative Name'
+		if ext.Id.Equal(asn1.ObjectIdentifier{2, 5, 29, 17}) {
+			if !strings.Contains(string(ext.Value), host) {
+				return fmt.Errorf("Failed to correctly insert host '%s' into certificate", host)
+			}
+		}
+	}
+
+	return nil
 }
