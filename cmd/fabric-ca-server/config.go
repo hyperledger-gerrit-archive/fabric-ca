@@ -207,23 +207,29 @@ affiliations:
 
 #############################################################################
 #  Signing section
+#  Default expiration (i.e. "expiry") for signed certificates are "8640h"
+#  which is 8640 hours, or approximately 1 year.
 #############################################################################
 signing:
     profiles:
       ca:
          usage:
            - cert sign
-         expiry: 8000h
+         expiry: 8640h
          caconstraint:
            isca: true
     default:
       usage:
         - cert sign
-      expiry: 8000h
+      expiry: 8640h
 
 ###########################################################################
 #  Certificate Signing Request (CSR) section for generating the request
 #  for an intermediate CA certificate.
+#  Default expiration (i.e. "expiry") of a root CA certificate is "129600h"
+#  which is 129600 hours, or approximately 15 years.
+#  Default expiration (i.e. "expiry") of an intermediate CA certificate is
+#  "42300h" which is 42300 hours, or approximately 5 years.
 ###########################################################################
 csr:
    cn: fabric-ca-server
