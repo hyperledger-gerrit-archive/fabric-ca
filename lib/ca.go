@@ -51,6 +51,12 @@ import (
 
 const (
 	defaultDatabaseType = "sqlite3"
+	// Default root CA certificate expiration is 15 years.
+	// 129600 = 24 * 30 * 15 = approximately 15 years in hours
+	defaultRootCACertificateExpiration = "129600h"
+	// Default intermediate CA certificate expiration is 5 years.
+	// 42300 = 24 * 30 * 5 = approximately 5 years in hours
+	defaultIntermediateCACertificateExpiration = "42300h"
 )
 
 // CA represents a certificate authority which signs, issues and revokes certificates
@@ -239,6 +245,9 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		if clientCfg.Enrollment.CSR.CA == nil {
 			clientCfg.Enrollment.CSR.CA = &cfcsr.CAConfig{PathLength: 0, PathLenZero: true}
 		}
+		if clientCfg.Enrollment.CSR.CA.Expiry == "" {
+			clientCfg.Enrollment.CSR.CA.Expiry = defaultIntermediateCACertificateExpiration
+		}
 		log.Debugf("Intermediate enrollment request: %v", clientCfg.Enrollment)
 		var resp *EnrollmentResponse
 		resp, err = clientCfg.Enroll(ca.Config.Intermediate.ParentServer.URL, ca.HomeDir)
@@ -271,6 +280,12 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 	} else {
 		// This is a root CA, so create a CSR (Certificate Signing Request)
 		csr := &ca.Config.CSR
+		if csr.CA == nil {
+			csr.CA = &cfcsr.CAConfig{}
+		}
+		if csr.CA.Expiry == "" {
+			csr.CA.Expiry = defaultRootCACertificateExpiration
+		}
 		req := cfcsr.CertificateRequest{
 			CN:    csr.CN,
 			Names: csr.Names,
