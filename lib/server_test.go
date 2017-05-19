@@ -27,12 +27,14 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -61,6 +63,10 @@ func TestServerInit(t *testing.T) {
 	if err != nil {
 		t.Errorf("Third Server init renew failed: %s", err)
 	}
+	// Verify that the duration of the newly created certificate is 15 years
+	d, err := util.GetCertificateDurationFromFile(path.Join(rootDir, "ca-cert.pem"))
+	assert.NoError(t, err)
+	assert.True(t, d.Hours() == 131400, fmt.Sprintf("Expecting 131400 but found %f", d.Hours()))
 }
 
 func TestRootServer(t *testing.T) {
@@ -737,6 +743,10 @@ func testIntermediateServer(idx int, t *testing.T) {
 	if err != nil {
 		t.Fatalf("Intermediate server init failed: %s", err)
 	}
+	// Verify that the duration of the newly created intermediate certificate is 5 years
+	d, err := util.GetCertificateDurationFromFile(path.Join(intermediateServer.HomeDir, "ca-cert.pem"))
+	assert.NoError(t, err)
+	assert.True(t, d.Hours() == 43800, fmt.Sprintf("Expecting 43800 but found %f", d.Hours()))
 	// Start it
 	err = intermediateServer.Start()
 	if err != nil {
