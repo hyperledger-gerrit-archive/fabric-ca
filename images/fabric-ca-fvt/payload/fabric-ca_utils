@@ -639,8 +639,8 @@ db:
      enabled: $TLS_ON
      certfiles:
        - $TLS_ROOTCERT
-       #- $TLS_RACERT 
-       #- $TLS_SUBCACERT
+       - $TLS_RACERT 
+       - $TLS_SUBCACERT
      client:
        certfile: $TLS_CLIENTCERT
        keyfile: $TLS_CLIENTKEY
@@ -658,8 +658,8 @@ ldap:
   tls:
     certfiles:
       - $TLS_ROOTCERT
-      #- $TLS_RACERT 
-      #- $TLS_SUBCACERT
+      - $TLS_RACERT 
+      - $TLS_SUBCACERT
     client:
       certfile: $TLS_CLIENTCERT
       keyfile: $TLS_CLIENTKEY
