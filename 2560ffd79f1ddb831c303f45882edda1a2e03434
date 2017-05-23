@@ -1,0 +1,10 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+1: AnilKumar Ambati <aambati@us.ibm.com>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Code-Review+2: Binh Nguyen <binhn@us.ibm.com>
+Submitted-by: Binh Nguyen <binhn@us.ibm.com>
+Submitted-at: Tue, 23 May 2017 14:57:38 +0000
+Reviewed-on: http://gerrit.hyperledger.org/r/9553
+Project: fabric-ca
+Branch: refs/heads/master
