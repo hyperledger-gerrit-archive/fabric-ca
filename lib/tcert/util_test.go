@@ -25,7 +25,7 @@ import (
 )
 
 func TestGenNumber(t *testing.T) {
-	num := GenNumber(big.NewInt(20))
+	num, _ := GenNumber(big.NewInt(20))
 	if num == nil {
 		t.Fatalf("Failed in GenNumber")
 	}
@@ -36,9 +36,9 @@ func TestECCertificate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot read EC Certificate from file system")
 	}
-	_, error := GetCertificate(publicKeyBuff)
-	if error != nil {
-		t.Fatalf("Cannot create EC Certificate \t [%v]", error)
+	_, err = GetCertificate(publicKeyBuff)
+	if err != nil {
+		t.Fatalf("Cannot create EC Certificate \t [%v]", err)
 	}
 }
 
@@ -80,23 +80,55 @@ func TestSerialNumber(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Cannot read EC Certificate from file system")
 	}
-	_, error := GetCertitificateSerialNumber(publicKeyBuff)
+	_, err = GetCertitificateSerialNumber(publicKeyBuff)
 
-	if error != nil {
-		t.Fatalf("Cannot create EC Certificate \t [%v]", error)
+	if err != nil {
+		t.Fatalf("Cannot create EC Certificate \t [%v]", err)
 	}
 
+	publicKeyBuff, err = ioutil.ReadFile("../../testdata/expiredcert.pem")
+	if err != nil {
+		t.Fatalf("Cannot read Certificate from file system")
+	}
+	_, err = GetCertitificateSerialNumber(publicKeyBuff)
+	t.Logf("GetCertitificateSerialNumber error %v", err)
+	if err == nil {
+		t.Fatalf("GetCertitificateSerialNumber should have failed reading non-certificate \t [%v]", err)
+	}
 }
 
 func TestGetBadCertificate(t *testing.T) {
+	// Wrong file type
 	buf, err := ioutil.ReadFile("../../testdata/server-config.json")
 	if err != nil {
 		t.Fatalf("Cannot read certificate from file system")
 	}
-
 	_, err = GetCertificate([]byte(buf))
+	t.Logf("GetCertitificate error %v", err)
 	if err == nil {
 		t.Fatalf("Should have failed since file is json:\t [%v] ", err)
+	}
+
+	// pem Cert Expired
+	buf, err = ioutil.ReadFile("../../testdata/expiredcert.pem")
+	if err != nil {
+		t.Fatalf("Cannot read certificate from file system")
+	}
+	_, err = GetCertificate([]byte(buf))
+	t.Logf("GetCertitificate error %v", err)
+	if err == nil {
+		t.Fatalf("Should have failed since certificate is expired")
+	}
+
+	// der Cert Expired
+	buf, err = ioutil.ReadFile("../../testdata/expiredcert.der")
+	if err != nil {
+		t.Fatalf("Cannot read certificate from file system")
+	}
+	_, err = GetCertificate([]byte(buf))
+	t.Logf("GetCertitificate error %v", err)
+	if err == nil {
+		t.Fatalf("Should have failed since certificate is expired")
 	}
 }
 
@@ -116,5 +148,117 @@ func TestDerToPem(t *testing.T) {
 	cert := ConvertDERToPEM(buf, "CERTIFICATE")
 	if cert == nil {
 		t.Fatalf("Failed to ConvertDERToPEM")
+	}
+}
+
+func TestGetPrivateKey(t *testing.T) {
+	// PKCS1 EC
+	_, err := LoadKey("../../testdata/ec-key.pem")
+	if err != nil {
+		t.Fatalf("Cannot load PKCS1 EC Key: %v", err)
+	}
+
+	// PKCS1 RSA
+	_, err = LoadKey("../../testdata/rsa-key.pem")
+	if err != nil {
+		t.Fatalf("Cannot load PKCS1 RSA Key: %v", err)
+	}
+
+	// PKCS8 EC
+	_, err = LoadKey("../../testdata/pkcs8eckey.pem")
+	if err != nil {
+		t.Fatalf("Cannot load PKCS8 key: %v", err)
+	}
+
+	// DER
+	_, err = LoadKey("../../testdata/ecTest.der")
+	t.Logf("LoadKey error %v", err)
+	if err == nil {
+		t.Fatalf("LoadKey should have failed loading DER")
+	}
+
+	// non-existent file
+	_, err = LoadKey("/tmp/xxxxxxxxxxxxxxxxxxxxx.pem")
+	t.Logf("LoadKey error %v", err)
+	if err == nil {
+		t.Fatalf("LoadKey should have failed loading non-existent file")
+	}
+
+	// non-key file
+	_, err = LoadKey("../../testdata/dsa-cert.pem")
+	t.Logf("LoadKey error %v", err)
+	if err == nil {
+		t.Fatalf("LoadKey should have failed loading dsa cert file")
+	}
+
+	// encrypted key file
+	_, err = LoadKey("../../testdata/dsa-key.pem")
+	t.Logf("LoadKey error %v", err)
+	if err == nil {
+		t.Fatalf("LoadKey should have failed loading encrypted dsa key file")
+	}
+}
+
+func TestCBCEncrypt(t *testing.T) {
+	// only 16, 24 and 32 are valid key lengths
+	_, err := CBCPKCS7Encrypt(make([]byte, 31), make([]byte, 0))
+	t.Logf("CBCPKCS7Encrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Encrypt should have failed with invalid key size\n")
+	}
+
+	_, err = CBCPKCS7Encrypt(make([]byte, 0), make([]byte, 0))
+	t.Logf("CBCPKCS7Encrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Encrypt should have failed with invalid key size\n")
+	}
+
+	_, err = CBCPKCS7Encrypt(make([]byte, 24), make([]byte, 0))
+	if err != nil {
+		t.Fatalf("CBCPKCS7Encrypt failed with AES-128, %v\n", err)
+	}
+
+	_, err = CBCPKCS7Encrypt(make([]byte, 16), make([]byte, 0))
+	if err != nil {
+		t.Fatalf("CBCPKCS7Encrypt failed with AES-192, %v\n", err)
+	}
+
+	_, err = CBCPKCS7Encrypt(make([]byte, 32), make([]byte, 0))
+	if err != nil {
+		t.Fatalf("CBCPKCS7Encrypt failed with AES-256, %v\n", err)
+	}
+}
+
+func TestCBCPKCS7Decrypt(t *testing.T) {
+	// only 16, 24 and 32 are valid key lengths
+	_, err := CBCPKCS7Decrypt(make([]byte, 31), make([]byte, 16))
+	t.Logf("CBCPKCS7Decrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Decrypt should have failed: invalid key size\n")
+	}
+
+	_, err = CBCPKCS7Decrypt(make([]byte, 0), make([]byte, 16))
+	t.Logf("CBCPKCS7Decrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Decrypt should have failed: invalid key size\n")
+	}
+
+	// invalid ciphertext
+	_, err = CBCPKCS7Decrypt(make([]byte, 24), make([]byte, 0))
+	t.Logf("CBCPKCS7Decrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Decrypt should have failed: cipher text size < aes.BlockSize\n")
+	}
+
+	_, err = CBCPKCS7Decrypt(make([]byte, 16), make([]byte, 31))
+	t.Logf("CBCPKCS7Decrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Decrypt should have failed: cipher_text_size%aes.BlockSize != 0\n")
+	}
+
+	_, err = CBCPKCS7Decrypt(make([]byte, 32), make([]byte, 32))
+	t.Logf("CBCPKCS7Decrypt error:  %v", err)
+	if err == nil {
+		t.Fatalf("CBCPKCS7Decrypt should have failed: invalid padding\n")
 	}
 }
