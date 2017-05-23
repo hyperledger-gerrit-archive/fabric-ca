@@ -350,7 +350,7 @@ func testRegisterEnvVar(t *testing.T) {
 
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_NAME")
 	os.Unsetenv("FABRIC_CA_CLIENT_ID_AFFILIATION")
-	os.Unsetenv("FABRIC_CA_CLIENT_TLS_ID_TYPE")
+	os.Unsetenv("FABRIC_CA_CLIENT_ID_TYPE")
 
 	os.Remove(defYaml)
 }
@@ -523,6 +523,38 @@ func testBogus(t *testing.T) {
 	err := RunMain([]string{cmdName, "bogus"})
 	if err == nil {
 		t.Errorf("client bogus passed but should have failed")
+	}
+}
+
+func TestGetCACert(t *testing.T) {
+	srv = getServer()
+	srv.Config.Debug = true
+
+	// Configure TLS settings on server
+	srv.HomeDir = tdDir
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = tlsCertFile
+	srv.Config.TLS.KeyFile = tlsKeyFile
+
+	err := srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	// Test getcacert command using environment variables to set root TLS cert
+	err = testGetCACertEnvVar(t)
+	assert.NoError(t, err, "Failed to get CA cert using environment variables")
+
+	// Change client authentication type on server
+	srv.Config.TLS.ClientAuth.Type = "RequireAndVerifyClientCert"
+
+	// Test getcacert command using configuration files to read in client TLS cert and key
+	err = testGetCACertConfigFile(t)
+	assert.NoError(t, err, "Failed to get CA cert using client configuration file")
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
 	}
 }
 
@@ -740,6 +772,30 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 	if err == nil {
 		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
 	}
+}
+
+func testGetCACertEnvVar(t *testing.T) error {
+	t.Log("testGetCACertEnvVar - Entered")
+	os.Setenv(rootCertEnvVar, "../../testdata/root.pem")
+
+	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", "fakeConfig.yaml", "-u", "https://localhost:7054", "--tls.client.certfile", "", "--tls.client.keyfile", "", "--caname", ""})
+	if err != nil {
+		return fmt.Errorf("getcainfo failed: %s", err)
+	}
+
+	return nil
+}
+
+func testGetCACertConfigFile(t *testing.T) error {
+	t.Log("testGetCACertConfigFile - Entered")
+	configFile := "../../testdata/fabric-ca-client-config.yaml"
+
+	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", configFile, "-u", "https://localhost:7054", "--tls.certfiles", rootCert})
+	if err != nil {
+		return fmt.Errorf("getcainfo failed: %s", err)
+	}
+
+	return nil
 }
 
 func getServer() *lib.Server {
