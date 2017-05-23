@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
+	//"math"
 	"os"
 	"testing"
 
@@ -62,6 +63,18 @@ func TestKeyTree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get key2: %s", err)
 	}
+
+	keyA, err := tree2.GetKey(path)
+	t.Logf("keyA %v\n", keyA)
+	if err != nil {
+		t.Fatalf("Failed to get keyA: %s", err)
+	}
+
+	//keyB, err := tree2.GetKey(make([]string, math.MaxInt32))
+	//t.Logf("keyB %v\n", keyB)
+	//if err != nil {
+	//	t.Fatalf("Failed to get keyB: %s", err)
+	//}
 
 	ski1 := key1.SKI()
 	ski2 := key2.SKI()
