@@ -211,7 +211,7 @@ func (tm *Mgr) GetBatch(req *GetBatchRequest, ecert *x509.Certificate) (*GetBatc
 		set = append(set, TCert{pem, ks})
 	}
 
-	tcertID := GenNumber(big.NewInt(20))
+	tcertID, _ := GenNumber(big.NewInt(20))
 	tcertResponse := &GetBatchResponse{tcertID, time.Now(), kdfKey, set}
 
 	return tcertResponse, nil
