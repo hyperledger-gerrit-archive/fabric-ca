@@ -33,9 +33,14 @@ func TestTCertWithoutAttribute(t *testing.T) {
 		return
 	}
 
-	ecert, err := LoadCert("../../testdata/ec.pem")
+	ecert, _ := LoadCert("/")
+	if err == nil {
+		t.Errorf("Should have failed")
+	}
+
+	ecert, err = LoadCert("../../testdata/ec.pem")
 	if err != nil {
-		return
+		t.Errorf("LoadCert unable to load ec.pem %v", err)
 	}
 
 	resp, err := mgr.GetBatch(&GetBatchRequest{
