@@ -33,7 +33,12 @@ func TestTCertWithoutAttribute(t *testing.T) {
 		return
 	}
 
-	ecert, err := LoadCert("../../testdata/ec.pem")
+	ecert, err := LoadCert("/")
+	if err == nil {
+		t.Errorf("Should have failed")
+	}
+
+	ecert, err = LoadCert("../../testdata/ec.pem")
 	if err != nil {
 		return
 	}
