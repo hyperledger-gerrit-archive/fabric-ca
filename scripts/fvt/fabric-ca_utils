@@ -304,7 +304,7 @@ register() {
                            --id.maxenrollments 1 \
                            $USERGRP_OPT \
                            --id.attr "$USERATTR" \
-                           -c $FABRIC_CA_CLIENT_HOME/fabric-ca-client-config.yaml
+                           -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
    local rc=$?
    return $rc
 }
