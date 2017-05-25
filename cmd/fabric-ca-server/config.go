@@ -84,6 +84,9 @@ port: 7054
 # Enables debug logging (default: false)
 debug: false
 
+# Size limit of an acceptable CRL in bytes (default: 10000)
+crlsizelimit: 10000
+
 #############################################################################
 #  TLS section for the server's listening port
 #

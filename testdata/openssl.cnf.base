@@ -284,7 +284,7 @@ fullname=URI:http://localhost:$HTTP_PORT/$DOMAIN/crl/crl.der
 #onlysomereasons=$IDPREASON
 
 [ cdp_section ]
-fullname=URI:http://localhost:$HTTP_PORT/$DOMAIN/crl/crl.der
+fullname=URI:http://localhost:$HTTP_PORT/$DOMAIN/crl/crl.pem
 # revocation reason, where reason is one of: 
 #    unspecified
 #    keyCompromise
