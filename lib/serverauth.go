@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -144,24 +145,18 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 	case token:
 
 		ca := ah.server.caMap[req.CAName]
-
 		// verify token
 		cert, err2 := util.VerifyToken(ca.csp, authHdr, body)
 		if err2 != nil {
 			log.Debugf("Failed to verify token: %s", err2)
 			return authError
 		}
-		// Make sure the caller's cert was issued by this CA
-		err2 = ca.VerifyCertificate(cert)
-		if err2 != nil {
-			log.Debugf("Failed to verify certificate: %s", err2)
-			return authError
-		}
+
 		id := util.GetEnrollmentIDFromX509Certificate(cert)
 		log.Debugf("Checking for revocation/expiration of certificate owned by '%s'", id)
-
 		// VerifyCertificate ensures that the certificate passed in hasn't
 		// expired and checks the CRL for the server.
+		revoke.SetCRLFetcher(ah.fetchCRL)
 		revokedOrExpired, checked := revoke.VerifyCertificate(cert)
 		if revokedOrExpired {
 			log.Debugf("Certificate owned by '%s' has expired", id)
@@ -169,6 +164,13 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		}
 		if !checked {
 			log.Debug("A failure occurred while checking for revocation and expiration")
+			return authError
+		}
+
+		// Make sure the caller's cert was issued by this CA
+		err2 = ca.VerifyCertificate(cert)
+		if err2 != nil {
+			log.Debugf("Failed to verify certificate: %s", err2)
 			return authError
 		}
 
@@ -202,4 +204,30 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		return authError
 	}
 
+}
+
+// Read the CRL from body of http request
+func (ah *fcaAuthHandler) fetchCRL(r io.Reader) ([]byte, error) {
+	crlSizeLimit := ah.server.CA.Config.CRLSizeLimit
+	log.Debugf("CRL size limit is %d bytes", crlSizeLimit)
+
+	crl := make([]byte, crlSizeLimit)
+
+	j := 0
+	for {
+		n, err := r.Read(crl)
+		if err != nil {
+			if err != io.EOF {
+				return nil, fmt.Errorf("Error occured while reading http body")
+			}
+			if n == 0 {
+				break
+			}
+		}
+		j = j + n
+		if j > len(crl) {
+			return nil, errors.New("Size of CRL is too large")
+		}
+	}
+	return crl, nil
 }
