@@ -153,7 +153,7 @@ container-tests: docker ldap-tests
 ldap-tests: openldap
 	@scripts/run_ldap_tests
 
-fvt-tests: 
+fvt-tests:
 	@scripts/run_fvt_tests
 
 ci-tests: docker-clean docker-fvt unit-tests
