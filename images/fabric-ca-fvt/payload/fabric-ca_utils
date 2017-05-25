@@ -246,8 +246,8 @@ enroll() {
    setTLS
    $FABRIC_CA_CLIENTEXEC enroll -u "${PROTO}${username}:${userpswd}@${HOST}:${PORT}" $TLSOPT \
                          -c $ENROLLCONFIG \
-                         --csr.hosts "$username@fab-client.raleigh.ibm.com" \
-                         --csr.hosts "$username.fabric.raleigh.ibm.com,127.0.0.2"
+                         --csr.cn $username \
+                         --enrollment.hosts "$username@fab-client.raleigh.ibm.com,$username.fabric.raleigh.ibm.com,127.0.0.2"
    RC=$?
    if test -n "$FABRIC_CA_DEBUG"; then
       $(test "$RC" -eq 0 && $($FABRIC_CA_DEBUG)) && printAuth $FABRIC_CA_CERT_FILE $FABRIC_CA_KEY_FILE
@@ -311,7 +311,7 @@ register() {
                            --id.type "$USERTYPE" \
                            --id.maxenrollments 1 \
                            $USERGRP_OPT \
-                           --id.attrs "$USERATTR" \
+                           --id.attr "$USERATTR" \
                            -c $FABRIC_CA_CLIENT_HOME/fabric-ca-client-config.yaml
    local rc=$?
    return $rc
