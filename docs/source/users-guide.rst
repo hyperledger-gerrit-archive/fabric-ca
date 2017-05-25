@@ -145,6 +145,24 @@ You can build and start the server via docker-compose as shown below.
 The hyperledger/fabric-ca docker image contains both the fabric-ca-server and
 the fabric-ca-client.
 
+WARNING: In some cases, the fabric-ca-server is known to panic due to a bug in
+a native library (libc) on some platforms.  One known
+case is when fabric-ca-server is configured with TLS to a Postgres database,
+though there may also be other cases.
+As a work around, you may set the FABRIC_CA_DYNAMIC_LINK environment variable
+to a value of true prior when issuing the "make docker" command as shown below.
+This causes the executables to be dynamically linked rather than statically
+linked, which avoids the bug in the native library code.
+For more information on this issue, see
+https://jira.hyperledger.org/browse/FAB-2919.
+
+::
+
+    # cd $GOPATH/src/github.com/hyperledger/fabric-ca
+    # FABRIC_CA_DYNAMIC_LINK=true make docker
+    # cd docker/server
+    # docker-compose up -d
+
 Explore the Fabric CA CLI
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
