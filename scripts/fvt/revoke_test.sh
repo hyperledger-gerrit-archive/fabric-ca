@@ -152,31 +152,31 @@ for driver in mysql postgres sqlite3; do
    echo "=========================> REVOKING by --eid"
    export FABRIC_CA_CLIENT_HOME="/tmp/revoke_test/${USERS[0]}"
    #### Blanket revoke all of admin2 certs
-   $FABRIC_CA_CLIENTEXEC revoke -u $URI -e${USERS[1]} $TLSOPT
+   $FABRIC_CA_CLIENTEXEC revoke -u $URI -e${USERS[1]} $TLSOPT -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
 
    #### Revoke notadmin's cert by serial number and authority keyid
    #### using upper-case hexidecimal
    echo "=========================> REVOKING by -s -a (UPPERCASE)"
-   $FABRIC_CA_CLIENTEXEC revoke -s $SN_UC -a $AKI_UC -u $URI $TLSOPT
+   $FABRIC_CA_CLIENTEXEC revoke -s $SN_UC -a $AKI_UC -u $URI $TLSOPT -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
 
    #### Ensure that revoking an already revoked cert doesn't blow up
    echo "=========================> Issuing duplicate revoke by -s -a"
-   $FABRIC_CA_CLIENTEXEC revoke -s $SN_UC -a $AKI_UC -u $URI $TLSOPT
+   $FABRIC_CA_CLIENTEXEC revoke -s $SN_UC -a $AKI_UC -u $URI $TLSOPT -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
 
    #### Revoke using lower-case hexadeciaml
    # FIXME - should allow combination of SN + AKI + EID
    #$FABRIC_CA_CLIENTEXEC revoke -s $SN_LC -a $AKI_LC -u $URI -e${USERS[3]}
    echo "=========================> REVOKING by -s -a (LOWERCASE)"
-   $FABRIC_CA_CLIENTEXEC revoke -s $SN_LC -a $AKI_LC -u $URI $TLSOPT
+   $FABRIC_CA_CLIENTEXEC revoke -s $SN_LC -a $AKI_LC -u $URI $TLSOPT -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
 
    echo "=========================> REVOKING by --eid"
    export FABRIC_CA_CLIENT_HOME="/tmp/revoke_test/${USERS[0]}"
    #### Revoke across affiliations not allowed
-   $FABRIC_CA_CLIENTEXEC revoke -u $URI -e${USERS[5]} $TLSOPT
+   $FABRIC_CA_CLIENTEXEC revoke -u $URI -e${USERS[5]} $TLSOPT -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
 
    #### Revoke my own cert
    echo "=========================> REVOKING self"
-   $FABRIC_CA_CLIENTEXEC revoke -e${USERS[0]} -u $URI $TLSOPT
+   $FABRIC_CA_CLIENTEXEC revoke -e${USERS[0]} -u $URI $TLSOPT -c $FABRIC_CA_CLIENT_HOME/enroll.yaml
 
    # Verify the DB update
    for ((i=${#USERS[@]}; i<=0; i--)); do

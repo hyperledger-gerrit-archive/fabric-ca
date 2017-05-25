@@ -18,12 +18,14 @@ package lib
 
 import (
 	"bytes"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cloudflare/cfssl/api"
@@ -145,6 +147,10 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		id := util.GetEnrollmentIDFromX509Certificate(cert)
 		log.Debugf("Checking for revocation/expiration of certificate owned by '%s'", id)
 
+		err = ah.crlListSizeCheck(cert)
+		if err != nil {
+			return err
+		}
 		// VerifyCertificate ensures that the certificate passed in hasn't
 		// expired and checks the CRL for the server.
 		revokedOrExpired, checked := revoke.VerifyCertificate(cert)
@@ -187,4 +193,33 @@ func (ah *fcaAuthHandler) serveHTTP(w http.ResponseWriter, r *http.Request) erro
 		return authError
 	}
 
+}
+
+// Check to make sure that the requested CRL does not exceed the CRL size limit imposed by CA
+func (ah *fcaAuthHandler) crlListSizeCheck(cert *x509.Certificate) error {
+	CRLSizeLimit := ah.server.CA.Config.CRLSizeLimit
+	if len(cert.CRLDistributionPoints) == 0 {
+		return nil
+	}
+	log.Debugf("Check to make sure that the requested CRL does not exceed the CRL size limit of %d imposed by CA", CRLSizeLimit)
+	for _, url := range cert.CRLDistributionPoints {
+		r, err := http.Head(url)
+		if err != nil {
+			return err
+		}
+
+		if r.StatusCode != http.StatusOK {
+			return fmt.Errorf("HTTP status code not OK")
+		}
+
+		size, _ := strconv.Atoi(r.Header.Get("Content-Length"))
+
+		log.Debugf("Size of CRL list is %d bytes", size)
+
+		if size >= CRLSizeLimit {
+			return fmt.Errorf("The size of the requested CRL list size is %d, which is greater than the CRL size limit of %d", size, CRLSizeLimit)
+		}
+	}
+
+	return nil
 }
