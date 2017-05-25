@@ -6,6 +6,7 @@ CA_CFG_PATH="/tmp/fabric-ca/enrollments"
 SERVERCONFIG="$CA_CFG_PATH/serverConfig.json"
 CLIENTCONFIG="$CA_CFG_PATH/fabric-ca_client.json"
 CLIENTCERT="$CA_CFG_PATH/admin/$MSP_CERT_DIR/cert.pem"
+
 PKI="$SCRIPTDIR/utils/pki"
 MAX_ENROLL="$1"
 UNLIMITED=10
@@ -15,7 +16,7 @@ RC=0
 : ${DATASRC:="fabric-ca-server.db"}
 : ${FABRIC_CA_DEBUG:="false"}
 export CA_CFG_PATH
-
+export FABRIC_CA_DEBUG=true
 function genServerConfig {
 case "$1" in
    implicit) cat > $SERVERCONFIG <<EOF
@@ -23,16 +24,15 @@ db:
   type: $DRIVER
   datasource: $DATASRC
   tls:
-     enabled: $FABRIC_TLS
-     certfiles:
-       - $TESTDATA/tls_server-cert.pem
-     client:
-       certfile: $TESTDATA/tls_server-cert.pem
-       keyfile: $TESTDATA/tls_server-key.pem
+    certfiles:
+      - $TLS_ROOTCERT
+    client:
+      certfile: $TLS_CLIENTCERT
+      keyfile: $TLS_CLIENTKEY
 tls:
   enabled: $FABRIC_TLS
-  certfile: $TESTDATA/tls_server-cert.pem
-  keyfile: $TESTDATA/tls_server-key.pem
+  certfile: $TLS_SERVERCERT
+  keyfile: $TLS_SERVERKEY
 ca:
   certfile: $CA_CFG_PATH/fabric-ca-key.pem
   keyfile: $CA_CFG_PATH/fabric-ca-cert.pem
@@ -47,14 +47,14 @@ registry:
           hf.Registrar.DelegateRoles: "client,user,validator,auditor"
           hf.Revoker: true
 ldap:
-   enabled: false
-   url: ldap://admin:adminpw@localhost:7054/base
-   tls:
-      certfiles:
-        - ldap-server-cert.pem
-      client:
-         certfile: ldap-client-cert.pem
-         keyfile: ldap-client-key.pem
+  enabled: false
+  url: ldap://CN=admin,dc=example,dc=com:adminpw@localhost:389/dc=example,dc=com
+  tls:
+     certfiles:
+       - $TLS_ROOTCERT
+     client:
+       certfile: $TLS_CLIENTCERT
+       keyfile: $TLS_CLIENTKEY
 affiliations:
    bank_a:
 signing:
@@ -91,16 +91,15 @@ db:
   type: $DRIVER
   datasource: $DATASRC
   tls:
-     enabled: $FABRIC_TLS
-     certfiles:
-       - $TESTDATA/tls_server-cert.pem
-     client:
-       certfile: $TESTDATA/tls_server-cert.pem
-       keyfile: $TESTDATA/tls_server-key.pem
+    certfiles:
+      - $TLS_ROOTCERT
+    client:
+      certfile: $TLS_CLIENTCERT
+      keyfile: $TLS_CLIENTKEY
 tls:
   enabled: $FABRIC_TLS
-  certfile: $TESTDATA/tls_server-cert.pem
-  keyfile: $TESTDATA/tls_server-key.pem
+  certfile: $TLS_SERVERCERT
+  keyfile: $TLS_SERVERKEY
 ca:
   certfile: $CA_CFG_PATH/fabric-ca-key.pem
   keyfile: $CA_CFG_PATH/fabric-ca-cert.pem
@@ -117,14 +116,14 @@ registry:
           hf.Registrar.DelegateRoles: "client,user,validator,auditor"
           hf.Revoker: true
 ldap:
-   enabled: false
-   url: ldap://admin:adminpw@localhost:7054/base
-   tls:
-      certfiles:
-        - ldap-server-cert.pem
-      client:
-         certfile: ldap-client-cert.pem
-         keyfile: ldap-client-key.pem
+  enabled: false
+  url: ldap://admin:adminpw@localhost:7054/base
+  tls:
+    certfiles:
+      - $TLS_ROOTCERT
+    client:
+      certfile: $TLS_CLIENTCERT
+      keyfile: $TLS_CLIENTKEY
 affiliations:
    bank_a:
 signing:
@@ -159,46 +158,46 @@ esac
 }
 
 trap "CleanUp 1; exit 1" INT
-# explicitly set value
-   # user can only enroll MAX_ENROLL times
-   $SCRIPTDIR/fabric-ca_setup.sh -R -x $CA_CFG_PATH
-   $SCRIPTDIR/fabric-ca_setup.sh -I -S -X -m $MAX_ENROLL
-   i=0
-   while test $((i++)) -lt "$MAX_ENROLL"; do
-      enroll
-      test $? -eq 0 || ErrorMsg "Failed enrollment prematurely"
-      currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
-      test "$currId" == "$prevId" && ErrorMsg "Prior and current certificates do not differ"
-      prevId="$currId"
-   done
-   # max reached -- should fail
-   enroll
-   test "$?" -eq 0 && ErrorMsg "Surpassed enrollment maximum"
-   currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
-   test "$currId" != "$prevId" && ErrorMsg "Prior and current certificates are different"
-   prevId="$currId"
-
-
-# explicitly set value to '1'
-   # user can only enroll once
-   MAX_ENROLL=1
-   $SCRIPTDIR/fabric-ca_setup.sh -R -x $CA_CFG_PATH 
-   $SCRIPTDIR/fabric-ca_setup.sh -I -S -X -m $MAX_ENROLL
-   i=0
-   while test $((i++)) -lt "$MAX_ENROLL"; do
-      enroll
-      test $? -eq 0 || ErrorMsg "Failed enrollment prematurely"
-      currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
-      test "$currId" == "$prevId" && ErrorMsg "Prior and current certificates do not differ"
-      prevId="$currId"
-   done
-   # max reached -- should fail
-   enroll
-   test "$?" -eq 0 && ErrorMsg "Surpassed enrollment maximum"
-   currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
-   test "$currId" != "$prevId" && ErrorMsg "Prior and current certificates are different"
-   prevId="$currId"
-
+## explicitly set value
+#   # user can only enroll MAX_ENROLL times
+#   $SCRIPTDIR/fabric-ca_setup.sh -R -x $CA_CFG_PATH
+#   $SCRIPTDIR/fabric-ca_setup.sh -I -S -X -m $MAX_ENROLL
+#   i=0
+#   while test $((i++)) -lt "$MAX_ENROLL"; do
+#      enroll
+#      test $? -eq 0 || ErrorMsg "Failed enrollment prematurely"
+#      currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
+#      test "$currId" == "$prevId" && ErrorMsg "Prior and current certificates do not differ"
+#      prevId="$currId"
+#   done
+#   # max reached -- should fail
+#   enroll
+#   test "$?" -eq 0 && ErrorMsg "Surpassed enrollment maximum"
+#   currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
+#   test "$currId" != "$prevId" && ErrorMsg "Prior and current certificates are different"
+#   prevId="$currId"
+#
+#
+## explicitly set value to '1'
+#   # user can only enroll once
+#   MAX_ENROLL=1
+#   $SCRIPTDIR/fabric-ca_setup.sh -R -x $CA_CFG_PATH 
+#   $SCRIPTDIR/fabric-ca_setup.sh -I -S -X -m $MAX_ENROLL
+#   i=0
+#   while test $((i++)) -lt "$MAX_ENROLL"; do
+#      enroll
+#      test $? -eq 0 || ErrorMsg "Failed enrollment prematurely"
+#      currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
+#      test "$currId" == "$prevId" && ErrorMsg "Prior and current certificates do not differ"
+#      prevId="$currId"
+#   done
+#   # max reached -- should fail
+#   enroll
+#   test "$?" -eq 0 && ErrorMsg "Surpassed enrollment maximum"
+#   currId=$($PKI -f display -c $CLIENTCERT | awk '/Subject Key Identifier:/ {getline;print $1}')
+#   test "$currId" != "$prevId" && ErrorMsg "Prior and current certificates are different"
+#   prevId="$currId"
+#
 # explicitly set value to '0'
    # user enrollment unlimited
    MAX_ENROLL=0
