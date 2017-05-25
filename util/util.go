@@ -27,6 +27,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"math/big"
 	mrand "math/rand"
@@ -665,4 +666,27 @@ func CheckHostsInCert(certFile string, host string) error {
 	}
 
 	return nil
+}
+
+// Read reads from Reader into a byte array
+func Read(r io.Reader, data []byte) ([]byte, error) {
+	j := 0
+	for {
+		if j >= len(data) {
+			return nil, errors.New("Size of requested data is too large")
+		}
+
+		n, err := r.Read(data[j:])
+		if err != nil {
+			if err != io.EOF {
+				return nil, fmt.Errorf("Error occured while reading http body")
+			}
+			if n == 0 {
+				break
+			}
+		}
+		j = j + n
+	}
+
+	return data[:j], nil
 }

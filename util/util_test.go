@@ -19,6 +19,7 @@ package util
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -565,6 +566,48 @@ func TestCertDuration(t *testing.T) {
 	assert.True(t, d.Hours() == 43800, "Expected certificate duration of 43800h in ec.pem")
 	_, err = GetCertificateDurationFromFile("bogus.pem")
 	assert.Error(t, err)
+}
+
+type MyReader struct {
+	Data  []string
+	index int
+}
+
+func (r *MyReader) Read(data []byte) (int, error) {
+	if r.index >= len(r.Data) {
+		return 0, io.EOF
+	}
+	buf := []byte(r.Data[r.index])
+	for i, v := range buf {
+		if i < len(data) {
+			data[i] = v
+		}
+	}
+
+	r.index = r.index + 1
+
+	return len(buf), nil
+}
+
+func TestRead(t *testing.T) {
+	myReader := MyReader{
+		Data: []string{"TEST1", "TEST222222"},
+	}
+
+	// Test with a buffer that is too small to fit data
+	buf := make([]byte, 7)
+	data, err := Read(&myReader, buf)
+	assert.Error(t, err, "Should have errored, the data passed is bigger than the buffer")
+
+	// Test with a buffer that is big enough to fit data
+	buf = make([]byte, 25)
+	myReader.index = 0
+	data, err = Read(&myReader, buf)
+	if assert.NoError(t, err, fmt.Sprintf("Error occured during read: %s", err)) {
+		if string(data) != "TEST1TEST222222" {
+			t.Error("The data returned does not match")
+		}
+	}
 }
 
 func getPEM(file string, t *testing.T) []byte {
