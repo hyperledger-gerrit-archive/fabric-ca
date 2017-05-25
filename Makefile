@@ -134,7 +134,7 @@ build/image/%/payload:
 
 build/fabric-ca.tar.bz2: $(shell git ls-files images/fabric-ca/payload)
 
-build/fabric-ca-fvt.tar.bz2: $(shell find images/fabric-ca-fvt/payload -type f)
+build/fabric-ca-fvt.tar.bz2: $(shell find images/fabric-ca-fvt/payload/ -maxdepth 1)
 
 build/%.tar.bz2:
 	@echo "Building $@"

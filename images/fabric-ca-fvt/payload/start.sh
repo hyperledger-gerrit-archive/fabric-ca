@@ -12,10 +12,7 @@ PORTS=($POSTGRES_PORT $MYSQL_PORT $LDAP_PORT)
 
 timeout=12
 su postgres -c 'postgres -D /usr/local/pgsql/data' &
-/usr/bin/mysqld_safe --sql-mode=STRICT_TRANS_TABLES \
-                     --ssl-ca=/var/lib/mysql/ca.pem \
-                     --ssl-cert=/var/lib/mysql/server-cert.pem \
-                     --ssl-key=/var/lib/mysql/server-key.pem &
+/usr/bin/mysqld_safe --sql-mode=STRICT_TRANS_TABLES &
 /etc/init.d/slapd start &
 
 for port in ${PORTS[*]}; do

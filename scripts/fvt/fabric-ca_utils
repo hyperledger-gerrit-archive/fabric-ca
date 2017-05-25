@@ -448,7 +448,7 @@ cat > $runconfig <<EOF
       "datasource": "$datasrc",
        "tls": {
           "enabled": "$TLS_ON",
-          "certfiles": [ "$TLS_ROOTCERT", $TLS_RACERT, $TLS_SUBCACERT ],
+          "certfiles": [ "$TLS_ROOTCERT" ],
           "client": {
              "certfile": "$TLS_CLIENTCERT",
              "keyfile": "$TLS_CLIENTKEY"
@@ -469,7 +469,7 @@ cat > $runconfig <<EOF
       "enabled": $LDAP_ENABLE,
       "url": "${LDAP_PROTO}CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com",
       "tls": {
-         "certfiles": [ "$TLS_ROOTCERT", $TLS_RACERT, $TLS_SUBCACERT ],
+         "certfiles": [ "$TLS_ROOTCERT" ],
          "client": {
             "certfile": "$TLS_CLIENTCERT",
             "keyfile": "$TLS_CLIENTKEY"
@@ -639,8 +639,6 @@ db:
      enabled: $TLS_ON
      certfiles:
        - $TLS_ROOTCERT
-       #- $TLS_RACERT 
-       #- $TLS_SUBCACERT
      client:
        certfile: $TLS_CLIENTCERT
        keyfile: $TLS_CLIENTKEY
@@ -658,8 +656,6 @@ ldap:
   tls:
     certfiles:
       - $TLS_ROOTCERT
-      #- $TLS_RACERT 
-      #- $TLS_SUBCACERT
     client:
       certfile: $TLS_CLIENTCERT
       keyfile: $TLS_CLIENTKEY
