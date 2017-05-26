@@ -256,10 +256,10 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		if clientCfg.Enrollment.CSR.CA == nil {
 			clientCfg.Enrollment.CSR.CA = &cfcsr.CAConfig{PathLength: 0, PathLenZero: true}
 		}
-		log.Debugf("Intermediate enrollment request: %v", clientCfg.Enrollment)
-		var resp *EnrollmentResponse
-		resp, err = clientCfg.Enroll(ca.Config.Intermediate.ParentServer.URL, ca.HomeDir)
+		resp, err := ca.enrollWithParentCA(clientCfg)
 		if err != nil {
+			err = fmt.Errorf("Failed to enroll intermediate CA with the parent CA %s at %s: %s",
+				ca.Config.Intermediate.ParentServer.CAName, ca.Config.Intermediate.ParentServer.URL, err.Error())
 			return nil, err
 		}
 		// Set the CN for an intermediate server to be the ID used to enroll with root CA
@@ -314,6 +314,18 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		}
 	}
 	return cert, nil
+}
+
+func (ca *CA) enrollWithParentCA(clientCfg *ClientConfig) (*EnrollmentResponse, error) {
+	err := clientCfg.PrepareEnrollmentReq(ca.Config.Intermediate.ParentServer.URL)
+	if err != nil {
+		return nil, err
+	}
+	if clientCfg.TLS.Enabled == true && len(clientCfg.TLS.CertFiles) == 0 {
+		return nil, fmt.Errorf("connecting to parent CA over TLS but required config property 'client.tls.certfiles' is not specified")
+	}
+	log.Debugf("Intermediate enrollment request: %v", clientCfg.Enrollment)
+	return clientCfg.Enroll(ca.Config.Intermediate.ParentServer.URL, ca.HomeDir)
 }
 
 // Return a certificate chain which is the concatenation of chain and cert
