@@ -144,6 +144,14 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet, caname
 		return "", fmt.Errorf("Unlimited enrollments not allowed, value must be equal to or less then %d", maxEnrollments)
 	}
 
+	// Make sure delegateRoles is not larger than roles
+	roles := h.getAttr(req.Attributes, attrRoles)
+	delegateRoles := h.getAttr(req.Attributes, attrDelegateRoles)
+	err := h.subsetCheck(delegateRoles, roles)
+	if err != nil {
+		return "", fmt.Errorf("delegateRoles is superset of roles: %s", err)
+	}
+
 	insert := spi.UserInfo{
 		Name:           req.Name,
 		Pass:           req.Secret,
@@ -155,7 +163,7 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet, caname
 
 	registry := h.server.caMap[caname].registry
 
-	_, err := registry.GetUser(req.Name, nil)
+	_, err = registry.GetUser(req.Name, nil)
 	if err == nil {
 		return "", fmt.Errorf("Identity '%s' is already registered", req.Name)
 	}
@@ -209,4 +217,25 @@ func (h *registerHandler) canRegister(registrar string, userType string, caname 
 	}
 
 	return nil
+}
+
+func (h *registerHandler) subsetCheck(small, big string) error {
+	bigSet := strings.Split(big, ",")
+	smallSet := strings.Split(small, ",")
+	for _, s := range smallSet {
+		s = strings.TrimSpace(s)
+		if s != "" && !util.StrContained(s, bigSet) {
+			return fmt.Errorf("'%s' is not a member of '%s'", s, big)
+		}
+	}
+	return nil
+}
+
+func (h *registerHandler) getAttr(attrs []api.Attribute, name string) string {
+	for _, attr := range attrs {
+		if attr.Name == name {
+			return attr.Value
+		}
+	}
+	return ""
 }
