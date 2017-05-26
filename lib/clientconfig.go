@@ -41,12 +41,25 @@ type ClientConfig struct {
 }
 
 // Enroll a client given the server's URL and the client's home directory.
-// The URL may be of the form: http://user:pass@host:port where user and pass
+// The URL must be of the form: http://user:pass@host:port where user and pass
 // are the enrollment ID and secret, respectively.
 func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) {
-	purl, err := url.Parse(rawurl)
+	err := c.PrepareEnrollmentReq(rawurl)
 	if err != nil {
 		return nil, err
+	}
+	client := &Client{HomeDir: home, Config: c}
+	return client.Enroll(&c.Enrollment)
+}
+
+// PrepareEnrollmentReq populates the Enrollment property of this client config, ready
+// to be used to enroll the client associated with this config
+// The URL must be of the form: http://user:pass@host:port where user and pass
+// are the enrollment ID and secret, respectively.
+func (c *ClientConfig) PrepareEnrollmentReq(rawurl string) error {
+	purl, err := url.Parse(rawurl)
+	if err != nil {
+		return err
 	}
 	if purl.User != nil {
 		name := purl.User.Username()
@@ -59,14 +72,13 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 		expecting := fmt.Sprintf(
 			"%s://<enrollmentID>:<secret>@%s",
 			purl.Scheme, purl.Host)
-		return nil, fmt.Errorf(
-			"The URL of the fabric CA server is missing the enrollment ID and secret;"+
+		return fmt.Errorf(
+			"the URL of the fabric CA server is missing the enrollment ID and secret;"+
 				" found '%s' but expecting '%s'", rawurl, expecting)
 	}
 	c.Enrollment.CAName = c.CAName
 	c.URL = purl.String()
 	c.TLS.Enabled = purl.Scheme == "https"
 	c.Enrollment.CSR = &c.CSR
-	client := &Client{HomeDir: home, Config: c}
-	return client.Enroll(&c.Enrollment)
+	return nil
 }
