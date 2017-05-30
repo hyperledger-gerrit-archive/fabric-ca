@@ -1225,12 +1225,20 @@ an attribute named "foo" with a value of "bar".
 ::
 
     # export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
-    # fabric-ca-client register --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs "hf.Revoker=true foo=bar"
+    # fabric-ca-client register --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs 'hf.Revoker=true,foo=bar'
 
 The password, also known as the enrollment secret, is printed.
 This password is required to enroll the identity.
 This allows an administrator to register an identity and give the
 enrollment ID and the secret to someone else to enroll the identity.
+
+Multiple attributes can be specified as part of the --id.attrs flag, each 
+attribute must be comma separated. For an attribute value that contains a comma,
+the attribute must be encapsulated in double quotes. See example below.
+
+::
+
+    # fabric-ca-client register -d --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs '"hf.Registrar.Roles=peer,user",hf.Revoker=true'
 
 You may set default values for any of the fields used in the register command
 by editing the client's configuration file.  For example, suppose the configuration
