@@ -238,13 +238,13 @@ The following shows the Fabric CA client usage message:
     Flags:
           --caname string                Name of CA
       -c, --config string                Configuration file (default "$HOME/.fabric-ca-client/fabric-ca-client-config.yaml")
-          --csr.hosts stringSlice        A list of space-separated host names in a certificate signing request
+          --csr.hosts stringSlice        A list of comma-separated host names in a certificate signing request
           --csr.serialnumber string      The serial number in a certificate signing request
       -d, --debug                        Enable debug level logging
           --enrollment.label string      Label to use in HSM operations
           --enrollment.profile string    Name of the signing profile to use in issuing the certificate
           --id.affiliation string        The identity's affiliation
-          --id.attrs stringSlice         A space-separated list of attributes of the form <name>=<value> (e.g. foo=foo1 bar=bar1)
+          --id.attrs stringSlice         A list of comma-separated attributes of the form <name>=<value> (e.g. foo=foo1 bar=bar1)
           --id.maxenrollments int        The maximum number of times the secret can be reused to enroll
           --id.name string               Unique name of the identity
           --id.secret string             The enrollment secret for the identity being registered
@@ -259,10 +259,11 @@ The following shows the Fabric CA client usage message:
     Use "fabric-ca-client [command] --help" for more information about a command.
 
 Note that command line options that are string slices (lists) can be specified either
-by specifying the option with space-separated list elements or by specifying the option
+by specifying the option with comma-separated list elements or by specifying the option
 multiple times, each with a string value that make up the list. For example, to specify
 ``host1`` and ``host2`` for `csr.hosts` option, you can either pass `--csr.hosts
-"host1 host2"` or `--csr.hosts host1 --csr.hosts host2`
+'host1,host2'` when using this format make sure there is no space before or after comma
+or `--csr.hosts host1 --csr.hosts host2`
 
 `Back to Top`_
 
@@ -1225,12 +1226,26 @@ an attribute named "foo" with a value of "bar".
 ::
 
     # export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
-    # fabric-ca-client register --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs "hf.Revoker=true foo=bar"
+    # fabric-ca-client register --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs 'hf.Revoker=true,foo=bar'
 
 The password, also known as the enrollment secret, is printed.
 This password is required to enroll the identity.
 This allows an administrator to register an identity and give the
 enrollment ID and the secret to someone else to enroll the identity.
+
+Multiple attributes can be specified as part of the --id.attrs flag, each 
+attribute must be comma separated. For an attribute value that contains a comma,
+the attribute must be encapsulated in double quotes. See example below.
+
+::
+
+    # fabric-ca-client register -d --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs '"hf.Registrar.Roles=peer,user",hf.Revoker=true'
+
+or
+
+:: 
+
+    # fabric-ca-client register -d --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs '"hf.Registrar.Roles=peer,user"' --id.attrs hf.Revoker=true 
 
 You may set default values for any of the fields used in the register command
 by editing the client's configuration file.  For example, suppose the configuration
