@@ -197,7 +197,7 @@ func TestClientCommandsNoTLS(t *testing.T) {
 	testProfiling(t)
 	testRegisterConfigFile(t)
 	testRegisterEnvVar(t)
-	testRegisterCommandLine(t)
+	testRegisterCommandLine(t, srv)
 	testRevoke(t)
 	testBogus(t)
 
@@ -391,13 +391,35 @@ func testRegisterEnvVar(t *testing.T) {
 }
 
 // testRegisterCommandLine tests fabric-ca-client register using command line input
-func testRegisterCommandLine(t *testing.T) {
+func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	t.Log("Testing Register CMD")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attrs", "foo=a=b bar=c"})
+	fooVal := "a=b"
+	roleVal := "peer,user,asdfclient"
+	attributes := fmt.Sprintf("foo=%s,bar=c,\"hf.Registrar.Roles=%s\"", fooVal, roleVal)
+
+	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attrs", attributes})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
+	}
+
+	sqliteDB, _, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	assert.NoError(t, err)
+
+	db := lib.NewDBAccessor()
+	db.SetDB(sqliteDB)
+	user, err := db.GetUserInfo("testRegister3")
+	if err != nil {
+		t.Error(err)
+	}
+	val := lib.GetAttrValue(user.Attributes, "foo")
+	if val != fooVal {
+		t.Errorf("Incorrect value returned for attribute, expected '%s' got '%s'", fooVal, val)
+	}
+	val = lib.GetAttrValue(user.Attributes, "hf.Registrar.Roles")
+	if val != roleVal {
+		t.Errorf("Incorrect value returned for attribute, expected '%s' got '%s'", roleVal, val)
 	}
 
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4", "--id.affiliation", "company2", "--id.type", "client"})
