@@ -27,6 +27,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/go-sql-driver/mysql"
 	"github.com/hyperledger/fabric-ca/lib/tls"
+	"github.com/hyperledger/fabric/bccsp"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -202,7 +203,10 @@ func createPostgresDBTables(datasource string, dbName string, db *sqlx.DB) error
 }
 
 // NewUserRegistryMySQL opens a connecton to a postgres database
-func NewUserRegistryMySQL(datasource string, clientTLSConfig *tls.ClientTLSConfig) (*sqlx.DB, bool, error) {
+func NewUserRegistryMySQL(
+	datasource string,
+	clientTLSConfig *tls.ClientTLSConfig,
+	csp bccsp.BCCSP) (*sqlx.DB, bool, error) {
 	log.Debugf("Using MySQL database, connecting to database...")
 
 	var exists bool
@@ -213,7 +217,7 @@ func NewUserRegistryMySQL(datasource string, clientTLSConfig *tls.ClientTLSConfi
 	connStr := re.ReplaceAllString(datasource, "/")
 
 	if clientTLSConfig.Enabled {
-		tlsConfig, err := tls.GetClientTLSConfig(clientTLSConfig)
+		tlsConfig, err := tls.GetClientTLSConfig(clientTLSConfig, csp)
 		if err != nil {
 			log.Errorf("Failed to create TLS configuration [error: %s]", err)
 		}
