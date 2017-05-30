@@ -45,7 +45,7 @@ func TestGetClientTLSConfig(t *testing.T) {
 
 	AbsTLSClient(cfg, configDir)
 
-	_, err := GetClientTLSConfig(cfg)
+	_, err := GetClientTLSConfig(cfg, nil)
 	if err != nil {
 		t.Errorf("Failed to get TLS Config: %s", err)
 	}
@@ -61,7 +61,7 @@ func TestGetClientTLSConfigInvalidArgs(t *testing.T) {
 			CertFile: "no_tls_client-cert.pem",
 		},
 	}
-	_, err := GetClientTLSConfig(cfg)
+	_, err := GetClientTLSConfig(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "open no_tls_client-cert.pem: no such file or directory")
 
@@ -74,7 +74,7 @@ func TestGetClientTLSConfigInvalidArgs(t *testing.T) {
 		},
 	}
 	AbsTLSClient(cfg, configDir)
-	_, err = GetClientTLSConfig(cfg)
+	_, err = GetClientTLSConfig(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "No CA certificate files provided")
 
@@ -87,7 +87,7 @@ func TestGetClientTLSConfigInvalidArgs(t *testing.T) {
 		},
 	}
 	AbsTLSClient(cfg, configDir)
-	_, err = GetClientTLSConfig(cfg)
+	_, err = GetClientTLSConfig(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no-tls_client-key.pem: no such file or directory")
 
@@ -99,7 +99,7 @@ func TestGetClientTLSConfigInvalidArgs(t *testing.T) {
 			CertFile: "",
 		},
 	}
-	_, err = GetClientTLSConfig(cfg)
+	_, err = GetClientTLSConfig(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "No CA certificate files provided")
 
@@ -112,7 +112,7 @@ func TestGetClientTLSConfigInvalidArgs(t *testing.T) {
 		},
 	}
 	AbsTLSClient(cfg, configDir)
-	_, err = GetClientTLSConfig(cfg)
+	_, err = GetClientTLSConfig(cfg, nil)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "no-root.pem: no such file or directory")
 

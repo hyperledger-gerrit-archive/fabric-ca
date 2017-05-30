@@ -178,7 +178,7 @@ func (ca *CA) initKeyMaterial(renew bool) error {
 			log.Info("The CA key and certificate files already exist")
 			log.Infof("Key file location: %s", keyFile)
 			log.Infof("Certificate file location: %s", certFile)
-			err := ca.validateCert(certFile, keyFile)
+			err = ca.validateCert(certFile, keyFile)
 			if err != nil {
 				return fmt.Errorf("Validation of certificate and key failed: %s", err)
 			}
@@ -384,7 +384,7 @@ func (ca *CA) initDB() error {
 			return err
 		}
 	case "mysql":
-		ca.db, exists, err = dbutil.NewUserRegistryMySQL(db.Datasource, &db.TLS)
+		ca.db, exists, err = dbutil.NewUserRegistryMySQL(db.Datasource, &db.TLS, ca.csp)
 		if err != nil {
 			return err
 		}
@@ -426,7 +426,7 @@ func (ca *CA) initUserRegistry() error {
 
 	if ldapCfg.Enabled {
 		// Use LDAP for the user registry
-		ca.registry, err = ldap.NewClient(ldapCfg)
+		ca.registry, err = ldap.NewClient(ldapCfg, ca.server.csp)
 		log.Debugf("Initialized LDAP identity registry; err=%s", err)
 		return err
 	}
