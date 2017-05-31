@@ -150,7 +150,7 @@ registry:
        type: client
        affiliation: ""
        attrs:
-          hf.Registrar.Roles: "client,user,peer,validator,auditor,ca"
+          hf.Registrar.Roles: "client,user,peer,validator,auditor"
           hf.Registrar.DelegateRoles: "client,user,validator,auditor"
           hf.Revoker: true
           hf.IntermediateCA: true
@@ -214,6 +214,9 @@ affiliations:
 #  The "ca" profile subsection is used to sign intermediate CA certificates;
 #  the default expiration ("expiry" field) is "43800h" which is 5 years in hours.
 #  Note that "isca" is true, meaning that it issues a CA certificate.
+#  A maxpathlen of 0 and maxpathlenzero of true means that the intermediate CA
+#  cannot issue other intermediate CA certificates.
+#  (See RFC 5280, section 4.2.1.9)
 #############################################################################
 signing:
     default:
@@ -227,6 +230,8 @@ signing:
          expiry: 43800h
          caconstraint:
            isca: true
+           maxpathlen: 0
+           maxpathlenzero: true
 
 ###########################################################################
 #  Certificate Signing Request (CSR) section.
@@ -234,9 +239,20 @@ signing:
 #  The expiration for the root CA certificate is configured with the
 #  "ca.expiry" field below, whose default value is "131400h" which is
 #  15 years in hours.
+#  The pathlength and pathlenzero fields are as described in section 4.2.1.9
+#  of RFC 5280.
+#  Examples:
+#  1) pathlength == 0 and pathlenzero == false means no limit is requested.
+#  2) pathlength == 1 and pathlenzero == false means a limit of 1 is requested;
+#     this is the default for a root CA, which means it can issue intermediate CA
+#     certificates, but an intermediate CA may not in turn issue other CA
+#     certificates.
+#  3) pathlength == 0 and pathlenzero == true means a limit of 0 is requested;
+#     this is the default for an intermediate CA, which means it can not issue
+#     CA certificates.
 ###########################################################################
 csr:
-   cn: fabric-ca-server
+   cn: <<<COMMONNAME>>>
    names:
       - C: US
         ST: "North Carolina"
@@ -247,15 +263,14 @@ csr:
      - <<<MYHOST>>>
      - localhost
    ca:
-      pathlen:
-      pathlenzero:
       expiry: 131400h
+      pathlength: <<<PATHLENGTH>>>
+      pathlenzero: <<<PATHLENZERO>>>
 
 #############################################################################
 # BCCSP (BlockChain Crypto Service Provider) section is used to select which
 # crypto library implementation to use
 #############################################################################
-
 bccsp:
     default: SW
     sw:
@@ -281,7 +296,7 @@ bccsp:
 # For each CA config file in the list, generate a separate signing CA.  Each CA
 # config file in this list MAY contain all of the same elements as are found in
 # the server config file except port, debug, and tls sections.
-# 
+#
 # Examples:
 # fabric-ca-server start -b admin:adminpw --cacount 2
 #
@@ -418,6 +433,17 @@ func createDefaultConfigFile() error {
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
+	if viper.GetString("intermediate.parentserver.url") == "" {
+		// This is a root CA
+		cfg = strings.Replace(cfg, "<<<COMMONNAME>>>", "fabric-ca-server", 1)
+		cfg = strings.Replace(cfg, "<<<PATHLENGTH>>>", "1", 1)
+		cfg = strings.Replace(cfg, "<<<PATHLENZERO>>>", "false", 1)
+	} else {
+		// This is an intermediate CA
+		cfg = strings.Replace(cfg, "<<<COMMONNAME>>>", "", 1)
+		cfg = strings.Replace(cfg, "<<<PATHLENGTH>>>", "0", 1)
+		cfg = strings.Replace(cfg, "<<<PATHLENZERO>>>", "true", 1)
+	}
 
 	// Now write the file
 	cfgDir := filepath.Dir(cfgFileName)
