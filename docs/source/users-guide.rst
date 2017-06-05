@@ -49,6 +49,7 @@ Table of Contents
    5. `Setting up a cluster`_
    6. `Setting up multiple CAs`_
    7. `Enrolling an intermediate CA`_
+   8. `Configuring Server TLS`_
 
 6. `Fabric CA Client`_
 
@@ -57,7 +58,7 @@ Table of Contents
    3. `Enrolling a peer identity`_
    4. `Reenrolling an identity`_
    5. `Revoking a certificate or identity`_
-   6. `Enabling TLS`_
+   6. `Configuring Client TLS`_
    7. `Contact specific CA instance`_
 
 7. `Appendix`_
@@ -1133,6 +1134,47 @@ CA tries to explicitly specify a CN value.
 
 For other intermediate CA flags see `Fabric CA server's configuration file format`_ section.
 
+Configuring Server TLS
+~~~~~~~~~~~~~~~~~~~~~~~
+
+If you don't have a certificate and key to use for TLS, they may be generated using openSSL as shown below.
+
+1. Navigate to a directory where you would like to store the server certificate and key
+2. Run the following:
+
+::
+
+    openssl req -x509 -newkey rsa:4096 -keyout server-tls-key.pem -out server-tls-cert.pem -days 365 -nodes
+
+3. Respond to prompts with appropriate answers for the CSR. For the Common Name (CN) prompt, it is
+necessary to use the Fully Qualified Domain Name (FQDN) of the host on which the certificate will be used.
+
+This will generate a certificate and key pair that can now be used in the server TLS configuration.
+The following sections may be configured in the ``fabric-ca-server-config.yaml``.
+
+::
+
+    tls:
+      # Enable TLS (default: false)
+      enabled: true
+      # TLS for the server's listening port
+      certfile: server-tls-cert.pem
+      keyfile: server-tls-key.pem
+      clientauth:
+        type: noclientcert
+        certfiles:
+
+The supported types for client authentication are:
+
+- NoClientCert
+- RequestClientCert
+- RequireAnyClientCert
+- VerifyClientCertIfGiven
+- RequireAndVerifyClientCert
+
+For **clientauth.certfiles** you need to point to the set of root certificates
+that the server trusts and will use to verify client side TLS certficates.
+
 `Back to Top`_
 
 .. _client:
@@ -1389,31 +1431,41 @@ and pass them to the ``revoke`` command to revoke the said certificate as follow
    aki=$(openssl x509 -in userecert.pem -text | awk '/keyid/ {gsub(/ *keyid:|:/,"",$1);print tolower($0)}')
    fabric-ca-client revoke -s $serial -a $aki -r affiliationchange
 
-Enabling TLS
-~~~~~~~~~~~~
+Configuring Client TLS
+~~~~~~~~~~~~~~~~~~~~~~~
 
-This section describes in more detail how to configure TLS for a Fabric CA client.
+This section describes how to configure TLS for a Fabric CA client.
 
+If the Fabric CA server has mutual TLS enabled then a client will need its own TLS certificate
+and key. If you don't have a certificate and key to use for TLS, they may be generated using openSSL 
+as shown below.
+
+1. Navigate to a directory where you would like to store the client certificate and key
+2. Run the following:
+
+::
+
+    openssl req -x509 -newkey rsa:4096 -keyout tls-client-key.pem -out tls-client-cert.pem -days 365 -nodes
+
+3. Respond to prompts with appropriate answers for the CSR. For the Common Name (CN) prompt, it is
+necessary to use the FQDN of the host on which the certificate will be used.
+
+This will generate a certificate and key that can now be used in the client TLS configuration.
 The following sections may be configured in the ``fabric-ca-client-config.yaml``.
 
 ::
 
     tls:
       # Enable TLS (default: false)
-      enabled: true
       certfiles:
         - root.pem
       client:
-        certfile: tls_client-cert.pem
-        keyfile: tls_client-key.pem
+        certfile: tls-client-cert.pem
+        keyfile: tls-client-key.pem
 
-The **certfiles** option is the set of root certificates trusted by the
-client. This will typically just be the root Fabric CA server's
-certificate found in the server's home directory in the **ca-cert.pem**
-file.
-
-The **client** option is required only if mutual TLS is configured on
-the server.
+The **certfiles** option is the set of root certificates trusted by the client. The **client** option
+is required only if the server's client authentication type is either RequireAnyClientCert or 
+RequireAndVerifyClientCert.
 
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
