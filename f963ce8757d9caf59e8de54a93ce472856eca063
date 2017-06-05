@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Code-Review+2: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-by: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-at: Mon, 05 Jun 2017 18:07:38 +0000
+Reviewed-on: http://gerrit.hyperledger.org/r/9939
+Project: fabric-ca
+Branch: refs/heads/master
