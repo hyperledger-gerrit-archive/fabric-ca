@@ -1,3 +1,53 @@
+## v1.0.0-beta
+Wed Jun  7 08:10:56 EDT 2017
+
+* [c9372be](https://github.com/hyperledger/fabric/commit/c9372be) [FAB-4404](https://jira.hyperledger.org/browse/FAB-4404) Adding CA to server restricted on DN
+* [03d860d](https://github.com/hyperledger/fabric/commit/03d860d) [FAB-3415](https://jira.hyperledger.org/browse/FAB-3415) Improve LDAP usage and error handling
+* [f963ce8](https://github.com/hyperledger/fabric/commit/f963ce8) [FAB-4093](https://jira.hyperledger.org/browse/FAB-4093) Fix the TLS client using BCCSP
+* [22dc710](https://github.com/hyperledger/fabric/commit/22dc710) [FAB-3228](https://jira.hyperledger.org/browse/FAB-3228) Fix/clarify CA pathlen constraints
+* [fdcf1c7](https://github.com/hyperledger/fabric/commit/fdcf1c7) [FAB-4311](https://jira.hyperledger.org/browse/FAB-4311) Fix duplicated fabric-ca config item
+* [9ce8536](https://github.com/hyperledger/fabric/commit/9ce8536) [FAB-4307](https://jira.hyperledger.org/browse/FAB-4307) add missing CCBY license to all docs
+* [42f48d2](https://github.com/hyperledger/fabric/commit/42f48d2) [FAB-4188](https://jira.hyperledger.org/browse/FAB-4188) Documentation updates
+* [120b139](https://github.com/hyperledger/fabric/commit/120b139) [FAB-3011](https://jira.hyperledger.org/browse/FAB-3011) Fix max enrollment checking logic
+* [5987a8e](https://github.com/hyperledger/fabric/commit/5987a8e) [FAB-3683](https://jira.hyperledger.org/browse/FAB-3683) SIGSEGV seen for MySQL empty certfiles
+* [0f73bdc](https://github.com/hyperledger/fabric/commit/0f73bdc) [FAB-4209](https://jira.hyperledger.org/browse/FAB-4209) Fix JSON error in swagger doc
+* [1777996](https://github.com/hyperledger/fabric/commit/1777996) [FAB-4097](https://jira.hyperledger.org/browse/FAB-4097) Fix getcacert client command config
+* [05749b7](https://github.com/hyperledger/fabric/commit/05749b7) [FAB-4180](https://jira.hyperledger.org/browse/FAB-4180) fix misspell doc title issue
+* [efd537e](https://github.com/hyperledger/fabric/commit/efd537e) [FAB-1989](https://jira.hyperledger.org/browse/FAB-1989) Fix leaking authority to delegates
+* [791f2ae](https://github.com/hyperledger/fabric/commit/791f2ae) [FAB-3759](https://jira.hyperledger.org/browse/FAB-3759) Fix the msg shown when TLS certs are missing
+* [92e13cb](https://github.com/hyperledger/fabric/commit/92e13cb) [FAB-3971](https://jira.hyperledger.org/browse/FAB-3971) Register id with multiple attrs
+* [0dcd514](https://github.com/hyperledger/fabric/commit/0dcd514) [FAB-2919](https://jira.hyperledger.org/browse/FAB-2919) Workaround for panic due to lib bug
+* [dfb555f](https://github.com/hyperledger/fabric/commit/dfb555f) [FAB-3425](https://jira.hyperledger.org/browse/FAB-3425) Fix typo in error messages
+* [1be793d](https://github.com/hyperledger/fabric/commit/1be793d) [FAB-3734](https://jira.hyperledger.org/browse/FAB-3734) Fix default expiration times
+* [ac8695b](https://github.com/hyperledger/fabric/commit/ac8695b) [FAB-4141](https://jira.hyperledger.org/browse/FAB-4141) Default CA lookup fails
+* [4559758](https://github.com/hyperledger/fabric/commit/4559758) [ [FAB-3924](https://jira.hyperledger.org/browse/FAB-3924) ] - Additional test coverage for tcert
+* [a5ab60d](https://github.com/hyperledger/fabric/commit/a5ab60d) [FAB-3630](https://jira.hyperledger.org/browse/FAB-3630) enable RTD build process on fabric-ca
+* [99fd112](https://github.com/hyperledger/fabric/commit/99fd112) [FAB-4017](https://jira.hyperledger.org/browse/FAB-4017) Duplicate flags registered for 'Hosts'
+* [7870c73](https://github.com/hyperledger/fabric/commit/7870c73) [FAB-4127](https://jira.hyperledger.org/browse/FAB-4127) remove vendored test file
+* [6b7fd0e](https://github.com/hyperledger/fabric/commit/6b7fd0e) [FAB-4109](https://jira.hyperledger.org/browse/FAB-4109) add license headers to scripts
+* [e9da2c7](https://github.com/hyperledger/fabric/commit/e9da2c7) [FAB-3883](https://jira.hyperledger.org/browse/FAB-3883) Intermediate CA restriction on CN
+* [7d680bb](https://github.com/hyperledger/fabric/commit/7d680bb) [FAB-4096](https://jira.hyperledger.org/browse/FAB-4096) Remove openldap tarball
+* [addef8a](https://github.com/hyperledger/fabric/commit/addef8a) [FAB-3827](https://jira.hyperledger.org/browse/FAB-3827) CA TLS support broke with BCCSP keys
+* [2560ffd](https://github.com/hyperledger/fabric/commit/2560ffd) [FAB-4015](https://jira.hyperledger.org/browse/FAB-4015) Fix -M option of fabric-ca-client
+* [01d2dd0](https://github.com/hyperledger/fabric/commit/01d2dd0) [FAB-2976](https://jira.hyperledger.org/browse/FAB-2976) Server shouldn't create dup affiliations
+* [804eb19](https://github.com/hyperledger/fabric/commit/804eb19) [FAB-4024](https://jira.hyperledger.org/browse/FAB-4024) Update vendor for Fabric flogging
+* [88dc694](https://github.com/hyperledger/fabric/commit/88dc694) [ [FAB-4016](https://jira.hyperledger.org/browse/FAB-4016) ] fix run_fvt_test redirect error
+* [c200c02](https://github.com/hyperledger/fabric/commit/c200c02) [FAB-3924](https://jira.hyperledger.org/browse/FAB-3924) fabric-ca-client test coverage >85%
+* [0ee3115](https://github.com/hyperledger/fabric/commit/0ee3115) [FAB-3490](https://jira.hyperledger.org/browse/FAB-3490) fix revoked user enrollment
+* [30d5ecf](https://github.com/hyperledger/fabric/commit/30d5ecf) [FAB-3974](https://jira.hyperledger.org/browse/FAB-3974) Fix server crash on PKCS8 private key
+* [de4187b](https://github.com/hyperledger/fabric/commit/de4187b) [FAB-3845](https://jira.hyperledger.org/browse/FAB-3845) Configuration of intermediate CA via CLI
+* [2b1c309](https://github.com/hyperledger/fabric/commit/2b1c309) [FAB-3100](https://jira.hyperledger.org/browse/FAB-3100) Fix panic in server start
+* [52f09ed](https://github.com/hyperledger/fabric/commit/52f09ed) [FAB-3121](https://jira.hyperledger.org/browse/FAB-3121) Improve Intermediate CA error message
+* [9bfde7e](https://github.com/hyperledger/fabric/commit/9bfde7e) [FAB-3958](https://jira.hyperledger.org/browse/FAB-3958) Update fabric-ca vendor for BCCSP
+* [4d657bc](https://github.com/hyperledger/fabric/commit/4d657bc) [FAB-1823](https://jira.hyperledger.org/browse/FAB-1823) Perform validation on CA certificate
+* [cb7a109](https://github.com/hyperledger/fabric/commit/cb7a109) [FAB-3924](https://jira.hyperledger.org/browse/FAB-3924) Improved test coverage lib/tls package
+* [bdefc3a](https://github.com/hyperledger/fabric/commit/bdefc3a) [FAB-3924](https://jira.hyperledger.org/browse/FAB-3924) Improved test coverage util package
+* [2904d1c](https://github.com/hyperledger/fabric/commit/2904d1c) [FAB-3918](https://jira.hyperledger.org/browse/FAB-3918) Update to baseimage v0.3.1
+* [f2df727](https://github.com/hyperledger/fabric/commit/f2df727) [FAB-3895](https://jira.hyperledger.org/browse/FAB-3895) add scripts/changelog.sh
+* [52c503b](https://github.com/hyperledger/fabric/commit/52c503b) Prepare for alpha3 development
+* [94ced50](https://github.com/hyperledger/fabric/commit/94ced50) [FAB-3574](https://jira.hyperledger.org/browse/FAB-3574) Finish fix of multi CA config
+* [9e41d59](https://github.com/hyperledger/fabric/commit/9e41d59) [FAB-3743](https://jira.hyperledger.org/browse/FAB-3743) Update private key format
+
 ## v1.0.0-alpha2
 Fri May 12 15:29:02 EDT 2017
 
