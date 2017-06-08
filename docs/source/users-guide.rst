@@ -904,13 +904,15 @@ PostgreSQL
 
 The following sample may be added to the server's configuration file in
 order to connect to a PostgreSQL database. Be sure to customize the
-various values appropriately.
+various values appropriately. There are limitations on what characters are allowed
+in the database name. Please refer to the following MySQL documentation 
+for more information: https://www.postgresql.org/docs/current/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
 
 ::
 
     db:
       type: postgres
-      datasource: host=localhost port=5432 user=Username password=Password dbname=fabric-ca-server sslmode=verify-full
+      datasource: host=localhost port=5432 user=Username password=Password dbname=fabric_ca sslmode=verify-full
 
 Specifying *sslmode* configures the type of SSL authentication. Valid
 values for sslmode are:
@@ -979,13 +981,15 @@ MySQL
 
 The following sample may be added to the Fabric CA server configuration file in
 order to connect to a MySQL database. Be sure to customize the various
-values appropriately.
+values appropriately. There are limitations on what characters are allowed
+in the database name. Please refer to the following MySQL documentation 
+for more information: https://dev.mysql.com/doc/refman/5.7/en/identifiers.html
 
 ::
 
     db:
       type: mysql
-      datasource: root:rootpw@tcp(localhost:3306)/fabric-ca?parseTime=true&tls=custom
+      datasource: root:rootpw@tcp(localhost:3306)/fabric_ca?parseTime=true&tls=custom
 
 If connecting over TLS to the MySQL server, the ``db.tls.client``
 section is also required as described in the **PostgreSQL** section above.
@@ -1549,6 +1553,9 @@ MySQL SSL Configuration
 On MySQL 5.7.X, certain modes affect whether the server permits '0000-00-00' as a valid date.
 It might be necessary to relax the modes that MySQL server uses. We want to allow
 the server to be able to accept zero date values.
+
+In my.cnf, find the configuration option *sql_mode* and remove *NO_ZERO_DATE* if present. 
+Restart MySQL server after making this change. 
 
 Please refer to the following MySQL documentation on different modes available
 and select the appropriate settings for the specific version of MySQL that is
