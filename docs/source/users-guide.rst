@@ -60,8 +60,6 @@ Table of Contents
    6. `Enabling TLS`_
    7. `Contact specific CA instance`_
 
-7. `Appendix`_
-
 Overview
 --------
 
@@ -904,13 +902,15 @@ PostgreSQL
 
 The following sample may be added to the server's configuration file in
 order to connect to a PostgreSQL database. Be sure to customize the
-various values appropriately.
+various values appropriately. There are limitations on what characters are allowed
+in the database name. Please refer to the following Postgres documentation
+for more information: https://www.postgresql.org/docs/current/static/sql-syntax-lexical.html#SQL-SYNTAX-IDENTIFIERS
 
 ::
 
     db:
       type: postgres
-      datasource: host=localhost port=5432 user=Username password=Password dbname=fabric-ca-server sslmode=verify-full
+      datasource: host=localhost port=5432 user=Username password=Password dbname=fabric_ca sslmode=verify-full
 
 Specifying *sslmode* configures the type of SSL authentication. Valid
 values for sslmode are:
@@ -974,12 +974,54 @@ of the ``db.tls`` section:
 | **certfiles** - A list of PEM-encoded trusted root certificate files.
 | **certfile** and **keyfile** - PEM-encoded certificate and key files that are used by the Fabric CA server to communicate securely with the PostgreSQL server
 
+PostgreSQL SSL Configuration
+"""""""""""""""""""""""""""""
+
+**Basic instructions for configuring SSL on the PostgreSQL server:**
+
+1. In postgresql.conf, uncomment SSL and set to "on" (SSL=on)
+
+2. Place certificate and key files in the PostgreSQL data directory.
+
+Instructions for generating self-signed certificates for:
+https://www.postgresql.org/docs/9.5/static/ssl-tcp.html
+
+Note: Self-signed certificates are for testing purposes and should not
+be used in a production environment
+
+**PostgreSQL Server - Require Client Certificates**
+
+1. Place certificates of the certificate authorities (CAs) you trust in the file root.crt in the PostgreSQL data directory
+
+2. In postgresql.conf, set "ssl\_ca\_file" to point to the root cert of the client (CA cert)
+
+3. Set the clientcert parameter to 1 on the appropriate hostssl line(s) in pg\_hba.conf.
+
+For more details on configuring SSL on the PostgreSQL server, please refer
+to the following PostgreSQL documentation:
+https://www.postgresql.org/docs/9.4/static/libpq-ssl.html
+
 MySQL
 ^^^^^^^
 
 The following sample may be added to the Fabric CA server configuration file in
 order to connect to a MySQL database. Be sure to customize the various
-values appropriately.
+values appropriately. There are limitations on what characters are allowed
+in the database name. Please refer to the following MySQL documentation
+for more information: https://dev.mysql.com/doc/refman/5.7/en/identifiers.html
+
+On MySQL 5.7.X, certain modes affect whether the server permits '0000-00-00' as a valid date.
+It might be necessary to relax the modes that MySQL server uses. We want to allow
+the server to be able to accept zero date values.
+
+In my.cnf, find the configuration option *sql_mode* and remove *NO_ZERO_DATE* if present.
+Restart MySQL server after making this change.
+
+Please refer to the following MySQL documentation on different modes available
+and select the appropriate settings for the specific version of MySQL that is
+being used.
+
+https://dev.mysql.com/doc/refman/5.7/en/sql-mode.html
 
 On MySQL 5.7.X, certain modes affect whether the server permits '0000-00-00' as a valid date.
 It might be necessary to relax the modes that MySQL server uses. We want to allow
@@ -998,10 +1040,71 @@ https://dev.mysql.com/doc/refman/5.7/en/sql-mode.html
 
     db:
       type: mysql
-      datasource: root:rootpw@tcp(localhost:3306)/fabric-ca?parseTime=true&tls=custom
+      datasource: root:rootpw@tcp(localhost:3306)/fabric_ca?parseTime=true&tls=custom
 
 If connecting over TLS to the MySQL server, the ``db.tls.client``
 section is also required as described in the **PostgreSQL** section above.
+
+MySQL SSL Configuration
+""""""""""""""""""""""""
+
+**Basic instructions for configuring SSL on MySQL server:**
+
+1. Open or create my.cnf file for the server. Add or uncomment the
+   lines below in the [mysqld] section. These should point to the key and
+   certificates for the server, and the root CA cert.
+
+   Instructions on creating server and client-side certficates:
+   http://dev.mysql.com/doc/refman/5.7/en/creating-ssl-files-using-openssl.html
+
+   [mysqld] ssl-ca=ca-cert.pem ssl-cert=server-cert.pem ssl-key=server-key.pem
+
+   Can run the following query to confirm SSL has been enabled.
+
+   mysql> SHOW GLOBAL VARIABLES LIKE 'have\_%ssl';
+
+   Should see:
+
+   +----------------+----------------+
+   | Variable_name  | Value          |
+   +================+================+
+   | have_openssl   | YES            |
+   +----------------+----------------+
+   | have_ssl       | YES            |
+   +----------------+----------------+
+
+2. After the server-side SSL configuration is finished, the next step is
+   to create a user who has a privilege to access the MySQL server over
+   SSL. For that, log in to the MySQL server, and type:
+
+   mysql> GRANT ALL PRIVILEGES ON *.* TO 'ssluser'@'%' IDENTIFIED BY
+   'password' REQUIRE SSL; mysql> FLUSH PRIVILEGES;
+
+   If you want to give a specific IP address from which the user will
+   access the server change the '%' to the specific IP address.
+
+**MySQL Server - Require Client Certificates**
+
+Options for secure connections are similar to those used on the server side.
+
+-  ssl-ca identifies the Certificate Authority (CA) certificate. This
+   option, if used, must specify the same certificate used by the server.
+-  ssl-cert identifies MySQL server's certificate.
+-  ssl-key identifies MySQL server's private key.
+
+Suppose that you want to connect using an account that has no special
+encryption requirements or was created using a GRANT statement that
+includes the REQUIRE SSL option. As a recommended set of
+secure-connection options, start the MySQL server with at least
+--ssl-cert and --ssl-key options. Then set the ``db.tls.certfiles`` property
+in the server configuration file and start the Fabric CA server.
+
+To require that a client certificate also be specified, create the
+account using the REQUIRE X509 option. Then the client must also specify
+proper client key and certificate files; otherwise, the MySQL server
+will reject the connection. To specify client key and certificate files
+for the Fabric CA server, set the ``db.tls.client.certfile``,
+and ``db.tls.client.keyfile`` configuration properties.
 
 Configuring LDAP
 ~~~~~~~~~~~~~~~~
@@ -1318,6 +1421,7 @@ the attribute must be encapsulated in double quotes. See example below.
     # fabric-ca-client register -d --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs '"hf.Registrar.Roles=peer,user",hf.Revoker=true'
 
 or
+
 ::
 
     # fabric-ca-client register -d --id.name admin2 --id.type user --id.affiliation org1.department1 --id.attrs '"hf.Registrar.Roles=peer,user"' --id.attrs hf.Revoker=true 
@@ -1523,99 +1627,6 @@ can be specified on the command line of a client command as follows:
 ::
 
     fabric-ca-client enroll -u http://admin:adminpw@localhost:7054 --caname <caname>
-
-`Back to Top`_
-
-Appendix
---------
-
-PostgreSQL SSL Configuration
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-**Basic instructions for configuring SSL on the PostgreSQL server:**
-
-1. In postgresql.conf, uncomment SSL and set to "on" (SSL=on)
-
-2. Place certificate and key files in the PostgreSQL data directory.
-
-Instructions for generating self-signed certificates for:
-https://www.postgresql.org/docs/9.5/static/ssl-tcp.html
-
-Note: Self-signed certificates are for testing purposes and should not
-be used in a production environment
-
-**PostgreSQL Server - Require Client Certificates**
-
-1. Place certificates of the certificate authorities (CAs) you trust in the file root.crt in the PostgreSQL data directory
-
-2. In postgresql.conf, set "ssl\_ca\_file" to point to the root cert of the client (CA cert)
-
-3. Set the clientcert parameter to 1 on the appropriate hostssl line(s) in pg\_hba.conf.
-
-For more details on configuring SSL on the PostgreSQL server, please refer
-to the following PostgreSQL documentation:
-https://www.postgresql.org/docs/9.4/static/libpq-ssl.html
-
-MySQL SSL Configuration
-~~~~~~~~~~~~~~~~~~~~~~~
-
-**Basic instructions for configuring SSL on MySQL server:**
-
-1. Open or create my.cnf file for the server. Add or uncomment the
-   lines below in the [mysqld] section. These should point to the key and
-   certificates for the server, and the root CA cert.
-
-   Instructions on creating server and client-side certficates:
-   http://dev.mysql.com/doc/refman/5.7/en/creating-ssl-files-using-openssl.html
-
-   [mysqld] ssl-ca=ca-cert.pem ssl-cert=server-cert.pem ssl-key=server-key.pem
-
-   Can run the following query to confirm SSL has been enabled.
-
-   mysql> SHOW GLOBAL VARIABLES LIKE 'have\_%ssl';
-
-   Should see:
-
-   +----------------+----------------+
-   | Variable_name  | Value          |
-   +================+================+
-   | have_openssl   | YES            |
-   +----------------+----------------+
-   | have_ssl       | YES            |
-   +----------------+----------------+
-
-2. After the server-side SSL configuration is finished, the next step is
-   to create a user who has a privilege to access the MySQL server over
-   SSL. For that, log in to the MySQL server, and type:
-
-   mysql> GRANT ALL PRIVILEGES ON *.* TO 'ssluser'@'%' IDENTIFIED BY
-   'password' REQUIRE SSL; mysql> FLUSH PRIVILEGES;
-
-   If you want to give a specific IP address from which the user will
-   access the server change the '%' to the specific IP address.
-
-**MySQL Server - Require Client Certificates**
-
-Options for secure connections are similar to those used on the server side.
-
--  ssl-ca identifies the Certificate Authority (CA) certificate. This
-   option, if used, must specify the same certificate used by the server.
--  ssl-cert identifies MySQL server's certificate.
--  ssl-key identifies MySQL server's private key.
-
-Suppose that you want to connect using an account that has no special
-encryption requirements or was created using a GRANT statement that
-includes the REQUIRE SSL option. As a recommended set of
-secure-connection options, start the MySQL server with at least
---ssl-cert and --ssl-key options. Then set the ``db.tls.certfiles`` property
-in the server configuration file and start the Fabric CA server.
-
-To require that a client certificate also be specified, create the
-account using the REQUIRE X509 option. Then the client must also specify
-proper client key and certificate files; otherwise, the MySQL server
-will reject the connection. To specify client key and certificate files
-for the Fabric CA server, set the ``db.tls.client.certfile``,
-and ``db.tls.client.keyfile`` configuration properties.
 
 `Back to Top`_
 
