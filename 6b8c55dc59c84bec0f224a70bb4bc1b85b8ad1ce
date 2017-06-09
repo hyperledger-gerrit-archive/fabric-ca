@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Keith Smith <keithsmithlfid@gmail.com>
+Code-Review+2: Binh Nguyen <binhn@us.ibm.com>
+Submitted-by: Binh Nguyen <binhn@us.ibm.com>
+Submitted-at: Fri, 09 Jun 2017 15:28:14 +0000
+Reviewed-on: http://gerrit.hyperledger.org/r/10177
+Project: fabric-ca
+Branch: refs/heads/master
