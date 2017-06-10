@@ -371,7 +371,7 @@ func (u *DBUser) Login(pass string, caMaxEnrollments int) error {
 
 	// Not exceeded, so attempt to increment the count
 	state := u.State + 1
-	res, err := u.db.Exec(u.db.Rebind("UPDATE users SET state = ? WHERE (id = ?)"), state, u.Name)
+	res, err := u.db.Exec(u.db.Rebind("UPDATE users SET state = state + 1 WHERE (id = ? AND state < ?)"), u.Name, u.MaxEnrollments)
 	if err != nil {
 		return fmt.Errorf("Failed to update state of identity %s to %d: %s", u.Name, state, err)
 	}
