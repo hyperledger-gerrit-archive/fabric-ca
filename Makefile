@@ -84,6 +84,9 @@ lint: .FORCE
 vet: .FORCE
 	@scripts/check_vet
 
+docs: .FORCE
+	@scripts/docs
+
 fabric-ca-client: bin/fabric-ca-client
 fabric-ca-server: bin/fabric-ca-server
 
@@ -146,6 +149,7 @@ build/%.tar.bz2:
 
 unit-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_tests
+	@scripts/docs
 
 container-tests: docker
 
