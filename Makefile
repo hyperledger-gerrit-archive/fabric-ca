@@ -89,10 +89,13 @@ lint: .FORCE
 vet: .FORCE
 	@scripts/check_vet
 
+docs: fabric-ca-client fabric-ca-server
+	@scripts/regenDocs
+
 fabric-ca-client: bin/fabric-ca-client
 fabric-ca-server: bin/fabric-ca-server
 
-bin/%:
+bin/%: .FORCE
 	@echo "Building ${@F} in bin directory ..."
 	@mkdir -p bin && go build -o bin/${@F} -ldflags "$(GO_LDFLAGS)" $(path-map.${@F})
 	@echo "Built bin/${@F}"
@@ -151,6 +154,8 @@ build/%.tar.bz2:
 
 unit-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_tests
+
+tests-and-regendocs: unit-tests docs
 
 container-tests: docker
 
