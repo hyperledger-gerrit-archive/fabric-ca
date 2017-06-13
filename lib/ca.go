@@ -264,9 +264,6 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		if clientCfg.Enrollment.Profile == "" {
 			clientCfg.Enrollment.Profile = "ca"
 		}
-		if clientCfg.Enrollment.CSR == nil {
-			clientCfg.Enrollment.CSR = &api.CSRInfo{}
-		}
 		log.Debugf("Intermediate enrollment request: %v", clientCfg.Enrollment)
 		var resp *EnrollmentResponse
 		resp, err = clientCfg.Enroll(ca.Config.Intermediate.ParentServer.URL, ca.HomeDir)
