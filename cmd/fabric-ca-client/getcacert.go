@@ -17,6 +17,8 @@ limitations under the License.
 package main
 
 import (
+	"encoding/pem"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -89,7 +91,14 @@ func runGetCACert() error {
 }
 
 // Store the CAChain in the CACerts folder of MSP (Membership Service Provider)
+// The 1st cert in the chain goes into MSP 'cacerts' directory.
+// The others (if any) go into the MSP 'intermediates' directory.
 func storeCAChain(config *lib.ClientConfig, si *lib.GetServerInfoResponse) error {
+	block, intermediateCerts := pem.Decode(si.CAChain)
+	if block == nil {
+		return errors.New("No root certificate was found")
+	}
+	rootCert := block.Bytes
 	mspDir := config.MSPDir
 	if !util.FileExists(mspDir) {
 		return fmt.Errorf("Directory does not exist: %s", mspDir)
@@ -109,11 +118,24 @@ func storeCAChain(config *lib.ClientConfig, si *lib.GetServerInfoResponse) error
 	}
 	fname = strings.Replace(fname, ":", "-", -1)
 	fname = strings.Replace(fname, ".", "-", -1) + ".pem"
-	path := path.Join(caCertsDir, fname)
-	err = util.WriteFile(path, si.CAChain, 0644)
+	fpath := path.Join(caCertsDir, fname)
+	err = util.WriteFile(fpath, rootCert, 0644)
 	if err != nil {
 		return fmt.Errorf("Failed to create CA root file: %s", err)
 	}
-	log.Infof("Stored CA certificate chain at %s", path)
+	log.Infof("Stored CA certificate root at %s", fpath)
+	if len(intermediateCerts) > 0 {
+		intermediateCertsDir := path.Join(mspDir, "intermediatecerts")
+		err := os.MkdirAll(intermediateCertsDir, 0755)
+		if err != nil {
+			return fmt.Errorf("Failed creating CA intermediate certificates directory: %s", err)
+		}
+		fpath = path.Join(intermediateCertsDir, fname)
+		err = util.WriteFile(fpath, intermediateCerts, 0644)
+		if err != nil {
+			return fmt.Errorf("Failed to create CA intermediate certificates file: %s", err)
+		}
+		log.Infof("Stored CA certificate intermediates at %s", fpath)
+	}
 	return nil
 }
