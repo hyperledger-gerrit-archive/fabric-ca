@@ -445,9 +445,9 @@ func (s *Server) listenAndServe() (err error) {
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
 		addrStr = fmt.Sprintf("https://%s", addr)
-		cer, err := util.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile, s.csp)
-		if err != nil {
-			return err
+		cer, err2 := util.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile, s.csp)
+		if err2 != nil {
+			return err2
 		}
 
 		if c.TLS.ClientAuth.Type == "" {
