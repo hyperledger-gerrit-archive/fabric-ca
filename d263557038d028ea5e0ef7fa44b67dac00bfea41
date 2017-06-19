@@ -1,0 +1,9 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Artem Barger <bartem@il.ibm.com>
+Code-Review+1: Baohua Yang <yangbaohua@gmail.com>
+Code-Review+2: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-by: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-at: Mon, 19 Jun 2017 12:48:33 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/10765
+Project: fabric-ca
+Branch: refs/heads/master
