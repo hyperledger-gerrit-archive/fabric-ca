@@ -30,6 +30,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
@@ -75,12 +76,12 @@ type Server struct {
 	CA
 	// A map of CAs stored by CA name as key
 	caMap map[string]*CA
-
 	// A map of CA configs stored by CA file as key
 	caConfigMap map[string]*CAConfig
-
 	// channel for communication between http.serve and main threads.
 	wait chan bool
+	// Server mutex
+	mutex sync.Mutex
 }
 
 // Init initializes a fabric-ca server
@@ -130,7 +131,32 @@ func (s *Server) Start() (err error) {
 // requests in transit to fail, and so is only used for testing.
 // A graceful shutdown will be supported with golang 1.8.
 func (s *Server) Stop() error {
-	return s.closeListener()
+	err := s.closeListener()
+	if err == nil {
+		log.Info("The server closed its listener endpoint")
+	} else {
+		log.Errorf("The server failed to close its listener endpoint; err=%s", err)
+		return err
+	}
+	if s.wait == nil {
+		return nil
+	}
+	// Wait for message on wait channel from the http.serve thread. If message
+	// is not recevied in three seconds, return
+	for i := 0; i < 3; i++ {
+		select {
+		case <-s.wait:
+			log.Debugf("Received server stopped message")
+			close(s.wait)
+			s.wait = nil
+			return nil
+		default:
+			log.Debugf("Waiting for server to stop")
+			time.Sleep(time.Second)
+		}
+	}
+	log.Debugf("Stopped waiting for server to stop")
+	return nil
 }
 
 // RegisterBootstrapUser registers the bootstrap user with appropriate privileges
@@ -543,36 +569,16 @@ func (s *Server) makeFileNamesAbsolute() error {
 }
 
 // closeListener closes the listening endpoint
-func (s *Server) closeListener() error {
-	if s.listener == nil {
-		return errors.New("server is not currently started")
-	}
-	err := s.listener.Close()
-	if err == nil {
-		log.Info("The server closed its listener endpoint")
+func (s *Server) closeListener() (err error) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.listener != nil {
+		err = s.listener.Close()
+		s.listener = nil
 	} else {
-		log.Errorf("The server failed to close its listener endpoint; err=%s", err)
-		return err
+		return errors.New("Server is already closed")
 	}
-	s.listener = nil
-	if s.wait == nil {
-		return nil
-	}
-	// Wait for message on wait channel from the http.serve thread. If message
-	// is not recevied in three seconds, return
-	for i := 0; i < 3; i++ {
-		select {
-		case <-s.wait:
-			log.Debugf("Received server stopped message")
-			close(s.wait)
-			return nil
-		default:
-			log.Debugf("Waiting for server to stop")
-			time.Sleep(time.Second)
-		}
-	}
-	log.Debugf("Stopped waiting for server to stop")
-	return nil
+	return err
 }
 
 func (s *Server) compareDN(existingCACertFile, newCACertFile string) error {
