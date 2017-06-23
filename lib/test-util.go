@@ -22,6 +22,8 @@ import (
 	"path"
 	"strconv"
 	"testing"
+
+	"github.com/cloudflare/cfssl/config"
 )
 
 const (
@@ -64,6 +66,24 @@ func TestGetServer(port int, home, parentURL string, maxEnroll int, t *testing.T
 		},
 		"org2": nil,
 	}
+	profiles := map[string]*config.SigningProfile{
+		"tls": &config.SigningProfile{
+			Usage:        []string{"signing", "key encipherment", "server auth", "client auth", "key agreement"},
+			ExpiryString: "8760h",
+		},
+		"ca": &config.SigningProfile{
+			Usage:        []string{"cert sign"},
+			ExpiryString: "8760h",
+			CAConstraint: config.CAConstraint{
+				IsCA:       true,
+				MaxPathLen: 0,
+			},
+		},
+	}
+	defaultProfile := &config.SigningProfile{
+		Usage:        []string{"cert sign"},
+		ExpiryString: "8760h",
+	}
 	srv := &Server{
 		Config: &ServerConfig{
 			Port:  port,
@@ -79,6 +99,10 @@ func TestGetServer(port int, home, parentURL string, maxEnroll int, t *testing.T
 				Affiliations: affiliations,
 				Registry: CAConfigRegistry{
 					MaxEnrollments: maxEnroll,
+				},
+				Signing: &config.Signing{
+					Profiles: profiles,
+					Default:  defaultProfile,
 				},
 			},
 		},
