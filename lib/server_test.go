@@ -1060,6 +1060,61 @@ func TestMaxEnrollmentLimited(t *testing.T) {
 	os.RemoveAll(rootDir)
 }
 
+// Get certificate using the TLS profile on the server to retrieve a certificate to be used for TLS connection
+func TestTLSCertIssuance(t *testing.T) {
+	os.RemoveAll("tls_test")
+	os.RemoveAll("server")
+	defer os.RemoveAll("server")
+	defer os.RemoveAll("tls_test")
+	srv := TestGetServer(rootPort, "server", "", -1, t)
+	err := srv.Start()
+	if err != nil {
+		t.Fatalf("Root server start failed: %s", err)
+	}
+
+	client := &Client{
+		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", rootPort)},
+		HomeDir: "tls_test",
+	}
+
+	eresp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:    "admin",
+		Secret:  "adminpw",
+		Profile: "tls",
+	})
+
+	cert, err := util.GetX509CertificateFromPEM(eresp.Identity.GetECert().Cert())
+	if err != nil {
+		t.Errorf("Failed to get certificate: %s", err)
+	}
+
+	// Check if the certificate has correct key usages
+	if cert.KeyUsage&x509.KeyUsageDigitalSignature == 0 || cert.KeyUsage&x509.KeyUsageKeyEncipherment == 0 || cert.KeyUsage&x509.KeyUsageKeyAgreement == 0 {
+		t.Error("Certificate does not have correct extended key usage. Should have Digital Signature, Key Encipherment, and Key Agreement")
+	}
+
+	// Check if the certificate has correct extended key usages
+	clientAuth := false
+	serverAuth := false
+	for _, usage := range cert.ExtKeyUsage {
+		if usage == x509.ExtKeyUsageClientAuth {
+			clientAuth = true
+		}
+		if usage == x509.ExtKeyUsageServerAuth {
+			serverAuth = true
+		}
+	}
+
+	if !clientAuth || !serverAuth {
+		t.Error("Certificate does not have correct extended key usage. Should have ExtKeyUsageServerAuth and ExtKeyUsageClientAuth")
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
 // Configure server to start server with no client authentication required
 func testNoClientCert(t *testing.T) {
 	srv := TestGetServer(rootPort, testdataDir, "", -1, t)
