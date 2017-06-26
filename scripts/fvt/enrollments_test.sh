@@ -54,7 +54,7 @@ registry:
           hf.Revoker: true
 ldap:
    enabled: false
-   url: ldap://admin:adminpw@localhost:7054/base
+   url: ldap://admin:adminpw@localhost:$CA_DEFAULT_PORT/base
    tls:
       certfiles:
         - ldap-server-cert.pem
@@ -124,7 +124,7 @@ registry:
           hf.Revoker: true
 ldap:
    enabled: false
-   url: ldap://admin:adminpw@localhost:7054/base
+   url: ldap://admin:adminpw@localhost:$CA_DEFAULT_PORT/base
    tls:
       certfiles:
         - ldap-server-cert.pem
