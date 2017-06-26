@@ -16,8 +16,9 @@ export PGPASSWORD='postgres'
 export MSP_KEY_DIR='msp/keystore'
 export MSP_CERT_DIR='msp/signcerts'
 export ROOTCERT="$TESTDATA/root.pem"
-export CA_HOST_ADDRESS="127.0.0.1"
+export CA_HOST_ADDRESS="localhost"
 export CA_DEFAULT_PORT="7054"
+export PROXY_PORT="8888"
 
 DATE='date +%Y-%m-%d'
 TIME='date +%I:%M:%S%p'
@@ -231,7 +232,7 @@ enroll() {
    local FABRIC_CA_KEY_FILE="$FABRIC_CA_ENROLLMENT_DIR/$MSP_KEY_DIR/key.pem"
    local FABRIC_CA_CLIENT_HOME=$FABRIC_CA_ENROLLMENT_DIR
    local HOST="localhost"
-   local PORT="8888"
+   local PORT="$PROXY_PORT"
    local RC=0
    export FABRIC_CA_CLIENT_HOME
    export FABRIC_CA_ENROLLMENT_DIR
@@ -241,7 +242,7 @@ enroll() {
 
    # Determines the PROTO and TLSOPT values based on FABRIC_TLS setting
    setTLS
-   $FABRIC_CA_CLIENTEXEC enroll -u "${PROTO}${username}:${userpswd}@${HOST}:${PORT}" $TLSOPT \
+   $FABRIC_CA_CLIENTEXEC enroll -u "${PROTO}${username}:${userpswd}@${CA_HOST_ADDRESS}:$PROXY_PORT" $TLSOPT \
                          -c $ENROLLCONFIG \
                          --csr.hosts "$username@fab-client.raleigh.ibm.com" \
                          --csr.hosts "$username.fabric.raleigh.ibm.com,127.0.0.2"
@@ -253,19 +254,19 @@ enroll() {
 }
 
 reenroll() {
-   # Input : username, certfile, keyfile
-   # Output: new cert written to certfile, new key to keyfile
-   local HOST="localhost"
-   local PORT="8888"
-   local PROTO="http://"
-   local RC=0
-
    local USERNAME="$1"
-   local FABRIC_CA_CERT_FILE="$2"
-   local FABRIC_CA_KEY_FILE="$3"
-   local FABRIC_CA_CLIENT_HOME=''
-   : ${USERNAME="admin"}
-   FABRIC_CA_CLIENT_HOME="$CA_CFG_PATH/$USERNAME"
+   : ${USERNAME:="admin"}
+   local FABRIC_CA_ENROLLMENT_DIR="$CA_CFG_PATH/$USERNAME"
+   local FABRIC_CA_CERT_FILE="$FABRIC_CA_ENROLLMENT_DIR/$MSP_CERT_DIR/cert.pem"
+   local FABRIC_CA_KEY_FILE="$FABRIC_CA_ENROLLMENT_DIR/$MSP_KEY_DIR/key.pem"
+   local FABRIC_CA_CLIENT_HOME=$FABRIC_CA_ENROLLMENT_DIR
+   local HOST="localhost"
+   local PORT="$PROXY_PORT"
+   local RC=0
+   export FABRIC_CA_CLIENT_HOME
+   export FABRIC_CA_ENROLLMENT_DIR
+
+   test -d "$FABRIC_CA_ENROLLMENT_DIR" || mkdir -p "$FABRIC_CA_ENROLLMENT_DIR"
    FABRIC_CA_CERT_FILE="$FABRIC_CA_CLIENT_HOME/$MSP_CERT_DIR/cert.pem"
    FABRIC_CA_KEY_FILE="$FABRIC_CA_CLIENT_HOME/$MSP_KEY_DIR/key.pem"
 
@@ -275,7 +276,7 @@ reenroll() {
    ENROLLCONFIG="$FABRIC_CA_CLIENT_HOME/enroll.yaml"
    export FABRIC_CA_CLIENT_HOME
    setTLS
-   $FABRIC_CA_CLIENTEXEC reenroll -u $PROTO$HOST:$PORT $TLSOPT -c $ENROLLCONFIG
+   $FABRIC_CA_CLIENTEXEC reenroll -u $PROTO${CA_HOST_ADDRESS}:$PROXY_PORT $TLSOPT -c $ENROLLCONFIG
    RC=$?
    $($FABRIC_CA_DEBUG) && printAuth $FABRIC_CA_CERT_FILE $FABRIC_CA_KEY_FILE
    $SCRIPTDIR/fabric-ca_setup.sh -L -d $driver
@@ -297,13 +298,13 @@ register() {
    : ${USERATTR:='test=testValue'}
    local FABRIC_CA_ENROLLMENT_DIR="$6"
    #FIXME - should not require USER:PASS
-   local HOST="USER:PASS@localhost:8888"
 
    : ${FABRIC_CA_ENROLLMENT_DIR:="$CA_CFG_PATH/$REGISTRAR"}
+   : ${FABRIC_CA_CLIENT_HOME:="$CA_CFG_PATH/$REGISTRAR"}
 
    export FABRIC_CA_ENROLLMENT_DIR
    setTLS
-   $FABRIC_CA_CLIENTEXEC register -u "$PROTO$HOST" $TLSOPT \
+   $FABRIC_CA_CLIENTEXEC register -u "$PROTO${CA_HOST_ADDRESS}:$PROXY_PORT" $TLSOPT \
                            --id.name "$USERNAME" \
                            --id.type "$USERTYPE" \
                            --id.maxenrollments 1 \
@@ -507,12 +508,12 @@ cat > $runconfig <<EOF
             "timestamping"
          ],
          "expiry": "8000h",
-         "crl_url": "http://localhost:3755/TestCRL.crl",
-         "ca_constraint": {
-            "is_ca": true,
-            "max_path_len": 1,
-            "ocsp_no_check": true,
-            "not_before": "2016-12-30T00:00:00.000Z"
+         "crlurl": "http://localhost:3755/TestCRL.crl",
+         "caconstraint": {
+            "isca": true,
+            "maxpathlen": 1,
+            "ocspnocheck": true,
+            "notbefore": "2016-12-30T00:00:00.000Z"
          }
       }
    },
@@ -551,6 +552,18 @@ EOF
 registry:
   maxEnrollments: $maxEnroll
   identities:
+$(for i in {1..10}; do
+echo "    - name: intermediateCa$i
+      pass: intermediateCa${i}pw
+      type: client
+      affiliation: \"\"
+      maxenrollments: $maxEnroll
+      attrs:
+         hf.Registrar.Roles: \"client,user,peer,validator,auditor\"
+         hf.Registrar.DelegateRoles: \"client,user,validator,auditor\"
+         hf.Revoker: true
+         hf.IntermediateCA: true"
+done)
     - name: admin
       pass: adminpw
       type: client
@@ -560,6 +573,7 @@ registry:
         hf.Registrar.Roles: \"client,user,peer,validator,auditor,ca\"
         hf.Registrar.DelegateRoles: \"client,user,validator,auditor\"
         hf.Revoker: true
+        hf.IntermediateCA: true
     - name: admin2
       pass: adminpw2
       type: client
@@ -629,6 +643,17 @@ cat > $runconfig <<EOF
 address: $CA_HOST_ADDRESS
 port: $CA_DEFAULT_PORT
 debug: $FABRIC_CA_DEBUG
+tls:
+  enabled: $TLS_ON
+  certfile: $TESTDATA/tls_server-cert.pem
+  keyfile: $TESTDATA/tls_server-key.pem
+  clientauth:
+    type: noclientcert
+    certfiles:
+ca:
+  name:
+  certfile: $serverCert
+  keyfile: $serverKey
 db:
   type: $driver
   datasource: $datasrc
@@ -639,13 +664,6 @@ db:
      client:
        certfile: $TESTDATA/tls_server-cert.pem
        keyfile: $TESTDATA/tls_server-key.pem
-tls:
-  enabled: $TLS_ON
-  certfile: $TESTDATA/tls_server-cert.pem
-  keyfile: $TESTDATA/tls_server-key.pem
-ca:
-  certfile: $serverCert
-  keyfile: $serverKey
 $registry
 ldap:
   enabled: $LDAP_ENABLE
@@ -670,7 +688,6 @@ affiliations:
     - department1
     - department2
 signing:
-  profiles:
   default:
     usage:
       - cert sign
@@ -678,13 +695,23 @@ signing:
       - digital signature
       - key encipherment
       - timestamping
-    expiry: 8000h
-    crl_url: http://localhost:3755/TestCRL.crl
-    ca_constraint:
-      is_ca: true
-      max_path_len: 1
-      ocsp_no_check: true
-      not_before: 2016-12-30T00:00:00Z
+    expiry: 17520h
+    caconstraint:
+      isca: true
+      maxpathlen: 1
+      ocspnocheck: true
+      notbefore: 2016-12-30T00:00:00Z
+  profiles:
+     ca:
+       usage:
+         - cert sign
+         - crl sign
+       expiry: 17520h
+       caconstraint:
+         isca: true
+         maxpathlen: 0
+         ocspnocheck: true
+         notbefore: 2016-12-30T00:00:00Z
 csr:
   names:
     - C: US
@@ -694,16 +721,32 @@ csr:
       OU: Fabric
   hosts:
     - fabricCa.hyperledger.example.com
+    - localhost
   ca:
-    pathlen:
-    pathlenzero:
-    expiry:
-crypto:
-  software:
-    hash_family: SHA2
-    security_level: 256
-    ephemeral: false
-    key_store_dir: keys
+    expiry: 131400h
+    pathlength: 1
+bccsp:
+  default: SW
+  sw:
+    hash: SHA2
+    security: 256
+    filekeystore:
+      keystore:
+cacount:
+cafiles:
+intermediate:
+  parentserver:
+    url:
+    caname:
+  enrollment:
+    hosts:
+    profile:
+    label:
+  tls:
+    certfiles:
+    client:
+      certfile:
+      keyfile:
 EOF
    ;;
    esac
