@@ -141,7 +141,7 @@ defaults
       timeout server 50000
 
 frontend haproxy
-      bind *:8888
+      bind *:$PROXY_PORT
       mode tcp
       option tcplog
       default_backend fabric-cas
@@ -176,7 +176,7 @@ listen stats
       stats enable
 
 frontend haproxy
-      bind *:8888
+      bind *:$PROXY_PORT
       mode http
       option tcplog
       default_backend fabric-cas
@@ -261,7 +261,7 @@ done
 : ${TIMEOUT:="10"}
 : ${HTTP_PORT:="3755"}
 : ${DBNAME:="fabric_ca"}
-: ${MAXENROLL:="1"}
+: ${MAXENROLL:="-1"}
 : ${AUTH:="true"}
 : ${DRIVER:="sqlite3"}
 : ${FABRIC_CA_INSTANCES:=1}
