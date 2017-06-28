@@ -51,6 +51,7 @@ Table of Contents
    5. `Setting up a cluster`_
    6. `Setting up multiple CAs`_
    7. `Enrolling an intermediate CA`_
+   8. `Configuring Server TLS`_
 
 6. `Fabric CA Client`_
 
@@ -59,7 +60,7 @@ Table of Contents
    3. `Enrolling a peer identity`_
    4. `Reenrolling an identity`_
    5. `Revoking a certificate or identity`_
-   6. `Enabling TLS`_
+   6. `Configuring Client TLS`_
    7. `Contact specific CA instance`_
 
 Overview
@@ -1367,6 +1368,126 @@ CA tries to explicitly specify a CN value.
 
 For other intermediate CA flags see `Fabric CA server's configuration file format`_ section.
 
+Configuring Server TLS
+~~~~~~~~~~~~~~~~~~~~~~~
+
+Root Server:
+^^^^^^^^^^^^^
+
+If you don't have a certificate and key to use for TLS, they may be
+generated using fabric-ca as shown below.
+
+1. Start an instance of fabric-ca server
+
+.. code:: bash
+
+    export FABRIC_CA_SERVER_HOME=$HOME/rootserver
+    fabric-ca-server start -b admin:adminpw
+
+2. Using the client, enroll with the server specifying `tls` as the
+enrollment profile. The `-m` will be used to add hostname(s) to the
+x509 Subject Alternative Names (SAN) extension in the certificate.
+The `-M` option is used to store TLS material in its own directory.
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/rootserver/client
+    fabric-ca-client enroll -u http://admin:adminpw@localhost:7054 --enrollment.profile tls -m localhost,127.0.0.1,`hostname` -M TLS
+
+This will generate a certificate and key in the client home directory. Go
+to the TLS/signcert and TLS/keystore folder in the client's home directory
+and copy the certificate and key over to the server's home directory. Rename
+the certificate `tls-cert.pem` and the key `tls-key.pem`.
+
+3. With the TLS material in the server's home directory, the server can now
+be started with TLS enabled.
+
+.. code:: bash
+
+    fabric-ca-server start --tls.enabled --tls.certfile tls-cert.pem --tls.keyfile tls-key.pem
+
+Intermediate Server:
+^^^^^^^^^^^^^^^^^^^^^
+
+The steps are similar for setting up TLS on an intermediate server as the
+root server. However, if the root server has TLS enabled then the intermediate
+server's TLS will need to be configured with the trusted root certificate files.
+
+1. Get the root sever's signing certificate and copy it into the intermediate
+server's home directory. In the example below, the root certificate has
+been renamed to `rootserver-tls-cert.pem`. Start an instance of an
+intermeidate fabric-ca server.
+
+.. code:: bash
+
+    export FABRIC_CA_SERVER_HOME=$HOME/intermediateserver
+    fabric-ca-server start -b admin:adminpw -u https://admin:adminpw@localhost:7054 --intermediate.tls.certfiles rootserver-tls-cert.pem -M TLS
+
+2. Using the client, enroll with the intermediate server specifying `tls`
+as the enrollment profile. The `-m` will be used to add hostname(s) to the
+x509 Subject Alternative Names (SAN) extension in the certificate. The `-M`
+option is used to store TLS material in its own directory.
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/intermediateserver/client
+    fabric-ca-client enroll -u http://admin:adminpw@localhost:7054 --enrollment.profile tls -m localhost,127.0.0.1,`hostname`
+
+This will generate a certificate and key in the client home directory. Go
+to the TLS/signcert and TLS/keystore folder in the client's home directory
+and copy the certificate and key over to the intermediate server's home
+directory. Rename the certificate `tls-cert.pem` and the key `tls-key.pem`.
+
+3. With the TLS material in the server's home directory, the intermediate
+server can now be started with TLS enabled.
+
+.. code:: bash
+
+    fabric-ca-server start --tls.enabled --tls.certfile tls-cert.pem --tls.keyfile tls-key.pem --intermediate.tls.certfiles rootserver-tls-cert.pem 
+
+Renewing TLS Certificate:
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+TLS certificates have a one year expiration by default. However, TLS
+certificates can be renewed. To renew a TLS certificate, use the client
+that was used to generate the TLS certificate. In the example below we will
+refer back to the generation of TLS material for the root server above. The
+client's home directory was `$HOME/rootserver/tls`. The steps would
+be as follows:
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/rootserver/client
+    fabric-ca-client reenroll -u https://localhost:7054 --enrollment.profile tls -m localhost,127.0.0.1,`hostname` --tls.certfiles ../tls-cert.pem -M TLS
+
+This will generate a certificate and key in the client's home directory. Go
+to the TLS/signcert and $HOME/rootserver/TLS/keystore
+folder in the client's home directory and copy the certificate and key over
+to the root server's home directory. Rename the certificate `tls-cert.pem`
+and the key `tls-key.pem`. Now you have a newly issued TLS certificate that
+can be used by the server. The same process can be followed for an intermediate
+server.
+
+Client Authentication:
+^^^^^^^^^^^^^^^^^^^^^^^
+
+Servers' can also be started with client authentication (Mutual TLS) enabled.
+The supported types for client authentication are:
+
+- NoClientCert
+- RequestClientCert
+- RequireAnyClientCert
+- VerifyClientCertIfGiven
+- RequireAndVerifyClientCert
+
+For **clientauth.certfiles** you need to point to the set of root certificates
+that the server trusts and will use to verify client side TLS certficates. An
+example of starting a server with client authentication would be
+
+.. code:: bash
+
+    fabric-ca-server start --tls.enabled --tls.certfile tls-cert.pem --tls.keyfile tls-key.pem --tls.clientauth.type RequireAndVerifyClientCert --tls.clientauth.certfiles client-tls-root.pem
+
 `Back to Top`_
 
 .. _client:
@@ -1645,31 +1766,70 @@ and pass them to the ``revoke`` command to revoke the said certificate as follow
    aki=$(openssl x509 -in userecert.pem -text | awk '/keyid/ {gsub(/ *keyid:|:/,"",$1);print tolower($0)}')
    fabric-ca-client revoke -s $serial -a $aki -r affiliationchange
 
-Enabling TLS
-~~~~~~~~~~~~
+Configuring Client TLS
+~~~~~~~~~~~~~~~~~~~~~~~
 
-This section describes in more detail how to configure TLS for a Fabric CA client.
+This section describes how to configure TLS for a Fabric CA client.
 
-The following sections may be configured in the ``fabric-ca-client-config.yaml``.
+To connect to a server with TLS enabled, but without mutual TLS, the client
+needs to be configured to point to the trusted root certificate for the
+server the client is trying to connect to. Get the root server's signing
+certificate and copy it into client's home directory. In the example below,
+the root certificate has been renamed to `rootserver-tls-cert.pem`. The
+**--tls.certfiles** option is the set of root certificates trusted by the client.
+The command may look like:
 
-.. code:: yaml
+.. code:: bash
 
-    tls:
-      # Enable TLS (default: false)
-      enabled: true
-      certfiles:
-        - root.pem
-      client:
-        certfile: tls_client-cert.pem
-        keyfile: tls_client-key.pem
+    export FABRIC_CA_CLIENT_HOME=$HOME/rootclient
+    fabric-ca-client enroll -u https://admin:adminpw@localhost:7054 --tls.certfiles rootserver-tls-cert.pem
 
-The **certfiles** option is the set of root certificates trusted by the
-client. This will typically just be the root Fabric CA server's
-certificate found in the server's home directory in the **ca-cert.pem**
-file.
+The process is the same if client is connecting to an intermediate server,
+the client will need to get the intermediate server's root's signing certificate.
 
-The **client** option is required only if mutual TLS is configured on
-the server.
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/intermediateclient
+    fabric-ca-client enroll -u https://admin:adminpw@localhost:7055 --tls.certfiles rootserver-tls-cert.pem
+
+Client Authentication
+^^^^^^^^^^^^^^^^^^^^^^
+
+If the Fabric CA server has mutual TLS enabled then a client will need its
+own TLS certificate and key. If you don't have a certificate and key to use
+for TLS, they may be generated using fabric-ca as shown below.
+
+If the server that the client wishes to connect to has not enabled mutual TLS yet,
+this server can be used to issue TLS certificate for the client. However,
+if mutual TLS is enabled, the client will need to use a server without mutual
+TLS enabled but that is still also trusted by the server the client wishes to
+establish a mutual TLS connection with.
+
+In the steps below, we assume mutual TLS has not yet been enabled. Using the client,
+enroll with the server specifying `tls` as the enrollment profile. The `-m`
+will be used to add hostname(s) to the x509 Subject Alternative Names (SAN)
+extension in the certificate.
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/client1
+    fabric-ca-client enroll -u http://admin:adminpw@localhost:7054 -M TLS --enrollment.profile tls -m localhost,127.0.0.1,`hostname`
+
+This will generate a certificate and key in the client's MSP directory. Go
+to the TLS/signcert and TLS/keystore folder in the client's home directory
+and copy the certificate and key over to the client's home directory. Rename
+the certificate `tls-cert.pem` and the key `tls-key.pem`
+
+Now if the server enables the mutual TLS, the client configuration would
+specify the client's TLS material.
+
+.. code:: bash
+
+    fabric-ca-client enroll -u https://admin:adminpw@localhost:7054 --tls.certfiles intermediate-tls-cert.pem --tls.client.certfile tls-cert.pem --tls.client.keyfile tls-key.pem -d
+
+
+The **tls.client** option is required only if the server's client authentication
+type is either RequireAnyClientCert or RequireAndVerifyClientCert.
 
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
