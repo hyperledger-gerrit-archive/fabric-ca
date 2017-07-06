@@ -104,6 +104,8 @@ func (d *Accessor) SetDB(db *sqlx.DB) {
 func (d *Accessor) InsertUser(user spi.UserInfo) error {
 	log.Debugf("DB: Add identity %s", user.Name)
 
+	log.Debugf("Adding Identity %+v to the database", user)
+
 	err := d.checkDB()
 	if err != nil {
 		return err
@@ -142,7 +144,7 @@ func (d *Accessor) InsertUser(user spi.UserInfo) error {
 		return fmt.Errorf("Expected to add one record to the database, but %d records were added", numRowsAffected)
 	}
 
-	log.Debugf("Successfully added Identity %s to the database", user.Name)
+	log.Debugf("Successfully added Identity %+v to the database", user)
 
 	return nil
 
@@ -348,7 +350,7 @@ func (u *DBUser) Login(pass string, caMaxEnrollments int) error {
 
 	// Check the password
 	if u.Pass != pass {
-		return errors.New("Incorrect password")
+		return fmt.Errorf("Incorrect password: '%s' != '%s'", u.Pass, pass)
 	}
 
 	if u.MaxEnrollments == 0 {
