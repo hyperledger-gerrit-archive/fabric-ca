@@ -89,7 +89,7 @@ fabric-ca-server: bin/fabric-ca-server
 
 bin/%:
 	@echo "Building ${@F} in bin directory ..."
-	@mkdir -p bin && go build -o bin/${@F} $(path-map.${@F})
+	@mkdir -p bin && go build -ldflags -s -o bin/${@F} $(path-map.${@F})
 	@echo "Built bin/${@F}"
 
 # We (re)build a package within a docker context but persist the $GOPATH/pkg
