@@ -12,6 +12,7 @@ LDAP_PORT=389
 PORTS=($POSTGRES_PORT $MYSQL_PORT $LDAP_PORT)
 
 timeout=12
+service rsyslog start
 su postgres -c 'postgres -D /usr/local/pgsql/data' &
 # we need to check the version of mysql as behavior has changed with 5.7.19+
 if [[ $MYSQL_VERSION == 5.7* ]] ;
