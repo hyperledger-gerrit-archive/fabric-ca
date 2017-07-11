@@ -129,8 +129,7 @@ function startHaproxy() {
    case $TLS_ON in
      "true")
    haproxy -f  <(echo "global
-      log /dev/log	local0 debug
-      log /dev/log	local1 debug
+      log 127.0.0.1 local2
       daemon
 defaults
       log     global
@@ -157,8 +156,7 @@ backend fabric-cas
    ;;
    *)
    haproxy -f  <(echo "global
-      log /dev/log	local0 debug
-      log /dev/log	local1 debug
+      log 127.0.0.1 local2
       daemon
 defaults
       log     global
