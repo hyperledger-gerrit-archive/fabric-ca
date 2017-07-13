@@ -152,7 +152,34 @@ build/%.tar.bz2:
 unit-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_tests
 
+# Runs all the benchmarks in all the packages
+bench: checks fabric-ca-server fabric-ca-client
+	@scripts/run_benchmarks
+
+# Runs all the benchmarks in the specified package with cpu profiling
+# e.g. make bench-cpu pkg=github.com/hyperledger/fabric-ca/lib
+bench-cpu: checks fabric-ca-server fabric-ca-client
+	@scripts/run_benchmarks -C -P $(pkg)
+
+# Runs all the benchmarks in the specified package with memory profiling
+# e.g. make bench-mem pkg=github.com/hyperledger/fabric-ca/lib
+bench-mem: checks fabric-ca-server fabric-ca-client
+	@scripts/run_benchmarks -M -P $(pkg)
+
+# Removes all benchmark related files (bench, bench-cpu, bench-mem and *.test)
+bench-clean:
+	@scripts/run_benchmarks -R
+
+# Runs all the benchmarks in all the packages and creates bench-base file
+benchcmp:
+	@scripts/compare_benchmarks $(prev_rel)
+
 container-tests: docker
+
+load-test: docker-clean docker-fvt
+	@docker run -p 8888:8888 -p 8054:8054 -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca -e FABRIC_CA_SERVER_PROFILE_PORT=8054 --name loadTest -td hyperledger/fabric-ca-fvt test/fabric-ca-load-tester/launchServer.sh 3
+	@test/fabric-ca-load-tester/runLoad.sh -B
+	@docker kill loadTest
 
 fvt-tests:
 	@scripts/run_fvt_tests
