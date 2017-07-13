@@ -110,15 +110,22 @@ func TestTLSClientAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start server with HTTPS: %s", err)
 	}
+	// Reinitialize the http client. With out this, following
+	// reenroll request succeeds even though server is restarted with SSL enabled. There
+	// is some in-process magic happening in the unit tests that makes the request succeed.
+	err = client.initHTTPClient()
+
 	// Try to reenroll over HTTP and it should fail because server is listening on HTTPS
 	_, err = id.Reenroll(&api.ReenrollmentRequest{})
 	if err == nil {
 		t.Error("Client HTTP should have failed to reenroll with server HTTPS")
 	}
-	// Reenroll over HTTPS
+
 	client.Config.URL = fmt.Sprintf("https://localhost:%d", whitePort)
 	client.Config.TLS.Enabled = true
 	client.Config.TLS.CertFiles = []string{"../server/ca-cert.pem"}
+	// Reinialize the http client with updated config and re-enroll over HTTPS
+	err = client.initHTTPClient()
 	resp, err := id.Reenroll(&api.ReenrollmentRequest{})
 	if err != nil {
 		server.Stop()
@@ -146,13 +153,17 @@ func TestTLSClientAuth(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to start server with HTTPS and client auth: %s", err)
 	}
+	// Reinialize the http client
+	err = client.initHTTPClient()
 	// Try to reenroll and it should fail because client has no client cert
 	_, err = id.Reenroll(&api.ReenrollmentRequest{})
 	if err == nil {
 		t.Error("Client reenroll without client cert should have failed")
 	}
-	// Reenroll over HTTPS with client auth
+
 	client.Config.TLS.Client.CertFile = path.Join("msp", "signcerts", "cert.pem")
+	// Reinialize the http client with updated config and re-enroll over HTTPS with client auth
+	err = client.initHTTPClient()
 	_, err = id.Reenroll(&api.ReenrollmentRequest{})
 	if err != nil {
 		server.Stop()
@@ -310,6 +321,24 @@ func getEnrollmentPayload(t *testing.T, c *Client) ([]byte, error) {
 }
 
 func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
+	srv, err := createServer(port, home, parentURL, maxEnroll)
+	if err != nil {
+		t.Errorf("failed to register bootstrap user: %s", err)
+		return nil
+	}
+	return srv
+}
+
+func getServerForBenchmark(port int, home, parentURL string, maxEnroll int, b *testing.B) *Server {
+	srv, err := createServer(port, home, parentURL, maxEnroll)
+	if err != nil {
+		b.Errorf("failed to register bootstrap user: %s", err)
+		return nil
+	}
+	return srv
+}
+
+func createServer(port int, home, parentURL string, maxEnroll int) (*Server, error) {
 	if home != testdataDir {
 		os.RemoveAll(home)
 	}
@@ -349,10 +378,9 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 	// means the user is at the affiliation root
 	err := srv.RegisterBootstrapUser(user, pass, "")
 	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-		return nil
+		return nil, err
 	}
-	return srv
+	return srv, nil
 }
 
 func getTestClient(port int) *Client {
