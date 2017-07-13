@@ -102,7 +102,7 @@ for driver in sqlite3 postgres mysql; do
    # all servers should register 4 successful requests
    # but...it's only available when tls is disabled
    if test "$FABRIC_TLS" = 'false'; then
-      for s in {1..4}; do
+      for s in {0..3}; do
          curl -s http://${HOST}/ | awk -v s="server${s}" '$0~s'|html2text|grep HTTP
          verifyServerTraffic $HOST server${s} 4
          test $? -ne 0 && ErrorMsg "Distributed traffic to server FAILED"
