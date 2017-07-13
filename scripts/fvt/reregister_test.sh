@@ -64,7 +64,7 @@ for driver in sqlite3 postgres mysql; do
    # all servers should register = number of successful requests
    # but...it's only available when tls is disabled
    if test "$FABRIC_TLS" = 'false'; then
-      for s in {1..4}; do
+      for s in {0..3}; do
          verifyServerTraffic $HOST server${s} 10 "" "" lt
          test $? -eq 0 || ErrorMsg "verifyServerTraffic failed"
          sleep 1

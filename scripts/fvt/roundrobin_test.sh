@@ -29,7 +29,7 @@ for driver in sqlite3 mysql postgres ; do
    test $? -ne 0 && ErrorMsg "registerAndEnroll failed"
    reenroll admin
    if test "$FABRIC_TLS" = 'false'; then
-      for s in 1 2 3 4; do
+      for s in 0 1 2 3; do
          curl -s http://$HOST/ | awk -v s="server${s}" '$0~s'|html2text | egrep "HTTP|server${s}"
          verifyServerTraffic $HOST server${s} 5
          test $? -ne 0 && ErrorMsg "verifyServerTraffic failed"
