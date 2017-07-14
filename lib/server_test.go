@@ -871,11 +871,14 @@ func TestMultiCAIntermediates(t *testing.T) {
 }
 
 func TestMaxEnrollmentInfinite(t *testing.T) {
-	os.RemoveAll(rootDir)
+	err := os.RemoveAll(rootDir)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 	t.Log("Test max enrollment infinite")
 	// Starting server/ca with infinite enrollments
 	srv := TestGetServer(rootPort, rootDir, "", -1, t)
-	err := srv.Start()
+	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
 	}
@@ -938,15 +941,21 @@ func TestMaxEnrollmentInfinite(t *testing.T) {
 	if err != nil {
 		t.Errorf("Server stop failed: %s", err)
 	}
-	os.RemoveAll(rootDir)
+	err = os.RemoveAll(rootDir)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 }
 
 func TestMaxEnrollmentDisabled(t *testing.T) {
-	os.RemoveAll(rootDir)
+	err := os.RemoveAll(rootDir)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 	t.Log("Test max enrollment disabled")
 	// Starting server/ca with infinite enrollments
 	srv := TestGetServer(rootPort, rootDir, "", -1, t)
-	err := srv.Start()
+	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
 	}
@@ -980,15 +989,22 @@ func TestMaxEnrollmentDisabled(t *testing.T) {
 	if err != nil {
 		t.Errorf("Server stop failed: %s", err)
 	}
-	os.RemoveAll(rootDir)
+	err = os.RemoveAll(rootDir)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 }
 
 func TestMaxEnrollmentLimited(t *testing.T) {
-	os.RemoveAll(rootDir)
+	err := os.RemoveAll(rootDir)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 	t.Log("Test max enrollment limited")
+
 	// Starting server/ca with max enrollments of 1
 	srv := TestGetServer(rootPort, rootDir, "", 1, t)
-	err := srv.Start()
+	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
 	}
@@ -998,7 +1014,7 @@ func TestMaxEnrollmentLimited(t *testing.T) {
 		Secret: "adminpw",
 	})
 	if err != nil {
-		t.Error("Enrollment failed, error: ", err)
+		t.Fatalf("Enrollment failed, error: %s", err)
 	}
 	id.Identity.Store()
 	_, err = client.Enroll(&api.EnrollmentRequest{
@@ -1059,7 +1075,10 @@ func TestMaxEnrollmentLimited(t *testing.T) {
 	if err != nil {
 		t.Errorf("Server stop failed: %s", err)
 	}
-	os.RemoveAll(rootDir)
+	err = os.RemoveAll(rootDir)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 }
 
 // Configure server to start server with no client authentication required
