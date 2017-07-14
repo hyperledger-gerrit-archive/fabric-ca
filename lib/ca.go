@@ -536,6 +536,11 @@ func (ca *CA) initDB() error {
 	return nil
 }
 
+// Close CA's DB
+func (ca *CA) closeDB() error {
+	return ca.db.Close()
+}
+
 // Initialize the user registry interface
 func (ca *CA) initUserRegistry() error {
 	log.Debug("Initializing identity registry")
