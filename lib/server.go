@@ -90,6 +90,19 @@ type Server struct {
 
 // Init initializes a fabric-ca server
 func (s *Server) Init(renew bool) (err error) {
+	err = s.init(renew)
+	log.Debugf("Closing DB (Init)")
+	err2 := s.closeDB()
+	if err2 != nil {
+		log.Errorf("Close DB failed: %s", err2)
+	} else {
+		log.Debugf("Closed DB (Init)")
+	}
+	return err
+}
+
+// init initializses the server leaving the DB open
+func (s *Server) init(renew bool) (err error) {
 	// Initialize the config
 	err = s.initConfig()
 	if err != nil {
@@ -115,8 +128,15 @@ func (s *Server) Start() (err error) {
 	}
 
 	// Initialize the server
-	err = s.Init(false)
+	err = s.init(false)
 	if err != nil {
+		log.Debugf("Closing DB (Start)")
+		err2 := s.closeDB()
+		if err2 != nil {
+			log.Errorf("Close DB failed: %s", err2)
+		} else {
+			log.Debugf("Closed DB (Start)")
+		}
 		return err
 	}
 
@@ -126,8 +146,18 @@ func (s *Server) Start() (err error) {
 	log.Debugf("%d CA instance(s) running on server", len(s.caMap))
 
 	// Start listening and serving
-	return s.listenAndServe()
-
+	err = s.listenAndServe()
+	if err != nil {
+		log.Debugf("Closing DB (Start #2)")
+		err2 := s.closeDB()
+		if err2 != nil {
+			log.Errorf("Close DB failed: %s", err2)
+		} else {
+			log.Debugf("Closed DB (Start #2)")
+		}
+		return err
+	}
+	return nil
 }
 
 // Stop the server
@@ -158,6 +188,14 @@ func (s *Server) Stop() error {
 		}
 	}
 	log.Debugf("Stop: timed out waiting for stop notification for port %d", port)
+	// make sure DB is closed
+	log.Debugf("Closing DB (Stop)")
+	err = s.closeDB()
+	if err != nil {
+		log.Errorf("Close DB failed: %s", err)
+	} else {
+		log.Debugf("Closed DB (Stop)")
+	}
 	return nil
 }
 
@@ -328,8 +366,17 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 	if err != nil {
 		return err
 	}
-
-	return s.addCA(ca)
+	err = s.addCA(ca)
+	if err != nil {
+		log.Debugf("Closing DB (loadCA)")
+		err2 := ca.closeDB()
+		if err2 != nil {
+			log.Errorf("Close DB failed: %s", err2)
+		} else {
+			log.Debugf("Closed DB (loadCA)")
+		}
+	}
+	return err
 }
 
 // DN is the distinguished name inside a certificate
@@ -354,6 +401,25 @@ func (s *Server) addCA(ca *CA) error {
 	}
 	// no conflicts, so add it
 	s.caMap[caName] = ca
+
+	return nil
+}
+
+// closeDB closes all CA dabatases
+func (s *Server) closeDB() error {
+	log.Debugf("Closing server DBs")
+	// close default CA DB
+	err := s.CA.closeDB()
+	if err != nil {
+		return err
+	}
+	// close other CAs DB
+	for _, c := range s.caMap {
+		err = c.closeDB()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -546,6 +612,13 @@ func (s *Server) serve() error {
 	s.closeListener()
 	if s.wait != nil {
 		s.wait <- true
+	}
+	log.Debugf("Closing DB (serve)")
+	err := s.closeDB()
+	if err != nil {
+		log.Errorf("Close DB failed: %s", err)
+	} else {
+		log.Debugf("Closed DB (serve)")
 	}
 	return s.serveError
 }
