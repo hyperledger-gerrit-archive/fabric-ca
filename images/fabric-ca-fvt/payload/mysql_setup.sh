@@ -6,7 +6,9 @@ rm -rf $MYSQLDATA
 mkdir -p $MYSQLDATA /var/run/mysqld
 chown mysql:mysql $MYSQLDATA
 chmod 777 /var/run/mysqld
-/usr/sbin/mysqld --initialize-insecure || let RC+=1
+if test "$arch" = "x86_64"; then
+   /usr/sbin/mysqld --initialize-insecure || let RC+=1
+fi
 
 # Mysql certificates
 cp $FABRIC_CA_DATA/$TLS_BUNDLE $MYSQLDATA/
