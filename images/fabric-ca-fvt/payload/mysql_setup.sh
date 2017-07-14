@@ -1,12 +1,15 @@
 #!/bin/bash
 RC=0
-
 arch=$(uname -m)
-rm -rf $MYSQLDATA 
-mkdir -p $MYSQLDATA /var/run/mysqld
-chown mysql:mysql $MYSQLDATA
-chmod 777 /var/run/mysqld
-/usr/sbin/mysqld --initialize-insecure || let RC+=1
+MYSQL_VERSION=$(mysqld --version|awk '{print $3}')
+
+if [[ "$MYSQL_VERSION" =~ 5.7 ]]; then
+   rm -rf $MYSQLDATA &&
+      mkdir -p $MYSQLDATA /var/run/mysqld &&
+      chown mysql:mysql $MYSQLDATA /var/run/mysqld &&
+      chmod 777 /var/run/mysqld 
+   /usr/sbin/mysqld --initialize-insecure || let RC+=1
+fi
 
 # Mysql certificates
 cp $FABRIC_CA_DATA/$TLS_BUNDLE $MYSQLDATA/

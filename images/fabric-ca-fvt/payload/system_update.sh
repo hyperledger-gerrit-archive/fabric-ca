@@ -17,8 +17,8 @@ printf "LANG=en_US.UTF-8\nLANGUAGE=en_US.UTF-8\n" > /etc/default/locale
 dpkg-reconfigure locales && update-locale LANG=en_US.UTF-8 || let RC+=1
 
 # Install more test depedencies
-echo "mysql-server mysql-server/root_password password mysql" | debconf-set-selections
-echo "mysql-server mysql-server/root_password_again password mysql" | debconf-set-selections
+#echo "mysql-server mysql-server/root_password password mysql" | debconf-set-selections
+#echo "mysql-server mysql-server/root_password_again password mysql" | debconf-set-selections
 apt-get -y install --no-install-recommends rsyslog bc vim lsof sqlite3 haproxy postgresql-$PGVER \
            postgresql-client-common postgresql-contrib-$PGVER isag jq git html2text \
            debconf-utils zsh htop python2.7-minimal libpython2.7-stdlib \
