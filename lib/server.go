@@ -131,7 +131,11 @@ func (s *Server) Start() (err error) {
 // requests in transit to fail, and so is only used for testing.
 // A graceful shutdown will be supported with golang 1.8.
 func (s *Server) Stop() error {
-	err := s.closeListener()
+	err := s.Clean()
+	if err != nil {
+		log.Errorf("Server failed closing CA DB: %s", err)
+	}
+	err = s.closeListener()
 	if err != nil {
 		return err
 	}
@@ -322,7 +326,6 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 	if err != nil {
 		return err
 	}
-
 	return s.addCA(ca)
 }
 
@@ -348,6 +351,25 @@ func (s *Server) addCA(ca *CA) error {
 	}
 	// no conflicts, so add it
 	s.caMap[caName] = ca
+
+	return nil
+}
+
+// Clean closes all CA dabatases
+func (s *Server) Clean() error {
+	log.Debugf("Closing server DBs")
+	// close default CA DB
+	err := s.CA.closeDB()
+	if err != nil {
+		return err
+	}
+	// close other CAs DB
+	for _, c := range s.caMap {
+		err = c.closeDB()
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
