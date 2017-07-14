@@ -24,4 +24,10 @@ for port in ${PORTS[*]}; do
    done
 done
 
+i=0;while nc -zvnt -w 5 127.0.0.1 3306; do
+   sleep 1
+   test $i -gt 30 && break
+   let i++
+done
+cat /var/log/mysql/error.log
 exec "$@"
