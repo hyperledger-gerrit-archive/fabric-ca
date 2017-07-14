@@ -31,9 +31,26 @@ import (
 	"github.com/hyperledger/fabric-ca/util"
 )
 
+const (
+	commonNameLength             = 64
+	serialNumberLength           = 64
+	countryNameLength            = 2
+	localityNameLength           = 128
+	stateOrProvinceNameLength    = 128
+	organizationNameLength       = 64
+	organizationalUnitNameLength = 64
+)
+
 var (
 	// The X.509 BasicConstraints object identifier (RFC 5280, 4.2.1.9)
-	basicConstraintsOID = asn1.ObjectIdentifier{2, 5, 29, 19}
+	basicConstraintsOID   = asn1.ObjectIdentifier{2, 5, 29, 19}
+	commonNameOID         = asn1.ObjectIdentifier{2, 5, 4, 3}
+	serialNumberOID       = asn1.ObjectIdentifier{2, 5, 4, 5}
+	countryOID            = asn1.ObjectIdentifier{2, 5, 4, 6}
+	localityOID           = asn1.ObjectIdentifier{2, 5, 4, 7}
+	stateOID              = asn1.ObjectIdentifier{2, 5, 4, 8}
+	organizationOID       = asn1.ObjectIdentifier{2, 5, 4, 10}
+	organizationalUnitOID = asn1.ObjectIdentifier{2, 5, 4, 11}
 )
 
 // The enrollment response from the server
@@ -77,7 +94,7 @@ func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
 	}
 	// Authorization the caller, depending on the contents of the
 	// CSR (Certificate Signing Request)
-	err = csrAuthCheck(id, &req.SignRequest, ca)
+	err = csrChecks(id, &req.SignRequest, ca)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +117,9 @@ func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
 // of the CSR (Certificate Signing Request).
 // In particular, if the request is for an intermediate CA certificate,
 // the caller must have the "hf.IntermediateCA" attribute.
-func csrAuthCheck(id string, req *signer.SignRequest, ca *CA) error {
+// Also check to see that CSR values do not exceed the character limit
+// as specified in RFC 3280, page 103.
+func csrChecks(id string, req *signer.SignRequest, ca *CA) error {
 	// Decode and parse the request into a CSR so we can make checks
 	block, _ := pem.Decode([]byte(req.Request))
 	if block == nil {
@@ -136,6 +155,48 @@ func csrAuthCheck(id string, req *signer.SignRequest, ca *CA) error {
 			}
 		}
 	}
-	log.Debug("CSR request received")
+	log.Debug("CSR authorization check passed")
+	return csrInputLengthCheck(csrReq)
+}
+
+// Checks to make sure that character limits are not exceeded for CSR fields
+func csrInputLengthCheck(req *x509.CertificateRequest) error {
+	log.Debug("Checking that input do not exceed maximum limits")
+
+	for _, n := range req.Subject.Names {
+		value := n.Value.(string)
+		switch {
+		case n.Type.Equal(commonNameOID):
+			if len(value) > commonNameLength {
+				return fmt.Errorf("The CN '%s' exceeds the maximum character limit of %d", value, commonNameLength)
+			}
+		case n.Type.Equal(serialNumberOID):
+			if len(value) > serialNumberLength {
+				return fmt.Errorf("The serial number '%s' exceeds the maximum character limit of %d", value, serialNumberLength)
+			}
+		case n.Type.Equal(organizationalUnitOID):
+			if len(value) > organizationalUnitNameLength {
+				return fmt.Errorf("The organizational unit name '%s' exceeds the maximum character limit of %d", value, organizationalUnitNameLength)
+			}
+		case n.Type.Equal(organizationOID):
+			if len(value) > organizationNameLength {
+				return fmt.Errorf("The organization name '%s' exceeds the maximum character limit of %d", value, organizationNameLength)
+			}
+		case n.Type.Equal(countryOID):
+			fmt.Println("country value: ", value)
+			if len(value) > countryNameLength {
+				return fmt.Errorf("The country name '%s' exceeds the maximum character limit of %d", value, countryNameLength)
+			}
+		case n.Type.Equal(localityOID):
+			if len(value) > localityNameLength {
+				return fmt.Errorf("The locality name '%s' exceeds the maximum character limit of %d", value, localityNameLength)
+			}
+		case n.Type.Equal(stateOID):
+			if len(value) > stateOrProvinceNameLength {
+				return fmt.Errorf("The state name '%s' exceeds the maximum character limit of %d", value, stateOrProvinceNameLength)
+			}
+		}
+	}
+
 	return nil
 }
