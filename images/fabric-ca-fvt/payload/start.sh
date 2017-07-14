@@ -12,7 +12,7 @@ PORTS=($POSTGRES_PORT $MYSQL_PORT $LDAP_PORT)
 
 timeout=12
 su postgres -c 'postgres -D /usr/local/pgsql/data' &
-/usr/bin/mysqld_safe --sql-mode=STRICT_TRANS_TABLES &
+/usr/bin/mysqld_safe --sql-mode=STRICT_TRANS_TABLES --disable-partition-engine-check &
 /etc/init.d/slapd start &
 
 for port in ${PORTS[*]}; do
@@ -24,4 +24,10 @@ for port in ${PORTS[*]}; do
    done
 done
 
+i=0;while nc -zvnt -w 5 127.0.0.1 3306; do
+   sleep 1
+   test $i -gt 30 && break
+   let i++
+done
+cat /var/log/mysql/error.log
 exec "$@"

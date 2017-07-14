@@ -158,6 +158,7 @@ ci-tests: docker-clean docker-fvt unit-tests
 %-docker-clean:
 	$(eval TARGET = ${patsubst %-docker-clean,%,${@}})
 	-docker images -q $(DOCKER_ORG)/$(TARGET):latest | xargs -I '{}' docker rmi -f '{}'
+	-docker images -q -f reference=$(DOCKER_ORG)/$(TARGET) --format {{.Repository}}:{{.Tag}} | xargs -I '{}' docker rmi -f '{}'
 	-@rm -rf build/image/$(TARGET) ||:
 
 docker-clean: $(patsubst %,%-docker-clean, $(IMAGES) $(PROJECT_NAME)-fvt)
