@@ -12,6 +12,7 @@ export SCRIPTDIR="$FABRIC_CA/scripts/fvt"
 export MYSQL_PORT="3306"
 export LDAP_PORT="389"
 export LDAP_PROTO="ldap://"
+export LDAP_TLS_PROTO="ldaps://"
 export POSTGRES_PORT="5432"
 export PGPASSWORD='postgres'
 export MSP_KEY_DIR='msp/keystore'
@@ -47,6 +48,8 @@ setTLS() {
      # otherwise, set TLS-related stuff
      if $($FABRIC_TLS); then
         PROTO="https://"
+        LDAP_PROTO="ldaps://"
+        LDAP_PORT=636
         TLSOPT="--tls.certfiles $TLS_ROOTCERT"
      fi
    fi
@@ -335,6 +338,7 @@ function genRunconfig() {
    : ${FABRIC_TLS:='false'}
    : ${FABRIC_CA_DEBUG:='false'}
    local registry=""
+   setTLS
 
    case ${version:-"yaml"} in
       json) if ! $($LDAP_ENABLE); then registry="
@@ -694,19 +698,19 @@ affiliations:
     - department1
     - department2
 signing:
-    default:
-    usage:
-      - cert sign
-      - crl sign
-      - digital signature
-      - key encipherment
-      - timestamping
-    expiry: 17520h
-    caconstraint:
-      isca: true
-      maxpathlen: 1
-      ocspnocheck: true
-      notbefore: 2016-12-30T00:00:00Z
+  default:
+  usage:
+    - cert sign
+    - crl sign
+    - digital signature
+    - key encipherment
+    - timestamping
+  expiry: 17520h
+  caconstraint:
+    isca: true
+    maxpathlen: 1
+    ocspnocheck: true
+    notbefore: 2016-12-30T00:00:00Z
   profiles:
      ca:
        usage:
