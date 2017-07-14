@@ -116,13 +116,14 @@ pollServer() {
       isReachable "$host" "$port"
       rc=$?
       test $rc -eq 0 && break
-      sleep .5
+      sleep .1
    done
    echo "Server rc $rc"
    return $rc
 }
 
 CleanUp() {
+   cat /var/log/mysql/error.log
    local RC=$1
    : ${RC:=0}
    ###############################################################################
