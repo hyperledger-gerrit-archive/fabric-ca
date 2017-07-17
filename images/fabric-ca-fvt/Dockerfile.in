@@ -68,6 +68,7 @@ RUN /etc/init.d/slapd start && \
 # Install fabric-ca dependencies
 RUN go get github.com/go-sql-driver/mysql
 RUN go get github.com/lib/pq
+RUN go get github.com/stripe/safesql
 
 # Use python2, not 3
 RUN ln -s /usr/bin/python2.7 /usr/local/bin/python && chmod 777 /usr/local/bin/python
