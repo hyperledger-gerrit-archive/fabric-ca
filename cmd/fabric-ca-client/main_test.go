@@ -309,6 +309,41 @@ func testEnroll(t *testing.T) {
 	os.Remove(defYaml)
 }
 
+// TestGencsr tests fabric-ca-client gencsr
+func TestGencsr(t *testing.T) {
+	t.Log("Testing gencsr CMD")
+	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+
+	os.Remove(defYaml) // Clean up any left over config file
+
+	mspDir := filepath.Join(filepath.Dir(defYaml), "msp")
+
+	os.RemoveAll(mspDir)
+
+	err := RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA O=Org1 OU=OU1", "-M", mspDir})
+	if err != nil {
+		t.Errorf("client gencsr failed: %s", err)
+	}
+
+	signcerts := path.Join(mspDir, "signcerts")
+	count := getNumFiles(signcerts, t)
+	if count != 1 {
+		t.Fatalf("client gencsr failed: expecting 1 file in signcerts %s but found %d",
+			signcerts, count)
+	}
+
+	files, err := ioutil.ReadDir(signcerts)
+	if err != nil {
+		t.Fatalf("Failed to get number of files in directory '%s': %s", signcerts, err)
+	}
+
+	if files[0].Name() != "identity.csr" {
+		t.Fatalf("Failed to find identity.csr in '%s': %s", signcerts, err)
+	}
+
+	os.Remove(defYaml)
+}
+
 // TestMOption tests to make sure that the key is stored in the correct
 // directory when the "-M" option is used.
 func TestMOption(t *testing.T) {
