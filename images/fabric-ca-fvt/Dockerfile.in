@@ -35,6 +35,10 @@ RUN apt-get -y install --no-install-recommends bc vim lsof sqlite3 haproxy postg
                        debconf-utils zsh htop python2.7-minimal libpython2.7-stdlib \
                        mysql-client  mysql-common mysql-server
 RUN apt-get -y autoremove
+# Fixup mysql
+RUN rm -rf /var/lib/mysql && mkdir -p /var/lib/mysql /var/run/mysqld \
+    && chown -R mysql:mysql /var/lib/mysql /var/run/mysqld \
+    && chmod 777 /var/run/mysqld
 
 # Configure and start postgres
 RUN echo $PGUSER:$PGUSER | chpasswd
