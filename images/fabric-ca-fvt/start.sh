@@ -12,6 +12,8 @@ PORTS=($POSTGRES_PORT $MYSQL_PORT $LDAP_PORT)
 
 timeout=12
 su postgres -c 'postgres -D /usr/local/pgsql/data' &
+#mysqld --initialize-insecure
+mysql_install_db --insecure --datadir=/var/lib/mysql --basedir=/usr --user=mysql
 /usr/bin/mysqld_safe --sql-mode=STRICT_TRANS_TABLES &
 /etc/init.d/slapd start &
 
@@ -23,5 +25,9 @@ for port in ${PORTS[*]}; do
       let i++;
    done
 done
+
+# Set mysql root password
+sleep 3
+mysqladmin -u root password mysql
 
 exec "$@"
