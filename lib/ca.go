@@ -539,7 +539,11 @@ func (ca *CA) initDB() error {
 
 // Close CA's DB
 func (ca *CA) closeDB() error {
-	return ca.db.Close()
+	if ca.db != nil {
+		log.Debugf("Closing DB: %s", ca.HomeDir)
+		return ca.db.Close()
+	}
+	return nil
 }
 
 // Initialize the user registry interface
