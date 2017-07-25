@@ -326,7 +326,12 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 	if err != nil {
 		return err
 	}
-	return s.addCA(ca)
+	err = s.addCA(ca)
+	if err != nil {
+		ca.closeDB()
+		return err
+	}
+	return nil
 }
 
 // DN is the distinguished name inside a certificate

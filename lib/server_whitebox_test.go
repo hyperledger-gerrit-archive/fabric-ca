@@ -26,12 +26,12 @@ const (
 	affiliationName = "org1"
 )
 
-// TestGetAffliation checks if there is one record for the
-// affilition 'org1' in the database after starting the server
+// TestGetAffiliation checks if there is one record for the
+// affiliation 'org1' in the database after starting the server
 // two times. This test is to make sure server does not create
 // duplicate affiliations in the database every time it is
 // started.
-func TestGetAffliation(t *testing.T) {
+func TestGetAffiliation(t *testing.T) {
 	// Start the server at an available port (using port 0 will make OS to
 	// pick an available port)
 	srv := getServer(serverPort, testdataDir, "", -1, t)
