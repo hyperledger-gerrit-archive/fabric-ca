@@ -57,6 +57,8 @@ var (
 type enrollmentResponseNet struct {
 	// Base64 encoded PEM-encoded ECert
 	Cert string
+	// Secret attribute info
+	SecretAttrInfo string
 	// The server information
 	ServerInfo serverInfoResponseNet
 }
@@ -98,13 +100,26 @@ func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Get an attribute extension if one is being requested
+	ext, sai, err := ctx.GetAttrExtension(req.AttrReqs, req.Profile)
+	if err != nil {
+		return nil, err
+	}
+	// If there is an extension requested, add it to the request
+	if ext != nil {
+		log.Debugf("Adding attribute extension to CSR: %+v", ext)
+		req.Extensions = append(req.Extensions, *ext)
+	}
 	// Sign the certificate
 	cert, err := ca.enrollSigner.Sign(req.SignRequest)
 	if err != nil {
 		return nil, fmt.Errorf("Signing failure: %s", err)
 	}
 	// Add server info to the response
-	resp := &enrollmentResponseNet{Cert: util.B64Encode(cert)}
+	resp := &enrollmentResponseNet{
+		Cert:           util.B64Encode(cert),
+		SecretAttrInfo: sai,
+	}
 	err = ca.fillCAInfo(&resp.ServerInfo)
 	if err != nil {
 		return nil, err
