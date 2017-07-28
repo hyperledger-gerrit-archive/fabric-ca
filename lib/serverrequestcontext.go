@@ -24,8 +24,12 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
+	"github.com/cloudflare/cfssl/signer"
+	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/attrmgr"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 )
@@ -206,6 +210,38 @@ func (ctx *serverRequestContext) GetUserInfo(attrNames []string) ([]tcert.Attrib
 	return attrs, user.GetAffiliationPath(), nil
 }
 
+// GetAttrExtension returns an attribute extension to place into a signing request
+func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeRequest, profile string) (*signer.Extension, string, error) {
+	if attrReqs == nil {
+		return nil, "", nil
+	}
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, "", err
+	}
+	ui, err := ca.registry.GetUserInfo(ctx.enrollmentID)
+	if err != nil {
+		return nil, "", err
+	}
+	publicAttrInfo, secretAttrInfo, err := ca.attrMgr.ProcessAttributeRequests(
+		convertAttrReqs(attrReqs),
+		convertAttrs(ui.Attributes),
+	)
+	if err != nil {
+		return nil, "", err
+	}
+	if publicAttrInfo != "" {
+		ext := &signer.Extension{
+			ID:       config.OID(attrmgr.AttrOID),
+			Critical: false,
+			Value:    hex.EncodeToString([]byte(publicAttrInfo)),
+		}
+		log.Debugf("GetAttrExtension: extension=%+v, secretAttrInfo=%+v", ext, secretAttrInfo)
+		return ext, secretAttrInfo, nil
+	}
+	return nil, "", nil
+}
+
 // caNameReqBody is a sparse request body to unmarshal only the CA name
 type caNameReqBody struct {
 	CAName string `json:"caname,omitempty"`
@@ -274,4 +310,20 @@ func (ctx *serverRequestContext) ReadBodyBytes() ([]byte, error) {
 		return nil, newHTTPErr(400, ErrReadingReqBody, "Failed reading request body: %s", err)
 	}
 	return ctx.body.buf, nil
+}
+
+func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
+	rtn := make([]attrmgr.AttributeRequest, len(attrReqs))
+	for i := range attrReqs {
+		rtn[i] = attrmgr.AttributeRequest(attrReqs[i])
+	}
+	return rtn
+}
+
+func convertAttrs(attrs []api.Attribute) []attrmgr.Attribute {
+	rtn := make([]attrmgr.Attribute, len(attrs))
+	for i := range attrs {
+		rtn[i] = attrmgr.Attribute(&attrs[i])
+	}
+	return rtn
 }
