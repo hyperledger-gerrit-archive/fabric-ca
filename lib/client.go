@@ -147,8 +147,9 @@ func (c *Client) net2LocalServerInfo(net *serverInfoResponseNet, local *GetServe
 
 // EnrollmentResponse is the response from Client.Enroll and Identity.Reenroll
 type EnrollmentResponse struct {
-	Identity   *Identity
-	ServerInfo GetServerInfoResponse
+	Identity       *Identity
+	SecretAttrInfo string
+	ServerInfo     GetServerInfoResponse
 }
 
 // Enroll enrolls a new identity
@@ -168,7 +169,8 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 	}
 
 	reqNet := &api.EnrollmentRequestNet{
-		CAName: req.CAName,
+		CAName:   req.CAName,
+		AttrReqs: req.AttrReqs,
 	}
 
 	if req.CSR != nil {
@@ -210,7 +212,8 @@ func (c *Client) newEnrollmentResponse(result *enrollmentResponseNet, id string,
 		return nil, fmt.Errorf("Invalid response format from server: %s", err)
 	}
 	resp := &EnrollmentResponse{
-		Identity: newIdentity(c, id, key, certByte),
+		Identity:       newIdentity(c, id, key, certByte),
+		SecretAttrInfo: result.SecretAttrInfo,
 	}
 	err = c.net2LocalServerInfo(&result.ServerInfo, &resp.ServerInfo)
 	if err != nil {
