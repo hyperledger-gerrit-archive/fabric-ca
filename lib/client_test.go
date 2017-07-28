@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/attrmgr"
 	. "github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
@@ -110,8 +111,9 @@ func testRegister(c *Client, t *testing.T) {
 
 	// Verify that the duration of the newly created enrollment certificate is 1 year
 	d, err := util.GetCertificateDurationFromFile(c.GetCertFilePath())
-	assert.NoError(t, err)
-	assert.True(t, d.Hours() == 8760, fmt.Sprintf("Expecting 8760 but found %f", d.Hours()))
+	if assert.NoError(t, err) {
+		assert.True(t, d.Hours() == 8760, "Expecting 8760 but found %f", d.Hours())
+	}
 
 	err = c.CheckEnrollment()
 	if err != nil {
@@ -153,6 +155,71 @@ func testRegister(c *Client, t *testing.T) {
 	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
 	if err != nil {
 		t.Fatal("Failed to get batch of TCerts")
+	}
+
+	// Test registration and enrollment of an identity with attributes
+	userName := "MyTestUserWithAttrs"
+	registerReq = &api.RegistrationRequest{
+		Name:        userName,
+		Type:        "Client",
+		Affiliation: "hyperledger",
+		Attributes: []api.Attribute{
+			api.Attribute{Name: "attr1", Value: "val1"},
+			api.Attribute{Name: "attr2", Value: "val2"},
+			api.Attribute{Name: "attr3", Value: "val3"},
+		},
+	}
+	resp, err = adminID.Register(registerReq)
+	if err != nil {
+		t.Fatalf("Register of %s failed: %s", userName, err)
+	}
+	// Request an ECert with attr1 in the clear and attr2 encrypted,
+	// but without attr3.
+	req = &api.EnrollmentRequest{
+		Name:   userName,
+		Secret: resp.Secret,
+		AttrReqs: []*api.AttributeRequest{
+			&api.AttributeRequest{Name: "attr1", Require: true},
+			&api.AttributeRequest{Name: "attr2", Encrypt: true},
+		},
+	}
+	eresp, err = c.Enroll(req)
+	if err != nil {
+		t.Fatalf("Enroll with attributes failed: %s", err)
+	}
+	// Verify that the ECert's attributes have correct values for "attr1"
+	// and "attr2" and that "attr3" is not found.
+	attrs, err := eresp.Identity.GetECert().Attributes(eresp.SecretAttrInfo)
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	checkAttrResult(t, "attr1", "val1", attrs)
+	checkAttrResult(t, "attr2", "val2", attrs)
+	checkAttrResult(t, "attr3", "", attrs)
+	// Request an ECert with an attribute that the identity does not have (attr4)
+	// but we say that it is required.  This should result in an error.
+	req = &api.EnrollmentRequest{
+		Name:   userName,
+		Secret: resp.Secret,
+		AttrReqs: []*api.AttributeRequest{
+			&api.AttributeRequest{Name: "attr1"},
+			&api.AttributeRequest{Name: "attr4", Require: true},
+		},
+	}
+	eresp, err = c.Enroll(req)
+	if err == nil {
+		t.Fatalf("Enroll should have failed because %s does not have attr4", userName)
+	}
+}
+
+func checkAttrResult(t *testing.T, name, val string, attrs *attrmgr.Attributes) {
+	v, ok, err := attrs.Value(name)
+	if assert.NoError(t, err) {
+		if val == "" {
+			assert.False(t, ok, "attribute '%s' was found", name)
+		} else if assert.True(t, ok, "attribute '%s' was not found", name) {
+			assert.True(t, v == val, "invalid value of attribute '%s'; expecting '%s' but found '%s'", name, val, v)
+		}
 	}
 }
 
