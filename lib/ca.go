@@ -408,6 +408,12 @@ func (ca *CA) initConfig() (err error) {
 		&cs.Default,
 		defaultIssuedCertificateExpiration,
 		false)
+	tlsProfile := cs.Profiles["tls"]
+	initSigningProfile(&tlsProfile,
+		defaultIssuedCertificateExpiration,
+		false)
+	cs.Profiles["tls"] = tlsProfile
+
 	// Set log level if debug is true
 	if ca.server.Config.Debug {
 		log.Level = log.LevelDebug

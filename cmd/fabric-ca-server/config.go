@@ -98,8 +98,8 @@ tls:
   # Enable TLS (default: false)
   enabled: false
   # TLS for the server's listening port
-  certfile: ca-cert.pem
-  keyfile: ca-key.pem
+  certfile:
+  keyfile:
   clientauth:
     type: noclientcert
     certfiles:
