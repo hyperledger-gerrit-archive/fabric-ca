@@ -36,8 +36,10 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
+	"github.com/cloudflare/cfssl/signer"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/spf13/viper"
 
 	_ "github.com/go-sql-driver/mysql" // import to support MySQL
@@ -197,7 +199,17 @@ func (s *Server) initConfig() (err error) {
 		if err != nil {
 			return fmt.Errorf("Failed to get server's home directory: %s", err)
 		}
+
 	}
+
+	if !filepath.IsAbs(s.HomeDir) {
+		absoluteHomeDir, err := filepath.Abs(s.HomeDir)
+		if err != nil {
+			return fmt.Errorf("Failed to make server's home directory path absolute: %s", err)
+		}
+		s.HomeDir = absoluteHomeDir
+	}
+
 	// Create config if not set
 	if s.Config == nil {
 		s.Config = new(ServerConfig)
@@ -440,6 +452,23 @@ func (s *Server) listenAndServe() (err error) {
 	if c.TLS.Enabled {
 		log.Debug("TLS is enabled")
 		addrStr = fmt.Sprintf("https://%s", addr)
+
+		// If key file provided but no certificate file is provided need to error out and not start server
+		if c.TLS.KeyFile != "" && c.TLS.CertFile == "" {
+			return fmt.Errorf("Key '%s' specified for TLS, but certificate not specified", c.TLS.KeyFile)
+		}
+
+		// TLS enabled but not TLS credentials provided, generate a default TLS certificate
+		if c.TLS.CertFile == "" && c.TLS.KeyFile == "" {
+			err = s.autoGenerateTLSCertificateKey()
+			if err != nil {
+				return fmt.Errorf("Failed to automatically generate TLS certificate and key: %s", err)
+			}
+			c.TLS.CertFile = filepath.Join(s.HomeDir, "tls-cert.pem") // Key file stored by BCSSP, don't need to set key file
+		}
+
+		log.Debugf("TLS Certificate: %s, TLS Key: %s", c.TLS.CertFile, c.TLS.KeyFile)
+
 		cer, err := util.LoadX509KeyPair(c.TLS.CertFile, c.TLS.KeyFile, s.csp)
 		if err != nil {
 			return err
@@ -484,7 +513,7 @@ func (s *Server) listenAndServe() (err error) {
 		}
 	}
 	s.listener = listener
-	log.Infof("Listening on %s", s.Config.Port, addrStr)
+	log.Infof("Listening on %s", addrStr)
 
 	err = s.checkAndEnableProfiling()
 	if err != nil {
@@ -634,6 +663,57 @@ func (s *Server) loadDNFromCertFile(certFile string) (*DN, error) {
 		subject: subjectDN,
 	}
 	return distinguishedName, nil
+}
+
+func (s *Server) autoGenerateTLSCertificateKey() error {
+	log.Debug("TLS enabled but no certificate or key provided, automatically generate TLS credentials")
+
+	// Use client to generate key and the CSR
+	clientCfg := &ClientConfig{
+		CSP: &factory.FactoryOpts{
+			SwOpts: &factory.SwOpts{
+				FileKeystore: &factory.FileKeystoreOpts{
+					KeyStorePath: s.CA.Config.CSP.SwOpts.FileKeystore.KeyStorePath,
+				},
+			},
+		},
+	}
+	client := Client{
+		HomeDir: s.HomeDir,
+		Config:  clientCfg,
+	}
+
+	// Generate CSR that will be used to create the TLS certificate
+	csrReq := s.Config.CAcfg.CSR
+	csrReq.CA = nil // Not requesting a CA certificate
+	hostname, _ := os.Hostname()
+	if hostname == "" {
+		hostname = "localhost"
+	}
+	log.Debugf("TLS CSR: %+v\n", csrReq)
+
+	// Can't use the same CN as the signing certificate CN (default: fabric-ca-server) otherwise no AKI is generated
+	csr, _, err := client.GenCSR(&csrReq, hostname)
+	if err != nil {
+		return fmt.Errorf("Failed to generate CSR: %s", err)
+	}
+
+	// Use the 'tls' profile that will return a certificate with the appropriate extensions
+	req := signer.SignRequest{
+		Profile: "tls",
+		Request: string(csr),
+	}
+
+	// Use default CA to get back signed TLS certificate
+	cert, err := s.caMap[""].enrollSigner.Sign(req)
+	if err != nil {
+		return fmt.Errorf("Failed to generate TLS certificate: %s", err)
+	}
+
+	// Write the TLS certificate to the file system
+	ioutil.WriteFile(filepath.Join(s.HomeDir, "tls-cert.pem"), cert, 0644)
+
+	return nil
 }
 
 func (dn *DN) equal(checkDN *DN) error {
