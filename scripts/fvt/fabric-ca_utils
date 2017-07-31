@@ -133,9 +133,6 @@ CleanUp() {
    echo "$((RUNTIME_S/60)) minutes, $((RUNTIME_S%60)) seconds runtime"
    printf "$(TimeStamp) $TESTCASE ENDED\n"
    echo "#########################################################################"
-
-   TimeStamp
-   printf "%s test ended.\n" $TESTCASE
 }
 
 verifyServerTraffic() {
