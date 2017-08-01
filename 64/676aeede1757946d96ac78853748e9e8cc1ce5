@@ -1,0 +1,9 @@
+Code-Review+1: Baohua Yang <yangbaohua@gmail.com>
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Code-Review+2: Artem Barger <bartem@il.ibm.com>
+Submitted-by: Artem Barger <bartem@il.ibm.com>
+Submitted-at: Tue, 01 Aug 2017 09:58:31 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/12005
+Project: fabric-ca
+Branch: refs/heads/master
