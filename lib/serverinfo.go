@@ -32,7 +32,7 @@ type infoHandler struct {
 func newInfoHandler(server *Server) (h http.Handler, err error) {
 	return &cfapi.HTTPHandler{
 		Handler: &infoHandler{server: server},
-		Methods: []string{"POST"},
+		Methods: []string{"GET", "HEAD", "POST"},
 	}, nil
 }
 
@@ -48,6 +48,9 @@ type serverInfoResponseNet struct {
 func (ih *infoHandler) Handle(w http.ResponseWriter, r *http.Request) error {
 	log.Debug("Received request for server info")
 
+	if r.Method == "HEAD" {
+		w.Header().Set("Content-Length", "0")
+	}
 	caname := r.Header.Get(caHdrName)
 
 	resp := &serverInfoResponseNet{}
