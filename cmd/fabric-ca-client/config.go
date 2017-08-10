@@ -257,7 +257,7 @@ func configInit(command string) error {
 	if util.FileExists(cfgFileName) {
 		err = viper.ReadInConfig()
 		if err != nil {
-			return fmt.Errorf("Failed to read config file: %s", err)
+			return fmt.Errorf("Failed to read config file at '%s': %s", cfgFileName, err)
 		}
 	}
 
@@ -339,12 +339,29 @@ func processAttributes() error {
 	if cfgAttrs != nil {
 		clientCfg.ID.Attributes = make([]api.Attribute, len(cfgAttrs))
 		for idx, attr := range cfgAttrs {
-			sattr := strings.SplitN(attr, "=", 2)
+			sattr := strings.Split(attr, ":")
+			if len(sattr) > 2 {
+				return fmt.Errorf("Multiple ':' characters not allowed in attribute specification; error at '%s'", attr)
+			}
+			attrFlag := ""
+			if len(sattr) > 1 {
+				attrFlag = sattr[1]
+			}
+			sattr = strings.SplitN(sattr[0], "=", 2)
 			if len(sattr) != 2 {
 				return fmt.Errorf("Attribute '%s' is missing '=' ; it must be of the form <name>=<value>", attr)
 			}
+			ecert := false
+			switch strings.ToLower(attrFlag) {
+			case "":
+			case "ecert":
+				ecert = true
+			default:
+				return fmt.Errorf("Invalid attribute flag: '%s'", attrFlag)
+			}
 			clientCfg.ID.Attributes[idx].Name = sattr[0]
 			clientCfg.ID.Attributes[idx].Value = sattr[1]
+			clientCfg.ID.Attributes[idx].ECert = ecert
 		}
 	}
 	return nil
