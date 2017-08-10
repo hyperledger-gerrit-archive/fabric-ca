@@ -74,8 +74,9 @@ func init() {
 
 // The client enroll main logic
 func runEnroll(cmd *cobra.Command) error {
-	log.Debug("Entered runEnroll")
-	resp, err := clientCfg.Enroll(clientCfg.URL, filepath.Dir(cfgFileName))
+	log.Debugf("Entered runEnroll with config file: %s", cfgFileName)
+	homeDir := filepath.Dir(cfgFileName)
+	resp, err := clientCfg.Enroll(clientCfg.URL, homeDir)
 	if err != nil {
 		return err
 	}
