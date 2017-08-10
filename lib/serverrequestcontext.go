@@ -212,9 +212,6 @@ func (ctx *serverRequestContext) GetUserInfo(attrNames []string) ([]tcert.Attrib
 
 // GetAttrExtension returns an attribute extension to place into a signing request
 func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeRequest, profile string) (*signer.Extension, string, error) {
-	if attrReqs == nil {
-		return nil, "", nil
-	}
 	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, "", err
@@ -222,6 +219,13 @@ func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeReque
 	ui, err := ca.registry.GetUserInfo(ctx.enrollmentID)
 	if err != nil {
 		return nil, "", err
+	}
+	if attrReqs == nil {
+		attrReqs = getDefaultAttrReqs(ui.Attributes)
+		if attrReqs == nil {
+			// No attributes are being requested, so we are done
+			return nil, "", nil
+		}
 	}
 	publicAttrInfo, secretAttrInfo, err := ca.attrMgr.ProcessAttributeRequests(
 		convertAttrReqs(attrReqs),
@@ -326,4 +330,26 @@ func convertAttrs(attrs []api.Attribute) []attrmgr.Attribute {
 		rtn[i] = attrmgr.Attribute(&attrs[i])
 	}
 	return rtn
+}
+
+// Return attribute requests for attributes which should by default be added to an ECert
+func getDefaultAttrReqs(attrs []api.Attribute) []*api.AttributeRequest {
+	count := 0
+	for _, attr := range attrs {
+		if attr.ECert {
+			count++
+		}
+	}
+	if count == 0 {
+		return nil
+	}
+	reqs := make([]*api.AttributeRequest, count)
+	count = 0
+	for _, attr := range attrs {
+		if attr.ECert {
+			reqs[count] = &api.AttributeRequest{Name: attr.Name}
+			count++
+		}
+	}
+	return reqs
 }
