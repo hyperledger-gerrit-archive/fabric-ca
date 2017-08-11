@@ -87,14 +87,28 @@ func (h *registerHandler) RegisterUser(req *api.RegistrationRequestNet, registra
 	req.Secret = secret
 
 	var err error
+	var registrarUser spi.User
 
 	if registrar != "" {
 		// Check the permissions of member named 'registrar' to perform this registration
-		err = h.canRegister(registrar, req.Type, caname)
+		registrarUser, err = h.server.caMap[caname].registry.GetUser(registrar, nil)
+		if err != nil {
+			return "", fmt.Errorf("Registrar does not exist: %s", err)
+		}
+
+		err = h.canRegister(registrarUser, req.Type, caname)
 		if err != nil {
 			log.Debugf("Registration of '%s' failed: %s", req.Name, err)
 			return "", err
 		}
+	} else {
+		return "", errors.New("No registrar information specified in registeration request")
+	}
+
+	registrarAff := strings.Join(registrarUser.GetAffiliationPath(), ".")
+	err = h.validateAffiliation(registrarAff, req)
+	if err != nil {
+		return "", fmt.Errorf("Registration of '%s' failed in affiliation validation: %s", req.Name, err)
 	}
 
 	err = h.validateID(req, caname)
@@ -111,10 +125,31 @@ func (h *registerHandler) RegisterUser(req *api.RegistrationRequestNet, registra
 	return secret, nil
 }
 
+func (h *registerHandler) validateAffiliation(registrarAff string, req *api.RegistrationRequestNet) error {
+	log.Debug("Validate Affiliation")
+	if req.Affiliation == "" {
+		log.Debugf("No affiliation provided in registeration request, will default to using registrar's affiliation of '%s'", registrarAff)
+		req.Affiliation = registrarAff
+	} else {
+		log.Debugf("Affiliation of '%s' specified in registration request", req.Affiliation)
+		if registrarAff != "" {
+			log.Debug("Registrar does not have absolute root affiliation path, checking to see if registrar has proper authority to register requested affiliation")
+			if !strings.Contains(req.Affiliation, registrarAff) {
+				return fmt.Errorf("Registrar does not have authority to request '%s' affiliation", req.Affiliation)
+			}
+		} else if registrarAff == "" && req.Affiliation == "." {
+			// Affiliation request of '.' signifies request for root affiliation
+			req.Affiliation = ""
+		}
+	}
+
+	return nil
+}
+
 func (h *registerHandler) validateID(req *api.RegistrationRequestNet, caname string) error {
 	log.Debug("Validate ID")
 	// Check whether the affiliation is required for the current user.
-	if h.requireAffiliation(req.Type) {
+	if h.requireAffiliation(req.Type) && req.Affiliation != "" {
 		// If yes, is the affiliation valid
 		err := h.isValidAffiliation(req.Affiliation, caname)
 		if err != nil {
@@ -189,16 +224,11 @@ func (h *registerHandler) requireAffiliation(idType string) bool {
 	return true
 }
 
-func (h *registerHandler) canRegister(registrar string, userType string, caname string) error {
+func (h *registerHandler) canRegister(registrar spi.User, userType string, caname string) error {
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
-	user, err := h.server.caMap[caname].registry.GetUser(registrar, nil)
-	if err != nil {
-		return fmt.Errorf("Registrar does not exist: %s", err)
-	}
-
 	var roles []string
-	rolesStr := user.GetAttribute("hf.Registrar.Roles")
+	rolesStr := registrar.GetAttribute("hf.Registrar.Roles")
 	if rolesStr != "" {
 		roles = strings.Split(rolesStr, ",")
 	} else {
