@@ -1758,6 +1758,64 @@ func TestCSRInputLengthCheck(t *testing.T) {
 	}
 }
 
+func TestRegisterationAffiliation(t *testing.T) {
+	// Start the server
+	server := TestGetServer(rootPort, rootDir, "", -1, t)
+	if server == nil {
+		return
+	}
+	err := server.Start()
+	if err != nil {
+		t.Fatalf("Server start failed: %s", err)
+	}
+	defer server.Stop()
+
+	// Enroll bootstrap user
+	client := getRootClient()
+	eresp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err != nil {
+		t.Fatalf("Failed to enroll bootstrap user: %s", err)
+	}
+	admin := eresp.Identity
+
+	// Registering with no affiliation specified, should default to using the registrar's affiliation
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser",
+		Type:        "user",
+		Affiliation: "",
+	})
+	if err != nil {
+		t.Errorf("client register failed: %s", err)
+	}
+
+	db := server.DBAccessor()
+	user, err := db.GetUserInfo("testuser")
+	assert.NoError(t, err)
+
+	if user.Affiliation != "" {
+		t.Errorf("Incorrectly affiliation set for user being registered when no affiliation was specified, expected '' got %s", user.Affiliation)
+	}
+
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser2",
+		Type:        "user",
+		Affiliation: ".",
+	})
+	if err != nil {
+		t.Errorf("client register failed: %s", err)
+	}
+
+	user, err = db.GetUserInfo("testuser2")
+	assert.NoError(t, err)
+
+	if user.Affiliation != "" {
+		t.Errorf("Incorrectly affiliation set for user being registered when no affiliation was specified, expected '' got %s", user.Affiliation)
+	}
+}
+
 func TestEnd(t *testing.T) {
 	TestSRVServerClean(t)
 }
