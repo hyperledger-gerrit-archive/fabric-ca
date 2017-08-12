@@ -40,8 +40,13 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Received request for %s", url)
 	err := se.validateMethod(r)
 	var resp interface{}
-	if err == nil && r.Method != "HEAD" {
-		resp, err = se.Handler(newServerRequestContext(r, w, se))
+	if err == nil {
+		// handle HEAD request
+		if r.Method == "HEAD" {
+			w.Header().Set("Content-Length", "0")
+		} else {
+			resp, err = se.Handler(newServerRequestContext(r, w, se))
+		}
 	}
 	var scode, lcode int
 	if err == nil {
