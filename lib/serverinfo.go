@@ -26,6 +26,10 @@ type serverInfoResponseNet struct {
 
 // Handle is the handler for the GET or POST /info request
 func cainfoHandler(ctx *serverRequestContext) (interface{}, error) {
+	// check for HEAD request and set Content-Length to 0
+	if ctx.req.Method == "HEAD" {
+		ctx.resp.Header().Set("Content-Length", "0")
+	}
 	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err

@@ -40,7 +40,7 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Debugf("Received request for %s", url)
 	err := se.validateMethod(r)
 	var resp interface{}
-	if err == nil && r.Method != "HEAD" {
+	if err == nil {
 		resp, err = se.Handler(newServerRequestContext(r, w, se))
 	}
 	var scode, lcode int
