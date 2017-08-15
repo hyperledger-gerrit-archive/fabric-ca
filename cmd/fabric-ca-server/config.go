@@ -396,8 +396,8 @@ func (s *ServerCmd) configInit() (err error) {
 	}
 
 	// Read the config
-	viper.AutomaticEnv() // read in environment variables that match
-	err = lib.UnmarshalConfig(s.cfg, viper.GetViper(), s.cfgFileName, true, true)
+	s.myViper.AutomaticEnv() // read in environment variables that match
+	err = lib.UnmarshalConfig(s.cfg, s.myViper, s.cfgFileName, true, true)
 	if err != nil {
 		return err
 	}
@@ -425,7 +425,7 @@ func (s *ServerCmd) createDefaultConfigFile() error {
 	// If LDAP is enabled, authentication of enrollment requests are performed
 	// by using LDAP authentication; therefore, no bootstrap username and password
 	// are required.
-	ldapEnabled := viper.GetBool("ldap.enabled")
+	ldapEnabled := s.myViper.GetBool("ldap.enabled")
 	if !ldapEnabled {
 		// When LDAP is disabled, the fabric-ca-server functions as its own
 		// identity registry; therefore, we require that the default configuration
@@ -433,7 +433,7 @@ func (s *ServerCmd) createDefaultConfigFile() error {
 		// bootstrap administrator.  Other identities can be dynamically registered.
 		// Create the default config, but only if they provided this bootstrap
 		// username and password.
-		up := viper.GetString("boot")
+		up := s.myViper.GetString("boot")
 		if up == "" {
 			return errors.New("The '-b user:pass' option is required")
 		}
