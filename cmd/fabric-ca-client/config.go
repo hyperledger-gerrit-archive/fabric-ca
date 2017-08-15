@@ -28,7 +28,6 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -238,10 +237,10 @@ func (c *ClientCmd) configInit() error {
 	}
 
 	// Call viper to read the config
-	viper.SetConfigFile(c.cfgFileName)
-	viper.AutomaticEnv() // read in environment variables that match
+	c.myViper.SetConfigFile(c.cfgFileName)
+	c.myViper.AutomaticEnv() // read in environment variables that match
 	if util.FileExists(c.cfgFileName) {
-		err = viper.ReadInConfig()
+		err = c.myViper.ReadInConfig()
 		if err != nil {
 			return fmt.Errorf("Failed to read config file: %s", err)
 		}
@@ -256,12 +255,12 @@ func (c *ClientCmd) configInit() error {
 			"csr.hosts",
 			"tls.certfiles",
 		}
-		err = util.ViperUnmarshal(c.clientCfg, sliceFields, viper.GetViper())
+		err = util.ViperUnmarshal(c.clientCfg, sliceFields, c.myViper)
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", c.cfgFileName, err)
 		}
 	} else {
-		err = viper.Unmarshal(c.clientCfg)
+		err = c.myViper.Unmarshal(c.clientCfg)
 		if err != nil {
 			return fmt.Errorf("Incorrect format in file '%s': %s", c.cfgFileName, err)
 		}
@@ -288,7 +287,7 @@ func (c *ClientCmd) configInit() error {
 func (c *ClientCmd) createDefaultConfigFile() error {
 	// Create a default config, if URL provided via CLI or envar update config files
 	var cfg string
-	fabricCAServerURL := viper.GetString("url")
+	fabricCAServerURL := c.myViper.GetString("url")
 	if fabricCAServerURL == "" {
 		fabricCAServerURL = util.GetServerURL()
 	} else {
@@ -299,12 +298,12 @@ func (c *ClientCmd) createDefaultConfigFile() error {
 		fabricCAServerURL = fmt.Sprintf("%s://%s", URL.Scheme, URL.Host)
 	}
 
-	myhost := viper.GetString("myhost")
+	myhost := c.myViper.GetString("myhost")
 
 	// Do string subtitution to get the default config
 	cfg = strings.Replace(defaultCfgTemplate, "<<<URL>>>", fabricCAServerURL, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
-	user, _, err := util.GetUser()
+	user, _, err := util.GetUser(c.myViper)
 	if err != nil {
 		return err
 	}
