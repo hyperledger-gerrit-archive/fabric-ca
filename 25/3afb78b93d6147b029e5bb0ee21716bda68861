@@ -1,0 +1,8 @@
+Code-Review+2: Binh Nguyen <binhn@us.ibm.com>
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-by: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-at: Wed, 16 Aug 2017 16:02:27 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/12501
+Project: fabric-ca
+Branch: refs/heads/master
