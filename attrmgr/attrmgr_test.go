@@ -32,12 +32,14 @@ func TestAttrs(t *testing.T) {
 		&Attribute{Name: "attr3", Value: "val3"},
 		&Attribute{Name: "attr4", Value: "val4"},
 		&Attribute{Name: "attr5", Value: "val5"},
+		&Attribute{Name: "admin", Value: "true"},
 	}
 	reqs := []attrmgr.AttributeRequest{
 		&AttributeRequest{Name: "attr1", Require: false, Encrypt: false},
 		&AttributeRequest{Name: "attr2", Require: true, Encrypt: false},
 		&AttributeRequest{Name: "attr3", Require: false, Encrypt: true},
 		&AttributeRequest{Name: "attr4", Require: true, Encrypt: true},
+		&AttributeRequest{Name: "admin"},
 		&AttributeRequest{Name: "noattr1", Require: false, Encrypt: true},
 		&AttributeRequest{Name: "noattr2", Require: false, Encrypt: false},
 	}
@@ -54,7 +56,7 @@ func TestAttrs(t *testing.T) {
 	}
 	// Get names of attributes
 	numAttrs := len(at.Names())
-	assert.True(t, numAttrs == 4, "expecting 4 attributes but found %d", numAttrs)
+	assert.True(t, numAttrs == 5, "expecting 5 attributes but found %d", numAttrs)
 
 	// Check individual attributes
 	checkAttr(t, "attr1", "val1", at)
@@ -64,6 +66,9 @@ func TestAttrs(t *testing.T) {
 	checkAttr(t, "attr5", "", at)
 	checkAttr(t, "noattr1", "", at)
 	checkAttr(t, "noattr2", "", at)
+	assert.NoError(t, at.True("admin"))
+	assert.Error(t, at.True("attr1"))
+	assert.Error(t, at.True("noattr1"))
 
 	// Negative test case: add required attributes which don't exist
 	reqs = []attrmgr.AttributeRequest{
