@@ -291,6 +291,22 @@ func (a *Attributes) Value(name string) (string, bool, error) {
 	return val, true, nil
 }
 
+// True returns nil if the value of attribute 'name' is true;
+// otherwise, an appropriate error is returned.
+func (a *Attributes) True(name string) error {
+	val, ok, err := a.Value(name)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("Attribute '%s' was not found", name)
+	}
+	if val != "true" {
+		return fmt.Errorf("Attribute '%s' is not true", name)
+	}
+	return nil
+}
+
 // Get the attribute info from a certificate extension, or return nil if not found
 func getAttrInfoFromCert(cert *x509.Certificate) ([]byte, error) {
 	for _, ext := range cert.Extensions {

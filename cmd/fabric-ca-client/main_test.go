@@ -296,27 +296,15 @@ func TestRBAC(t *testing.T) {
 		t.Fatalf("Failed to get attributes from certificate: %s", err)
 	}
 
-	// Make sure the admin attribute is in the cert
-	val, ok, err := attrs.Value("admin")
+	// Make sure the admin attribute is in the cert and is true
+	err = attrs.True("admin")
 	if err != nil {
-		t.Fatalf("Failed to get admin attribute from cert: %s", err)
-	}
-	if !ok {
-		t.Fatal("The admin attribute was not found in the cert")
-	}
-
-	// Make sure the value of the admin attribute is true
-	if val != "true" {
-		t.Fatalf("The value of the admin attribute is '%s' rather than true", val)
+		t.Fatalf("the 'admin' attribute is not true: %s", err)
 	}
 
 	// Make sure the foo attribute was NOT added by default
-	val, ok, err = attrs.Value("foo")
-	if err != nil {
-		t.Fatalf("Failed to get foo attribute from cert: %s", err)
-	}
-	if ok {
-		t.Fatal("The foo attribute was found in the cert but should not be")
+	if attrs.Contains("foo") {
+		t.Fatal("The 'foo' attribute should not have been found")
 	}
 
 	// Stop the server
