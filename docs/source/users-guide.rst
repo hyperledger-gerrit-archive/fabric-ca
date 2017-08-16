@@ -75,6 +75,7 @@ via the Hyperledger Fabric CA client or through one of the Fabric SDKs.
 All communication to the Hyperledger Fabric CA server is via REST APIs.
 See `fabric-ca/swagger/swagger-fabric-ca.json` for the swagger documentation
 for these REST APIs.
+You may view this documentation via the http://editor2.swagger.io online editor.
 
 The Hyperledger Fabric CA client or SDK may connect to a server in a cluster
 of Hyperledger Fabric CA servers.   This is illustrated in the top right section
@@ -1463,12 +1464,14 @@ during registration as follows:
 The following command uses the **admin** identity's credentials to register a new
 user with an enrollment id of "admin2", an affiliation of
 "org1.department1", an attribute named "hf.Revoker" with a value of "true", and
-an attribute named "foo" with a value of "bar".
+an attribute named "admin" with a value of "true".  The ":ecert" suffix means that
+by default the "admin" attribute and its value will be inserted into the user's
+enrollment certificate, which can then be used to make access control decisions.
 
 .. code:: bash
 
     export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/admin
-    fabric-ca-client register --id.name admin2 --id.affiliation org1.department1 --id.attrs 'hf.Revoker=true,foo=bar'
+    fabric-ca-client register --id.name admin2 --id.affiliation org1.department1 --id.attrs 'hf.Revoker=true,admin=true:ecert'
 
 The password, also known as the enrollment secret, is printed.
 This password is required to enroll the identity.
@@ -1520,7 +1523,7 @@ To register an identity with multiple attributes requires specifying all attribu
 in the configuration file as shown above.
 
 Setting `maxenrollments` to 0 or leaving it out from the configuration will result in the identity
-being registerd to use the CA's max enrollment value. Furthermore, the max enrollment value for
+being registered to use the CA's max enrollment value. Furthermore, the max enrollment value for
 an identity being registered cannot exceed the CA's max enrollment value. For example, if the CA's
 max enrollment value is 5. Any new identity must have a value less than or equal to 5, and also
 can't set it to -1 (infinite enrollments).
@@ -1678,6 +1681,51 @@ file.
 
 The **client** option is required only if mutual TLS is configured on
 the server.
+
+Attribute-Based Access Control
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Access control decisions can be made by chaincode (and by the fabric runtime)
+based upon an identity's attributes.  This is called
+**Attribute-Based Access Control**, or **ABAC** for short.
+
+In order to make this possible, an identity's enrollment certificate (ECert)
+may contain one or more attribute names and values.  The chaincode then
+extracts an attribute's value to make an access control decision.
+
+For example, suppose that you are developing application *app1* and want a
+particular chaincode operation to be accessible only by app1 administrators.
+Your chaincode could verify that the caller's certificate, which was issued by
+a CA trusted for the channel, contains an attribute named *app1Admin* with a
+value of *true*.  Note that the name of the attribute could be anything and the
+value need not be a boolean value.
+
+So how do you get an enrollment certificate with an attribute?
+There are two methods:
+
+  1. When you register an identity, you can specify that an enrollment certificate
+     issued for the identity should by default contain an attribute.  This behavior
+     can be overridden at enrollment time, but this is useful for establishing
+     default behavior and, assuming registration occurs outside of your application,
+     does not require any application change.
+
+     The following shows how to register *user1* with the *app1Admin* attribute.
+     The ":ecert" suffix causes the *appAdmin* attribute to be inserted into user1's
+     enrollment certificate by default.
+.. code:: bash
+
+    fabric-ca-client register --id.name user1 --id.type user --id.affiliation org1 --id.attrs 'appAdmin=true:ecert'
+
+
+  2. When you enroll an identity, you may request that one or more attributes
+     be added to the certificate.
+     For each attribute requested, you may specify whether the attribute is
+     required to exist or not.  If it is required but does not exist, enrollment
+     fails.
+     For the REST APIs, see the *attr_reqs* field of the *enroll* and
+     *reenroll* requests in the `fabric-ca/swagger/swagger-fabric-ca.json`
+     swagger documentation.
+
 
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
