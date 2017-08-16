@@ -30,10 +30,12 @@ func TestAttrs(t *testing.T) {
 		&Attribute{Name: "attr1", Value: "val1"},
 		&Attribute{Name: "attr2", Value: "val2"},
 		&Attribute{Name: "attr3", Value: "val3"},
+		&Attribute{Name: "boolAttr", Value: "true"},
 	}
 	reqs := []attrmgr.AttributeRequest{
 		&AttributeRequest{Name: "attr1", Require: false},
 		&AttributeRequest{Name: "attr2", Require: true},
+		&AttributeRequest{Name: "boolAttr", Require: true},
 		&AttributeRequest{Name: "noattr1", Require: false},
 	}
 	cert := &x509.Certificate{}
@@ -58,13 +60,14 @@ func TestAttrs(t *testing.T) {
 		t.Fatalf("Failed to GetAttributesFromCert: %s", err)
 	}
 	numAttrs = len(at.Names())
-	assert.True(t, numAttrs == 2, "expecting 2 attributes but found %d", numAttrs)
+	assert.True(t, numAttrs == 3, "expecting 3 attributes but found %d", numAttrs)
 
 	// Check individual attributes
 	checkAttr(t, "attr1", "val1", at)
 	checkAttr(t, "attr2", "val2", at)
 	checkAttr(t, "attr3", "", at)
 	checkAttr(t, "noattr1", "", at)
+	assert.NoError(t, at.True("boolAttr"))
 
 	// Negative test case: add required attributes which don't exist
 	reqs = []attrmgr.AttributeRequest{
