@@ -347,7 +347,10 @@ func checkAttrsInCert(t *testing.T, home, name, val, missing string) {
 		t.Fatalf("Failed to get attributes from certificate: %s", err)
 	}
 
-	// Make sure the attribute is in the cert
+	// Make sure the attribute is in the cert via multiple APIs
+	if !attrs.Contains(name) {
+		t.Fatalf("Attribute '%s' is not in the ecert but should be", name)
+	}
 	v, ok, err := attrs.Value(name)
 	if err != nil {
 		t.Fatalf("Failed to get '%s' attribute from cert: %s", name, err)
@@ -362,6 +365,9 @@ func checkAttrsInCert(t *testing.T, home, name, val, missing string) {
 	}
 
 	// Make sure the missing attribute was NOT found
+	if attrs.Contains(missing) {
+		t.Fatalf("Attribute '%s' is wrongly in the ecert", name)
+	}
 	_, ok, err = attrs.Value(missing)
 	if err != nil {
 		t.Fatalf("Failed to get '%s' attribute from cert: %s", missing, err)
