@@ -37,6 +37,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/tcert"
 	libtls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -233,15 +234,17 @@ func TestSRVRootServer(t *testing.T) {
 	if err == nil {
 		t.Error("User1 should not be allowed to revoke user2 because of affiliation")
 	}
-	// User1 get's batch of tcerts
-	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1, AttrNames: []string{"attr1"}})
-	if err != nil {
-		t.Fatalf("Failed to get tcerts for user1: %s", err)
-	}
-	// User1 get's batch of tcerts with attributes
-	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
-	if err != nil {
-		t.Fatalf("Failed to get tcerts for user1: %s", err)
+	if tcert.Enabled {
+		// User1 get's batch of tcerts
+		_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1, AttrNames: []string{"attr1"}})
+		if err != nil {
+			t.Fatalf("Failed to get tcerts for user1: %s", err)
+		}
+		// User1 get's batch of tcerts with attributes
+		_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+		if err != nil {
+			t.Fatalf("Failed to get tcerts for user1: %s", err)
+		}
 	}
 	// Admin should not be allowed to revoke an invalid cert
 	err = admin.Revoke(&api.RevocationRequest{AKI: "foo", Serial: "bar"})
@@ -253,8 +256,8 @@ func TestSRVRootServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to revoke user1's identity: %s", err)
 	}
-	// User1 should not be allowed to get tcerts now that it is revoked
-	_, err = user1.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+	// User1 should not be allowed to get reenroll now that it is revoked
+	_, err = user1.Reenroll(&api.ReenrollmentRequest{})
 	if err == nil {
 		t.Errorf("User1 should have failed to get tcerts since it is revoked")
 	}

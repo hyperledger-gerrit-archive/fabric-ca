@@ -36,6 +36,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
+	"github.com/hyperledger/fabric-ca/lib/tcert"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
@@ -404,7 +405,9 @@ func (s *Server) registerHandlers() {
 	s.registerHandler("enroll", post, enrollHandler)
 	s.registerHandler("reenroll", post, reenrollHandler)
 	s.registerHandler("revoke", post, revokeHandler)
-	s.registerHandler("tcert", post, tcertHandler)
+	if tcert.Enabled {
+		s.registerHandler("tcert", post, tcertHandler)
+	}
 }
 
 // Register a handler

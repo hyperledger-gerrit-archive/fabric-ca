@@ -9,9 +9,6 @@ It provides features such as:
   * registration of identities, or connects to LDAP as the user
     registry
   * issuance of Enrollment Certificates (ECerts)
-  * issuance of Transaction Certificates (TCerts), providing both
-    anonymity and unlinkability when transacting on a Hyperledger Fabric
-    blockchain
   * certificate renewal and revocation
 
 Hyperledger Fabric CA consists of both a server and a client component as
@@ -388,8 +385,7 @@ the server's home directory (see `Fabric CA Server <#server>`__ section more inf
     #  The CA section contains information related to the Certificate Authority
     #  including the name of the CA, which should be unique for all members
     #  of a blockchain network.  It also includes the key and certificate files
-    #  used when issuing enrollment certificates (ECerts) and transaction
-    #  certificates (TCerts).
+    #  used when issuing enrollment certificates (ECerts).
     #  The chainfile (if it exists) contains the certificate chain which
     #  should be trusted for this CA, where the 1st in the chain is always the
     #  root CA certificate.
@@ -409,7 +405,7 @@ the server's home directory (see `Fabric CA Server <#server>`__ section more inf
     #  1) authenticates enrollment requests which contain a username and password
     #     (also known as an enrollment ID and secret).
     #  2) once authenticated, retrieves the identity's attribute names and
-    #     values which the fabric-ca-server optionally puts into TCerts
+    #     values which the fabric-ca-server optionally puts into ECerts
     #     which it issues for transacting on the Hyperledger Fabric blockchain.
     #     These attributes are useful for making access control decisions in
     #     chaincode.
@@ -1236,15 +1232,13 @@ When LDAP is configured, enrollment works as follows:
 When LDAP is configured, attribute retrieval works as follows:
 
 
--  A client SDK sends a request for a batch of tcerts **with one or more
+-  A client SDK sends an enrollment request **with one or more
    attributes** to the Fabric CA server.
--  The Fabric CA server receives the tcert request and does as follows:
+-  The Fabric CA server receives the enrollment request and does as follows:
 
-   -  extracts the enrollment ID from the token in the authorization
-      header (after validating the token);
    -  does an LDAP search/query to the LDAP server, requesting all of
-      the attribute names received in the tcert request;
-   -  the attribute values are placed in the tcert as normal.
+      the attribute names received in the enrollment request;
+   -  the attribute values are placed in the enrollment certificate as normal.
 
 Setting up a cluster
 ~~~~~~~~~~~~~~~~~~~~

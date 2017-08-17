@@ -30,6 +30,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
@@ -180,7 +181,7 @@ func testGetCAInfo(c *Client, t *testing.T) {
 	client2 := new(Client)
 	client2.Config = new(ClientConfig)
 	client2.Config.MSPDir = string(make([]byte, 1))
-	si, err = client2.GetCAInfo(req)
+	_, err = client2.GetCAInfo(req)
 	t.Logf("GetCAInfo error %v", err)
 	if err == nil {
 		t.Errorf("Should have failed to get server info")
@@ -188,7 +189,7 @@ func testGetCAInfo(c *Client, t *testing.T) {
 
 	client2.Config.MSPDir = ""
 	client2.Config.URL = "http://localhost:["
-	si, err = client2.GetCAInfo(req)
+	_, err = client2.GetCAInfo(req)
 	t.Logf("GetCAInfo error %v", err)
 	if err == nil {
 		t.Errorf("Should have failed due to invalid URL")
@@ -197,7 +198,7 @@ func testGetCAInfo(c *Client, t *testing.T) {
 	client2.Config.MSPDir = ""
 	client2.Config.URL = ""
 	client2.Config.TLS.Enabled = true
-	si, err = client2.GetCAInfo(req)
+	_, err = client2.GetCAInfo(req)
 	t.Logf("GetCAInfo error %v", err)
 	if err == nil {
 		t.Errorf("Should have failed due to invalid TLS config")
@@ -272,9 +273,11 @@ func testRegister(c *Client, t *testing.T) {
 		t.Fatal("No ECert was returned")
 	}
 
-	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
-	if err != nil {
-		t.Fatal("Failed to get batch of TCerts")
+	if tcert.Enabled {
+		_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+		if err != nil {
+			t.Fatal("Failed to get batch of TCerts")
+		}
 	}
 }
 
@@ -979,9 +982,11 @@ func testWhenServerIsDown(c *Client, t *testing.T) {
 	if err == nil {
 		t.Error("Register while server is down should have failed")
 	}
-	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
-	if err == nil {
-		t.Error("GetTCertBatch while server is down should have failed")
+	if tcert.Enabled {
+		_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+		if err == nil {
+			t.Error("GetTCertBatch while server is down should have failed")
+		}
 	}
 }
 

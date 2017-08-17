@@ -38,6 +38,9 @@ import (
 )
 
 const (
+	// Enabled denotes whether or not this version of tcerts is enabled.
+	// It is disabled currently, as the plan is to use fabric/idemix.
+	Enabled = false
 	// AESKeyLength is the default AES key length
 	AESKeyLength = 32
 )
