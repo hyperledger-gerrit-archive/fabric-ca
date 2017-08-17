@@ -17,10 +17,10 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -31,7 +31,7 @@ var gencsrCmd = &cobra.Command{
 	Long:  "Generate a Certificate Signing Request for an identity",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return fmt.Errorf(extraArgsError, args, cmd.UsageString())
+			return errors.Errorf(extraArgsError, args, cmd.UsageString())
 		}
 
 		err := runGenCSR(cmd)

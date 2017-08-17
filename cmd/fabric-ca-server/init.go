@@ -22,6 +22,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -41,7 +42,7 @@ func init() {
 	initCmd.RunE = runInit
 	initCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return fmt.Errorf(extraArgsError, args, cmd.UsageString())
+			return errors.Errorf(extraArgsError, args, cmd.UsageString())
 		}
 
 		err := configInit(cmd.Name())

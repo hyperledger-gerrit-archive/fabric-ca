@@ -17,12 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"path/filepath"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ var reenrollCmd = &cobra.Command{
 	// information exists before running the command
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return fmt.Errorf(extraArgsError, args, cmd.UsageString())
+			return errors.Errorf(extraArgsError, args, cmd.UsageString())
 		}
 
 		err := configInit(cmd.Name())
@@ -84,7 +84,7 @@ func runReenroll() error {
 
 	resp, err := id.Reenroll(req)
 	if err != nil {
-		return fmt.Errorf("Failed to store enrollment information: %s", err)
+		return errors.Wrap(err, "Failed to store enrollment information")
 	}
 
 	err = resp.Identity.Store()

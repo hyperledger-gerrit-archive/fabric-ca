@@ -17,12 +17,12 @@ limitations under the License.
 package main
 
 import (
-	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
@@ -388,7 +388,7 @@ func configInit(cmd string) (err error) {
 	if !filepath.IsAbs(cfgFileName) {
 		cfgFileName, err = filepath.Abs(cfgFileName)
 		if err != nil {
-			return fmt.Errorf("Failed to get full path of config file: %s", err)
+			return errors.Wrap(err, "Failed to get full path of config file")
 		}
 	}
 
@@ -396,7 +396,7 @@ func configInit(cmd string) (err error) {
 	if !util.FileExists(cfgFileName) {
 		err = createDefaultConfigFile()
 		if err != nil {
-			return fmt.Errorf("Failed to create default configuration file: %s", err)
+			return errors.Wrap(err, "Failed to create default configuration file")
 		}
 		log.Infof("Created default configuration file at %s", cfgFileName)
 	} else {
@@ -447,7 +447,7 @@ func createDefaultConfigFile() error {
 		}
 		ups := strings.Split(up, ":")
 		if len(ups) < 2 {
-			return fmt.Errorf("The value '%s' on the command line is missing a colon separator", up)
+			return errors.Errorf("The value '%s' on the command line is missing a colon separator", up)
 		}
 		if len(ups) > 2 {
 			ups = []string{ups[0], strings.Join(ups[1:], ":")}
@@ -455,7 +455,7 @@ func createDefaultConfigFile() error {
 		user = ups[0]
 		pass = ups[1]
 		if len(user) >= 1024 {
-			return fmt.Errorf("The identity name must be less than 1024 characters: '%s'", user)
+			return errors.Errorf("The identity name must be less than 1024 characters: '%s'", user)
 		}
 		if len(pass) == 0 {
 			return errors.New("An empty password in the '-b user:pass' option is not permitted")
