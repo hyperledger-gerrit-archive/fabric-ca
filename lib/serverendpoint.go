@@ -43,29 +43,17 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err == nil && r.Method != "HEAD" {
 		resp, err = se.Handler(newServerRequestContext(r, w, se))
 	}
-	var scode, lcode int
 	if err == nil {
-		// No error
-		scode = 200
-		lcode = 0
-		w.WriteHeader(scode)
+		w.WriteHeader(200)
 		api.SendResponse(w, resp)
 		log.Debugf("Sent response for %s: %+v", url, resp)
+		log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
 	} else {
-		var he *httpErr
-		switch err.(type) {
-		case *httpErr:
-			he = err.(*httpErr)
-		default:
-			he = newHTTPErr(500, ErrUnknown, err.Error())
-		}
-		scode = he.scode
-		lcode = he.lcode
+		he := getHTTPErr(err)
 		he.writeResponse(w)
-		log.Debugf("Sent error for %s: %+v", url, he)
+		log.Debugf("Sent error for %s: %+v", url, err)
+		log.Infof(`%s %s %s %d %d "%s"`, r.RemoteAddr, r.Method, r.URL, he.scode, he.lcode, he.lmsg)
 	}
-	// Create access log entry
-	log.Infof("%s - \"%s %s\" %d %d", r.RemoteAddr, r.Method, r.URL, scode, lcode)
 }
 
 // Validate that the HTTP method is supported for this endpoint
@@ -76,4 +64,24 @@ func (se *serverEndpoint) validateMethod(r *http.Request) error {
 		}
 	}
 	return newHTTPErr(405, ErrMethodNotAllowed, "Method %s is not allowed", r.Method)
+}
+
+// Get the top-most HTTP error from the cause stack.
+// If not found, create one with an unknown error code.
+func getHTTPErr(err error) *httpErr {
+	type causer interface {
+		Cause() error
+	}
+	curErr := err
+	for curErr != nil {
+		switch curErr.(type) {
+		case *httpErr:
+			return curErr.(*httpErr)
+		case causer:
+			curErr = curErr.(causer).Cause()
+		default:
+			return createHTTPErr(500, ErrUnknown, err.Error())
+		}
+	}
+	return createHTTPErr(500, ErrUnknown, "nil error")
 }
