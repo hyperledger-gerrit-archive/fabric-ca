@@ -17,10 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"

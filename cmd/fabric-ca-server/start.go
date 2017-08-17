@@ -19,6 +19,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,7 @@ func init() {
 	startCmd.RunE = runStart
 	startCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return fmt.Errorf(extraArgsError, args, cmd.UsageString())
+			return errors.Errorf(extraArgsError, args, cmd.UsageString())
 		}
 
 		err := configInit(cmd.Name())

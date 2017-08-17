@@ -24,6 +24,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/pkg/errors"
+
 	"reflect"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -228,7 +230,7 @@ func configInit(command string) error {
 	if !filepath.IsAbs(cfgFileName) {
 		cfgFileName, err = filepath.Abs(cfgFileName)
 		if err != nil {
-			return fmt.Errorf("Failed to get full path of config file: %s", err)
+			return errors.Wrap(err, "Failed to get full path of config file")
 		}
 	}
 
@@ -250,7 +252,7 @@ func configInit(command string) error {
 		if !util.FileExists(cfgFileName) {
 			err = createDefaultConfigFile(cmd)
 			if err != nil {
-				return fmt.Errorf("Failed to create default configuration file: %s", err)
+				return errors.Wrap(err, "Failed to create default configuration file")
 			}
 			log.Infof("Created a default configuration file at %s", cfgFileName)
 		}
@@ -264,7 +266,7 @@ func configInit(command string) error {
 	if util.FileExists(cfgFileName) {
 		err = viper.ReadInConfig()
 		if err != nil {
-			return fmt.Errorf("Failed to read config file: %s", err)
+			return errors.Wrap(err, "Failed to read config file")
 		}
 	}
 
@@ -279,12 +281,12 @@ func configInit(command string) error {
 		}
 		err = util.ViperUnmarshal(clientCfg, sliceFields, viper.GetViper())
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return errors.Wrapf(err, "Incorrect format in file '%s'", cfgFileName)
 		}
 	} else {
 		err = viper.Unmarshal(clientCfg)
 		if err != nil {
-			return fmt.Errorf("Incorrect format in file '%s': %s", cfgFileName, err)
+			return errors.Wrapf(err, "Incorrect format in file '%s'", cfgFileName)
 		}
 	}
 
@@ -361,7 +363,7 @@ func processAttributes() error {
 		for idx, attr := range cfgAttrs {
 			sattr := strings.SplitN(attr, "=", 2)
 			if len(sattr) != 2 {
-				return fmt.Errorf("Attribute '%s' is missing '=' ; it must be of the form <name>=<value>", attr)
+				return errors.Errorf("Attribute '%s' is missing '=' ; it must be of the form <name>=<value>", attr)
 			}
 			clientCfg.ID.Attributes[idx].Name = sattr[0]
 			clientCfg.ID.Attributes[idx].Value = sattr[1]
@@ -377,13 +379,13 @@ func processCsrNames() error {
 		for idx, name := range cfgCsrNames {
 			sname := strings.SplitN(name, "=", 2)
 			if len(sname) != 2 {
-				return fmt.Errorf("CSR name/value '%s' is missing '=' ; it must be of the form <name>=<value>", name)
+				return errors.Errorf("CSR name/value '%s' is missing '=' ; it must be of the form <name>=<value>", name)
 			}
 			v := reflect.ValueOf(&clientCfg.CSR.Names[idx]).Elem().FieldByName(sname[0])
 			if v.IsValid() {
 				v.SetString(sname[1])
 			} else {
-				return fmt.Errorf("Invalid CSR name: '%s'", sname[0])
+				return errors.Errorf("Invalid CSR name: '%s'", sname[0])
 			}
 		}
 	}

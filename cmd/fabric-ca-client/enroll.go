@@ -17,10 +17,11 @@ limitations under the License.
 package main
 
 import (
-	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/util"
@@ -41,7 +42,7 @@ var enrollCmd = &cobra.Command{
 	// reading configuration file
 	PreRunE: func(cmd *cobra.Command, args []string) error {
 		if len(args) > 0 {
-			return fmt.Errorf(extraArgsError, args, cmd.UsageString())
+			return errors.Errorf(extraArgsError, args, cmd.UsageString())
 		}
 
 		_, _, err := util.GetUser()
@@ -96,7 +97,7 @@ func runEnroll(cmd *cobra.Command) error {
 
 	err = ID.Store()
 	if err != nil {
-		return fmt.Errorf("Failed to store enrollment information: %s", err)
+		return errors.Wrap(err, "Failed to store enrollment information")
 	}
 
 	err = storeCAChain(clientCfg, &resp.ServerInfo)
