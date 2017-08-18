@@ -36,13 +36,19 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Authenticate
-	callerID, err := ctx.TokenAuthentication()
+	// Get the targeted CA
+	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
 	}
-	// Get the target CA
-	ca, err := ctx.GetCA()
+	if !ca.dbInitiliazed {
+		err := ca.initDB(true)
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Authenticate
+	callerID, err := ctx.TokenAuthentication()
 	if err != nil {
 		return nil, err
 	}

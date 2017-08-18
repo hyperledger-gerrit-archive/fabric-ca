@@ -415,7 +415,7 @@ func testReenroll(t *testing.T) {
 
 // testRegisterConfigFile tests fabric-ca-client register using the config file
 func testRegisterConfigFile(t *testing.T) {
-	t.Log("Testing Register CMD")
+	t.Log("Testing Register Config file")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
 	err := RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin2:adminpw2@localhost:7054"})
@@ -433,7 +433,7 @@ func testRegisterConfigFile(t *testing.T) {
 
 // testRegisterEnvVar tests fabric-ca-client register using environment variables
 func testRegisterEnvVar(t *testing.T) {
-	t.Log("Testing Register CMD")
+	t.Log("Testing Register Env Var")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
 	os.Setenv("FABRIC_CA_CLIENT_ID_NAME", "testRegister2")
@@ -468,7 +468,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 		t.Errorf("client register failed: %s", err)
 	}
 
-	sqliteDB, _, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
 	db := lib.NewDBAccessor()
@@ -970,7 +970,7 @@ func getCAConfig() *lib.CAConfig {
 }
 
 func getSerialAKIByID(id string) (serial, aki string, err error) {
-	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	testdb, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	acc := lib.NewCertDBAccessor(testdb)
 
 	certs, err := acc.GetCertificatesByID(id)
