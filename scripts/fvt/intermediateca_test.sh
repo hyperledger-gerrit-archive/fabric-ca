@@ -59,6 +59,7 @@ EOF
 }
 
 function createRootCA() {
+   chmod 600 $TLSDIR/rootTlsCa-key.pem # PostgreSQL requires certain access permissions for the key file
    # Start RootCA
    $($FABRIC_TLS) && tlsopts="--tls.enabled --tls.certfile $TLSDIR/rootTlsCa-cert.pem \
                               --tls.keyfile $TLSDIR/rootTlsCa-key.pem"
