@@ -63,6 +63,17 @@ type enrollmentResponseNet struct {
 
 // Handle an enroll request, guarded by basic authentication
 func enrollHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Get the targeted CA
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
+	}
+	if !ca.dbInitiliazed {
+		err := ca.initDB(true)
+		if err != nil {
+			return nil, err
+		}
+	}
 	id, err := ctx.BasicAuthentication()
 	if err != nil {
 		return nil, err
@@ -72,6 +83,17 @@ func enrollHandler(ctx *serverRequestContext) (interface{}, error) {
 
 // Handle a reenroll request, guarded by token authentication
 func reenrollHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Get the targeted CA
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
+	}
+	if !ca.dbInitiliazed {
+		err := ca.initDB(true)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Authenticate the caller
 	id, err := ctx.TokenAuthentication()
 	if err != nil {
