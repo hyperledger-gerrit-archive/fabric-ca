@@ -26,9 +26,16 @@ type serverInfoResponseNet struct {
 
 // Handle is the handler for the GET or POST /info request
 func cainfoHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Get the targeted CA
 	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
+	}
+	if !ca.dbInitiliazed {
+		err := ca.initDB(true)
+		if err != nil {
+			return nil, err
+		}
 	}
 	resp := &serverInfoResponseNet{}
 	err = ca.fillCAInfo(resp)

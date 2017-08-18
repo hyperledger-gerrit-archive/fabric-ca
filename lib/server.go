@@ -267,7 +267,7 @@ func (s *Server) initMultiCAConfig() (err error) {
 func (s *Server) initDefaultCA(renew bool) error {
 	log.Debugf("Initializing default CA in directory %s", s.HomeDir)
 	ca := &s.CA
-	err := initCA(ca, s.HomeDir, s.CA.Config, s, renew)
+	err := initCA(ca, s.HomeDir, s.CA.Config, s, renew, false)
 	if err != nil {
 		return err
 	}
@@ -324,7 +324,7 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 
 	log.Debugf("CA configuration after checking for missing values: %+v", cfg)
 
-	ca, err := NewCA(caFile, cfg, s, renew)
+	ca, err := NewCA(caFile, cfg, s, renew, false)
 	if err != nil {
 		return err
 	}
