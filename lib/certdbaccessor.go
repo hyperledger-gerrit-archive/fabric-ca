@@ -73,7 +73,7 @@ func NewCertDBAccessor(db *sqlx.DB) *CertDBAccessor {
 
 func (d *CertDBAccessor) checkDB() error {
 	if d.db == nil {
-		return errors.New("Error")
+		return errors.New("Failed to correctly setup database connection")
 	}
 	return nil
 }

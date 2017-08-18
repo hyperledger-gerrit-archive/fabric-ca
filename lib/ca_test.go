@@ -203,7 +203,7 @@ func TestCAInit(t *testing.T) {
 	}
 	t.Logf("confDir: %v", confDir)
 
-	ca, err := NewCA(confDir, &cfg, &srv, false)
+	ca, err := NewCA(confDir, &cfg, &srv, false, true)
 	if err != nil {
 		t.Fatal("NewCA FAILED")
 	}
@@ -213,7 +213,7 @@ func TestCAInit(t *testing.T) {
 	pko := &pkcs11.PKCS11Opts{}
 	ca.Config.CSP = &factory.FactoryOpts{ProviderName: "PKCS11", SwOpts: swo, Pkcs11Opts: pko}
 	ca.HomeDir = ""
-	err = ca.init(false)
+	err = ca.init(false, true)
 	t.Logf("ca.init error: %v", err)
 	if err == nil {
 		t.Fatalf("Server init should have failed: BCCSP err")
@@ -230,7 +230,7 @@ func TestCAInit(t *testing.T) {
 	t.Logf("confDir: %v", confDir)
 
 	ca.Config.CSP = &factory.FactoryOpts{ProviderName: "SW", SwOpts: swo, Pkcs11Opts: pko}
-	ca, err = NewCA(confDir, &cfg, &srv, true)
+	ca, err = NewCA(confDir, &cfg, &srv, true, true)
 	if err != nil {
 		t.Fatal("NewCA FAILED", err)
 	}
@@ -244,7 +244,7 @@ func TestCAInit(t *testing.T) {
 	if err != nil {
 		t.Fatal("symlink error: ", err)
 	}
-	err = ca.init(false)
+	err = ca.init(false, true)
 	t.Logf("init err: %v", err)
 	if err == nil {
 		t.Fatal("Should have failed: ")
@@ -255,11 +255,11 @@ func TestCAInit(t *testing.T) {
 	ca.Config.CA.Keyfile = ""
 	ca.Config.CA.Certfile = ""
 	ca.Config.DB.Datasource = ""
-	ca, err = NewCA(confDir, &cfg, &srv, true)
+	ca, err = NewCA(confDir, &cfg, &srv, true, true)
 	if err != nil {
 		t.Fatal("NewCA FAILED")
 	}
-	err = ca.init(false)
+	err = ca.init(false, true)
 	t.Logf("init err: %v", err)
 	if err != nil {
 		t.Fatal("ca init failed", err)
@@ -267,7 +267,7 @@ func TestCAInit(t *testing.T) {
 
 	// initDB error
 	ca.Config.LDAP.Enabled = true
-	err = ca.init(false)
+	err = ca.init(false, true)
 	t.Logf("init err: %v", err)
 	if err == nil {
 		t.Fatal("Should have failed: ")
@@ -275,7 +275,7 @@ func TestCAInit(t *testing.T) {
 
 	// initEnrollmentSigner error
 	ca.Config.LDAP.Enabled = false
-	ca, err = NewCA(confDir, &cfg, &srv, false)
+	ca, err = NewCA(confDir, &cfg, &srv, false, true)
 	if err != nil {
 		t.Fatal("NewCA FAILED")
 	}
@@ -297,7 +297,7 @@ func TestCAInit(t *testing.T) {
 	}
 	ca.Config.CA.Keyfile = caKey
 	ca.Config.CA.Certfile = caCert
-	err = ca.init(false)
+	err = ca.init(false, true)
 	t.Logf("init err: %v", err)
 	if err == nil {
 		t.Fatal("Should have failed")
