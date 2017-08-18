@@ -46,17 +46,18 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Get the targeted CA
+	ca, err := getCAandCheckDB(ctx)
+	if err != nil {
+		return nil, err
+	}
 	// Authenticate
 	callerID, err := ctx.TokenAuthentication()
+	if err != nil {
+		return nil, err
+	}
 	log.Debugf("Received registration request from %s: %+v", callerID, util.StructToString(&req))
-	if err != nil {
-		return nil, err
-	}
-	// Get the target CA
-	ca, err := ctx.GetCA()
-	if err != nil {
-		return nil, err
-	}
+
 	registrarRolesAttr, registrarAffiliation, err := ctx.GetUserInfo([]string{"hf.Registrar.Roles"})
 	if err != nil {
 		return "", fmt.Errorf("Failed to get user info for registrar: %s", err)
