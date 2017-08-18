@@ -34,13 +34,13 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Authentication
-	id, err := ctx.TokenAuthentication()
+	// Get the targeted CA
+	ca, err := getCAandCheckDB(ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Get targeted CA
-	ca, err := ctx.GetCA()
+	// Authentication
+	id, err := ctx.TokenAuthentication()
 	if err != nil {
 		return nil, err
 	}

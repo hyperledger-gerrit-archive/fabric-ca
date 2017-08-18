@@ -485,7 +485,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 		t.Errorf("client register failed: %s", err)
 	}
 
-	sqliteDB, _, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
 	db := lib.NewDBAccessor()
@@ -1029,7 +1029,7 @@ func getCAConfig() *lib.CAConfig {
 }
 
 func getSerialAKIByID(id string) (serial, aki string, err error) {
-	testdb, _, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	testdb, _ := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	acc := lib.NewCertDBAccessor(testdb)
 
 	certs, err := acc.GetCertificatesByID(id)
