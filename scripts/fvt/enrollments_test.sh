@@ -113,9 +113,9 @@ ca:
 registry:
   maxEnrollments: 15
   identities:
-     - name: admin
+     - name: admin2
        maxEnrollments: 16
-       pass: adminpw
+       pass: adminpw2
        type: client
        affiliation: bank_a
        attributes:
