@@ -55,6 +55,7 @@ y
 EOF
    done
    cat $TLSDIR/rootTlsCa-cert.pem $TLSDIR/subTlsCa-cert.pem > $TLSDIR/tlsroots.pem
+   chmod 600 $TLSDIR/*key*pem # PostgreSQL requires certain access permissions for the key file
    HOME=$oldhome
 }
 
