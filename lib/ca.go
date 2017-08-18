@@ -92,6 +92,8 @@ type CA struct {
 	keyTree *tcert.KeyTree
 	// The server hosting this CA
 	server *Server
+	// Indicates of database was successfully initialized
+	dbInitiliazed bool
 }
 
 const (
@@ -100,10 +102,10 @@ const (
 
 // NewCA creates a new CA with the specified
 // home directory, parent server URL, and config
-func NewCA(caFile string, config *CAConfig, server *Server, renew bool) (*CA, error) {
+func NewCA(caFile string, config *CAConfig, server *Server, renew, returnDBError bool) (*CA, error) {
 	ca := new(CA)
 	ca.ConfigFilePath = caFile
-	err := initCA(ca, filepath.Dir(caFile), config, server, renew)
+	err := initCA(ca, filepath.Dir(caFile), config, server, renew, returnDBError)
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +113,12 @@ func NewCA(caFile string, config *CAConfig, server *Server, renew bool) (*CA, er
 }
 
 // initCA will initialize the passed in pointer to a CA struct
-func initCA(ca *CA, homeDir string, config *CAConfig, server *Server, renew bool) error {
+func initCA(ca *CA, homeDir string, config *CAConfig, server *Server, renew, returnDBError bool) error {
 	ca.HomeDir = homeDir
 	ca.Config = config
 	ca.server = server
 
-	err := ca.init(renew)
+	err := ca.init(renew, returnDBError)
 	if err != nil {
 		return err
 	}
@@ -125,7 +127,7 @@ func initCA(ca *CA, homeDir string, config *CAConfig, server *Server, renew bool
 }
 
 // Init initializes an instance of a CA
-func (ca *CA) init(renew bool) (err error) {
+func (ca *CA) init(renew, returnDBError bool) (err error) {
 	log.Debugf("Init CA with home %s and config %+v", ca.HomeDir, *ca.Config)
 	// Initialize the config, setting defaults, etc
 	err = ca.initConfig()
@@ -143,7 +145,7 @@ func (ca *CA) init(renew bool) (err error) {
 		return err
 	}
 	// Initialize the database
-	err = ca.initDB()
+	err = ca.initDB(returnDBError)
 	if err != nil {
 		return err
 	}
@@ -470,11 +472,11 @@ func (ca *CA) getVerifyOptions() (*x509.VerifyOptions, error) {
 }
 
 // Initialize the database for the CA
-func (ca *CA) initDB() error {
+func (ca *CA) initDB(returnDBError bool) error {
 	db := &ca.Config.DB
 
+	ca.dbInitiliazed = true
 	var err error
-	var exists bool
 
 	if db.Type == "" || db.Type == defaultDatabaseType {
 
@@ -494,19 +496,22 @@ func (ca *CA) initDB() error {
 
 	switch db.Type {
 	case defaultDatabaseType:
-		ca.db, exists, err = dbutil.NewUserRegistrySQLLite3(db.Datasource)
+		ca.db, err = dbutil.NewUserRegistrySQLLite3(db.Datasource)
 		if err != nil {
-			return err
+			ca.dbInitiliazed = false
+			log.Error("Failed to create user registry for SQLite: ", err)
 		}
 	case "postgres":
-		ca.db, exists, err = dbutil.NewUserRegistryPostgres(db.Datasource, &db.TLS)
+		ca.db, err = dbutil.NewUserRegistryPostgres(db.Datasource, &db.TLS)
 		if err != nil {
-			return err
+			ca.dbInitiliazed = false
+			log.Error("Failed to create user registry for PostgreSQL: ", err)
 		}
 	case "mysql":
-		ca.db, exists, err = dbutil.NewUserRegistryMySQL(db.Datasource, &db.TLS, ca.csp)
+		ca.db, err = dbutil.NewUserRegistryMySQL(db.Datasource, &db.TLS, ca.csp)
 		if err != nil {
-			return err
+			ca.dbInitiliazed = false
+			log.Error("Failed to create user registry for MySQL: ", err)
 		}
 	default:
 		return fmt.Errorf("Invalid db.type in config file: '%s'; must be 'sqlite3', 'postgres', or 'mysql'", db.Type)
@@ -515,30 +520,44 @@ func (ca *CA) initDB() error {
 	// Set the certificate DB accessor
 	ca.certDBAccessor = NewCertDBAccessor(ca.db)
 
+	// If DB initialization fails and we need to reinitialize DB, need to make sure to set the DB accessor for the signer
+	if ca.enrollSigner != nil {
+		ca.enrollSigner.SetDBAccessor(ca.certDBAccessor)
+	}
+
 	// Initialize the user registry.
 	// If LDAP is not configured, the fabric-ca CA functions as a user
 	// registry based on the database.
 	err = ca.initUserRegistry()
 	if err != nil {
-		return err
+		ca.dbInitiliazed = false
+		log.Error("Failed to initialize user registry: ", err)
 	}
 
-	// If the DB doesn't exist, bootstrap it
-	if !exists {
-		// Since users come from LDAP when enabled,
-		// load them from the config file only when LDAP is disabled
-		if !ca.Config.LDAP.Enabled {
-			err = ca.loadUsersTable()
-			if err != nil {
-				return err
-			}
+	// Since users come from LDAP when enabled,
+	// load them from the config file only when LDAP is disabled
+	if !ca.Config.LDAP.Enabled {
+		err = ca.loadUsersTable()
+		if err != nil {
+			ca.dbInitiliazed = false
+			log.Error("Error occured while loading users table: err")
 		}
 		err = ca.loadAffiliationsTable()
 		if err != nil {
-			return err
+			ca.dbInitiliazed = false
+			log.Error("Error occured while loading affiliations table: ", err)
 		}
 	}
-	log.Infof("Initialized %s database at %s", db.Type, db.Datasource)
+
+	if ca.dbInitiliazed {
+		log.Infof("Initialized %s database at %s", db.Type, db.Datasource)
+	} else {
+		msg := fmt.Sprintf("Failed to Initialize %s database at %s", db.Type, db.Datasource)
+		log.Error(msg)
+		if returnDBError {
+			return errors.New(msg)
+		}
+	}
 	return nil
 }
 
@@ -626,8 +645,7 @@ func (ca *CA) loadAffiliationsTable() error {
 	if err == nil {
 		log.Debug("Successfully loaded affiliations table")
 	}
-	log.Debug("Successfully loaded groups table")
-	return nil
+	return err
 }
 
 // Recursive function to load the affiliations table hierarchy
@@ -681,7 +699,7 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 		if errIfFound {
 			return fmt.Errorf("Identity '%s' is already registered", id.Name)
 		}
-		log.Debugf("Loaded identity: %+v", id)
+		log.Debugf("Identity '%s' already registered, loaded identity", user.GetName())
 		return nil
 	}
 
@@ -707,8 +725,13 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 }
 
 func (ca *CA) addAffiliation(path, parentPath string) error {
-	log.Debugf("Adding affiliation %s", path)
-	return ca.registry.InsertAffiliation(path, parentPath)
+	aff, _ := ca.registry.GetAffiliation(path)
+	if aff == nil {
+		log.Debugf("Adding affiliation '%s'", path)
+		return ca.registry.InsertAffiliation(path, parentPath)
+	}
+	log.Debugf("Affiliation '%s' already exists", path)
+	return nil
 }
 
 // CertDBAccessor returns the certificate DB accessor for CA
