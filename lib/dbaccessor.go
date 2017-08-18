@@ -91,7 +91,7 @@ func NewDBAccessor() *Accessor {
 
 func (d *Accessor) checkDB() error {
 	if d.db == nil {
-		return errors.New("unknown db object, please check SetDB method")
+		return errors.New("Failed to correctly setup database connection")
 	}
 	return nil
 }

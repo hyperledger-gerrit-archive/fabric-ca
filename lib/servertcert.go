@@ -24,6 +24,17 @@ import (
 
 // Handle a tcert request
 func tcertHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Get the targeted CA
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
+	}
+	if !ca.dbInitiliazed {
+		err := ca.initDB(true)
+		if err != nil {
+			return nil, err
+		}
+	}
 	// Authenticate caller
 	id, err := ctx.TokenAuthentication()
 	if err != nil {
@@ -32,11 +43,6 @@ func tcertHandler(ctx *serverRequestContext) (interface{}, error) {
 	// Read request body
 	req := &api.GetTCertBatchRequestNet{}
 	err = ctx.ReadBody(req)
-	if err != nil {
-		return nil, err
-	}
-	// Get the targeted CA
-	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
 	}

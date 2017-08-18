@@ -238,8 +238,9 @@ trap "CleanUp 1; exit 1" INT
    $SCRIPTDIR/fabric-ca_setup.sh -R -x $CA_CFG_PATH
    test -d $CA_CFG_PATH || mkdir $CA_CFG_PATH
    genServerConfig invalid
-   $SCRIPTDIR/fabric-ca_setup.sh -o 1 -S -X -g $SERVERCONFIG
-   test $? -eq 0 && ErrorMsg "user enrollment > global setting"
+   $SCRIPTDIR/fabric-ca_setup.sh -o 1 -S -X -g $SERVERCONFIG > /tmp/serverlog.txt 2>&1
+   grep "exceeds maximum allowable enrollments" /tmp/serverlog.txt
+   test $? -eq 1 && ErrorMsg "user enrollment > global setting"
 
 $SCRIPTDIR/fabric-ca_setup.sh -L
 $SCRIPTDIR/fabric-ca_setup.sh -R -x $CA_CFG_PATH
