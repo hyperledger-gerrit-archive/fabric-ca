@@ -21,6 +21,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	//"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -543,44 +544,44 @@ func TestCWBNewCertificateRequest(t *testing.T) {
 	}
 }
 
-func TestCWBCAConfigStat(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd")
-	}
-	td, err := ioutil.TempDir(testdataDir, "CAConfigStat")
-	if err != nil {
-		t.Fatalf("failed to get tmp dir")
-	}
-	os.Chdir(td)
-
-	ca := &CA{}
-	ca.Config = &CAConfig{}
-	ca.HomeDir = "."
-	fileInfo, err := os.Stat(".")
-	if err != nil {
-		t.Fatalf("os.Stat failed on current dir")
-	}
-	oldmode := fileInfo.Mode()
-	err = os.Chmod(".", 0000)
-	if err != nil {
-		t.Fatalf("Chmod on %s failed", testdataDir)
-	}
-
-	ca.Config.DB.Type = ""
-	err = ca.initDB()
-	t.Logf("initDB err: %v", err)
-	if err == nil {
-		t.Errorf("initDB should have failed (getcwd failure)")
-	}
-	_ = os.Chmod(".", oldmode)
-	ca.Config.DB.Datasource = ""
-	ca.HomeDir = ""
-
-	defer os.RemoveAll(td)
-	os.Chdir(wd)
-}
-
+//func TestCWBCAConfigStat(t *testing.T) {
+//	wd, err := os.Getwd()
+//	if err != nil {
+//		t.Fatalf("failed to get cwd")
+//	}
+//	td, err := ioutil.TempDir(testdataDir, "CAConfigStat")
+//	if err != nil {
+//		t.Fatalf("failed to get tmp dir")
+//	}
+//	os.Chdir(td)
+//
+//	ca := &CA{}
+//	ca.Config = &CAConfig{}
+//	ca.HomeDir = "."
+//	fileInfo, err := os.Stat(".")
+//	if err != nil {
+//		t.Fatalf("os.Stat failed on current dir")
+//	}
+//	oldmode := fileInfo.Mode()
+//	err = os.Chmod(".", 0000)
+//	if err != nil {
+//		t.Fatalf("Chmod on %s failed", testdataDir)
+//	}
+//
+//	ca.Config.DB.Type = ""
+//	err = ca.initDB()
+//	t.Logf("initDB err: %v", err)
+//	if err == nil {
+//		t.Errorf("initDB should have failed (getcwd failure)")
+//	}
+//	_ = os.Chmod(".", oldmode)
+//	ca.Config.DB.Datasource = ""
+//	ca.HomeDir = ""
+//
+//	defer os.RemoveAll(td)
+//	os.Chdir(wd)
+//}
+//
 func TestCLIClientClean(t *testing.T) {
 	os.RemoveAll("msp")
 	os.RemoveAll("../testdata/msp")

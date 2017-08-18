@@ -19,7 +19,7 @@ package lib_test
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	//"io/ioutil"
 	"net/http"
 	"os"
 	"path"
@@ -52,39 +52,39 @@ const (
 	DefaultCA = ""
 )
 
-func TestCLIClientConfigStat(t *testing.T) {
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("failed to get cwd")
-	}
-	td, err := ioutil.TempDir(tdDir, "ClientConfigStat")
-	if err != nil {
-		t.Fatalf("failed to get tmp dir")
-	}
-	os.Chdir(td)
-	fileInfo, err := os.Stat(".")
-	if err != nil {
-		t.Fatalf("os.Stat failed on current dir")
-	}
-	oldmode := fileInfo.Mode()
-	err = os.Chmod(".", 0000)
-	if err != nil {
-		t.Fatalf("Chmod on %s failed", tdDir)
-	}
-
-	c := new(Client)
-	c.Config = new(ClientConfig)
-	err = c.Init()
-	t.Logf("initDB err: %v", err)
-	if err == nil {
-		t.Errorf("initDB should have failed (getcwd failure)")
-	}
-	_ = os.Chmod(".", oldmode)
-
-	os.RemoveAll(td)
-	os.Chdir(wd)
-}
-
+//func TestCLIClientConfigStat(t *testing.T) {
+//	wd, err := os.Getwd()
+//	if err != nil {
+//		t.Fatalf("failed to get cwd")
+//	}
+//	td, err := ioutil.TempDir(tdDir, "ClientConfigStat")
+//	if err != nil {
+//		t.Fatalf("failed to get tmp dir")
+//	}
+//	os.Chdir(td)
+//	fileInfo, err := os.Stat(".")
+//	if err != nil {
+//		t.Fatalf("os.Stat failed on current dir")
+//	}
+//	oldmode := fileInfo.Mode()
+//	err = os.Chmod(".", 0000)
+//	if err != nil {
+//		t.Fatalf("Chmod on %s failed", tdDir)
+//	}
+//
+//	c := new(Client)
+//	c.Config = new(ClientConfig)
+//	err = c.Init()
+//	t.Logf("initDB err: %v", err)
+//	if err == nil {
+//		t.Errorf("initDB should have failed (getcwd failure)")
+//	}
+//	_ = os.Chmod(".", oldmode)
+//
+//	os.RemoveAll(td)
+//	os.Chdir(wd)
+//}
+//
 func TestCLIClientInit(t *testing.T) {
 	client := new(Client)
 	client.Config = new(ClientConfig)
