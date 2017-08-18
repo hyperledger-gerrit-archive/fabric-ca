@@ -63,32 +63,37 @@ type enrollmentResponseNet struct {
 
 // Handle an enroll request, guarded by basic authentication
 func enrollHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Get the targeted CA
+	ca, err := getCAandCheckDB(ctx)
+	if err != nil {
+		return nil, err
+	}
 	id, err := ctx.BasicAuthentication()
 	if err != nil {
 		return nil, err
 	}
-	return handleEnroll(ctx, id)
+	return handleEnroll(ctx, id, ca)
 }
 
 // Handle a reenroll request, guarded by token authentication
 func reenrollHandler(ctx *serverRequestContext) (interface{}, error) {
+	// Get the targeted CA
+	ca, err := getCAandCheckDB(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Reenroll handler failed to get instance of ca and check DB status")
+	}
 	// Authenticate the caller
 	id, err := ctx.TokenAuthentication()
 	if err != nil {
 		return nil, err
 	}
-	return handleEnroll(ctx, id)
+	return handleEnroll(ctx, id, ca)
 }
 
 // Handle the common processing for enroll and reenroll
-func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
+func handleEnroll(ctx *serverRequestContext, id string, ca *CA) (interface{}, error) {
 	var req api.EnrollmentRequestNet
 	err := ctx.ReadBody(&req)
-	if err != nil {
-		return nil, err
-	}
-	// Get the targeted CA
-	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
 	}
