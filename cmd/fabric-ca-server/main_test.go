@@ -104,7 +104,7 @@ func TestErrors(t *testing.T) {
 		{[]string{cmdName, "init", "-b", "user:pass", "-n", "acme.com", "ca.key"}, "Unrecognized arguments found"},
 		{[]string{cmdName, "init", "-c", badSyntaxYaml, "-b", "user:pass"}, "Incorrect format"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", fmt.Sprintf("%s:foo", longUserName)}, "than 1024 characters"},
-		{[]string{cmdName, "init", "-c", fmt.Sprintf("/tmp/%s.yaml", longFileName), "-b", "user:pass"}, "file name too long"},
+		{[]string{cmdName, "init", "-c", fmt.Sprintf("/tmp/%s.yaml", longFileName), "-H", "/tmp", "-b", "user:pass"}, "file name too long"},
 		{[]string{cmdName, "init", "-b", "user:pass", "-c", unsupportedFileType}, "Unsupported Config Type"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", "user"}, "missing a colon"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", "user:"}, "empty password"},
@@ -123,6 +123,7 @@ func TestLDAP(t *testing.T) {
 	os.RemoveAll(ldapTestDir)
 	defer os.RemoveAll(ldapTestDir)
 	// Test with "-b" option
+	os.Setenv("FABRIC_CA_SERVER_HOME", ldapTestDir)
 	err := RunMain([]string{cmdName, "init", "-c", path.Join(ldapTestDir, "config.yaml"),
 		"-b", "a:b", "--ldap.enabled", "--ldap.url", "ldap://CN=admin@localhost:389/dc=example,dc=com"})
 	if err != nil {
@@ -135,6 +136,8 @@ func TestLDAP(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to init server with LDAP enabled and no -b: %s", err)
 	}
+	os.Unsetenv("FABRIC_CA_SERVER_HOME")
+
 }
 
 func TestValid(t *testing.T) {
@@ -166,7 +169,7 @@ func TestDBLocation(t *testing.T) {
 	// Invoke server with -c arg set to serverConfig/config.yml (relative path)
 	cfgFile := "serverConfig/config.yml"
 	dsFile := "serverConfig/fabric-ca-server.db"
-	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7091"}, ""}
+	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-H", "serverConfig", "-p", "7091"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll("serverConfig")
 
@@ -175,7 +178,7 @@ func TestDBLocation(t *testing.T) {
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", "fabric-ca-srv.db")
 	cfgFile = "serverConfig1/config.yml"
 	dsFile = "serverConfig1/fabric-ca-srv.db"
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7092"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-H", "serverConfig1", "-p", "7092"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll("serverConfig1")
 
@@ -184,7 +187,7 @@ func TestDBLocation(t *testing.T) {
 	cfgFile = "serverConfig2/config.yml"
 	dsFile = os.TempDir() + "/fabric-ca-srv.db"
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", dsFile)
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7093"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-H", "serverConfig2", "-p", "7093"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll("serverConfig2")
 	os.Remove(dsFile)
@@ -195,7 +198,7 @@ func TestDBLocation(t *testing.T) {
 	cfgFile = cfgDir + "config.yml"
 	dsFile = "fabric-ca-srv.db"
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", dsFile)
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7094"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-H", cfgDir, "-p", "7094"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, cfgDir+dsFile)
 	os.RemoveAll(os.TempDir() + "/config")
 
@@ -204,7 +207,7 @@ func TestDBLocation(t *testing.T) {
 	cfgFile = os.TempDir() + "/config/config.yml"
 	dsFile = os.TempDir() + "/fabric-ca-srv.db"
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", dsFile)
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7095"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-H", cfgDir, "-p", "7095"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll(os.TempDir() + "/config")
 	os.Remove(dsFile)
@@ -229,6 +232,7 @@ func TestDefaultMultiCAs(t *testing.T) {
 func TestMultiCA(t *testing.T) {
 	blockingStart = false
 
+	os.Setenv("FABRIC_CA_SERVER_HOME", "../../testdata")
 	err := RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", "user:pass", "--cacount", "0", "--cafiles", "ca/rootca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/rootca/ca2/fabric-ca-server-config.yaml"})
 	if err != nil {
 		t.Error("Failed to start server with multiple CAs using the --cafiles flag from command line: ", err)
@@ -242,6 +246,7 @@ func TestMultiCA(t *testing.T) {
 	if err == nil {
 		t.Error("Should have failed to start server, can't specify values for both --cacount and --cafiles")
 	}
+	os.Unsetenv("FABRIC_CA_SERVER_HOME")
 
 	cleanUpMultiCAFiles()
 }

@@ -699,3 +699,55 @@ func Hostname() string {
 	}
 	return hostname
 }
+
+// ValidateAndReturnAbsConf checks to see that there are no conflicts between the
+// configuration file path and home directory. If no conflicts, returns back the absolute
+// path for the configuration file and home directory.
+func ValidateAndReturnAbsConf(filePath, homeDir, cmdName string) (string, string, error) {
+	var err error
+	var homeDirSet bool
+
+	defaultConfig := GetDefaultConfigFile(cmdName) // Get the default configuration
+
+	// If no config file path specified, use the default configuration file
+	if filePath == "" {
+		filePath = filepath.Base(defaultConfig)
+	}
+
+	if homeDir == "" {
+		// If no home directory specified, use the default directory
+		homeDir = filepath.Dir(defaultConfig)
+	} else {
+		homeDirSet = true
+	}
+
+	homeDir = strings.TrimRight(homeDir, "/")
+	configFileDir, configFile := filepath.Split(filePath)
+
+	// Make the home directory absolute
+	homeDir, err = filepath.Abs(homeDir)
+	if err != nil {
+		return "", "", fmt.Errorf("Failed to get full path of config file: %s", err)
+	}
+
+	if configFileDir == "" {
+		// Configuration file did not have a directory, only the filename was provided.
+		// Join the filename with the home directory
+		filePath = filepath.Join(homeDir, filePath)
+	} else {
+		// Make the configuration file's directory absolute
+		configFileDir, err = filepath.Abs(configFileDir)
+		if err != nil {
+			return "", "", fmt.Errorf("Failed to get full path of config file: %s", err)
+		}
+		// Need to error out if both home directory and configuration files are specified
+		// and the path to configuration file is different from the home directory
+		if configFileDir != homeDir && homeDirSet {
+			return "", "", fmt.Errorf("Configuration file location (%s) and home directory (%s) differ in location. Please move configuration file, or change or leave empty the home directory", filePath, homeDir)
+		}
+		filePath = filepath.Join(configFileDir, configFile)
+		homeDir = filepath.Dir(filePath)
+	}
+
+	return filePath, homeDir, nil
+}
