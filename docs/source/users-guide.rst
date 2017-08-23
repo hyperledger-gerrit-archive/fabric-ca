@@ -355,6 +355,9 @@ The Fabric CA server's home directory is determined as follows:
     its value
   - otherwise, use current working directory
 
+Home directory can also be set using the --home CLI option. Using the CLI
+option will override any environment variable set. 
+
 For the remainder of this server section, we assume that you have set
 the ``FABRIC_CA_HOME`` environment variable to
 ``$HOME/fabric-ca/server``.
@@ -952,6 +955,8 @@ The Fabric CA client's home directory is determined as follows:
     its value
   - otherwise, use ``$HOME/.fabric-ca-client``
 
+Home directory can also be set using the --home CLI option. Using the CLI
+option will override any environment variable set. 
 
 The instructions below assume that the client configuration file exists
 in the client's home directory.
