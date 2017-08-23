@@ -689,3 +689,47 @@ func Read(r io.Reader, data []byte) ([]byte, error) {
 
 	return data[:j], nil
 }
+
+// ValidateAndReturnAbsConf checks to see that there are no conflicts between the
+// configuration file path and home directory. If no conflicts, returns back the absolute
+// path for the configuration file and home directory.
+func ValidateAndReturnAbsConf(filePath, homeDir, cmdName string) (string, string, error) {
+	var err error
+
+	homeDir = strings.TrimRight(homeDir, "/")
+	defConfigFile := filepath.Base(GetDefaultConfigFile(cmdName))
+	defConfigDir := filepath.Dir(GetDefaultConfigFile(cmdName))
+	configFileDir, configFile := filepath.Split(filePath)
+
+	// Make the home directory absolute
+	homeDir, err = filepath.Abs(homeDir)
+	if err != nil {
+		return "", "", fmt.Errorf("Failed to get full path of config file: %s", err)
+	}
+
+	if configFileDir == "" {
+		// Configuration file did not have a directory, only the filename was provided.
+		// Join the filename with the home directory
+		filePath = filepath.Join(homeDir, filePath)
+	} else {
+		// Need to error out if both home directory and configuration files are specified
+		// and the path to configuration file is different from the home directory
+		configFileDir, err = filepath.Abs(configFileDir)
+		if err != nil {
+			return "", "", fmt.Errorf("Failed to get full path of config file: %s", err)
+		}
+		if configFile != defConfigFile && configFileDir != homeDir && homeDir != defConfigDir {
+			return "", "", fmt.Errorf("Configuration file location (%s) and home directory (%s) differ in location. Please move configuration file, or change or leave empty the home directory", filePath, homeDir)
+		}
+		filePath, err = filepath.Abs(filePath)
+		if err != nil {
+			return "", "", fmt.Errorf("Failed to get full path of config file: %s", err)
+		}
+	}
+
+	if filepath.Dir(filePath) != defConfigDir {
+		homeDir = filepath.Dir(filePath)
+	}
+
+	return filePath, homeDir, nil
+}

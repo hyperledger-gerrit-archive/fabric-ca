@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
@@ -55,6 +56,8 @@ type ClientCmd struct {
 	rootCmd *cobra.Command
 	// cfgFileName is the name of the configuration file
 	cfgFileName string
+	// homeDirectory is the location of the client's home directory
+	homeDirectory string
 	// clientCfg is the client's configuration
 	clientCfg *lib.ClientConfig
 	// cfgAttrs are the attributes specified via flags or env variables
@@ -141,7 +144,9 @@ func (c *ClientCmd) registerFlags() {
 
 	// Set global flags used by all commands
 	pflags := c.rootCmd.PersistentFlags()
-	pflags.StringVarP(&c.cfgFileName, "config", "c", cfg, "Configuration file")
+	pflags.StringVarP(&c.cfgFileName, "config", "c", filepath.Base(cfg), "Configuration file")
+	pflags.MarkHidden("config")
+	pflags.StringVarP(&c.homeDirectory, "home", "H", filepath.Dir(cfg), "Client's home directory")
 	pflags.StringSliceVarP(
 		&c.cfgAttrs, "id.attrs", "", nil, "A list of comma-separated attributes of the form <name>=<value> (e.g. foo=foo1,bar=bar1)")
 	util.FlagString(pflags, "myhost", "m", host,
