@@ -47,6 +47,8 @@ type ServerCmd struct {
 	blockingStart bool
 	// cfgFileName is the name of the configuration file
 	cfgFileName string
+	// homeDirectory is the location of the server's home directory
+	homeDirectory string
 	// serverCfg is the server's configuration
 	cfg *lib.ServerConfig
 }
@@ -147,6 +149,8 @@ func (s *ServerCmd) registerFlags() {
 	// Set specific global flags used by all commands
 	pflags := s.rootCmd.PersistentFlags()
 	pflags.StringVarP(&s.cfgFileName, "config", "c", cfg, "Configuration file")
+	pflags.MarkHidden("config")
+	pflags.StringVarP(&s.homeDirectory, "home", "H", filepath.Dir(cfg), "Server's home directory")
 	util.FlagString(s.myViper, pflags, "boot", "b", "",
 		"The user:pass for bootstrap admin which is required to build default config file")
 
@@ -176,7 +180,7 @@ func (s *ServerCmd) configRequired() bool {
 // getServer returns a lib.Server for the init and start commands
 func (s *ServerCmd) getServer() *lib.Server {
 	return &lib.Server{
-		HomeDir:       filepath.Dir(s.cfgFileName),
+		HomeDir:       s.homeDirectory,
 		Config:        s.cfg,
 		BlockingStart: s.blockingStart,
 		CA: lib.CA{

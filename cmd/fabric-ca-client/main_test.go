@@ -57,6 +57,7 @@ const (
 	clientKeyEnvVar      = "FABRIC_CA_CLIENT_TLS_CLIENT_KEYFILE"
 	clientCertEnvVar     = "FABRIC_CA_CLIENT_TLS_CLIENT_CERTFILE"
 	moptionDir           = "moption-test"
+	clientCMD            = "fabric-ca-client"
 )
 
 const jsonConfig = `{
@@ -928,6 +929,65 @@ func TestMSPDirectoryCreation(t *testing.T) {
 	}
 }
 
+func TestHomeDirectory(t *testing.T) {
+	configFilePath := util.GetDefaultConfigFile(clientCMD)
+	defaultClientConfigDir, defaultClientConfigFile := filepath.Split(configFilePath)
+
+	os.RemoveAll(defaultClientConfigDir)
+	os.RemoveAll("../../testdata/testclientcmd")
+	os.RemoveAll("../../testdata/testclientcmd2")
+	os.RemoveAll("../../testdata/testclientcmd3")
+	defer os.RemoveAll(defaultClientConfigDir)
+	defer os.RemoveAll("../../testdata/testclientcmd")
+	defer os.RemoveAll("../../testdata/testclientcmd2")
+	defer os.RemoveAll("../../testdata/testclientcmd3")
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-c", ""})
+	if !util.FileExists(configFilePath) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
+	}
+
+	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", ""})
+	if !util.FileExists(configFilePath) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
+	}
+
+	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	if !util.FileExists(configFilePath) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", "../../testdata/testclientcmd"})
+	if !util.FileExists(filepath.Join("../../testdata/testclientcmd", defaultClientConfigFile)) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config.yaml) in the '../../testdata/testclientcmd' directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", "../../testdata/testclientcmd", "-c", "testconfig.yaml"})
+	if !util.FileExists(filepath.Join("../../testdata/testclientcmd", "testconfig.yaml")) {
+		t.Errorf("Failed to correctly created the config (testconfig.yaml) in the '../../testdata/testclientcmd' directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-c", "../../testdata/testclientcmd2/testconfig2.yaml"})
+	if !util.FileExists("../../testdata/testclientcmd2/testconfig2.yaml") {
+		t.Errorf("Failed to correctly created the config (testconfig2.yaml) in the '../../testdata/testclientcmd2' directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-H", "../../testdata/testclientcmd3", "-c", "../../testdata/testclientcmd3/testconfig3.yaml"})
+	if !util.FileExists("../../testdata/testclientcmd3/testconfig3.yaml") {
+		t.Errorf("Failed to correctly created the config (testconfig3.yaml) in the '../../testdata/testclientcmd3' directory")
+	}
+
+	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-H", "../../testdata/testclientcmd", "-c", "../testconfig.yaml"})
+	if assert.Error(t, err, "Should have failed, home directory and directory of configuration file are different") {
+		assert.Contains(t, err.Error(), "differ in location")
+	}
+
+}
+
 func TestCleanUp(t *testing.T) {
 	os.Remove("../../testdata/ca-cert.pem")
 	os.Remove("../../testdata/ca-key.pem")
@@ -962,11 +1022,11 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 
 func testGetCACertEnvVar(t *testing.T) error {
 	t.Log("testGetCACertEnvVar - Entered")
-	os.Setenv(rootCertEnvVar, "../../testdata/root.pem")
+	os.Setenv(rootCertEnvVar, "root.pem")
 	defer os.Unsetenv(rootCertEnvVar)
 
 	defer os.RemoveAll("msp")
-	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", "fakeConfig.yaml", "-u", tlsServerURL,
+	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", "../../testdata/fakeConfig.yaml", "-u", tlsServerURL,
 		"--tls.client.certfile", "", "--tls.client.keyfile", "", "--caname", ""})
 	if err != nil {
 		return fmt.Errorf("getcainfo failed: %s", err)
