@@ -22,7 +22,6 @@ Fabric-CA Server's CLI
       -n, --ca.name string                            Certificate Authority name
           --cacount int                               Number of non-default CA instances
           --cafiles stringSlice                       A list of comma-separated CA configuration files
-      -c, --config string                             Configuration file (default "fabric-ca-server-config.yaml")
           --crlsizelimit int                          Size limit of an acceptable CRL in bytes (default 512000)
           --csr.cn string                             The common name field of the certificate signing request to a parent fabric-ca-server
           --csr.hosts stringSlice                     A list of space-separated host names in a certificate signing request to a parent fabric-ca-server
@@ -33,6 +32,7 @@ Fabric-CA Server's CLI
           --db.tls.client.keyfile string              PEM-encoded key file when mutual authentication is enabled
           --db.type string                            Type of database; one of: sqlite3, postgres, mysql (default "sqlite3")
       -d, --debug                                     Enable debug level logging
+      -H, --home string                               Server's home directory (default ".")
           --intermediate.enrollment.label string      Label to use in HSM operations
           --intermediate.enrollment.profile string    Name of the signing profile to use in issuing the certificate
           --intermediate.parentserver.caname string   Name of the CA to connect to on fabric-ca-server
@@ -49,10 +49,10 @@ Fabric-CA Server's CLI
           --ldap.userfilter string                    The LDAP user filter to use when searching for users (default "(uid=%s)")
       -p, --port int                                  Listening port of fabric-ca-server (default 7054)
           --registry.maxenrollments int               Maximum number of enrollments; valid if LDAP not enabled (default -1)
-          --tls.certfile string                       PEM-encoded TLS certificate file for server's listening port (default "ca-cert.pem")
+          --tls.certfile string                       PEM-encoded TLS certificate file for server's listening port (default "tls-cert.pem")
           --tls.clientauth.certfiles stringSlice      A list of comma-separated PEM-encoded trusted certificate files (e.g. root1.pem,root2.pem)
           --tls.clientauth.type string                Policy the server will follow for TLS Client Authentication. (default "noclientcert")
           --tls.enabled                               Enable TLS on the listening port
-          --tls.keyfile string                        PEM-encoded TLS key for server's listening port (default "ca-key.pem")
+          --tls.keyfile string                        PEM-encoded TLS key for server's listening port
     
     Use "fabric-ca-server [command] --help" for more information about a command.
