@@ -95,7 +95,7 @@ func TestSRVServerInit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get cwd")
 	}
-	td, err := ioutil.TempDir(testdataDir, "ServerInitStat")
+	td, err := ioutil.TempDir("", "ServerInitStat")
 	if err != nil {
 		t.Fatalf("failed to get tmp dir")
 	}
