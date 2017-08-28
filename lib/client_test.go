@@ -57,19 +57,17 @@ func TestCLIClientConfigStat(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get cwd")
 	}
-	td, err := ioutil.TempDir(tdDir, "ClientConfigStat")
+	td, err := ioutil.TempDir("", "ClientConfigStat")
 	if err != nil {
 		t.Fatalf("failed to get tmp dir")
 	}
-	os.Chdir(td)
-	fileInfo, err := os.Stat(".")
+	err = os.Chdir(td)
 	if err != nil {
-		t.Fatalf("os.Stat failed on current dir")
+		t.Fatalf("failed to cd to %v", td)
 	}
-	oldmode := fileInfo.Mode()
 	err = os.Chmod(".", 0000)
 	if err != nil {
-		t.Fatalf("Chmod on %s failed", tdDir)
+		t.Fatalf("Chmod on %s failed", td)
 	}
 
 	c := new(Client)
@@ -79,9 +77,6 @@ func TestCLIClientConfigStat(t *testing.T) {
 	if err == nil {
 		t.Errorf("initDB should have failed (getcwd failure)")
 	}
-	_ = os.Chmod(".", oldmode)
-
-	os.RemoveAll(td)
 	os.Chdir(wd)
 }
 

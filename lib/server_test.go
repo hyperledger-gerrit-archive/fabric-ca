@@ -95,18 +95,20 @@ func TestSRVServerInit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to get cwd")
 	}
-	td, err := ioutil.TempDir(testdataDir, "ServerInitStat")
+	td, err := ioutil.TempDir("", "ServerInitStat")
 	if err != nil {
 		t.Fatalf("failed to get tmp dir")
 	}
 	server.HomeDir = ""
-	os.Chdir(td)
+	err = os.Chdir(td)
+	if err != nil {
+		t.Fatalf("failed to cd to %v", td)
+	}
 
 	fileInfo, err := os.Stat(".")
 	if err != nil {
 		t.Fatalf("os.Stat failed on current dir")
 	}
-	oldmode := fileInfo.Mode()
 	curd, err := os.Getwd()
 	t.Logf("Current dir: %s", fileInfo.Name())
 	t.Logf("Current curd: %v", curd)
@@ -121,10 +123,7 @@ func TestSRVServerInit(t *testing.T) {
 		t.Errorf("Server init should have failed (permission error)")
 	}
 
-	os.Chdir("..")
-	_ = os.Chmod(td, oldmode)
 	server.HomeDir = ""
-	defer os.RemoveAll(td)
 	os.Chdir(wd)
 }
 
