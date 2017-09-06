@@ -992,13 +992,14 @@ The identity performing the register request must be currently enrolled, and
 must also have the proper authority to register the type of the identity that is being
 registered.
 
-In particular, two authorization checks are made by the Fabric CA server
+In particular, three authorization checks are made by the Fabric CA server
 during registration as follows:
 
  1. The invoker's identity must have the "hf.Registrar.Roles" attribute with a
     comma-separated list of values where one of the value equals the type of
     identity being registered; for example, if the invoker's identity has the
-    "hf.Registrar.Roles" attribute with a value of "peer,app,user", the invoker can register identities of type peer, app, and user, but not orderer.
+    "hf.Registrar.Roles" attribute with a value of "peer,app,user", the invoker
+    can register identities of type peer, app, and user, but not orderer.
 
  2. The affiliation of the invoker's identity must be equal to or a prefix of
     the affiliation of the identity being registered.  For example, an invoker
@@ -1008,6 +1009,47 @@ during registration as follows:
     should be a dot (".") and the registrar must also have root affiliation.
     If no affiliation is specified in the registration request, the identity being
     registered will be given the affiliation of the registrar.
+
+ 3. The invoker can register a user with attributes if the requested attributes
+    meet the conditions below.
+      - Invoker has 'hf.Registar.Attributes' attribute with the value of the
+        attribute or pattern being registered. The only supported pattern is a
+        string with a "*" at the end. For example, "a.b.*" is a pattern which
+        matches all attribute names beginning with "a.b.".
+      - If the requested attribute name is 'hf.Registrar.Attributes', an additional
+        check is performed to see if the requested values for this attributes
+        are equal to or a subset of the invoker's value for 'hf.Registrar.Attributes'
+
+    Examples:
+      Valid Scenarios:
+        1. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'a.b.c', it is valid because the registrar has 'a.b.*' as part of its
+        attribute.
+
+        2. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'x.y.z', it is valid because the registrar has 'x.y.z' as part of its
+        attribute.
+
+        3. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'hf.Registar.Attributes = a.b.c, x.y.z', it is valid because the registrar
+        has the value 'a.b.*, x.y.z' for its 'hf.Registrar.Attributes' attribute.
+
+      Invalid Scenarios:
+        1. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'hf.Registar.Attributes = a.b.c, x.y.*', it is invalid
+        because requested attribute 'x.y.*' is not a pattern owned by the Registrar. 
+
+        2. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'hf.Registar.Attributes = a.b.c, x.y.z, attr1', it is invalid
+        because the invoker's 'hf.Registrar.Attributes' attribute values do not contain 'attr1'.
+
+        3. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'a.b', it is invalid because it is not equal to or
+        a subset of the invoker's 'hf.Registrar.Attributes' attribute values.
+
+        4. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
+        is registering attribute 'x.y', it is invalid because it is not equal
+        to or a subset of the registrar's 'hf.Registrar.Attributes' attribute values.
 
 The following command uses the **admin** identity's credentials to register a new
 user with an enrollment id of "admin2", an affiliation of
