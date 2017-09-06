@@ -34,14 +34,21 @@ BASE_VERSION   = 1.0.1
 PREV_VERSION   = 1.0.0
 IS_RELEASE     = false
 
+ARCH=$(shell uname -m)
+
 ifneq ($(IS_RELEASE),true)
 EXTRA_VERSION ?= snapshot-$(shell git rev-parse --short HEAD)
 PROJECT_VERSION=$(BASE_VERSION)-$(EXTRA_VERSION)
+ifndef FABRIC_TAG
+FABRIC_TAG=$(ARCH)-$(PREV_VERSION)
+endif
 else
 PROJECT_VERSION=$(BASE_VERSION)
+ifndef FABRIC_TAG
+FABRIC_TAG=$(ARCH)-$(BASE_VERSION)
+endif
 endif
 
-ARCH=$(shell uname -m)
 ifeq ($(ARCH),s390x)
 PGVER=9.4
 else
@@ -58,7 +65,7 @@ GO_LDFLAGS = $(patsubst %,-X $(PKGNAME)/cmd.%,$(METADATA_VAR))
 export GO_LDFLAGS
 
 DOCKER_ORG = hyperledger
-IMAGES = $(PROJECT_NAME)
+IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-orderer $(PROJECT_NAME)-peer $(PROJECT_NAME)-tools
 FVTIMAGE = $(PROJECT_NAME)-fvt
 
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
@@ -130,6 +137,7 @@ build/image/%/$(DUMMY): Makefile build/image/%/payload
 	@echo "Building docker $(TARGET) image"
 	@cat images/$(TARGET)/Dockerfile.in \
 		| sed -e 's/_BASE_TAG_/$(BASE_DOCKER_TAG)/g' \
+		| sed -e 's/_FABRIC_TAG_/$(FABRIC_TAG)/g' \
 		| sed -e 's/_TAG_/$(DOCKER_TAG)/g' \
 		| sed -e 's/_PGVER_/$(PGVER)/g' \
 		> $(@D)/Dockerfile
@@ -145,6 +153,12 @@ build/image/fabric-ca-fvt/payload: \
 	build/docker/bin/fabric-ca-client \
 	build/docker/bin/fabric-ca-server \
 	build/fabric-ca-fvt.tar.bz2
+build/image/fabric-ca-orderer/payload: \
+	build/docker/bin/fabric-ca-client
+build/image/fabric-ca-peer/payload: \
+	build/docker/bin/fabric-ca-client
+build/image/fabric-ca-tools/payload: \
+	build/docker/bin/fabric-ca-client
 build/image/%/payload:
 	@echo "Copying $^ to $@"
 	mkdir -p $@
@@ -175,21 +189,20 @@ bench-cpu: checks fabric-ca-server fabric-ca-client
 bench-mem: checks fabric-ca-server fabric-ca-client
 	@scripts/run_benchmarks -M -P $(pkg)
 
-# Removes all benchmark related files (bench, bench-cpu, bench-mem and *.test)
-bench-clean:
-	@scripts/run_benchmarks -R
-
-# Compares benchmarks results of current and previous release
-# Previous release git tag must be specified using the prev_rel variable.
 # e.g. make benchcmp prev_rel=v1.0.0
 benchcmp: guard-prev_rel bench
 	@scripts/compare_benchmarks $(prev_rel)
-
+ 
 guard-%:
-	@ if [ "${${*}}" = "" ]; then \
+	@if [ "${${*}}" = "" ]; then \
 		echo "Environment variable $* not set"; \
 		exit 1; \
 	fi
+
+
+# Removes all benchmark related files (bench, bench-cpu, bench-mem and *.test)
+bench-clean:
+	@scripts/run_benchmarks -R
 
 container-tests: docker
 
