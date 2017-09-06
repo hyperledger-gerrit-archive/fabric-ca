@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 #
 # Copyright IBM Corp. All Rights Reserved.
 #
@@ -17,7 +17,7 @@ function checkPasswd() {
    fi
 
    # Fail if password matches anything other than '*'
-   for p in $passwd; do 
+   for p in $passwd; do
       if ! [[ "$p" =~ \*+ ]]; then
          ErrorMsg "Passwords were not masked in the log"
       fi
@@ -53,7 +53,7 @@ test ${PIPESTATUS[0]} -eq 0 && checkPasswd "$PSWD" || ErrorMsg "Init of CA faile
 # Test using multiple IDs from pre-supplied config file
 $SCRIPTDIR/fabric-ca_setup.sh -R
 mkdir -p $TESTDIR
-$SCRIPTDIR/fabric-ca_setup.sh -I -X -n1 -D 2>&1 | tee $LOGFILE 
+$SCRIPTDIR/fabric-ca_setup.sh -I -X -n1 -D 2>&1 | tee $LOGFILE
 test ${PIPESTATUS[0]} -eq 0 && checkPasswd "$PSWD" || ErrorMsg "Init of CA failed"
 
 CleanUp $RC
