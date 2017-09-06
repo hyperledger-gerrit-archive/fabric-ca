@@ -436,6 +436,11 @@ func (u *DBUser) GetAttribute(name string) string {
 	return u.attrs[name]
 }
 
+// GetAllAttributes returns all the attributes associated with this user
+func (u *DBUser) GetAllAttributes() map[string]string {
+	return u.attrs
+}
+
 func dbGetError(err error, prefix string) error {
 	if err.Error() == "sql: no rows in result set" {
 		return errors.Errorf("%s not found", prefix)

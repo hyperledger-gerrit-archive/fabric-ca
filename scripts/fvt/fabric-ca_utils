@@ -308,7 +308,7 @@ register() {
    : ${USERGRP:="bank_a"}
    test "$USERGRP" = '[]' && USERGRP_OPT="" || USERGRP_OPT="--id.affiliation $USERGRP"
    local USERATTR="$5"
-   : ${USERATTR:='test=testValue'}
+   : ${USERATTR:='hf.Revoker=false'}
    local FABRIC_CA_ENROLLMENT_DIR="$6"
 
    : ${FABRIC_CA_ENROLLMENT_DIR:="$CA_CFG_PATH/$REGISTRAR"}
