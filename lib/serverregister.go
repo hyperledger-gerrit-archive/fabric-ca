@@ -26,7 +26,6 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -57,12 +56,8 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	registrarRolesAttr, registrarAffiliation, err := ctx.GetUserInfo([]string{"hf.Registrar.Roles"})
-	if err != nil {
-		return "", fmt.Errorf("Failed to get user info for registrar: %s", err)
-	}
 	// Register User
-	secret, err := registerUser(&req, registrarRolesAttr[0], registrarAffiliation, callerID, ca)
+	secret, err := registerUser(&req, callerID, ca, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -74,17 +69,22 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 }
 
 // RegisterUser will register a user and return the secret
-func registerUser(req *api.RegistrationRequestNet, registrarRoles tcert.Attribute, registrarAffiliation []string, registrar string, ca *CA) (string, error) {
+func registerUser(req *api.RegistrationRequestNet, registrar string, ca *CA, ctx *serverRequestContext) (string, error) {
 
 	secret := req.Secret
 	req.Secret = "<<user-specified>>"
 	req.Secret = secret
 
 	var err error
+	var registrarUser spi.User
 
 	if registrar != "" {
+		registrarUser, err = ctx.GetCaller()
+		if err != nil {
+			return "", err
+		}
 		// Check the permissions of member named 'registrar' to perform this registration
-		err = canRegister(registrarRoles, registrar, req)
+		err = canRegister(registrar, req, registrarUser)
 		if err != nil {
 			log.Debugf("Registration of '%s' failed: %s", req.Name, err)
 			return "", err
@@ -92,6 +92,10 @@ func registerUser(req *api.RegistrationRequestNet, registrarRoles tcert.Attribut
 	}
 
 	// Check that the affiliation requested is of the appropriate level
+	_, registrarAffiliation, err := ctx.GetUserInfo([]string{"hf.Registrar.Roles"})
+	if err != nil {
+		return "", fmt.Errorf("Failed to get user info for registrar: %s", err)
+	}
 	registrarAff := strings.Join(registrarAffiliation, ".")
 	err = validateAffiliation(registrarAff, req)
 	if err != nil {
@@ -101,6 +105,11 @@ func registerUser(req *api.RegistrationRequestNet, registrarRoles tcert.Attribut
 	err = validateID(req, ca)
 	if err != nil {
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' to validate", req.Name))
+	}
+
+	err = validateRequestedAttr(req.Attributes, registrarUser)
+	if err != nil {
+		return "", err
 	}
 
 	secret, err = registerUserID(req, ca)
@@ -214,12 +223,13 @@ func requireAffiliation(idType string) bool {
 	return true
 }
 
-func canRegister(registrarRoles tcert.Attribute, registrar string, req *api.RegistrationRequestNet) error {
-	log.Debugf("canRegister - Check to see if registrar '%s' with registrar roles of '%s' can register user type '%s'", registrar, registrarRoles.Value, req.Type)
+func canRegister(registrar string, req *api.RegistrationRequestNet, user spi.User) error {
+	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
 	var roles []string
-	if registrarRoles.Value != "" {
-		roles = strings.Split(registrarRoles.Value, ",")
+	rolesStr := user.GetAttribute("hf.Registrar.Roles")
+	if rolesStr != "" {
+		roles = strings.Split(rolesStr, ",")
 	} else {
 		roles = make([]string, 0)
 	}
@@ -229,5 +239,70 @@ func canRegister(registrarRoles tcert.Attribute, registrar string, req *api.Regi
 	if !util.StrContained(req.Type, roles) {
 		return fmt.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
 	}
+	return nil
+}
+
+// Validate that the registrar can register the requested attributes
+func validateRequestedAttr(reqAttrs []api.Attribute, registrar spi.User) error {
+	registrarAttrs := registrar.GetAttribute(attrRegistrarAttr)
+	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%s' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs, reqAttrs)
+	if len(reqAttrs) == 0 {
+		return nil
+	}
+
+	if registrarAttrs == "" {
+		e := newHTTPErr(400, ErrRegAttr, "Registrar does not have any values for '%s' thus can't register any attributes", attrRegistrarAttr)
+		return e
+	}
+
+	// Function will iterate through the values of registrar's 'hf.Registrar.Attributes' attribute to check if registrar can register the requested attributes
+	registrarCanRegisterAttr := func(requestedAttr string) error {
+		hfRegistrarAttrsSlice := strings.Split(strings.Replace(registrarAttrs, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+		for _, regAttr := range hfRegistrarAttrsSlice {
+			if strings.HasSuffix(regAttr, "*") { // Wildcard matching
+				if strings.Contains(requestedAttr, strings.TrimRight(regAttr, "*")) {
+					return nil // Requested attribute found, break out of loop
+				}
+			} else {
+				if requestedAttr == regAttr { // Exact name matching
+					return nil // Requested attribute found, break out of loop
+				}
+			}
+		}
+		return newAuthErr(ErrRegAttr, "Attribute is not part of '%s' attribute", attrRegistrarAttr)
+	}
+
+	for _, reqAttr := range reqAttrs {
+		reqAttrName := reqAttr.Name // Name of the requested attribute
+		if strings.HasSuffix(reqAttrName, "*") {
+			return newHTTPErr(400, ErrRegAttr, "Requested attribute '%s' cannot be a pattern", reqAttrName)
+		}
+
+		// Requesting 'hf.Registrar.Attributes' attribute
+		if reqAttrName == attrRegistrarAttr {
+			// Check if registrar is allowed to register 'hf.Registrar.Attribute' by examining it's value for 'hf.Registrar.Attribute'
+			err := registrarCanRegisterAttr(attrRegistrarAttr)
+			if err != nil {
+				return newAuthErr(ErrRegAttr, "Registrar is now allowed to register attribute '%s': $s", attrRegistrarAttr, err)
+			}
+
+			reqRegistrarAttrsSlice := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+			// Loop through the requested values for 'hf.Registrar.Attributes' to see if they can be registered
+			for _, reqRegistrarAttr := range reqRegistrarAttrsSlice {
+				err := registrarCanRegisterAttr(reqRegistrarAttr)
+				if err != nil {
+					return newAuthErr(ErrRegAttr, "Registrar is now allowed to register attribute '%s': $s", attrRegistrarAttr, err)
+				}
+			}
+			continue // Continue to next requested attribute
+		}
+
+		// Iterate through the registrar's value for 'hf.Registrar.Attributes' to check if it can register the requested attribute
+		err := registrarCanRegisterAttr(reqAttrName)
+		if err != nil {
+			return newAuthErr(ErrRegAttr, "Requested attribute '%s' is not part of registrar's '%s' attribute: %s", reqAttrName, attrRegistrarAttr, err)
+		}
+	}
+
 	return nil
 }

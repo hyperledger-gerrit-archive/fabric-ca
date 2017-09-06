@@ -99,6 +99,8 @@ const (
 	ErrCallerIsNotAuthenticated = 33
 	// Invalid configuration setting
 	ErrConfig = 34
+	// Registrar does not have the authority to register an attribute
+	ErrRegAttr = 35
 )
 
 // Construct a new HTTP error.
