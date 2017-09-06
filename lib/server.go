@@ -59,6 +59,7 @@ const (
 	attrDelegateRoles  = "hf.Registrar.DelegateRoles"
 	attrRevoker        = "hf.Revoker"
 	attrIntermediateCA = "hf.IntermediateCA"
+	attrRegistrarAttr  = "hf.Registrar.Attributes"
 )
 
 // Server is the fabric-ca server
@@ -207,6 +208,7 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 			attrDelegateRoles:  allRoles,
 			attrRevoker:        "true",
 			attrIntermediateCA: "true",
+			attrRegistrarAttr:  "*",
 		},
 	}
 
