@@ -242,7 +242,7 @@ fi
 function startFabricCa() {
    local inst=$1
    local start=$SECONDS
-   local timeout="$((TIMEOUT*2))"
+   local timeout="$((TIMEOUT*10))"
    local now=0
    local server_addr=0.0.0.0
    local port=${USER_CA_PORT-$CA_DEFAULT_PORT}
