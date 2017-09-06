@@ -18,6 +18,7 @@ package lib
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -76,10 +77,16 @@ func registerUser(req *api.RegistrationRequestNet, registrar string, ca *CA) (st
 	req.Secret = secret
 
 	var err error
+	var user spi.User
 
 	if registrar != "" {
+		user, err = ca.registry.GetUser(registrar, nil)
+		if err != nil {
+			return "", errors.WithMessage(err, "Registrar does not exist")
+		}
+
 		// Check the permissions of member named 'registrar' to perform this registration
-		err = canRegister(registrar, req, ca)
+		err = canRegister(registrar, req, user)
 		if err != nil {
 			log.Debugf("Registration of '%s' failed: %s", req.Name, err)
 			return "", err
@@ -89,6 +96,11 @@ func registerUser(req *api.RegistrationRequestNet, registrar string, ca *CA) (st
 	err = validateID(req, ca)
 	if err != nil {
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' to validate", req.Name))
+	}
+
+	err = validateRequestedAttr(req.Attributes, user)
+	if err != nil {
+		return "", errors.WithMessage(err, "Registrar is not allowed to register the requested attributes")
 	}
 
 	secret, err = registerUserID(req, ca)
@@ -176,13 +188,8 @@ func requireAffiliation(idType string) bool {
 	return true
 }
 
-func canRegister(registrar string, req *api.RegistrationRequestNet, ca *CA) error {
+func canRegister(registrar string, req *api.RegistrationRequestNet, user spi.User) error {
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
-
-	user, err := ca.registry.GetUser(registrar, nil)
-	if err != nil {
-		return errors.WithMessage(err, "Registrar does not exist")
-	}
 
 	var roles []string
 	rolesStr := user.GetAttribute("hf.Registrar.Roles")
@@ -198,4 +205,85 @@ func canRegister(registrar string, req *api.RegistrationRequestNet, ca *CA) erro
 		return fmt.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
 	}
 	return nil
+}
+
+// Validate that the registrar can register the requested attributes
+func validateRequestedAttr(reqAttrs []api.Attribute, registrar spi.User) error {
+	registrarAllAttrs := registrar.GetAllAttributes()
+	log.Debugf("Validating that registrar '%s' with attributes '%s' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAllAttrs, reqAttrs)
+	if len(reqAttrs) == 0 {
+		return nil
+	}
+
+	var hfRegistrarAttrsSlice []string
+	// Check if registrar has 'hf.Registrar.Attributes' attribute and gets its value
+	registrarAttrs, hasRegistrarAttrs := registrarAllAttrs[attrRegistrarAttr]
+	if hasRegistrarAttrs {
+		hfRegistrarAttrsSlice = strings.Split(strings.Replace(registrarAttrs, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+	}
+
+	// Function will iterate through the values of registrar's 'hf.Registrar.Attributes' attribute to check if registrar can register the requested attributes
+	registrarHasAttr := func(requestedAttr string) error {
+		for _, regAttr := range hfRegistrarAttrsSlice {
+			regAttrExp := regexp.MustCompile(getRegExp(regAttr))
+			if regAttrExp.MatchString(requestedAttr) {
+				return nil // Requested attribute found, break out of loop
+			}
+		}
+		return errors.Errorf("Attribute is not part of '%s' attribute", attrRegistrarAttr)
+	}
+
+	for _, reqAttr := range reqAttrs {
+		reqAttrName := reqAttr.Name // Name of the requested attribute
+
+		// Requesting 'hf.Registrar.Attributes' attribute
+		if reqAttrName == attrRegistrarAttr {
+			// Check if registrar also has this attribute
+			if hasRegistrarAttrs {
+				reqRegistrarAttrsSlice := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+				// Loop through the requested values for 'hf.Registrar.Attributes' to see if they can be registered
+				for _, reqRegistrarAttr := range reqRegistrarAttrsSlice {
+					err := registrarHasAttr(reqRegistrarAttr)
+					if err != nil {
+						return errors.WithMessage(err, fmt.Sprintf("Registrar is not allowed to register attribute '%s'", reqRegistrarAttr))
+					}
+				}
+			} else {
+				return errors.Errorf("Registrar cannot register '%s' attribute", attrRegistrarAttr)
+			}
+			continue // Continue to next requested attribute
+		}
+
+		_, registrarOwnsAttr := registrarAllAttrs[reqAttrName] // Check if requested attribute is owned by the registrar, if so registrar can register attribute
+		if registrarOwnsAttr {
+			return nil
+		}
+
+		log.Debugf("Requested attr '%s' is not owned by registrar, checking registrar's value for '%s'", reqAttrName, attrRegistrarAttr)
+
+		// Check if registrar has attribute 'hf.Registrar.Attributes'
+		if !hasRegistrarAttrs {
+			return errors.Errorf("Registrar does not own '%s' attribute nor does it posses the '%s' attribute", reqAttrName, attrRegistrarAttr)
+		}
+
+		// Iterate through the values of 'hf.Registrar.Attributes' to check if it can register the requested attribute
+		err := registrarHasAttr(reqAttrName)
+		if err != nil {
+			return errors.WithMessage(err, fmt.Sprintf("Registrar does not own '%s' attribute", attrRegistrarAttr))
+		}
+	}
+
+	return nil
+}
+
+// Convert attribute to regular expression
+func getRegExp(attr string) string {
+	// If attribute has wildcard convert to appropriate regular expression
+	if strings.HasSuffix(attr, "*") {
+		attr = attr[:len(attr)-1]
+		expr := "\\A(" + attr + ").*\\z"
+		return expr
+	}
+	expr := "\\A(" + attr + ")\\z"
+	return expr
 }

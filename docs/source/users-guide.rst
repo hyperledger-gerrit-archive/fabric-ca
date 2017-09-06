@@ -1447,18 +1447,47 @@ The identity performing the register request must be currently enrolled, and
 must also have the proper authority to register the type of the identity that is being
 registered.
 
-In particular, two authorization checks are made by the Fabric CA server
+In particular, three authorization checks are made by the Fabric CA server
 during registration as follows:
 
  1. The invoker's identity must have the "hf.Registrar.Roles" attribute with a
     comma-separated list of values where one of the value equals the type of
     identity being registered; for example, if the invoker's identity has the
-    "hf.Registrar.Roles" attribute with a value of "peer,app,user", the invoker can register identities of type peer, app, and user, but not orderer.
+    "hf.Registrar.Roles" attribute with a value of "peer,app,user", the invoker
+    can register identities of type peer, app, and user, but not orderer.
 
  2. The affiliation of the invoker's identity must be equal to or a prefix of
     the affiliation of the identity being registered.  For example, an invoker
     with an affiliation of "a.b" may register an identity with an affiliation
     of "a.b.c" but may not register an identity with an affiliation of "a.c".
+
+ 3. The invoker can register a user with attributes if the requested attributes
+    meet the conditions below. The invoker can also possess an attribute
+    called 'hf.Registrar.Attributes', whose value is a comma separated list of
+    attribute names that invoker's identity can register. 
+      - Invoker owns the attribute being registered
+      - Invoker has 'hf.Registar.Attributes' attribute with a value of the
+        attribute or pattern being registered
+      - If the requested attributed is 'hf.Registrar.Attributes', an additional
+        check is performed to see if the requested values for this attributes
+        are a subset of the invoker's value for 'hf.Registrar.Attributes'
+
+    Example:
+      Invoker's attribute: a.b.* = val1
+        Requested attribute: a.b.c.* = val1 (valid)
+        Requested attribute: a.b = val1 (invalid)
+
+      Invoker's attribute: hf.Registrar.Attributes = a.b.*, x.y.z
+        Requested attribute: a.b.c = val1 (valid)
+        Requested attribute: x.y.z = val1 (valid)
+        Requested attribute: a.b = val1 (invalid)
+        Requested attribute: x.y.* = val1 (invalid)
+
+      Invoker's attribute: hf.Registrar.Attributes = a.b.*, x.y.z
+        Requested attribute: hf.Registar.Attributes = a.b.c, x.y.z (valid)
+        Requested attribute: hf.Registar.Attributes = a.b.*, x.y.z (valid)
+        Requested attribute: hf.Registar.Attributes = a.b.c, x.y.* (invalid)
+        Requested attribute: hf.Registar.Attributes = a.b.c, x.y.z, attr1 (invalid)
 
 The following command uses the **admin** identity's credentials to register a new
 user with an enrollment id of "admin2", an affiliation of
