@@ -46,6 +46,7 @@ type serverRequestContext struct {
 	enrollmentID   string
 	enrollmentCert *x509.Certificate
 	ui             spi.User
+	caller         spi.User
 	body           struct {
 		read bool   // true after body is read
 		buf  []byte // the body itself
@@ -342,6 +343,25 @@ func (ctx *serverRequestContext) ReadBodyBytes() ([]byte, error) {
 		return nil, newHTTPErr(400, ErrReadingReqBody, "Failed reading request body: %s", err)
 	}
 	return ctx.body.buf, nil
+}
+
+// GetCaller gets the user who is making this server request
+func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
+	if ctx.caller != nil {
+		return ctx.caller, nil
+	}
+
+	var err error
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
+	}
+	// Get the user info object for this user
+	ctx.caller, err = ca.registry.GetUser(ctx.enrollmentID, nil)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to get user")
+	}
+	return ctx.caller, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

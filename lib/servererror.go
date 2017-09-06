@@ -99,6 +99,12 @@ const (
 	ErrCallerIsNotAuthenticated = 33
 	// Invalid configuration setting
 	ErrConfig = 34
+	// Registrar does not have the authority to register an attribute
+	ErrRegAttrAuth = 35
+	// Registrar does not own 'hf.Registrar.Attributes'
+	ErrMissingRegAttr = 36
+	// The requested attribute has an invalid format
+	ErrAttrFormat = 37
 )
 
 // Construct a new HTTP error.
