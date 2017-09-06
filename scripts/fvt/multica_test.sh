@@ -52,7 +52,7 @@ function enrollUser() {
 function registerAndEnrollUser() {
    local user=$1
    local caname=$2
-   local attrs='a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9,j=100000'
+   local attrs='hf.Revoker=false,hf.IntermediateCA=false'
    local rc=0
    pswd=$(eval /usr/local/bin/fabric-ca-client register -u ${PROTO}admin:adminpw@$ROOT_CA_ADDR:$CA_PORT \
                         --id.attrs "$attrs" \

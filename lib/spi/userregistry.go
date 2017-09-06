@@ -43,6 +43,8 @@ type User interface {
 	GetAffiliationPath() []string
 	// GetAttribute returns the value for an attribute name
 	GetAttribute(name string) string
+	// GetAllAttributes returns all the attributes associated with this user
+	GetAllAttributes() map[string]string
 }
 
 // UserRegistry is the API for retreiving users and groups

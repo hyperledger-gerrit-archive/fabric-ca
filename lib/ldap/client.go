@@ -323,6 +323,11 @@ func (u *User) GetAttribute(name string) string {
 	return u.attrs[name]
 }
 
+// GetAllAttributes returns all the attributes associated with this user
+func (u *User) GetAllAttributes() map[string]string {
+	return u.attrs
+}
+
 // Returns a slice with the elements reversed
 func reverse(in []string) []string {
 	size := len(in)
