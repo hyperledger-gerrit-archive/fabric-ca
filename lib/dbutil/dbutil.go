@@ -90,7 +90,7 @@ func createSQLiteDBTables(datasource string) error {
 	defer db.Close()
 
 	log.Debug("Creating tables...")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(64), token bytea, type VARCHAR(64), affiliation VARCHAR(64), attributes VARCHAR(256), state INTEGER,  max_enrollments INTEGER)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(64), token bytea, type VARCHAR(64), affiliation VARCHAR(64), attributes TEXT, state INTEGER,  max_enrollments INTEGER)"); err != nil {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Created users table")
@@ -186,7 +186,7 @@ func createPostgresDBTables(datasource string, dbName string, db *sqlx.DB) error
 	}
 
 	log.Debug("Creating Tables...")
-	if _, err := database.Exec("CREATE TABLE users (id VARCHAR(64), token bytea, type VARCHAR(64), affiliation VARCHAR(64), attributes VARCHAR(256), state INTEGER,  max_enrollments INTEGER)"); err != nil {
+	if _, err := database.Exec("CREATE TABLE users (id VARCHAR(64), token bytea, type VARCHAR(64), affiliation VARCHAR(64), attributes TEXT, state INTEGER,  max_enrollments INTEGER)"); err != nil {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Created users table")
@@ -274,7 +274,7 @@ func createMySQLTables(datasource string, dbName string, db *sqlx.DB) error {
 		return errors.Wrapf(err, "Failed to open database (%s) in MySQL server", dbName)
 	}
 	log.Debug("Creating Tables...")
-	if _, err := database.Exec("CREATE TABLE users (id VARCHAR(64) NOT NULL, token blob, type VARCHAR(64), affiliation VARCHAR(64), attributes VARCHAR(256), state INTEGER, max_enrollments INTEGER, PRIMARY KEY (id)) DEFAULT CHARSET=utf8 COLLATE utf8_bin"); err != nil {
+	if _, err := database.Exec("CREATE TABLE users (id VARCHAR(64) NOT NULL, token blob, type VARCHAR(64), affiliation VARCHAR(64), attributes TEXT, state INTEGER, max_enrollments INTEGER, PRIMARY KEY (id)) DEFAULT CHARSET=utf8 COLLATE utf8_bin"); err != nil {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Created users table")

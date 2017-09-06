@@ -30,6 +30,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/attrmgr"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
@@ -43,6 +44,7 @@ type serverRequestContext struct {
 	ca             *CA
 	enrollmentID   string
 	enrollmentCert *x509.Certificate
+	caller         spi.User
 	body           struct {
 		read bool   // true after body is read
 		buf  []byte // the body itself
@@ -325,6 +327,25 @@ func (ctx *serverRequestContext) ReadBodyBytes() ([]byte, error) {
 		return nil, newHTTPErr(400, ErrReadingReqBody, "Failed reading request body: %s", err)
 	}
 	return ctx.body.buf, nil
+}
+
+// GetRegistrar gets the user who is making this server request
+func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
+	if ctx.caller != nil {
+		return ctx.caller, nil
+	}
+
+	var err error
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
+	}
+	// Get the user info object for this user
+	ctx.caller, err = ca.registry.GetUser(ctx.enrollmentID, nil)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to get user")
+	}
+	return ctx.caller, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
