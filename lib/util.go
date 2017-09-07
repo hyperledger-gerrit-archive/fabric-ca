@@ -180,3 +180,17 @@ func getMaxEnrollments(userMaxEnrollments int, caMaxEnrollments int) (int, error
 		}
 	}
 }
+
+// func getCAandCheckDB(ctx *serverRequestContext) (*CA, error) {
+// 	ca, err := ctx.GetCA()
+// 	if err != nil {
+// 		return nil, errors.Wrapf(err, "%s handler failed to get instance of ca", strings.TrimLeft(ctx.req.URL.String(), "/"))
+// 	}
+// 	if !ca.dbInitialized {
+// 		err := ca.initDB()
+// 		if err != nil {
+// 			return nil, errors.Wrapf(err, "%s handler failed to initialize DB", strings.TrimLeft(ctx.req.URL.String(), "/"))
+// 		}
+// 	}
+// 	return ca, nil
+// }
