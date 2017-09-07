@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 
 	cfsslapi "github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/log"
@@ -96,6 +97,8 @@ const (
 	ErrNoPreKey = 32
 	// The caller was not authenticated
 	ErrCallerIsNotAuthenticated = 33
+	// Invalid configuration setting
+	ErrConfig = 34
 )
 
 // Construct a new HTTP error.
@@ -170,4 +173,15 @@ func (he *httpErr) writeResponse(w http.ResponseWriter) error {
 	msg := string(jsonMessage)
 	http.Error(w, msg, he.scode)
 	return nil
+}
+
+func newConfigError(err error) error {
+	return fmt.Errorf("Config Error - code: %d: %s", ErrConfig, err.Error())
+}
+
+func isConfigError(err error) bool {
+	if strings.Contains(err.Error(), fmt.Sprintf("Config Error - code: %d", ErrConfig)) {
+		return true
+	}
+	return false
 }
