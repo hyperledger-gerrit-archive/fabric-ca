@@ -83,7 +83,15 @@ func enrollHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return handleEnroll(ctx, id)
+	resp, err := handleEnroll(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	err = updateState(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 // Handle a reenroll request, guarded by token authentication
@@ -213,5 +221,48 @@ func csrInputLengthCheck(req *x509.CertificateRequest) error {
 		}
 	}
 
+	return nil
+}
+
+func updateState(ctx *serverRequestContext) error {
+	if ctx.ca.Config.LDAP.Enabled {
+		return nil
+	}
+
+	var stateUpdateSQL string
+	var args []interface{}
+	var err error
+
+	dbUser := ctx.ui.(*DBUser)
+
+	state := dbUser.State + 1
+	args = append(args, dbUser.Name)
+	if dbUser.MaxEnrollments == -1 {
+		// unlimited so no state check
+		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ?)"
+	} else {
+		// state must be less than max enrollments
+		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ? AND state < ?)"
+		args = append(args, dbUser.MaxEnrollments)
+	}
+	res, err := dbUser.db.Exec(dbUser.db.Rebind(stateUpdateSQL), args...)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to update state of identity %s to %d", dbUser.Name, state)
+	}
+
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "db.RowsAffected failed")
+	}
+
+	if numRowsAffected == 0 {
+		return errors.Errorf("No rows were affected when updating the state of identity %s", dbUser.Name)
+	}
+
+	if numRowsAffected != 1 {
+		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, dbUser.Name)
+	}
+
+	log.Debugf("Successfully incremented state for identity %s to %d", dbUser.Name, state)
 	return nil
 }

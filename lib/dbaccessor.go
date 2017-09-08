@@ -356,9 +356,6 @@ func (u *DBUser) GetName() string {
 
 // Login the user with a password
 func (u *DBUser) Login(pass string, caMaxEnrollments int) error {
-	var stateUpdateSQL string
-	var args []interface{}
-
 	log.Debugf("DB: Login user %s with max enrollments of %d and state of %d", u.Name, u.MaxEnrollments, u.State)
 
 	// Check the password by comparing to stored hash
@@ -387,37 +384,6 @@ func (u *DBUser) Login(pass string, caMaxEnrollments int) error {
 	if u.MaxEnrollments != -1 && u.State >= u.MaxEnrollments {
 		return errors.Errorf("The identity %s has already enrolled %d times, it has reached its maximum enrollment allowance", u.Name, u.MaxEnrollments)
 	}
-
-	// Not exceeded, so attempt to increment the count
-	state := u.State + 1
-	args = append(args, u.Name)
-	if u.MaxEnrollments == -1 {
-		// unlimited so no state check
-		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ?)"
-	} else {
-		// state must be less than max enrollments
-		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ? AND state < ?)"
-		args = append(args, u.MaxEnrollments)
-	}
-	res, err := u.db.Exec(u.db.Rebind(stateUpdateSQL), args...)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to update state of identity %s to %d", u.Name, state)
-	}
-
-	numRowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "db.RowsAffected failed")
-	}
-
-	if numRowsAffected == 0 {
-		return errors.Errorf("No rows were affected when updating the state of identity %s", u.Name)
-	}
-
-	if numRowsAffected != 1 {
-		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, u.Name)
-	}
-
-	log.Debugf("Successfully incremented state for identity %s to %d", u.Name, state)
 
 	log.Debugf("DB: identity %s successfully logged in", u.Name)
 
