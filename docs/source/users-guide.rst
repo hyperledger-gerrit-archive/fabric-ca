@@ -1286,6 +1286,45 @@ see https://github.com/hyperledger/fabric/tree/release/core/chaincode/lib/cid/RE
 For an end-to-end sample which demonstrates Attribute-Based Access Control and more,
 see https://github.com/hyperledger/fabric-samples/tree/release/fabric-ca/README.md
 
+Updating Server Configuration
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The fabric-ca server supports updating some of it's configurations dynamically
+from the fabric-ca client. This eliminates the need to restart the server if a
+configuration change needs to be made. 
+
+Identities and affiliations are currently the two properties on the server
+that support dynamic updating. Updating the server’s configuration from the
+fabric-ca client will require the client identity to possess a certain attribute
+(hf.ModifyConfig) when updating affiliations, which indicates that it has permissions
+to modify the configuration settings on the server. The identity will only be able to
+add affiliations that are hierarchical below it’s own affiliation. However, there are
+other cases where other attributes will be required. When dealing with identity
+modification the invoking identity must have the ‘hf.Registrar.Role’ attribute,
+for identity modification ‘hf.ModifyConfig’ won’t be necessary as ‘hf.Registrar.Role’
+indicates that this user has the ability to add users thus to modify/remove them as well. 
+
+Three functions will be supported for making changes to the server’s configuration.
+Users will be able to add, remove, and modify configurations. A fourth function (list)
+will list all the configuration options that are available for dynamic modification.
+
+.. code:: bash
+
+    fabric-ca-client servercfg add registry.identities:{id: user1, affiliation: org1, type: user}
+    remove registry.identities.user2 modify registry.identities.user3.type:user add affiliations:org1.dept1
+    remove affiliations.org1
+
+Breakdown:
+
+- **add registry.identities:{id: user1, affiliation: org1, type: user}** = This will add a new identity
+  to the registry. The key here is ‘registry.identities’ the value to for this key is a JSON string
+  describing the identity.
+- **remove registry.identities.user2** = This will remove user2 from the registry. The last element
+  in this string is the identity name.
+- **modify registry.identities.user3.type:user** = This will modify user3’s type and update it to ‘user’.
+- **add affiliations:org1.dept1** = This will add a new affiliation called ‘org1.dept1’. 
+- **remove affiliations.org1** = This will remove org1 and any sub affiliations
+
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
