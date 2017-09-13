@@ -16,6 +16,7 @@ Fabric-CA Client's CLI
       reenroll    Reenroll an identity
       register    Register an identity
       revoke      Revoke an identity
+      servercfg   Update server's configuration
       version     Prints Fabric CA Client version
     
     Flags:
