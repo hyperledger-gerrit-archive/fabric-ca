@@ -45,6 +45,7 @@ const (
 	revoke    = "revoke"
 	getcacert = "getcacert"
 	gencsr    = "gencsr"
+	config    = "cfg"
 )
 
 // ClientCmd encapsulates cobra command that provides command line interface
@@ -124,7 +125,8 @@ func (c *ClientCmd) init() {
 		c.newReenrollCommand(),
 		c.newRevokeCommand(),
 		c.newGetCACertCommand(),
-		c.newGenCsrCommand())
+		c.newGenCsrCommand(),
+		c.newCfgCommand())
 	c.rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Prints Fabric CA Client version",

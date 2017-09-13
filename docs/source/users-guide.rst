@@ -1286,6 +1286,130 @@ see https://github.com/hyperledger/fabric/tree/release/core/chaincode/lib/cid/RE
 For an end-to-end sample which demonstrates Attribute-Based Access Control and more,
 see https://github.com/hyperledger/fabric-samples/tree/release/fabric-ca/README.md
 
+Dynamic Server Configuration Update
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The fabric-ca server supports updating some of its configurations dynamically
+from the fabric-ca client. This eliminates the need to restart the server if a
+configuration change needs to be made. 
+
+Three functions will be supported for making changes to the server’s configuration.
+Users will be able to add, remove, and modify configurations. 
+
+Identities and affiliations are currently the two types of configuration settings on the server
+that support dynamic updating. Two server side configurations control whether the removing
+of affiliations and/or identities is allowed. Affiliations can only be deleted if deletion of
+users is allowed.
+
+Affiliations
+^^^^^^^^^^^^^
+
+Updating fabric-ca server’s affiliation configuration from the fabric-ca client will require
+the client identity to possess the attribute 'hf.AffiliationMgr'. The identity will only be able to
+add affiliations that are hierarchically below it’s own affiliation. Removing an affiliation will
+remove all identities that are part of that affiliation and revoke their respective certificates.
+
+Add:
+"""""
+
+.. code:: bash
+
+    fabric-ca-client servercfg add affiliations.org1.dept1
+
+- **add affiliations.org1.dept1**: This will add a new affiliation called ‘org1.dept1’.``
+
+Remove:
+"""""""
+
+.. code:: bash
+
+    fabric-ca-client servercfg remove affiliations.org2
+
+- **remove affiliations.org2**: This will remove org2 and any sub affiliations.
+
+Modify:
+""""""""
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify affiliations.org1=org2 
+
+- **modify affiliations.org1=org2**: This will rename org1 to org2, and will remove any
+  affiliations that are hierarchically below org1 such as 'org1.dept1'.
+
+Identities
+^^^^^^^^^^^
+
+Updating fabric-ca server’s identity configuration from the fabric-ca client will require
+the client identity to possess the attribute 'hf.Registrar.Roles'. Removing an identity will
+revoke the respective identity certificates.
+
+Add:
+"""""
+
+.. code:: bash
+
+    fabric-ca-client servercfg add registry.identities={id: user1, affiliation: org1, type: user}
+
+- **add registry.identities:{id: user1, affiliation: org1, type: user}**: This will add a new identity
+  to the registry. The key here is ‘registry.identities’ the value to for this key is a JSON string
+  describing the identity.
+
+Remove:
+""""""""
+
+.. code:: bash
+
+    fabric-ca-client servercfg remove registry.identities.user2
+
+- **remove registry.identities.user2**: This will remove user2 from the registry. The last element
+  in this string is the identity name.
+
+Modify:
+"""""""""
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user3.type=user
+
+- **modify registry.identities.user3.type=user**: This is type of identity
+  (e.g. 'peer, app, user'). This command will modify user3’s type and update it to ‘user’.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user3.secret=newsecret
+
+- **modify registry.identities.user3.secret=newsecret**: The enrollment secret for the identity.
+  This command will modify user3’s secret and update it to 'newsecret'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user3.maxenrollments=5
+
+- **modify registry.identities.user3.maxenrollments=5**: The maximum number of times the secret can be reused to enroll.
+  This command will modify user3’s max enrollments and update it to 5.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user3.affiliation=orgNew
+
+- **modify registry.identities.user3.affiliation=orgNew**: The affiliation of the identity. 
+  This command will modify user3’s affiliation and update it to 'orgNew'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user3.attribute.hf.Revoker=false
+
+- **modify registry.identities.user3.hf.Revoker=false**: This will modify user3’s attribute 'hf.Revoker' and update it to
+  be false. If the attribute does not exist it will be created. 
+
+All three actions (add, remove, and modify) can also be used in a single command. For example, 
+
+.. code:: bash
+
+    fabric-ca-client servercfg add registry.identities={id: user1, affiliation: org1, type: user}
+    remove registry.identities.user2 odify registry.identities.user3.type=user
+
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
