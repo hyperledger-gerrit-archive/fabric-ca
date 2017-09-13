@@ -17,6 +17,8 @@ limitations under the License.
 package api
 
 import (
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -163,6 +165,19 @@ type GenCRLRequest struct {
 // GenCRLResponse represents a response to get CRL
 type GenCRLResponse struct {
 	CRL string
+}
+
+// UpdateConfigRequest is a request to modify the server's configuration
+type UpdateConfigRequest struct {
+	Update []string
+}
+
+func (uc UpdateConfigRequest) String() string {
+	re := regexp.MustCompile(`("secret": )([^,}]+)`)
+	for i := range uc.Update {
+		uc.Update[i] = re.ReplaceAllString(uc.Update[i], `"secret": ****`)
+	}
+	return strings.Join(uc.Update, " ")
 }
 
 // CSRInfo is Certificate Signing Request (CSR) Information

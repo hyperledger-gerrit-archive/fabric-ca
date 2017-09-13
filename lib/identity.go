@@ -199,6 +199,20 @@ func (i *Identity) GenCRL(req *api.GenCRLRequest) (*api.GenCRLResponse, error) {
 	return &result, nil
 }
 
+// UpdateServerConfig dynamically updates the server's config
+func (i *Identity) UpdateServerConfig(req *api.UpdateConfigRequest) error {
+	log.Debugf("Update server's configuration request: %+v", req)
+	reqBody, err := util.Marshal(req, "UpdateServerConfigRequest")
+	if err != nil {
+		return err
+	}
+	err = i.Post("update", reqBody, nil)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Store writes my identity info to disk
 func (i *Identity) Store() error {
 	if i.client == nil {

@@ -17,6 +17,7 @@ function checkPasswd() {
           ldap) passwd=$(egrep -io "ldap.*@" $LOGFILE| awk -v FS=[:@] '{print $(NF-1)}') ;;
          mysql) passwd=$(egrep -o "[a-z0-9*]+@tcp" $LOGFILE| awk -v FS=@ '{print $(NF-1)}') ;;
       postgres) passwd=$(egrep -o "password=[^ ]+ " $LOGFILE| awk -F '=' '{print $2}') ;;
+      servercfg) passwd=$(egrep -o "(\"secret\": )([^,}]+)" $LOGFILE| awk -F':' '{print $2}') ;;
    esac
 
    # Fail if password is empty
@@ -55,6 +56,7 @@ SCRIPTDIR="$FABRIC_CA/scripts/fvt"
 
 export CA_CFG_PATH="$TESTDIR"
 export FABRIC_CA_SERVER_HOME="$TESTDIR"
+export FABRIC_CA_CLIENT_HOME=$CA_CFG_PATH/admin
 LOGFILE=$FABRIC_CA_SERVER_HOME/log.txt
 
 USER=administrator
@@ -79,6 +81,11 @@ for server in ldap mysql postgres; do
    $SCRIPTDIR/fabric-ca_setup.sh -S >> $LOGFILE 2>&1
    test ${PIPESTATUS[0]} -eq 0 && checkPasswd "$PSWD" $server || ErrorMsg "Init of CA failed"
 done
+
+$SCRIPTDIR/fabric-ca_setup.sh -I -X -S -D 
+enroll
+fabric-ca-client servercfg add registry.identities="{\"id\": \"testuser1\", \"secret\": \"$PSWD\"}" add registry.identities="{\"id\": \"testuser2\", \"secret\": \"$PSWD\"}" -d 2>&1 | tee $LOGFILE
+checkPasswd "testpass" servercfg || ErrorMsg "Failed to mask secret on client side for 'servercfg' command"
 
 CleanUp $RC
 exit $RC
