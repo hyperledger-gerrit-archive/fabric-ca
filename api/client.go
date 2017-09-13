@@ -156,6 +156,11 @@ type GenCRLResponse struct {
 	CRL string
 }
 
+// UpdateConfigRequest is a request to modify the server's configuration
+type UpdateConfigRequest struct {
+	Update []string
+}
+
 // CSRInfo is Certificate Signing Request (CSR) Information
 type CSRInfo struct {
 	CN           string               `json:"CN"`

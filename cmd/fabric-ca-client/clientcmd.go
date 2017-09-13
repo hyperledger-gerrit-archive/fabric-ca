@@ -45,6 +45,7 @@ const (
 	revoke    = "revoke"
 	getcacert = "getcacert"
 	gencsr    = "gencsr"
+	config    = "cfg"
 )
 
 type crlArgs struct {
@@ -137,7 +138,8 @@ func (c *ClientCmd) init() {
 		c.newRevokeCommand(),
 		c.newGetCACertCommand(),
 		c.newGenCsrCommand(),
-		c.newGenCRLCommand())
+		c.newGenCRLCommand(),
+		c.newCfgCommand())
 	c.rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Prints Fabric CA Client version",

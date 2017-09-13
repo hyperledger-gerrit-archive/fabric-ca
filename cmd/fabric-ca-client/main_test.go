@@ -1321,7 +1321,29 @@ func TestHomeDirectory(t *testing.T) {
 	if !util.FileExists("../../testdata/testhome/testclientcmd3/testconfig3.yaml") {
 		t.Errorf("Failed to correctly created the config (testconfig3.yaml) in the '../../testdata/testhome/testclientcmd3' directory")
 	}
+}
 
+func TestCfgCommand(t *testing.T) {
+	os.RemoveAll("cfgtest")
+	defer os.RemoveAll("cfgtest")
+	var err error
+
+	srv := lib.TestGetServer(serverPort, "cfgtest", "", -1, t)
+
+	err = srv.Start()
+	assert.NoError(t, err, "Failed to start server")
+
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	assert.NoError(t, err, "Failed to enroll user")
+
+	// Expected to fail for right now as no handler exists on server
+	err = RunMain([]string{cmdName, "servercfg", "add", "configOpt1:Val1", "add", "configOpt2:Val2"})
+	if assert.Error(t, err, "Failed to update server's configuration") {
+		assert.Contains(t, err.Error(), "404 page not found")
+	}
+
+	err = srv.Stop()
+	assert.NoError(t, err, "Failed to stop server")
 }
 
 func TestCleanUp(t *testing.T) {
