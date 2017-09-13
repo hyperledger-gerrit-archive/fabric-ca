@@ -9,6 +9,7 @@ Fabric-CA Client's CLI
       fabric-ca-client [command]
     
     Available Commands:
+      cfg         Update server's configuration
       enroll      Enroll an identity
       gencsr      Generate a CSR
       getcacert   Get CA certificate chain
@@ -40,6 +41,10 @@ Fabric-CA Client's CLI
       -e, --revoke.name string             Identity whose certificates should be revoked
       -r, --revoke.reason string           Reason for revocation
       -s, --revoke.serial string           Serial number of the certificate to be revoked
+          --servercfg.add stringSlice      Add to the server's configuration
+          --servercfg.list                 List all server configurations that can be updated
+          --servercfg.modify stringSlice   Modify server's configuration
+          --servercfg.remove stringSlice   Remove from the server's configuration
           --tls.certfiles stringSlice      A list of comma-separated PEM-encoded trusted certificate files (e.g. root1.pem,root2.pem)
           --tls.client.certfile string     PEM-encoded certificate file when mutual authenticate is enabled
           --tls.client.keyfile string      PEM-encoded key file when mutual authentication is enabled

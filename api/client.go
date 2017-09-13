@@ -142,6 +142,14 @@ type GetCAInfoRequest struct {
 	CAName string `json:"caname,omitempty" skip:"true"`
 }
 
+// UpdateConfigRequest is a request to modify the server's configuration
+type UpdateConfigRequest struct {
+	Add    []string `help:"Add to the server's configuration"`
+	Remove []string `help:"Remove from the server's configuration"`
+	Modify []string `help:"Modify server's configuration"`
+	List   bool     `help:"List all server configurations that can be updated"`
+}
+
 // CSRInfo is Certificate Signing Request (CSR) Information
 type CSRInfo struct {
 	CN           string               `json:"CN"`

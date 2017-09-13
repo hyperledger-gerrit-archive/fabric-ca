@@ -254,6 +254,9 @@ func (c *ClientCmd) configInit() error {
 		sliceFields := []string{
 			"csr.hosts",
 			"tls.certfiles",
+			"servercfg.modify",
+			"servercfg.add",
+			"servercfg.remove",
 		}
 		err = util.ViperUnmarshal(c.clientCfg, sliceFields, c.myViper)
 		if err != nil {

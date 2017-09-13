@@ -42,6 +42,7 @@ type ClientConfig struct {
 	CAInfo     api.GetCAInfoRequest
 	CAName     string               `help:"Name of CA"`
 	CSP        *factory.FactoryOpts `mapstructure:"bccsp"`
+	ServerCfg  api.UpdateConfigRequest
 }
 
 // Enroll a client given the server's URL and the client's home directory.
