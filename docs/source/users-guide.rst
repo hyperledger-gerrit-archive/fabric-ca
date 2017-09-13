@@ -1286,6 +1286,158 @@ see https://github.com/hyperledger/fabric/tree/release/core/chaincode/lib/cid/RE
 For an end-to-end sample which demonstrates Attribute-Based Access Control and more,
 see https://github.com/hyperledger/fabric-samples/tree/release/fabric-ca/README.md
 
+Dynamic Server Configuration Update
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+This section describes how to use fabric-ca-client to dynamically update portions
+of the fabric-ca-server's configuration without restarting the server.
+
+All commands in this section require that you first be enrolled by executing the
+`fabric-ca-client enroll` command.
+
+Dynamically updating affiliations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section describes how to use fabric-ca-client to dynamically update affiliations.
+
+An authorization failure will occur if the client identity does not satisfy all of the following:
+
+  - The client identity must possess the attribute 'hf.AffiliationMgr' with a value of 'true'.
+  - The affiliation of the client identity must be hierarchically above the affiliation being updated.
+    For example, if the client's affiliation is "a.b", the client may update affiliation "a.b.c" but not
+    "a" or "a.b".
+
+The following shows how to add, modify, and remove an affiliation.
+
+Adding an affiliation
+"""""""""""""""""""""""
+
+The following adds a new affiliation named ‘org1.dept1’.
+Note that 'affiliations.org1.dept1' is the path to the element being added in the
+fabric-ca-server-config.yaml file.
+
+.. code:: bash
+
+    fabric-ca-client servercfg add affiliations.org1.dept1
+
+Modifying an affiliation
+"""""""""""""""""""""""""
+
+The following renames the 'org1' affiliation to 'org2'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify affiliations.org1=org2 
+
+Removing an affiliation
+"""""""""""""""""""""""""
+
+The following removes affiliation 'org2' and also any sub affiliations.
+For example, if 'org2.dept1' is an affiliation below 'org2', it is also removed.
+
+Warning: Removing an affiliation also removes all identities that are associated with that affiliation,
+and also revokes all certificates associated with any of these identities.
+
+.. code:: bash
+
+    fabric-ca-client servercfg remove affiliations.org2
+
+Note: Removal of affiliations is disabled in the fabric-ca-server by default, but may be enabled
+by starting the fabric-ca-server with the `--allowremove.affiliations` option.
+
+Dynamically updating identities
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section describes how to use fabric-ca-client to dynamically update identities.
+
+An authorization failure will occur if the client identity does not satisfy all of the following:
+
+ - The client identity must possess the "hf.Registrar.Roles" attribute with a comma-separated list of
+   values where one of the values equals the type of identity being updated; for example, if the client's
+   identity has the "hf.Registrar.Roles" attribute with a value of "peer,app,user", the client can update
+   identities of type 'peer', 'app', and 'user', but not 'orderer'.
+
+ - The affiliation of the client's identity must be equal to or a prefix of
+   the affiliation of the identity being updated.  For example, a client
+   with an affiliation of "a.b" may update an identity with an affiliation
+   of "a.b.c" but may not update an identity with an affiliation of "a.c".
+   If root affiliation is required for an identity, then the update request
+   should specify a dot (".") for the affiliation and the client must also have
+   root affiliation.
+
+The following shows how to add, modify, and remove an affiliation.
+
+Adding an identity
+"""""""""""""""""""
+
+The following adds a new identity for 'user1'.  The 'registry.identities' is the path in the
+fabric-ca-server's identities section.  The portion to the right of the '=' is a JSON representation
+of an identity's entry.  The sample demonstrates all possible JSON fields though the following are
+optional: 'secret', 'maxenrollments', and 'attrs'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg add 'registry.identities={"id": "user1", "secret": "user1pw", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name:": "hf.Revoker", "value": "true"}]}'
+
+The following adds a user with root affiliation.
+
+.. code:: bash
+
+    fabric-ca-client servercfg add 'registry.identities={"id": "user1", "secret": "user1pw", "type": "user", "affiliation": ".", "max_enrollments": 1, "attrs": [{"name:": "hf.Revoker", "value": "true"}]}'
+
+Modifying an identity
+""""""""""""""""""""""
+
+The following updates the enrollment secret (or password) for identity 'user1' to 'newsecret'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user1.secret=newsecret
+
+The following updates the affiliation of identity 'user1' to 'org2'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user1.affiliation=org2
+
+The following updates the maxenrollments of identity 'user1' to 5.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user1.maxenrollments=5
+
+The following sets the value of the 'hf.Revoker' attribute for identity 'user1' to 'false'.
+If the identity has other attributes, they are not changed.  If the identity did not previously
+possess the 'hf.Revoker' attribute, the attribute is added to the identity.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify 'registry.identities.user1.attrs={"name": "hf.Revoker", "value": "false"}'
+
+Removing an identity
+"""""""""""""""""""""
+
+The following removes identity 'user1' and also revokes any certificates associated with the 'user1' identity.
+
+.. code:: bash
+
+    fabric-ca-client servercfg remove registry.identities.user1
+
+Note: Removal of identities is disabled in the fabric-ca-server by default, but may be enabled
+by starting the fabric-ca-server with the `--allowremove.identities` option.
+
+Performing multiple updates
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Multiple update commands may be issued in a single invocation of `fabric-ca-client servercfg`.  They are always performed
+in the order that they are listed on the command line.
+
+For example, the following adds affiliation 'org1.dept3' and then adds identity 'user2' with this affiliation.
+
+.. code:: bash
+
+    fabric-ca-client servercfg add affiliations.org1.dept3 add 'register.identities={"id":"user2","type":"user","affiliation":"org1.dept3"}'
+
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
