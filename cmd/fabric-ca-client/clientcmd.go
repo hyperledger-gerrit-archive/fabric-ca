@@ -137,7 +137,8 @@ func (c *ClientCmd) init() {
 		c.newRevokeCommand(),
 		c.newGetCACertCommand(),
 		c.newGenCsrCommand(),
-		c.newGenCRLCommand())
+		c.newGenCRLCommand(),
+		c.newServerCfgCommand())
 	c.rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Prints Fabric CA Client version",
