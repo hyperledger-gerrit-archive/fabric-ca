@@ -16,6 +16,7 @@ limitations under the License.
 package lib
 
 import (
+	"flag"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -35,9 +36,14 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	// Will prevent log messages from priting to stdout and stderr
-	// Comment this out to see log messages
-	log.SetOutput(ioutil.Discard)
+	flag.Parse()
+	bench := flag.CommandLine.Lookup("test.bench")
+	if bench.Value.String() != "" {
+		// For benchmarks, will prevent log messages from
+		// printing to stdout and stderr
+		// Comment this out to see log messages
+		log.SetOutput(ioutil.Discard)
+	}
 	os.Exit(m.Run())
 }
 
