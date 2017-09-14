@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Keith Smith <keithsmithlfid@gmail.com>
+Code-Review+2: Jason Yellick <jyellick@us.ibm.com>
+Submitted-by: Jason Yellick <jyellick@us.ibm.com>
+Submitted-at: Thu, 14 Sep 2017 21:38:15 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/12837
+Project: fabric-ca
+Branch: refs/heads/master
