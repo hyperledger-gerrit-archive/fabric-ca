@@ -27,6 +27,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -410,6 +411,50 @@ func TestMOption(t *testing.T) {
 	assertOneFileInDir(path.Join(homedir, mspdir, "keystore"), t)
 	assertOneFileInDir(path.Join(homedir, mspdir, "cacerts"), t)
 	assertOneFileInDir(path.Join(homedir, mspdir, "intermediatecerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "tlscacerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "tlsintermediatecerts"), t)
+
+	validCertsInDir(path.Join(homedir, mspdir), t)
+}
+
+// Checks to see if root and intermediate certificate are correctly getting stored in their respective directories
+func validCertsInDir(dir string, t *testing.T) {
+	files, err := ioutil.ReadDir(filepath.Join(dir, "cacerts"))
+	assert.NoError(t, err, "Failed to read directory")
+
+	file := files[0].Name()
+	rootCertPath := filepath.Join(dir, "cacerts", file)
+	rootcert, err := util.GetX509CertificateFromPEMFile(rootCertPath)
+	assert.NoError(t, err, "Failed to read cert file")
+
+	if !reflect.DeepEqual(rootcert.Subject, rootcert.Issuer) {
+		t.Errorf("Not a valid root certificate '%s' stored in the 'cacerts' directory", rootCertPath)
+	}
+
+	interCertPath := filepath.Join(dir, "intermediatecerts", file)
+	intercert, err := util.GetX509CertificateFromPEMFile(interCertPath)
+	assert.NoError(t, err, "Failed to read intermediate cert file")
+
+	if reflect.DeepEqual(intercert.Issuer, rootcert.Subject) && reflect.DeepEqual(intercert.Subject, intercert.Issuer) {
+		t.Errorf("Not a valid intermediate certificate '%s' stored in 'intermediatecerts' directory", interCertPath)
+	}
+
+	tlsFile := fmt.Sprintf("TLS-%s", file)
+	tlsRootCertPath := filepath.Join(dir, "tlscacerts", tlsFile)
+	tlscertroot, err := util.GetX509CertificateFromPEMFile(tlsRootCertPath)
+	assert.NoError(t, err, "Failed to read cert file")
+
+	if !reflect.DeepEqual(tlscertroot.Subject, tlscertroot.Issuer) {
+		t.Errorf("Not a valid root tls certificate '%s' stored in the 'tlscacerts' directory", tlsRootCertPath)
+	}
+
+	tlsInterCertPath := filepath.Join(dir, "tlsintermediatecerts", tlsFile)
+	tlsintercert, err := util.GetX509CertificateFromPEMFile(tlsInterCertPath)
+	assert.NoError(t, err, "Failed to read intermediate cert file")
+
+	if reflect.DeepEqual(tlsintercert.Issuer, tlscertroot.Subject) && reflect.DeepEqual(tlsintercert.Subject, tlsintercert.Issuer) {
+		t.Errorf("Not a valid intermediate tls certificate '%s' stored in 'tlsintermediatecerts' directory", tlsInterCertPath)
+	}
 }
 
 // TestReenroll tests fabric-ca-client reenroll
