@@ -35,9 +35,11 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	// Will prevent log messages from priting to stdout and stderr
-	// Comment this out to see log messages
-	log.SetOutput(ioutil.Discard)
+	if os.Getenv("FABRIC_CA_BENCHMARKS_LOG_DISCARD") == "true" {
+		// Prevent log messages from printing to stdout and
+		// stderr when this env var is set to true
+		log.SetOutput(ioutil.Discard)
+	}
 	os.Exit(m.Run())
 }
 
