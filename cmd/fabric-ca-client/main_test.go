@@ -409,6 +409,8 @@ func TestMOption(t *testing.T) {
 	assertOneFileInDir(path.Join(homedir, mspdir, "keystore"), t)
 	assertOneFileInDir(path.Join(homedir, mspdir, "cacerts"), t)
 	assertOneFileInDir(path.Join(homedir, mspdir, "intermediatecerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "tlscacerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "tlsintermediatecerts"), t)
 }
 
 // TestReenroll tests fabric-ca-client reenroll
