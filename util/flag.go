@@ -83,6 +83,7 @@ func (fr *flagRegistrar) Register(f *Field) (err error) {
 	opt := fr.getTag(f, TagOpt)
 	def := fr.getTag(f, TagDefault)
 	switch f.Kind {
+
 	case reflect.String:
 		if help == "" {
 			return errors.Errorf("Field is missing a help tag: %s", f.Path)

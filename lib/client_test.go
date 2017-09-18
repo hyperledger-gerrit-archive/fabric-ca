@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
@@ -181,446 +182,6 @@ func TestCLIClient(t *testing.T) {
 	server.Stop()
 
 	testWhenServerIsDown(c, t)
-
-}
-
-func testGetCAInfo(c *Client, t *testing.T) {
-	req := &api.GetCAInfoRequest{}
-	si, err := c.GetCAInfo(req)
-	if err != nil {
-		t.Fatalf("Failed to get server info: %s", err)
-	}
-	if si == nil {
-		t.Fatal("Server info is nil")
-	}
-
-	client2 := new(Client)
-	client2.Config = new(ClientConfig)
-	client2.Config.MSPDir = string(make([]byte, 1))
-	si, err = client2.GetCAInfo(req)
-	t.Logf("GetCAInfo error %v", err)
-	if err == nil {
-		t.Errorf("Should have failed to get server info")
-	}
-
-	client2.Config.MSPDir = ""
-	client2.Config.URL = "http://localhost:["
-	si, err = client2.GetCAInfo(req)
-	t.Logf("GetCAInfo error %v", err)
-	if err == nil {
-		t.Errorf("Should have failed due to invalid URL")
-	}
-
-	client2.Config.MSPDir = ""
-	client2.Config.URL = ""
-	client2.Config.TLS.Enabled = true
-	si, err = client2.GetCAInfo(req)
-	t.Logf("GetCAInfo error %v", err)
-	if err == nil {
-		t.Errorf("Should have failed due to invalid TLS config")
-	}
-}
-
-func testRegister(c *Client, t *testing.T) {
-
-	// Enroll admin
-	enrollReq := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	}
-
-	err := c.CheckEnrollment()
-	t.Logf("CheckEnrollment error %v", err)
-	if err == nil {
-		t.Fatalf("testRegister check enrollment should have failed - client not enrolled")
-	}
-
-	eresp, err := c.Enroll(enrollReq)
-	if err != nil {
-		t.Fatalf("testRegister enroll of admin failed: %s", err)
-	}
-
-	adminID = eresp.Identity
-
-	err = adminID.Store()
-	if err != nil {
-		t.Fatalf("testRegister failed to store admin identity: %s", err)
-	}
-
-	// Verify that the duration of the newly created enrollment certificate is 1 year
-	d, err := util.GetCertificateDurationFromFile(c.GetCertFilePath())
-	if assert.NoError(t, err) {
-		assert.True(t, d.Hours() == 8760, "Expecting 8760 but found %f", d.Hours())
-	}
-
-	err = c.CheckEnrollment()
-	if err != nil {
-		t.Fatalf("testRegister failed to check enrollment: %s", err)
-	}
-
-	// Register as admin
-	registerReq := &api.RegistrationRequest{
-		Name:           "MyTestUser",
-		Type:           "Client",
-		Affiliation:    "hyperledger",
-		MaxEnrollments: 1,
-	}
-
-	resp, err := adminID.Register(registerReq)
-	if err != nil {
-		t.Fatalf("Register failed: %s", err)
-	}
-
-	req := &api.EnrollmentRequest{
-		Name:   "MyTestUser",
-		Secret: resp.Secret,
-	}
-
-	eresp, err = c.Enroll(req)
-	if err != nil {
-		t.Fatalf("Enroll failed: %s", err)
-	}
-	id := eresp.Identity
-
-	if id.GetName() != "MyTestUser" {
-		t.Fatal("Incorrect name retrieved")
-	}
-
-	if id.GetECert() == nil {
-		t.Fatal("No ECert was returned")
-	}
-
-	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
-	if err != nil {
-		t.Fatal("Failed to get batch of TCerts")
-	}
-
-	// Test registration and enrollment of an identity with attributes
-	userName := "MyTestUserWithAttrs"
-	registerReq = &api.RegistrationRequest{
-		Name:        userName,
-		Type:        "Client",
-		Affiliation: "hyperledger",
-		Attributes: []api.Attribute{
-			api.Attribute{Name: "attr1", Value: "val1"},
-			api.Attribute{Name: "attr2", Value: "val2"},
-		},
-	}
-	resp, err = adminID.Register(registerReq)
-	if err != nil {
-		t.Fatalf("Register of %s failed: %s", userName, err)
-	}
-	// Request an ECert with attr1 but without attr2.
-	req = &api.EnrollmentRequest{
-		Name:   userName,
-		Secret: resp.Secret,
-		AttrReqs: []*api.AttributeRequest{
-			&api.AttributeRequest{Name: "attr1", Require: true},
-		},
-	}
-	eresp, err = c.Enroll(req)
-	if err != nil {
-		t.Fatalf("Enroll with attributes failed: %s", err)
-	}
-	// Verify that the ECert's attributes have correct values for "attr1"
-	// and "attr2" and that "attr3" is not found.
-	attrs, err := eresp.Identity.GetECert().Attributes()
-	if err != nil {
-		t.Fatalf("%s", err)
-	}
-	checkAttrResult(t, "attr1", "val1", attrs)
-	checkAttrResult(t, "attr2", "", attrs)
-	// Request an ECert with an attribute that the identity does not have (attr4)
-	// but we say that it is required.  This should result in an error.
-	req = &api.EnrollmentRequest{
-		Name:   userName,
-		Secret: resp.Secret,
-		AttrReqs: []*api.AttributeRequest{
-			&api.AttributeRequest{Name: "attr1"},
-			&api.AttributeRequest{Name: "attr3", Require: true},
-		},
-	}
-	eresp, err = c.Enroll(req)
-	if err == nil {
-		t.Fatalf("Enroll should have failed because %s does not have attr3", userName)
-	}
-}
-
-func checkAttrResult(t *testing.T, name, val string, attrs *attrmgr.Attributes) {
-	v, ok, err := attrs.Value(name)
-	if assert.NoError(t, err) {
-		if val == "" {
-			assert.False(t, ok, "attribute '%s' was found", name)
-		} else if assert.True(t, ok, "attribute '%s' was not found", name) {
-			assert.True(t, v == val, "invalid value of attribute '%s'; expecting '%s' but found '%s'", name, val, v)
-		}
-	}
-}
-
-func testEnrollIncorrectPassword(c *Client, t *testing.T) {
-
-	req := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "incorrect",
-	}
-
-	_, err := c.Enroll(req)
-	if err == nil {
-		t.Error("Enroll with incorrect password passed but should have failed")
-	}
-}
-
-func testDoubleEnroll(c *Client, t *testing.T) {
-
-	req := &api.EnrollmentRequest{
-		Name:   "testUser",
-		Secret: "user1",
-	}
-
-	_, err := c.Enroll(req)
-	if err == nil {
-		t.Error("Double enroll should have failed but passed")
-	}
-
-}
-
-func testEnrollMiscFailures(c *Client, t *testing.T) {
-	req := &api.EnrollmentRequest{
-		Name:   "testUser",
-		Secret: "user1",
-	}
-
-	c.Config.URL = "http://localhost:["
-	_, err := c.Enroll(req)
-	t.Logf("Client Enroll error %v", err)
-	if err == nil {
-		t.Error("Enroll should have failed due to URL error")
-	}
-
-	c.Config.URL = ""
-	var r api.CSRInfo
-	var k csr.BasicKeyRequest
-	var n csr.Name
-	k.A = "dsa"
-	k.S = 256
-	n.C = "US"
-
-	r.KeyRequest = &k
-	r.Names = []csr.Name{n}
-	r.Hosts = []string{"host"}
-	r.KeyRequest = &k
-	req.CSR = &r
-	_, err = c.Enroll(req)
-	t.Logf("Client Enroll error %v", err)
-	if err == nil {
-		t.Error("Enroll should have failed due to invalid CSR algo")
-	}
-}
-
-func testReenroll(c *Client, t *testing.T) {
-	id, err := c.LoadMyIdentity()
-	if err != nil {
-		t.Errorf("testReenroll: failed LoadMyIdentity: %s", err)
-		return
-	}
-	eresp, err := id.Reenroll(&api.ReenrollmentRequest{})
-	if err != nil {
-		t.Errorf("testReenroll: failed reenroll: %s", err)
-		return
-	}
-	id = eresp.Identity
-	err = id.Store()
-	if err != nil {
-		t.Errorf("testReenroll: failed Store: %s", err)
-	}
-}
-
-func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bool) {
-	rr := &api.RegistrationRequest{
-		Name:           user,
-		Type:           "user",
-		Affiliation:    "hyperledger",
-		MaxEnrollments: 1,
-	}
-	if withPriv {
-		rr.Attributes = []api.Attribute{api.Attribute{Name: "hf.Revoker", Value: "true"}}
-	}
-	resp, err := adminID.Register(rr)
-	if err != nil {
-		t.Fatalf("Failed to register %s: %s", user, err)
-	}
-	req := &api.EnrollmentRequest{
-		Name:   user,
-		Secret: resp.Secret,
-	}
-	eresp, err := c.Enroll(req)
-	if err != nil {
-		t.Errorf("enroll of user '%s' failed", user)
-		return
-	}
-	id := eresp.Identity
-	if ecertOnly {
-		err = id.GetECert().RevokeSelf()
-	} else {
-		err = id.RevokeSelf()
-	}
-	if withPriv && err != nil {
-		t.Errorf("testRevocation failed for user %s: %s", user, err)
-		return
-	} else if !withPriv && err == nil {
-		t.Errorf("testRevocation for user %s passed but should have failed", user)
-		return
-	}
-
-	if withPriv {
-		eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
-		if err == nil {
-			t.Errorf("user ecert %s enrolled but ecert should have been revoked", user)
-		}
-		if !ecertOnly {
-			eresp, err = c.Enroll(req)
-			if err == nil {
-				t.Errorf("user %s enrolled but should have been revoked", user)
-			}
-		}
-	}
-}
-
-func testRevocationErrors(c *Client, t *testing.T) {
-	var revoker = "erroneous_revoker"
-	var user = "etuser"
-
-	// register and enroll revoker
-	rr := &api.RegistrationRequest{
-		Name:           revoker,
-		Type:           "user",
-		Affiliation:    "org2",
-		MaxEnrollments: 1,
-		Attributes:     []api.Attribute{api.Attribute{Name: "hf.Revoker", Value: "true"}},
-	}
-	resp, err := adminID.Register(rr)
-	if err != nil {
-		t.Fatalf("Failed to register %s %s", revoker, err)
-	}
-	req := &api.EnrollmentRequest{
-		Name:   revoker,
-		Secret: resp.Secret,
-	}
-	eresp, err := c.Enroll(req)
-	if err != nil {
-		t.Errorf("enroll of user %s failed", revoker)
-		return
-	}
-	revokerId := eresp.Identity
-
-	// register and enroll test user
-	rr = &api.RegistrationRequest{
-		Name:           user,
-		Type:           "user",
-		Affiliation:    "hyperledger",
-		MaxEnrollments: 1,
-		Attributes:     []api.Attribute{api.Attribute{}},
-	}
-	resp, err = adminID.Register(rr)
-	if err != nil {
-		t.Fatalf("Failed to register %s: %s", user, err)
-	}
-	req = &api.EnrollmentRequest{
-		Name:   user,
-		Secret: resp.Secret,
-	}
-	eresp, err = c.Enroll(req)
-	if err != nil {
-		t.Errorf("enroll of user '%s' failed: %v", user, err)
-		return
-	}
-
-	// Revoke cert that doesn't exist
-	user = "etuser"
-	revreq := &api.RevocationRequest{
-		Name:   user,
-		Serial: "1",
-		AKI:    "1",
-		Reason: "privilegeWithdrawn",
-	}
-
-	id := eresp.Identity
-	err = revokerId.Revoke(revreq)
-	t.Logf("testRevocationErrors revoke error %v", err)
-	if err == nil {
-		t.Errorf("Revocation should have failed")
-	}
-	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
-	t.Logf("testRevocationErrors reenroll error %v", err)
-	if err != nil {
-		t.Errorf("%s renroll failed and ecert should not be revoked", user)
-	}
-
-	// Revoke cert that exists, but doesn't belong to user
-	revreq.Name = "fake"
-	revreq.Serial, revreq.AKI, err = GetCertID(eresp.Identity.GetECert().Cert())
-	t.Logf("Name: %s, Serial: %s, AKI: %s. err, %v", revreq.Name, revreq.Serial, revreq.AKI, err)
-	err = revokerId.Revoke(revreq)
-	t.Logf("testRevocationErrors revoke error %v", err)
-	if err == nil {
-		t.Errorf("Revocation should have failed")
-	}
-	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
-	t.Logf("testRevocationErrors reenroll error %v", err)
-	if err != nil {
-		t.Errorf("%s renroll failed and ecert should not be revoked", user)
-	}
-
-	// Cannot revoke across affiliations
-	revreq.Name = "etuser"
-	revreq.Serial, revreq.AKI, err = GetCertID(eresp.Identity.GetECert().Cert())
-	t.Logf("Name: %s, Serial: %s, AKI: %s. err, %v", revreq.Name, revreq.Serial, revreq.AKI, err)
-	err = revokerId.Revoke(revreq)
-	t.Logf("testRevocationErrors revoke error %v", err)
-	if err == nil {
-		t.Errorf("Revocation should have failed")
-	}
-	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
-	t.Logf("testRevocationErrors reenroll error %v", err)
-	if err != nil {
-		t.Errorf("%s renroll failed and ecert should not be revoked", user)
-	}
-}
-
-func testLoadCSRInfo(c *Client, t *testing.T) {
-	_, err := c.LoadCSRInfo(csrFile)
-	if err != nil {
-		t.Errorf("testLoadCSRInfo failed: %s", err)
-	}
-}
-
-func testLoadNoCSRInfo(c *Client, t *testing.T) {
-	_, err := c.LoadCSRInfo("nofile")
-	if err == nil {
-		t.Error("testLoadNoCSRInfo passed but should have failed")
-	}
-}
-
-func testLoadBadCSRInfo(c *Client, t *testing.T) {
-	_, err := c.LoadCSRInfo(cfgFile)
-	if err == nil {
-		t.Error("testLoadBadCSRInfo passed but should have failed")
-	}
-}
-
-func testLoadIdentity(c *Client, t *testing.T) {
-	_, err := c.LoadIdentity("foo", "bar")
-	if err == nil {
-		t.Error("testLoadIdentity foo/bar passed but should have failed")
-	}
-	_, err = c.LoadIdentity("foo", "../testdata/ec.pem")
-	if err == nil {
-		t.Error("testLoadIdentity foo passed but should have failed")
-	}
-	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem")
-	if err != nil {
-		t.Errorf("testLoadIdentity failed: %s", err)
-	}
 }
 
 func TestCLICustomizableMaxEnroll(t *testing.T) {
@@ -648,56 +209,77 @@ func TestCLICustomizableMaxEnroll(t *testing.T) {
 	}
 }
 
-func testTooManyEnrollments(t *testing.T) {
-	clientConfig := &ClientConfig{
-		URL: fmt.Sprintf("http://localhost:%d", ctport2),
-	}
+// Test cases for gencrl command
+func TestGenCRL(t *testing.T) {
+	t.Log("Testing genCRL")
 
-	rawURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", ctport2)
-
-	_, err := clientConfig.Enroll(rawURL, testdataDir)
+	serverHome := path.Join(serversDir, "gencrlserver")
+	clientHome := path.Join(tdDir, "gencrlclient")
+	err := os.RemoveAll(serverHome)
 	if err != nil {
-		t.Errorf("Failed to enroll: %s", err)
+		t.Fatalf("Failed to remove directory %s", serverHome)
 	}
-
-	_, err = clientConfig.Enroll(rawURL, testdataDir)
+	err = os.RemoveAll(clientHome)
 	if err != nil {
-		t.Errorf("Failed to enroll: %s", err)
+		t.Fatalf("Failed to remove directory %s", clientHome)
 	}
+	defer os.RemoveAll(serverHome)
+	defer os.RemoveAll(clientHome)
 
-	eresp, err := clientConfig.Enroll(rawURL, testdataDir)
+	srv, adminID := setupGenCRLTest(t, serverHome, clientHome)
+	defer func() {
+		if srv != nil {
+			srv.Stop()
+		}
+	}()
+
+	_, err = adminID.GenCRL(&api.GenCRLRequest{CAName: ""})
+	assert.NoError(t, err, "failed to generate CRL")
+
+	// error cases
+	// Error case 1: gencrl request should fail if there are no revoked certs
+	gencrlReq := &api.GenCRLRequest{
+		CAName:        "",
+		RevokedAfter:  time.Now().UTC().AddDate(0, 1, 0),
+		RevokedBefore: time.Now().UTC().AddDate(0, 2, 0),
+	}
+	_, err = adminID.GenCRL(gencrlReq)
+	assert.Error(t, err, "genCRL should have failed as there are no revoked certs in the specified period")
+	assert.Contains(t, err.Error(), "no revoked certificates found between", "Not expected error message")
+
+	gencrlReq = &api.GenCRLRequest{
+		CAName:        "",
+		RevokedBefore: time.Now().UTC().AddDate(0, 1, 0),
+		RevokedAfter:  time.Now().UTC().AddDate(0, 2, 0),
+	}
+	_, err = adminID.GenCRL(gencrlReq)
+	assert.Error(t, err, "genCRL should have failed as revokedafter timestamp is after revokedbefore timestamp")
+	assert.Contains(t, err.Error(), "invalid revokedafter value", "Not expected error message")
+
+	// Error case 2: gencrl request by an user without hf.GenCRL authority should fail
+	gencrluser := "gencrluser1"
+	rr := &api.RegistrationRequest{
+		Name:           gencrluser,
+		Type:           "user",
+		Affiliation:    "org2",
+		MaxEnrollments: 1,
+	}
+	resp, err := adminID.Register(rr)
 	if err != nil {
-		t.Errorf("Failed to enroll: %s", err)
-	}
-	id := eresp.Identity
-
-	_, err = clientConfig.Enroll(rawURL, testdataDir)
-	if err == nil {
-		t.Errorf("Enroll should have failed, no more enrollments left")
+		t.Fatalf("Failed to register %s: %s", gencrluser, err)
 	}
 
-	id.Store()
-}
-
-func testIncorrectEnrollment(t *testing.T) {
-	c := getTestClient(ctport1)
-
-	id, err := c.LoadMyIdentity()
+	eresp, err := adminID.GetClient().Enroll(&api.EnrollmentRequest{
+		Name:   gencrluser,
+		Secret: resp.Secret,
+	})
 	if err != nil {
-		t.Fatalf("Failed to load identity: %s", err)
+		t.Fatalf("Failed to enroll user %s: %s", gencrluser, err)
 	}
 
-	req := &api.RegistrationRequest{
-		Name:           "TestUser",
-		Type:           "Client",
-		Affiliation:    "hyperledger",
-		MaxEnrollments: 4,
-	}
-
-	_, err = id.Register(req)
-	if err == nil {
-		t.Error("Registration should have failed, can't register user with max enrollment greater than server max enrollment setting")
-	}
+	user1 := eresp.Identity
+	_, err = user1.GenCRL(gencrlReq)
+	assert.Error(t, err, "genCRL should have failed as invoker does not have hf.GenCRL attribute")
 }
 
 func TestCLINormalizeUrl(t *testing.T) {
@@ -1032,6 +614,551 @@ func TestRevokedIdentity(t *testing.T) {
 	}
 }
 
+func TestCLILast(t *testing.T) {
+	// Cleanup
+	os.RemoveAll("../testdata/msp")
+	os.RemoveAll(serversDir)
+	os.RemoveAll("multica")
+	os.RemoveAll("rootDir")
+	os.RemoveAll("msp")
+}
+
+func testGetCAInfo(c *Client, t *testing.T) {
+	req := &api.GetCAInfoRequest{}
+	si, err := c.GetCAInfo(req)
+	if err != nil {
+		t.Fatalf("Failed to get server info: %s", err)
+	}
+	if si == nil {
+		t.Fatal("Server info is nil")
+	}
+
+	client2 := new(Client)
+	client2.Config = new(ClientConfig)
+	client2.Config.MSPDir = string(make([]byte, 1))
+	si, err = client2.GetCAInfo(req)
+	t.Logf("GetCAInfo error %v", err)
+	if err == nil {
+		t.Errorf("Should have failed to get server info")
+	}
+
+	client2.Config.MSPDir = ""
+	client2.Config.URL = "http://localhost:["
+	si, err = client2.GetCAInfo(req)
+	t.Logf("GetCAInfo error %v", err)
+	if err == nil {
+		t.Errorf("Should have failed due to invalid URL")
+	}
+
+	client2.Config.MSPDir = ""
+	client2.Config.URL = ""
+	client2.Config.TLS.Enabled = true
+	si, err = client2.GetCAInfo(req)
+	t.Logf("GetCAInfo error %v", err)
+	if err == nil {
+		t.Errorf("Should have failed due to invalid TLS config")
+	}
+}
+
+func testRegister(c *Client, t *testing.T) {
+	// Enroll admin
+	enrollReq := &api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	}
+
+	err := c.CheckEnrollment()
+	t.Logf("CheckEnrollment error %v", err)
+	if err == nil {
+		t.Fatalf("testRegister check enrollment should have failed - client not enrolled")
+	}
+
+	eresp, err := c.Enroll(enrollReq)
+	if err != nil {
+		t.Fatalf("testRegister enroll of admin failed: %s", err)
+	}
+
+	adminID = eresp.Identity
+
+	err = adminID.Store()
+	if err != nil {
+		t.Fatalf("testRegister failed to store admin identity: %s", err)
+	}
+
+	// Verify that the duration of the newly created enrollment certificate is 1 year
+	d, err := util.GetCertificateDurationFromFile(c.GetCertFilePath())
+	if assert.NoError(t, err) {
+		assert.True(t, d.Hours() == 8760, "Expecting 8760 but found %f", d.Hours())
+	}
+
+	err = c.CheckEnrollment()
+	if err != nil {
+		t.Fatalf("testRegister failed to check enrollment: %s", err)
+	}
+
+	// Register as admin
+	registerReq := &api.RegistrationRequest{
+		Name:           "MyTestUser",
+		Type:           "Client",
+		Affiliation:    "hyperledger",
+		MaxEnrollments: 1,
+	}
+
+	resp, err := adminID.Register(registerReq)
+	if err != nil {
+		t.Fatalf("Register failed: %s", err)
+	}
+
+	req := &api.EnrollmentRequest{
+		Name:   "MyTestUser",
+		Secret: resp.Secret,
+	}
+
+	eresp, err = c.Enroll(req)
+	if err != nil {
+		t.Fatalf("Enroll failed: %s", err)
+	}
+	id := eresp.Identity
+
+	if id.GetName() != "MyTestUser" {
+		t.Fatal("Incorrect name retrieved")
+	}
+
+	if id.GetECert() == nil {
+		t.Fatal("No ECert was returned")
+	}
+
+	_, err = id.GetTCertBatch(&api.GetTCertBatchRequest{Count: 1})
+	if err != nil {
+		t.Fatal("Failed to get batch of TCerts")
+	}
+
+	// Test registration and enrollment of an identity with attributes
+	userName := "MyTestUserWithAttrs"
+	registerReq = &api.RegistrationRequest{
+		Name:        userName,
+		Type:        "Client",
+		Affiliation: "hyperledger",
+		Attributes: []api.Attribute{
+			api.Attribute{Name: "attr1", Value: "val1"},
+			api.Attribute{Name: "attr2", Value: "val2"},
+		},
+	}
+	resp, err = adminID.Register(registerReq)
+	if err != nil {
+		t.Fatalf("Register of %s failed: %s", userName, err)
+	}
+	// Request an ECert with attr1 but without attr2.
+	req = &api.EnrollmentRequest{
+		Name:   userName,
+		Secret: resp.Secret,
+		AttrReqs: []*api.AttributeRequest{
+			&api.AttributeRequest{Name: "attr1", Require: true},
+		},
+	}
+	eresp, err = c.Enroll(req)
+	if err != nil {
+		t.Fatalf("Enroll with attributes failed: %s", err)
+	}
+	// Verify that the ECert's attributes have correct values for "attr1"
+	// and "attr2" and that "attr3" is not found.
+	attrs, err := eresp.Identity.GetECert().Attributes()
+	if err != nil {
+		t.Fatalf("%s", err)
+	}
+	checkAttrResult(t, "attr1", "val1", attrs)
+	checkAttrResult(t, "attr2", "", attrs)
+	// Request an ECert with an attribute that the identity does not have (attr4)
+	// but we say that it is required.  This should result in an error.
+	req = &api.EnrollmentRequest{
+		Name:   userName,
+		Secret: resp.Secret,
+		AttrReqs: []*api.AttributeRequest{
+			&api.AttributeRequest{Name: "attr1"},
+			&api.AttributeRequest{Name: "attr3", Require: true},
+		},
+	}
+	eresp, err = c.Enroll(req)
+	if err == nil {
+		t.Fatalf("Enroll should have failed because %s does not have attr3", userName)
+	}
+}
+
+func checkAttrResult(t *testing.T, name, val string, attrs *attrmgr.Attributes) {
+	v, ok, err := attrs.Value(name)
+	if assert.NoError(t, err) {
+		if val == "" {
+			assert.False(t, ok, "attribute '%s' was found", name)
+		} else if assert.True(t, ok, "attribute '%s' was not found", name) {
+			assert.True(t, v == val, "invalid value of attribute '%s'; expecting '%s' but found '%s'", name, val, v)
+		}
+	}
+}
+
+func testEnrollIncorrectPassword(c *Client, t *testing.T) {
+	req := &api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "incorrect",
+	}
+
+	_, err := c.Enroll(req)
+	if err == nil {
+		t.Error("Enroll with incorrect password passed but should have failed")
+	}
+}
+
+func testDoubleEnroll(c *Client, t *testing.T) {
+	req := &api.EnrollmentRequest{
+		Name:   "testUser",
+		Secret: "user1",
+	}
+
+	_, err := c.Enroll(req)
+	if err == nil {
+		t.Error("Double enroll should have failed but passed")
+	}
+}
+
+func testEnrollMiscFailures(c *Client, t *testing.T) {
+	req := &api.EnrollmentRequest{
+		Name:   "testUser",
+		Secret: "user1",
+	}
+
+	c.Config.URL = "http://localhost:["
+	_, err := c.Enroll(req)
+	t.Logf("Client Enroll error %v", err)
+	if err == nil {
+		t.Error("Enroll should have failed due to URL error")
+	}
+
+	c.Config.URL = ""
+	var r api.CSRInfo
+	var k csr.BasicKeyRequest
+	var n csr.Name
+	k.A = "dsa"
+	k.S = 256
+	n.C = "US"
+
+	r.KeyRequest = &k
+	r.Names = []csr.Name{n}
+	r.Hosts = []string{"host"}
+	r.KeyRequest = &k
+	req.CSR = &r
+	_, err = c.Enroll(req)
+	t.Logf("Client Enroll error %v", err)
+	if err == nil {
+		t.Error("Enroll should have failed due to invalid CSR algo")
+	}
+}
+
+func testReenroll(c *Client, t *testing.T) {
+	id, err := c.LoadMyIdentity()
+	if err != nil {
+		t.Errorf("testReenroll: failed LoadMyIdentity: %s", err)
+		return
+	}
+	eresp, err := id.Reenroll(&api.ReenrollmentRequest{})
+	if err != nil {
+		t.Errorf("testReenroll: failed reenroll: %s", err)
+		return
+	}
+	id = eresp.Identity
+	err = id.Store()
+	if err != nil {
+		t.Errorf("testReenroll: failed Store: %s", err)
+	}
+}
+
+func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bool) {
+	rr := &api.RegistrationRequest{
+		Name:           user,
+		Type:           "user",
+		Affiliation:    "hyperledger",
+		MaxEnrollments: 1,
+	}
+	if withPriv {
+		rr.Attributes = []api.Attribute{api.Attribute{Name: "hf.Revoker", Value: "true"}}
+	}
+	resp, err := adminID.Register(rr)
+	if err != nil {
+		t.Fatalf("Failed to register %s: %s", user, err)
+	}
+	req := &api.EnrollmentRequest{
+		Name:   user,
+		Secret: resp.Secret,
+	}
+	eresp, err := c.Enroll(req)
+	if err != nil {
+		t.Errorf("enroll of user '%s' failed", user)
+		return
+	}
+	id := eresp.Identity
+	if ecertOnly {
+		err = id.GetECert().RevokeSelf()
+	} else {
+		err = id.RevokeSelf()
+	}
+	if withPriv && err != nil {
+		t.Errorf("testRevocation failed for user %s: %s", user, err)
+		return
+	} else if !withPriv && err == nil {
+		t.Errorf("testRevocation for user %s passed but should have failed", user)
+		return
+	}
+
+	if withPriv {
+		eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
+		if err == nil {
+			t.Errorf("user ecert %s enrolled but ecert should have been revoked", user)
+		}
+		if !ecertOnly {
+			eresp, err = c.Enroll(req)
+			if err == nil {
+				t.Errorf("user %s enrolled but should have been revoked", user)
+			}
+		}
+	}
+}
+
+func testRevocationErrors(c *Client, t *testing.T) {
+	var revoker = "erroneous_revoker"
+	var user = "etuser"
+
+	// register and enroll revoker
+	rr := &api.RegistrationRequest{
+		Name:           revoker,
+		Type:           "user",
+		Affiliation:    "org2",
+		MaxEnrollments: 1,
+		Attributes:     []api.Attribute{api.Attribute{Name: "hf.Revoker", Value: "true"}},
+	}
+	resp, err := adminID.Register(rr)
+	if err != nil {
+		t.Fatalf("Failed to register %s %s", revoker, err)
+	}
+	req := &api.EnrollmentRequest{
+		Name:   revoker,
+		Secret: resp.Secret,
+	}
+	eresp, err := c.Enroll(req)
+	if err != nil {
+		t.Errorf("enroll of user %s failed", revoker)
+		return
+	}
+	revokerId := eresp.Identity
+
+	// register and enroll test user
+	rr = &api.RegistrationRequest{
+		Name:           user,
+		Type:           "user",
+		Affiliation:    "hyperledger",
+		MaxEnrollments: 1,
+		Attributes:     []api.Attribute{api.Attribute{}},
+	}
+	resp, err = adminID.Register(rr)
+	if err != nil {
+		t.Fatalf("Failed to register %s: %s", user, err)
+	}
+	req = &api.EnrollmentRequest{
+		Name:   user,
+		Secret: resp.Secret,
+	}
+	eresp, err = c.Enroll(req)
+	if err != nil {
+		t.Errorf("enroll of user '%s' failed: %v", user, err)
+		return
+	}
+
+	// Revoke cert that doesn't exist
+	user = "etuser"
+	revreq := &api.RevocationRequest{
+		Name:   user,
+		Serial: "1",
+		AKI:    "1",
+		Reason: "privilegeWithdrawn",
+	}
+
+	id := eresp.Identity
+	err = revokerId.Revoke(revreq)
+	t.Logf("testRevocationErrors revoke error %v", err)
+	if err == nil {
+		t.Errorf("Revocation should have failed")
+	}
+	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
+	t.Logf("testRevocationErrors reenroll error %v", err)
+	if err != nil {
+		t.Errorf("%s renroll failed and ecert should not be revoked", user)
+	}
+
+	// Revoke cert that exists, but doesn't belong to user
+	revreq.Name = "fake"
+	revreq.Serial, revreq.AKI, err = GetCertID(eresp.Identity.GetECert().Cert())
+	t.Logf("Name: %s, Serial: %s, AKI: %s. err, %v", revreq.Name, revreq.Serial, revreq.AKI, err)
+	err = revokerId.Revoke(revreq)
+	t.Logf("testRevocationErrors revoke error %v", err)
+	if err == nil {
+		t.Errorf("Revocation should have failed")
+	}
+	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
+	t.Logf("testRevocationErrors reenroll error %v", err)
+	if err != nil {
+		t.Errorf("%s renroll failed and ecert should not be revoked", user)
+	}
+
+	// Cannot revoke across affiliations
+	revreq.Name = "etuser"
+	revreq.Serial, revreq.AKI, err = GetCertID(eresp.Identity.GetECert().Cert())
+	t.Logf("Name: %s, Serial: %s, AKI: %s. err, %v", revreq.Name, revreq.Serial, revreq.AKI, err)
+	err = revokerId.Revoke(revreq)
+	t.Logf("testRevocationErrors revoke error %v", err)
+	if err == nil {
+		t.Errorf("Revocation should have failed")
+	}
+	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
+	t.Logf("testRevocationErrors reenroll error %v", err)
+	if err != nil {
+		t.Errorf("%s renroll failed and ecert should not be revoked", user)
+	}
+}
+
+func testLoadCSRInfo(c *Client, t *testing.T) {
+	_, err := c.LoadCSRInfo(csrFile)
+	if err != nil {
+		t.Errorf("testLoadCSRInfo failed: %s", err)
+	}
+}
+
+func testLoadNoCSRInfo(c *Client, t *testing.T) {
+	_, err := c.LoadCSRInfo("nofile")
+	if err == nil {
+		t.Error("testLoadNoCSRInfo passed but should have failed")
+	}
+}
+
+func testLoadBadCSRInfo(c *Client, t *testing.T) {
+	_, err := c.LoadCSRInfo(cfgFile)
+	if err == nil {
+		t.Error("testLoadBadCSRInfo passed but should have failed")
+	}
+}
+
+func testLoadIdentity(c *Client, t *testing.T) {
+	_, err := c.LoadIdentity("foo", "bar")
+	if err == nil {
+		t.Error("testLoadIdentity foo/bar passed but should have failed")
+	}
+	_, err = c.LoadIdentity("foo", "../testdata/ec.pem")
+	if err == nil {
+		t.Error("testLoadIdentity foo passed but should have failed")
+	}
+	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem")
+	if err != nil {
+		t.Errorf("testLoadIdentity failed: %s", err)
+	}
+}
+
+func setupGenCRLTest(t *testing.T, serverHome, clientHome string) (*Server, *Identity) {
+	server := TestGetServer(ctport1, serverHome, "", 1, t)
+	if server == nil {
+		t.Fatalf("Failed to get server")
+	}
+	err := server.Start()
+	if err != nil {
+		t.Fatalf("Failed to start server: %s", err)
+	}
+
+	c := &Client{
+		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", ctport1)},
+		HomeDir: clientHome,
+	}
+
+	// Enroll admin
+	eresp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: "adminpw"})
+	if err != nil {
+		t.Fatalf("Failed to enroll admin: %s", err)
+	}
+	adminID := eresp.Identity
+
+	// Register and revoker a user
+	user := "gencrluser"
+	rr := &api.RegistrationRequest{
+		Name:           user,
+		Type:           "user",
+		Affiliation:    "hyperledger",
+		MaxEnrollments: 1,
+	}
+	resp, err := adminID.Register(rr)
+	if err != nil {
+		t.Fatalf("Failed to register user '%s': %s", user, err)
+	}
+	req := &api.EnrollmentRequest{
+		Name:   user,
+		Secret: resp.Secret,
+	}
+	eresp, err = c.Enroll(req)
+	if err != nil {
+		t.Fatalf("Failed to enroll user '%s': %s", user, err)
+	}
+	err = adminID.Revoke(&api.RevocationRequest{Name: user})
+	if err != nil {
+		t.Fatalf("Failed to revoke user '%s': %s", user, err)
+	}
+	return server, adminID
+}
+
+func testTooManyEnrollments(t *testing.T) {
+	clientConfig := &ClientConfig{
+		URL: fmt.Sprintf("http://localhost:%d", ctport2),
+	}
+
+	rawURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", ctport2)
+
+	_, err := clientConfig.Enroll(rawURL, testdataDir)
+	if err != nil {
+		t.Errorf("Failed to enroll: %s", err)
+	}
+
+	_, err = clientConfig.Enroll(rawURL, testdataDir)
+	if err != nil {
+		t.Errorf("Failed to enroll: %s", err)
+	}
+
+	eresp, err := clientConfig.Enroll(rawURL, testdataDir)
+	if err != nil {
+		t.Errorf("Failed to enroll: %s", err)
+	}
+	id := eresp.Identity
+
+	_, err = clientConfig.Enroll(rawURL, testdataDir)
+	if err == nil {
+		t.Errorf("Enroll should have failed, no more enrollments left")
+	}
+
+	id.Store()
+}
+
+func testIncorrectEnrollment(t *testing.T) {
+	c := getTestClient(ctport1)
+
+	id, err := c.LoadMyIdentity()
+	if err != nil {
+		t.Fatalf("Failed to load identity: %s", err)
+	}
+
+	req := &api.RegistrationRequest{
+		Name:           "TestUser",
+		Type:           "Client",
+		Affiliation:    "hyperledger",
+		MaxEnrollments: 4,
+	}
+
+	_, err = id.Register(req)
+	if err == nil {
+		t.Error("Registration should have failed, can't register user with max enrollment greater than server max enrollment setting")
+	}
+}
+
 func testWhenServerIsDown(c *Client, t *testing.T) {
 	enrollReq := &api.EnrollmentRequest{
 		Name:   "admin",
@@ -1062,13 +1189,4 @@ func testWhenServerIsDown(c *Client, t *testing.T) {
 	if err == nil {
 		t.Error("GetTCertBatch while server is down should have failed")
 	}
-}
-
-func TestCLILast(t *testing.T) {
-	// Cleanup
-	os.RemoveAll("../testdata/msp")
-	os.RemoveAll(serversDir)
-	os.RemoveAll("multica")
-	os.RemoveAll("rootDir")
-	os.RemoveAll("msp")
 }
