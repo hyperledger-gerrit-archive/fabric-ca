@@ -56,8 +56,9 @@ Table of Contents
    3. `Enrolling a peer identity`_
    4. `Reenrolling an identity`_
    5. `Revoking a certificate or identity`_
-   6. `Enabling TLS`_
-   7. `Contact specific CA instance`_
+   6. `Generating a CRL`_
+   7. `Enabling TLS`_
+   8. `Contact specific CA instance`_
 
 7. `Troubleshooting`_
 
@@ -1200,6 +1201,31 @@ and pass them to the ``revoke`` command to revoke the said certificate as follow
    serial=$(openssl x509 -in userecert.pem -serial -noout | cut -d "=" -f 2)
    aki=$(openssl x509 -in userecert.pem -text | awk '/keyid/ {gsub(/ *keyid:|:/,"",$1);print tolower($0)}')
    fabric-ca-client revoke -s $serial -a $aki -r affiliationchange
+
+Generating a CRL
+~~~~~~~~~~~~~~~~
+After an identity is revoked, MSP needs to be updated to let the Hyperledger Fabric know about the revoked
+identity. To do this, PEM encoded CRL (certificate revocation list) files must be placed in the `crls`
+folder of the MSP. The ``fabric-ca-client gencrl`` command can be used to generate a CRL. Any identity
+with ``hf.GenCRL`` attribute can create a CRL (Certificate Revocation List) that
+includes unexpired certificates that were revoked during certain period. The created CRL is stored in
+in the `crls` folder of the MSP. The name of the file is of the form `crl<timestamp>.pem`
+
+The following command will create a CRL containing unexpired certficates that were revoked
+after 2017-09-13T16:39:57-08:00 (specified by `--revokedafter` flag) and before 2017-09-21T16:39:57-08:00
+(specified by `--revokedbefore` flag).
+
+.. code:: bash
+
+    fabric-ca-client gencrl --caname "" --revokedafter 2017-09-13T16:39:57-08:00 --revokedbefore 2017-09-21T16:39:57-08:00 --expiry 2017-12-21
+
+
+The --caname specifies name of the CA to which request is sent. In this example, gencrl request is
+sent to the default CA. The `--expiry` flag specifies value for the `Next Update` property of the CRL.
+All values are UTC timestamps and must be specified in RFC3339 format. Note that --revokedafter
+timestamp cannot be greater than --revokedbefore timestamp. If the `--expiry` flag is not specified, it
+defaults to 3 months. If gencrl is invoked with out the `--revokedafter` and `--revokedbefore` flags,
+then CRL is generated with all known unexpired revoked certificates.
 
 Enabling TLS
 ~~~~~~~~~~~~

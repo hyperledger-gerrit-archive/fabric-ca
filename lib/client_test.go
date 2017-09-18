@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
@@ -176,6 +177,7 @@ func TestCLIClient(t *testing.T) {
 	testLoadCSRInfo(c, t)
 	testLoadNoCSRInfo(c, t)
 	testLoadBadCSRInfo(c, t)
+	testGenCRL(c, t)
 	testEnrollMiscFailures(c, t)
 
 	server.Stop()
@@ -606,6 +608,57 @@ func testLoadBadCSRInfo(c *Client, t *testing.T) {
 	if err == nil {
 		t.Error("testLoadBadCSRInfo passed but should have failed")
 	}
+}
+
+func testGenCRL(c *Client, t *testing.T) {
+	t.Log("Testing genCRL")
+	gencrlReq := &api.GenCRLRequest{
+		CAName: "",
+	}
+	_, err := adminID.GenCRL(gencrlReq)
+	assert.NoError(t, err, "failed to generate CRL")
+
+	// error cases
+	// Error case 1: gencrl request should fail if there are no revoked certs
+	gencrlReq = &api.GenCRLRequest{
+		CAName:        "",
+		RevokedAfter:  time.Now().UTC().AddDate(0, 1, 0),
+		RevokedBefore: time.Now().UTC().AddDate(0, 2, 0),
+	}
+	_, err = adminID.GenCRL(gencrlReq)
+	assert.Error(t, err, "genCRL should have failed as there are no revoked certs in the specified period")
+	assert.Contains(t, err.Error(), "no revoked certificates found between", "Not expected error message")
+
+	gencrlReq = &api.GenCRLRequest{
+		CAName:        "",
+		RevokedBefore: time.Now().UTC().AddDate(0, 1, 0),
+		RevokedAfter:  time.Now().UTC().AddDate(0, 2, 0),
+	}
+	_, err = adminID.GenCRL(gencrlReq)
+	assert.Error(t, err, "genCRL should have failed as revokedafter timestamp is after revokedbefore timestamp")
+	assert.Contains(t, err.Error(), "invalid revokedafter value", "Not expected error message")
+
+	// Error case 2: gencrl request by an user with out hf.GenCRL authority should fail
+	gencrluser := "gencrluser1"
+	rr := &api.RegistrationRequest{
+		Name:           gencrluser,
+		Type:           "user",
+		Affiliation:    "org2",
+		MaxEnrollments: 1,
+	}
+	resp, err := adminID.Register(rr)
+	assert.NoError(t, err, "Failed to register %s", gencrluser)
+
+	req := &api.EnrollmentRequest{
+		Name:   gencrluser,
+		Secret: resp.Secret,
+	}
+	eresp, err := c.Enroll(req)
+	assert.NoError(t, err, "enroll of user %s failed", gencrluser)
+
+	user1 := eresp.Identity
+	_, err = user1.GenCRL(gencrlReq)
+	assert.Error(t, err, "genCRL should have failed as invoker does not have hf.GenCRL attribute")
 }
 
 func testLoadIdentity(c *Client, t *testing.T) {

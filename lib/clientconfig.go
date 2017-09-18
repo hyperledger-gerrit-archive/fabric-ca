@@ -39,6 +39,7 @@ type ClientConfig struct {
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
 	Revoke     api.RevocationRequest
+	GenCRL     api.GenCRLRequest
 	CAInfo     api.GetCAInfoRequest
 	CAName     string               `help:"Name of CA"`
 	CSP        *factory.FactoryOpts `mapstructure:"bccsp"`

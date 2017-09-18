@@ -27,8 +27,10 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
@@ -214,6 +216,7 @@ func TestClientCommandsNoTLS(t *testing.T) {
 	testRegisterEnvVar(t)
 	testRegisterCommandLine(t, srv)
 	testRevoke(t)
+	testGenCRL(t)
 	testBogus(t)
 	testAffiliation(t)
 
@@ -410,6 +413,27 @@ func TestMOption(t *testing.T) {
 	assertOneFileInDir(path.Join(homedir, mspdir, "keystore"), t)
 	assertOneFileInDir(path.Join(homedir, mspdir, "cacerts"), t)
 	assertOneFileInDir(path.Join(homedir, mspdir, "intermediatecerts"), t)
+
+	// Test case: msp and home are in different paths
+	// Enroll the bootstrap user and then register another user. Since msp
+	// and home are in two different directory paths, -M option must also
+	// be specified when registering the user, else registration fails
+	mspdir = os.TempDir() + "/msp-abs-test"
+	homedir = os.TempDir() + "/msp-abs-test-home"
+	configFile := path.Join(homedir, "config.yaml")
+	err = RunMain([]string{
+		cmdName, "enroll",
+		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCAPort),
+		"-c", configFile,
+		"-M", mspdir, "-d"})
+	if err != nil {
+		t.Fatalf("client enroll -u failed: %s", err)
+	}
+	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegisterForMoption",
+		"--id.affiliation", "org1", "--id.type", "user", "-c", configFile, "-M", mspdir})
+	if err != nil {
+		t.Errorf("client register failed using config file: %s", err)
+	}
 }
 
 // TestReenroll tests fabric-ca-client reenroll
@@ -681,6 +705,113 @@ func testAffiliation(t *testing.T) {
 	}
 
 	os.RemoveAll(filepath.Dir(defYaml))
+}
+
+func testGenCRL(t *testing.T) {
+	t.Log("Testing GenCRL")
+
+	// Error case 1: gencrl command should fail when called with out enrollment info
+	os.Setenv("FABRIC_CA_CLIENT_HOME", "/tmp/gencrl")
+	err := RunMain([]string{cmdName, "gencrl"})
+	assert.Error(t, err, "gencrl should have failed when called with out enrollment information")
+
+	// load the identity
+	os.Setenv("FABRIC_CA_CLIENT_HOME", "../../testdata/")
+	defer os.Unsetenv("FABRIC_CA_CLIENT_HOME")
+	client := &lib.Client{
+		Config:  &lib.ClientConfig{URL: fmt.Sprintf("http://localhost:%d", serverPort)},
+		HomeDir: "../../testdata/",
+	}
+	admin, err := client.LoadMyIdentity()
+	assert.NoError(t, err, "Should not have failed to load existing enrollment information")
+	fmt.Printf("Loaded identity: %s", admin.GetName())
+
+	// Error case 2: no revoked certs
+	err = RunMain([]string{cmdName, "gencrl"})
+	assert.Error(t, err, "gencrl should have failed as there are no revoked certificates")
+	assert.Contains(t, err.Error(), "no revoked certificates found between", "Not expected error message")
+
+	// Register, enroll and revoke two users
+	registerAndRevokeUsers(t, admin, 2)
+
+	// Success cases
+	err = RunMain([]string{cmdName, "gencrl"})
+	assert.NoError(t, err, "gencrl failed")
+
+	pasttime := time.Now().UTC().Add(time.Hour * -1).Format(time.RFC3339)
+	expiry := time.Now().UTC().AddDate(0, 12, 0).Format(time.RFC3339)
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", pasttime, "--expiry", expiry})
+	assert.NoError(t, err, "gencrl failed")
+
+	futuretime := time.Now().UTC().Add(time.Hour * 1).Format(time.RFC3339)
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", futuretime})
+	assert.NoError(t, err, "gencrl failed")
+
+	expiry = time.Now().UTC().AddDate(0, 0, 1).Format(time.RFC3339)
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", pasttime,
+		"--revokedbefore", futuretime, "--expiry", expiry})
+	assert.NoError(t, err, "gencrl failed")
+
+	// Error cases
+	// Error case 3: no revoked certs
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", pasttime})
+	assert.Error(t, err, "gencrl should have failed as there no revoked certs 1 hour ago")
+
+	// Error case 3: should fail when invoked with invalid --revokedafter parameter
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", "foo"})
+	assert.Error(t, err, "gencrl should have failed when --revokedafter value is not a timestamp")
+
+	// Error case 4: should fail when invoked with invalid --revokedafter parameter
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", "Mon Jan 2 15:04:05 -0700 MST 2006"})
+	assert.Error(t, err, "gencrl should have failed when --revokedafter value is not in RFC339 format")
+
+	// Error case 5: should fail when invoked with invalid --revokedbefore parameter
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", "bar"})
+	assert.Error(t, err, "gencrl should have failed when --revokedbefore value is not a timestamp")
+
+	// Error case 6: should fail when invoked with invalid --revokedbefore parameter
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", "Sat Mar 7 11:06:39 PST 2015"})
+	assert.Error(t, err, "gencrl should have failed when --revokedbefore value is not in RFC339 format")
+
+	// Error case 7: should fail when invoked with revokeafter value is greater (comes after) than revokedbefore
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", "2017-09-13T16:39:57-08:00",
+		"--revokedbefore", "2017-09-13T15:39:57-08:00"})
+	assert.Error(t, err, "gencrl should have failed when --revokedafter value is greater than --revokedbefore")
+
+	// Error case 8: should fail when invoked with invalid --expiry parameter
+	err = RunMain([]string{cmdName, "gencrl", "--expiry", "notatime"})
+	assert.Error(t, err, "gencrl should have failed when --expiry value is not a timestamp")
+
+	// Error case 8: should fail when invoked with --expiry value is before today
+	err = RunMain([]string{cmdName, "gencrl", "--expiry", time.Now().UTC().AddDate(0, 0, -1).Format(time.RFC3339)})
+	assert.Error(t, err, "gencrl should have failed when --expiry value is before today")
+}
+
+// Registers, enrolls and revokes specified number of users. This is
+// a utility function used by the gencrl test cases
+func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) {
+	for i := 0; i < num; i++ {
+		userName := "gencrluser" + strconv.Itoa(i)
+		// Register a user
+		regRes, err := admin.Register(&api.RegistrationRequest{
+			Name:        userName,
+			Type:        "user",
+			Affiliation: "company1",
+		})
+		assert.NoError(t, err, "Failed to register the identity '%s'", userName)
+
+		// Enroll the user
+		_, err = admin.GetClient().Enroll(&api.EnrollmentRequest{
+			Name:   userName,
+			Secret: regRes.Secret,
+			CSR:    &api.CSRInfo{Hosts: []string{"localhost"}},
+		})
+		assert.NoError(t, err, "Failed to enroll the identity '%s'", userName)
+
+		// Revoke the user
+		err = admin.Revoke(&api.RevocationRequest{Name: userName})
+		assert.NoError(t, err, "Failed to revoke the identity '%s'", userName)
+	}
 }
 
 // testProfiling tests enablement of fabric CA client heap/cpu profiling
