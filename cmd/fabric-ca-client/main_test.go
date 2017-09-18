@@ -24,11 +24,14 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"math/big"
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
@@ -223,6 +226,618 @@ func TestClientCommandsNoTLS(t *testing.T) {
 	}
 }
 
+// Test cases for gencrl command
+func TestGenCRL(t *testing.T) {
+	t.Log("Testing GenCRL")
+	adminHome := filepath.Join(tdDir, "gencrladminhome")
+
+	// Remove server home directory if it exists
+	err := os.RemoveAll(adminHome)
+	if err != nil {
+		t.Fatalf("Failed to remove directory %s: %s", adminHome, err)
+	}
+
+	// Remove server home directory that this test is going to create before
+	// exiting the test case
+	defer os.RemoveAll(adminHome)
+
+	// Set up for the test case
+	srv := setupGenCRLTest(t, adminHome)
+
+	// Cleanup before exiting the test case
+	defer cleanupGenCRLTest(t, srv)
+
+	// Error case 1: gencrl command should fail when called without enrollment info
+	os.Setenv("FABRIC_CA_CLIENT_HOME", "/tmp/gencrl")
+	defer os.Unsetenv("FABRIC_CA_CLIENT_HOME")
+	err = RunMain([]string{cmdName, "gencrl"})
+	assert.Error(t, err, "gencrl should have failed when called with out enrollment information")
+
+	os.Setenv("FABRIC_CA_CLIENT_HOME", adminHome)
+
+	// Error case 2: there are no revoked certs, so, "no revoked certificates found" error is expected
+	err = RunMain([]string{cmdName, "gencrl"})
+	assert.Error(t, err, "gencrl should have failed as there are no revoked certificates")
+	assert.Contains(t, err.Error(), "no revoked certificates found between", "Not expected error message")
+
+	// Register, enroll and revoke two users using admin identity
+	client := &lib.Client{
+		Config:  &lib.ClientConfig{URL: fmt.Sprintf("http://localhost:%d", serverPort)},
+		HomeDir: adminHome,
+	}
+	admin, err := client.LoadMyIdentity()
+	if err != nil {
+		t.Fatalf("Failed to load admin identity: %s", err)
+	}
+	revokedCertSerials := registerAndRevokeUsers(t, admin, 2)
+
+	// Success cases
+	// success case 1: gencrl invoked without any arguments
+	err = RunMain([]string{cmdName, "gencrl"})
+	assert.NoError(t, err, "gencrl failed")
+	checkCRL(t, admin.GetClient(), revokedCertSerials)
+
+	// success case 2: gencrl invoked with --revokedafter argument but not --revokedbefore
+	pastTime := time.Now().UTC().Add(time.Hour * -1).Format(time.RFC3339)
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", pastTime})
+	assert.NoError(t, err, "gencrl failed")
+	checkCRL(t, admin.GetClient(), revokedCertSerials)
+
+	// success case 2: gencrl invoked with --revokedbefore argument but not --revokedafter
+	futureTime := time.Now().UTC().Add(time.Hour * 1).Format(time.RFC3339)
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", futureTime})
+	assert.NoError(t, err, "gencrl failed")
+	checkCRL(t, admin.GetClient(), revokedCertSerials)
+
+	// success case 2: gencrl invoked with both --revokedbefore and --revokedafter args
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", pastTime,
+		"--revokedbefore", futureTime})
+	assert.NoError(t, err, "gencrl failed")
+	checkCRL(t, admin.GetClient(), revokedCertSerials)
+
+	// Error cases
+	// Error case 3: no revoked certs
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", pastTime})
+	assert.Error(t, err, "gencrl should have failed as there no revoked certs 1 hour ago")
+
+	// Error case 3: should fail when invoked with invalid --revokedafter arg
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", "foo"})
+	assert.Error(t, err, "gencrl should have failed when --revokedafter value is not a timestamp")
+
+	// Error case 4: should fail when invoked with invalid --revokedafter arg
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", "Mon Jan 2 15:04:05 -0700 MST 2006"})
+	assert.Error(t, err, "gencrl should have failed when --revokedafter value is not in RFC339 format")
+
+	// Error case 5: should fail when invoked with invalid --revokedbefore arg
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", "bar"})
+	assert.Error(t, err, "gencrl should have failed when --revokedbefore value is not a timestamp")
+
+	// Error case 6: should fail when invoked with invalid --revokedbefore arg
+	err = RunMain([]string{cmdName, "gencrl", "--revokedbefore", "Sat Mar 7 11:06:39 PST 2015"})
+	assert.Error(t, err, "gencrl should have failed when --revokedbefore value is not in RFC339 format")
+
+	// Error case 7: should fail when invoked with revokeafter value is greater (comes after) than revokedbefore
+	err = RunMain([]string{cmdName, "gencrl", "--revokedafter", "2017-09-13T16:39:57-08:00",
+		"--revokedbefore", "2017-09-13T15:39:57-08:00"})
+	assert.Error(t, err, "gencrl should have failed when --revokedafter value is greater than --revokedbefore")
+}
+
+// TestGencsr tests fabric-ca-client gencsr
+func TestGencsr(t *testing.T) {
+	t.Log("Testing gencsr CMD")
+	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
+
+	os.Remove(defYaml) // Clean up any left over config file
+
+	mspDir := filepath.Join(filepath.Dir(defYaml), "msp")
+
+	os.RemoveAll(mspDir)
+
+	defer os.Remove(defYaml)
+
+	err := RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,OU=OU1", "-M", mspDir})
+	if err != nil {
+		t.Errorf("client gencsr failed: %s", err)
+	}
+
+	signcerts := path.Join(mspDir, "signcerts")
+	assertOneFileInDir(signcerts, t)
+
+	files, err := ioutil.ReadDir(signcerts)
+	if err != nil {
+		t.Fatalf("Failed to get number of files in directory '%s': %s", signcerts, err)
+	}
+
+	if files[0].Name() != "identity.csr" {
+		t.Fatalf("Failed to find identity.csr in '%s': %s", signcerts, err)
+	}
+
+	err = RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,FOO=BAR", "-M", mspDir})
+	if err == nil {
+		t.Error("Should have failed: Invalid CSR name")
+	}
+
+	err = RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C:CA,O=Org1,OU=OU2", "-M", mspDir})
+	if err == nil {
+		t.Error("Should have failed: No '=' for name/value pair")
+	}
+
+	err = RunMain([]string{cmdName, "gencsr", "-c", defYaml, "--csr.names", "C=CA,O=Org1,OU=OU1", "-M", mspDir})
+	if err == nil {
+		t.Error("Should have failed: CSR CN not specified.")
+	}
+}
+
+// TestMOption tests to make sure that the key is stored in the correct
+// directory when the "-M" option is used.
+// This also ensures the intermediatecerts directory structure is populated
+// since we enroll with an intermediate CA.
+func TestMOption(t *testing.T) {
+	os.RemoveAll(moptionDir)
+	defer os.RemoveAll(moptionDir)
+	rootCAPort := 7173
+	rootServer := startServer(path.Join(moptionDir, "rootServer"), rootCAPort, "", t)
+	if rootServer == nil {
+		return
+	}
+	defer rootServer.Stop()
+	rootCAURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", rootCAPort)
+	intCAPort := 7174
+	intServer := startServer(path.Join(moptionDir, "intServer"), intCAPort, rootCAURL, t)
+	if intServer == nil {
+		return
+	}
+	defer intServer.Stop()
+	homedir := path.Join(moptionDir, "client")
+	mspdir := "msp2" // relative to homedir
+	err := RunMain([]string{
+		cmdName, "enroll",
+		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCAPort),
+		"-c", path.Join(homedir, "config.yaml"),
+		"-M", mspdir, "-d"})
+	if err != nil {
+		t.Fatalf("client enroll -u failed: %s", err)
+	}
+	assertOneFileInDir(path.Join(homedir, mspdir, "keystore"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "cacerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "intermediatecerts"), t)
+}
+
+func TestGetCACert(t *testing.T) {
+	srv = getServer()
+	srv.Config.Debug = true
+
+	// Configure TLS settings on server
+	srv.HomeDir = tdDir
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = tlsCertFile
+	srv.Config.TLS.KeyFile = tlsKeyFile
+
+	err := srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	// Test getcacert command using environment variables to set root TLS cert
+	err = testGetCACertEnvVar(t)
+	assert.NoError(t, err, "Failed to get CA cert using environment variables")
+
+	// Change client authentication type on server
+	srv.Config.TLS.ClientAuth.Type = "RequireAndVerifyClientCert"
+
+	// Test getcacert command using configuration files to read in client TLS cert and key
+	err = testGetCACertConfigFile(t)
+	assert.NoError(t, err, "Failed to get CA cert using client configuration file")
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
+func TestClientCommandsUsingConfigFile(t *testing.T) {
+	os.Remove(fabricCADB)
+
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
+	srv.Config.Debug = true
+
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "org1")
+	if err != nil {
+		t.Errorf("Failed to register bootstrap user: %s", err)
+	}
+
+	srv.HomeDir = tdDir
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = tlsCertFile
+	srv.Config.TLS.KeyFile = tlsKeyFile
+
+	err = srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c",
+		"../../testdata/fabric-ca-client-config.yaml", "-u",
+		tlsEnrollURL, "-d"})
+	if err != nil {
+		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
+func TestClientCommandsTLSEnvVar(t *testing.T) {
+	os.Remove(fabricCADB)
+
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
+	srv.Config.Debug = true
+
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
+	if err != nil {
+		t.Errorf("Failed to register bootstrap user: %s", err)
+	}
+
+	srv.HomeDir = tdDir
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = tlsCertFile
+	srv.Config.TLS.KeyFile = tlsKeyFile
+
+	err = srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	os.Setenv(rootCertEnvVar, rootCert)
+	os.Setenv(clientKeyEnvVar, tlsClientKeyFile)
+	os.Setenv(clientCertEnvVar, tlsClientCertFile)
+
+	err = RunMain([]string{cmdName, "enroll", "-d", "-c", testYaml,
+		"-u", tlsEnrollURL, "-d"})
+	if err != nil {
+		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+
+	os.Unsetenv(rootCertEnvVar)
+	os.Unsetenv(clientKeyEnvVar)
+	os.Unsetenv(clientCertEnvVar)
+}
+
+func TestClientCommandsTLS(t *testing.T) {
+	os.Remove(fabricCADB)
+
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
+	srv.Config.Debug = true
+
+	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
+	if err != nil {
+		t.Errorf("Failed to register bootstrap user: %s", err)
+	}
+
+	srv.HomeDir = tdDir
+	srv.Config.TLS.Enabled = true
+	srv.Config.TLS.CertFile = tlsCertFile
+	srv.Config.TLS.KeyFile = tlsKeyFile
+
+	err = srv.Start()
+	if err != nil {
+		t.Errorf("Server start failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
+		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		tlsClientCertFile, "-u", tlsEnrollURL, "-d"})
+	if err != nil {
+		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
+		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		tlsClientCertExpired, "-u", tlsEnrollURL, "-d"})
+	if err == nil {
+		t.Errorf("Expired certificate used for TLS connection, should have failed")
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+	os.Remove(testYaml)
+}
+
+func TestMultiCA(t *testing.T) {
+	cleanMultiCADir()
+
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
+	srv.HomeDir = "../../testdata"
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	srv.CA.Config.CSR.Hosts = []string{"hostname"}
+	t.Logf("Server configuration: %+v\n", srv.Config)
+
+	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
+	if err != nil {
+		t.Errorf("Failed to register bootstrap user: %s", err)
+	}
+
+	srv.BlockingStart = false
+	err = srv.Start()
+	if err != nil {
+		t.Fatal("Failed to start server:", err)
+	}
+
+	// Test going to default CA if no caname provided in client request
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", enrollURL, "-d"})
+	if err != nil {
+		t.Errorf("client enroll -c -u failed: %s", err)
+	}
+
+	enrURL := fmt.Sprintf("http://adminca1:adminca1pw@localhost:%d", serverPort)
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", enrURL, "-d",
+		"--caname", "rootca1"})
+	if err != nil {
+		t.Errorf("client enroll -c -u --caname failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "reenroll", "-c", testYaml, "-d", "--caname",
+		"rootca1"})
+	if err != nil {
+		t.Errorf("client reenroll -c --caname failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "register", "-c", testYaml, "-d", "--id.name",
+		"testuser", "--id.type", "user", "--id.affiliation", "org2", "--caname", "rootca1"})
+	if err != nil {
+		t.Errorf("client register failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "revoke", "-c", testYaml, "-d",
+		"--revoke.name", "adminca1", "--caname", "rootca1"})
+	if err != nil {
+		t.Errorf("client revoke failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "getcacert", "-u", serverURL, "-c", testYaml, "-d",
+		"--caname", "rootca1"})
+	if err != nil {
+		t.Errorf("client getcacert failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u",
+		enrollURL, "-d", "--caname", "rootca2"})
+	if err != nil {
+		t.Errorf("client enroll failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u",
+		enrURL, "-d", "--caname", "rootca3"})
+	if err == nil {
+		t.Errorf("Should have failed, rootca3 does not exist on server")
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
+func TestMSPDirectoryCreation(t *testing.T) {
+	os.RemoveAll("mspConfigTest")
+	defer os.RemoveAll("mspConfigTest")
+	srv := lib.TestGetServer(serverPort, "mspConfigTest", "", -1, t)
+
+	err := srv.Start()
+	if err != nil {
+		t.Fatal("Failed to start server:", err)
+	}
+
+	if util.FileExists("msp") {
+		t.Errorf("MSP directory should not exist at the local directory")
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Errorf("Server stop failed: %s", err)
+	}
+}
+
+func TestHomeDirectory(t *testing.T) {
+	configFilePath := util.GetDefaultConfigFile(clientCMD)
+	defaultClientConfigDir, defaultClientConfigFile := filepath.Split(configFilePath)
+
+	os.RemoveAll("../../testdata/testhome")
+	defer os.RemoveAll("../../testdata/testhome")
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-c", ""})
+	if !util.FileExists(configFilePath) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
+	}
+
+	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", ""})
+	if !util.FileExists(configFilePath) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
+	}
+
+	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	if !util.FileExists(configFilePath) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", "../../testdata/testhome/testclientcmd"})
+	if !util.FileExists(filepath.Join("../../testdata/testhome/testclientcmd", defaultClientConfigFile)) {
+		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config.yaml) in the '../../testdata/testhome/testclientcmd' directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-c", "../../testdata/testhome/testclientcmd2/testconfig2.yaml"})
+	if !util.FileExists("../../testdata/testhome/testclientcmd2/testconfig2.yaml") {
+		t.Errorf("Failed to correctly created the config (testconfig2.yaml) in the '../../testdata/testhome/testclientcmd2' directory")
+	}
+
+	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-H", "../../testdata/testclientcmd3", "-c", "../../testdata/testhome/testclientcmd3/testconfig3.yaml"})
+	if !util.FileExists("../../testdata/testhome/testclientcmd3/testconfig3.yaml") {
+		t.Errorf("Failed to correctly created the config (testconfig3.yaml) in the '../../testdata/testhome/testclientcmd3' directory")
+	}
+}
+
+func TestCleanUp(t *testing.T) {
+	os.Remove("../../testdata/ca-cert.pem")
+	os.Remove("../../testdata/ca-key.pem")
+	os.Remove(testYaml)
+	os.Remove(fabricCADB)
+	os.RemoveAll(mspDir)
+	os.RemoveAll(moptionDir)
+	cleanMultiCADir()
+}
+
+func TestRegisterWithoutEnroll(t *testing.T) {
+	err := RunMain([]string{cmdName, "register", "-c", testYaml})
+	if err == nil {
+		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
+	}
+}
+
+func TestVersion(t *testing.T) {
+	err := RunMain([]string{cmdName, "version"})
+	if err != nil {
+		t.Error("Failed to get fabric-ca-client version: ", err)
+	}
+}
+
+func setupGenCRLTest(t *testing.T, adminHome string) *lib.Server {
+	srvHome := filepath.Join(tdDir, "gencrlsrvhom")
+	err := os.RemoveAll(srvHome)
+	if err != nil {
+		t.Fatalf("Failed to remove home directory %s: %s", srvHome, err)
+	}
+
+	srv := lib.TestGetServer(serverPort, srvHome, "", -1, t)
+	srv.Config.Debug = true
+
+	adminName := "admin"
+	adminPass := "adminpw"
+	err = srv.RegisterBootstrapUser(adminName, adminPass, "")
+	if err != nil {
+		t.Fatalf("Failed to register bootstrap user: %s", err)
+	}
+
+	err = srv.Start()
+	if err != nil {
+		t.Fatalf("Server start failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", adminHome})
+	if err != nil {
+		t.Fatalf("Failed to enroll admin: %s", err)
+	}
+	return srv
+}
+
+func cleanupGenCRLTest(t *testing.T, srv *lib.Server) {
+	defer os.RemoveAll(srv.HomeDir)
+	if srv != nil {
+		err := srv.Stop()
+		if err != nil {
+			t.Errorf("Server stop failed: %s", err)
+		}
+	}
+}
+
+// Checks if the generated CRL is in PEM format and contains expected
+// revoked certificates
+func checkCRL(t *testing.T, client *lib.Client, revokedSerials []*big.Int) {
+	crlfile := filepath.Join(client.Config.MSPDir, "crls/crl.pem")
+	crl, err := ioutil.ReadFile(crlfile)
+	assert.NoError(t, err, "Failed to read the CRL from the file %s", crlfile)
+	blk, _ := pem.Decode(crl)
+	assert.Equal(t, blk.Type, "X509 CRL", "The %s is not a pem encoded CRL")
+
+	revokedList, err := x509.ParseCRL(crl)
+	assert.NoError(t, err, "Failed to parse the CRL")
+	assert.Equal(t, len(revokedSerials), len(revokedList.TBSCertList.RevokedCertificates),
+		"CRL contains unexpected number of revoked certificates")
+	t.Logf("Revoked certs from the CRL: %v", revokedList.TBSCertList.RevokedCertificates)
+	for _, revokedCert := range revokedList.TBSCertList.RevokedCertificates {
+		serial := util.GetSerialAsHex(revokedCert.SerialNumber)
+		found := false
+		for _, revokedSerial := range revokedSerials {
+			if revokedCert.SerialNumber.Cmp(revokedSerial) == 0 {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Certificate %s is not one of revoked certificates", serial)
+	}
+}
+
+// Registers, enrolls and revokes specified number of users. This is
+// a utility function used by the gencrl test cases
+func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) []*big.Int {
+	var serials []*big.Int
+	for i := 0; i < num; i++ {
+		userName := "gencrluser" + strconv.Itoa(i)
+		// Register a user
+		regRes, err := admin.Register(&api.RegistrationRequest{
+			Name:        userName,
+			Type:        "user",
+			Affiliation: "org2",
+		})
+		if err != nil {
+			t.Fatalf("Failed to register the identity '%s': %s", userName, err)
+		}
+
+		// Enroll the user
+		enrollResp, err := admin.GetClient().Enroll(&api.EnrollmentRequest{
+			Name:   userName,
+			Secret: regRes.Secret,
+			CSR:    &api.CSRInfo{Hosts: []string{"localhost"}},
+		})
+		if err != nil {
+			t.Fatalf("Failed to enroll the identity '%s': %s", userName, err)
+		}
+
+		cert, err := enrollResp.Identity.GetECert().GetX509Cert()
+		if err != nil {
+			t.Fatalf("Failed to get enrollment certificate for the user %s: %s", userName, err)
+		}
+
+		revokeReq := &api.RevocationRequest{}
+		if i%2 == 0 {
+			revokeReq.Name = userName
+		} else {
+			revokeReq.Serial = util.GetSerialAsHex(cert.SerialNumber)
+			revokeReq.AKI = hex.EncodeToString(cert.AuthorityKeyId)
+			// Reenroll the user, this should create a new certificate, so this
+			// user will have two valid certificates, but we will revoke one
+			// of her certificate only
+			_, err := enrollResp.Identity.Reenroll(&api.ReenrollmentRequest{})
+			if err != nil {
+				t.Fatalf("Reenrollment of user %s failed: %s", userName, err)
+			}
+		}
+
+		// Revoke the user cert
+		err = admin.Revoke(revokeReq)
+		if err != nil {
+			t.Fatalf("Failed to revoke the identity '%s': %s", userName, err)
+		}
+
+		serials = append(serials, cert.SerialNumber)
+	}
+	t.Logf("Revoked certificates: %v", serials)
+	return serials
+}
+
 func testConfigFileTypes(t *testing.T) {
 	t.Log("Testing config file types")
 
@@ -329,87 +944,6 @@ func testEnroll(t *testing.T) {
 		t.Error("enroll called with bogus argument, should have failed")
 	}
 	os.Remove(defYaml)
-}
-
-// TestGencsr tests fabric-ca-client gencsr
-func TestGencsr(t *testing.T) {
-	t.Log("Testing gencsr CMD")
-	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
-
-	os.Remove(defYaml) // Clean up any left over config file
-
-	mspDir := filepath.Join(filepath.Dir(defYaml), "msp")
-
-	os.RemoveAll(mspDir)
-
-	defer os.Remove(defYaml)
-
-	err := RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,OU=OU1", "-M", mspDir})
-	if err != nil {
-		t.Errorf("client gencsr failed: %s", err)
-	}
-
-	signcerts := path.Join(mspDir, "signcerts")
-	assertOneFileInDir(signcerts, t)
-
-	files, err := ioutil.ReadDir(signcerts)
-	if err != nil {
-		t.Fatalf("Failed to get number of files in directory '%s': %s", signcerts, err)
-	}
-
-	if files[0].Name() != "identity.csr" {
-		t.Fatalf("Failed to find identity.csr in '%s': %s", signcerts, err)
-	}
-
-	err = RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,FOO=BAR", "-M", mspDir})
-	if err == nil {
-		t.Error("Should have failed: Invalid CSR name")
-	}
-
-	err = RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C:CA,O=Org1,OU=OU2", "-M", mspDir})
-	if err == nil {
-		t.Error("Should have failed: No '=' for name/value pair")
-	}
-
-	err = RunMain([]string{cmdName, "gencsr", "-c", defYaml, "--csr.names", "C=CA,O=Org1,OU=OU1", "-M", mspDir})
-	if err == nil {
-		t.Error("Should have failed: CSR CN not specified.")
-	}
-}
-
-// TestMOption tests to make sure that the key is stored in the correct
-// directory when the "-M" option is used.
-// This also ensures the intermediatecerts directory structure is populated
-// since we enroll with an intermediate CA.
-func TestMOption(t *testing.T) {
-	os.RemoveAll(moptionDir)
-	defer os.RemoveAll(moptionDir)
-	rootCAPort := 7173
-	rootServer := startServer(path.Join(moptionDir, "rootServer"), rootCAPort, "", t)
-	if rootServer == nil {
-		return
-	}
-	defer rootServer.Stop()
-	rootCAURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", rootCAPort)
-	intCAPort := 7174
-	intServer := startServer(path.Join(moptionDir, "intServer"), intCAPort, rootCAURL, t)
-	if intServer == nil {
-		return
-	}
-	defer intServer.Stop()
-	homedir := path.Join(moptionDir, "client")
-	mspdir := "msp2" // relative to homedir
-	err := RunMain([]string{
-		cmdName, "enroll",
-		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCAPort),
-		"-c", path.Join(homedir, "config.yaml"),
-		"-M", mspdir, "-d"})
-	if err != nil {
-		t.Fatalf("client enroll -u failed: %s", err)
-	}
-	assertOneFileInDir(path.Join(homedir, mspdir, "keystore"), t)
-	assertOneFileInDir(path.Join(homedir, mspdir, "cacerts"), t)
-	assertOneFileInDir(path.Join(homedir, mspdir, "intermediatecerts"), t)
 }
 
 // TestReenroll tests fabric-ca-client reenroll
@@ -735,304 +1269,6 @@ func testBogus(t *testing.T) {
 	}
 }
 
-func TestGetCACert(t *testing.T) {
-	srv = getServer()
-	srv.Config.Debug = true
-
-	// Configure TLS settings on server
-	srv.HomeDir = tdDir
-	srv.Config.TLS.Enabled = true
-	srv.Config.TLS.CertFile = tlsCertFile
-	srv.Config.TLS.KeyFile = tlsKeyFile
-
-	err := srv.Start()
-	if err != nil {
-		t.Errorf("Server start failed: %s", err)
-	}
-
-	// Test getcacert command using environment variables to set root TLS cert
-	err = testGetCACertEnvVar(t)
-	assert.NoError(t, err, "Failed to get CA cert using environment variables")
-
-	// Change client authentication type on server
-	srv.Config.TLS.ClientAuth.Type = "RequireAndVerifyClientCert"
-
-	// Test getcacert command using configuration files to read in client TLS cert and key
-	err = testGetCACertConfigFile(t)
-	assert.NoError(t, err, "Failed to get CA cert using client configuration file")
-
-	err = srv.Stop()
-	if err != nil {
-		t.Errorf("Server stop failed: %s", err)
-	}
-}
-
-func TestClientCommandsUsingConfigFile(t *testing.T) {
-	os.Remove(fabricCADB)
-
-	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
-	srv.Config.Debug = true
-
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "org1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	srv.HomeDir = tdDir
-	srv.Config.TLS.Enabled = true
-	srv.Config.TLS.CertFile = tlsCertFile
-	srv.Config.TLS.KeyFile = tlsKeyFile
-
-	err = srv.Start()
-	if err != nil {
-		t.Errorf("Server start failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "enroll", "-c",
-		"../../testdata/fabric-ca-client-config.yaml", "-u",
-		tlsEnrollURL, "-d"})
-	if err != nil {
-		t.Errorf("client enroll -c -u failed: %s", err)
-	}
-
-	err = srv.Stop()
-	if err != nil {
-		t.Errorf("Server stop failed: %s", err)
-	}
-}
-
-func TestClientCommandsTLSEnvVar(t *testing.T) {
-	os.Remove(fabricCADB)
-
-	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
-	srv.Config.Debug = true
-
-	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	srv.HomeDir = tdDir
-	srv.Config.TLS.Enabled = true
-	srv.Config.TLS.CertFile = tlsCertFile
-	srv.Config.TLS.KeyFile = tlsKeyFile
-
-	err = srv.Start()
-	if err != nil {
-		t.Errorf("Server start failed: %s", err)
-	}
-
-	os.Setenv(rootCertEnvVar, rootCert)
-	os.Setenv(clientKeyEnvVar, tlsClientKeyFile)
-	os.Setenv(clientCertEnvVar, tlsClientCertFile)
-
-	err = RunMain([]string{cmdName, "enroll", "-d", "-c", testYaml,
-		"-u", tlsEnrollURL, "-d"})
-	if err != nil {
-		t.Errorf("client enroll -c -u failed: %s", err)
-	}
-
-	err = srv.Stop()
-	if err != nil {
-		t.Errorf("Server stop failed: %s", err)
-	}
-
-	os.Unsetenv(rootCertEnvVar)
-	os.Unsetenv(clientKeyEnvVar)
-	os.Unsetenv(clientCertEnvVar)
-}
-
-func TestClientCommandsTLS(t *testing.T) {
-	os.Remove(fabricCADB)
-
-	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
-	srv.Config.Debug = true
-
-	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	srv.HomeDir = tdDir
-	srv.Config.TLS.Enabled = true
-	srv.Config.TLS.CertFile = tlsCertFile
-	srv.Config.TLS.KeyFile = tlsKeyFile
-
-	err = srv.Start()
-	if err != nil {
-		t.Errorf("Server start failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
-		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
-		tlsClientCertFile, "-u", tlsEnrollURL, "-d"})
-	if err != nil {
-		t.Errorf("client enroll -c -u failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
-		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
-		tlsClientCertExpired, "-u", tlsEnrollURL, "-d"})
-	if err == nil {
-		t.Errorf("Expired certificate used for TLS connection, should have failed")
-	}
-
-	err = srv.Stop()
-	if err != nil {
-		t.Errorf("Server stop failed: %s", err)
-	}
-	os.Remove(testYaml)
-}
-
-func TestMultiCA(t *testing.T) {
-	cleanMultiCADir()
-
-	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
-	srv.HomeDir = "../../testdata"
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
-		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
-	srv.CA.Config.CSR.Hosts = []string{"hostname"}
-	t.Logf("Server configuration: %+v\n", srv.Config)
-
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	srv.BlockingStart = false
-	err = srv.Start()
-	if err != nil {
-		t.Fatal("Failed to start server:", err)
-	}
-
-	// Test going to default CA if no caname provided in client request
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", enrollURL, "-d"})
-	if err != nil {
-		t.Errorf("client enroll -c -u failed: %s", err)
-	}
-
-	enrURL := fmt.Sprintf("http://adminca1:adminca1pw@localhost:%d", serverPort)
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", enrURL, "-d",
-		"--caname", "rootca1"})
-	if err != nil {
-		t.Errorf("client enroll -c -u --caname failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "reenroll", "-c", testYaml, "-d", "--caname",
-		"rootca1"})
-	if err != nil {
-		t.Errorf("client reenroll -c --caname failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "register", "-c", testYaml, "-d", "--id.name",
-		"testuser", "--id.type", "user", "--id.affiliation", "org2", "--caname", "rootca1"})
-	if err != nil {
-		t.Errorf("client register failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "revoke", "-c", testYaml, "-d",
-		"--revoke.name", "adminca1", "--caname", "rootca1"})
-	if err != nil {
-		t.Errorf("client revoke failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "getcacert", "-u", serverURL, "-c", testYaml, "-d",
-		"--caname", "rootca1"})
-	if err != nil {
-		t.Errorf("client getcacert failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u",
-		enrollURL, "-d", "--caname", "rootca2"})
-	if err != nil {
-		t.Errorf("client enroll failed: %s", err)
-	}
-
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u",
-		enrURL, "-d", "--caname", "rootca3"})
-	if err == nil {
-		t.Errorf("Should have failed, rootca3 does not exist on server")
-	}
-
-	err = srv.Stop()
-	if err != nil {
-		t.Errorf("Server stop failed: %s", err)
-	}
-}
-
-func TestMSPDirectoryCreation(t *testing.T) {
-	os.RemoveAll("mspConfigTest")
-	defer os.RemoveAll("mspConfigTest")
-	srv := lib.TestGetServer(serverPort, "mspConfigTest", "", -1, t)
-
-	err := srv.Start()
-	if err != nil {
-		t.Fatal("Failed to start server:", err)
-	}
-
-	if util.FileExists("msp") {
-		t.Errorf("MSP directory should not exist at the local directory")
-	}
-
-	err = srv.Stop()
-	if err != nil {
-		t.Errorf("Server stop failed: %s", err)
-	}
-}
-
-func TestHomeDirectory(t *testing.T) {
-	configFilePath := util.GetDefaultConfigFile(clientCMD)
-	defaultClientConfigDir, defaultClientConfigFile := filepath.Split(configFilePath)
-
-	os.RemoveAll("../../testdata/testhome")
-	defer os.RemoveAll("../../testdata/testhome")
-
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-c", ""})
-	if !util.FileExists(configFilePath) {
-		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
-	}
-
-	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
-
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", ""})
-	if !util.FileExists(configFilePath) {
-		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
-	}
-
-	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
-
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL})
-	if !util.FileExists(configFilePath) {
-		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
-	}
-
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", "../../testdata/testhome/testclientcmd"})
-	if !util.FileExists(filepath.Join("../../testdata/testhome/testclientcmd", defaultClientConfigFile)) {
-		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config.yaml) in the '../../testdata/testhome/testclientcmd' directory")
-	}
-
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-c", "../../testdata/testhome/testclientcmd2/testconfig2.yaml"})
-	if !util.FileExists("../../testdata/testhome/testclientcmd2/testconfig2.yaml") {
-		t.Errorf("Failed to correctly created the config (testconfig2.yaml) in the '../../testdata/testhome/testclientcmd2' directory")
-	}
-
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-H", "../../testdata/testclientcmd3", "-c", "../../testdata/testhome/testclientcmd3/testconfig3.yaml"})
-	if !util.FileExists("../../testdata/testhome/testclientcmd3/testconfig3.yaml") {
-		t.Errorf("Failed to correctly created the config (testconfig3.yaml) in the '../../testdata/testhome/testclientcmd3' directory")
-	}
-
-}
-
-func TestCleanUp(t *testing.T) {
-	os.Remove("../../testdata/ca-cert.pem")
-	os.Remove("../../testdata/ca-key.pem")
-	os.Remove(testYaml)
-	os.Remove(fabricCADB)
-	os.RemoveAll(mspDir)
-	os.RemoveAll(moptionDir)
-	cleanMultiCADir()
-}
-
 func cleanMultiCADir() {
 	caFolder := "../../testdata/ca/rootca"
 	nestedFolders := []string{"ca1", "ca2"}
@@ -1045,13 +1281,6 @@ func cleanMultiCADir() {
 			os.RemoveAll(filepath.Join(path, file))
 		}
 		os.RemoveAll(filepath.Join(path, "msp"))
-	}
-}
-
-func TestRegisterWithoutEnroll(t *testing.T) {
-	err := RunMain([]string{cmdName, "register", "-c", testYaml})
-	if err == nil {
-		t.Errorf("Should have failed, as no enrollment information should exist. Enroll commands needs to be the first command to be executed")
 	}
 }
 
@@ -1080,13 +1309,6 @@ func testGetCACertConfigFile(t *testing.T) error {
 	}
 
 	return nil
-}
-
-func TestVersion(t *testing.T) {
-	err := RunMain([]string{cmdName, "version"})
-	if err != nil {
-		t.Error("Failed to get fabric-ca-client version: ", err)
-	}
 }
 
 func getServer() *lib.Server {
