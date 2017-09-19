@@ -164,6 +164,8 @@ mysql --host=localhost --user=root --password=mysql --database=$DBNAME -e "CREAT
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG 2>&1 > $SERVERLOG
 $SCRIPTDIR/fabric-ca_setup.sh -K
 
+sleep 5
+
 # Starting server second time with a second bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 >> $SERVERLOG 
 $SCRIPTDIR/fabric-ca_setup.sh -K
