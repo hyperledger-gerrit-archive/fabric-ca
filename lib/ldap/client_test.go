@@ -19,6 +19,8 @@ package ldap
 import (
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLDAP(t *testing.T) {
@@ -126,4 +128,27 @@ func TestLDAPTLS(t *testing.T) {
 		t.Errorf("ldap.User.GetAttribute failed: no mail found")
 	}
 	t.Logf("email for user 'jsmith' is %s", email)
+}
+
+// Tests String method of ldap.Config
+func TestLDAPConfigStringer(t *testing.T) {
+	ldapConfig := Config{
+		Enabled:     true,
+		URL:         "ldap://admin:adminpwd@localhost:8888/users",
+		UserFilter:  "(uid=%s)",
+		GroupFilter: "(memberUid=%s)",
+	}
+	str := fmt.Sprintf("%+v", ldapConfig) // String method of Config is called here
+	t.Logf("Stringified LDAP Config: %s", str)
+	assert.NotContains(t, str, "adminpwd", "Password is not masked in the ldap URL")
+
+	ldapConfig = Config{
+		Enabled:     true,
+		URL:         "ldaps://admin:adminpwd@localhost:8888/users",
+		UserFilter:  "(uid=%s)",
+		GroupFilter: "(memberUid=%s)",
+	}
+	str = fmt.Sprintf("%+v", ldapConfig)
+	t.Logf("Stringified LDAP Config: %s", str)
+	assert.NotContains(t, str, "adminpwd", "Password is not masked in the ldap URL")
 }

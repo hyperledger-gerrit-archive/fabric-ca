@@ -17,6 +17,7 @@ package lib
 
 import (
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -331,6 +332,25 @@ func TestCAInit(t *testing.T) {
 	if err == nil {
 		t.Fatal("Should have failed")
 	}
+}
+
+// Tests String method of CAConfigDB
+func TestCAConfigDBStringer(t *testing.T) {
+	dbconfig := CAConfigDB{
+		Type:       "postgres",
+		Datasource: "dbname=mypostgres host=127.0.0.1 port=8888 user=admin password=admin sslmode=disable",
+	}
+	str := fmt.Sprintf("%+v", dbconfig) // String method of CAConfigDB is called here
+	t.Logf("Stringified postgres CAConfigDB: %s", str)
+	assert.NotContains(t, str, "password=admin", "Password is not masked in the datasource URL")
+
+	dbconfig = CAConfigDB{
+		Type:       "mysql",
+		Datasource: "root:rootpw@tcp(localhost:8888)/mysqldb?parseTime=true",
+	}
+	str = fmt.Sprintf("%+v", dbconfig)
+	t.Logf("Stringified mysql CAConfigDB: %s", str)
+	assert.NotContains(t, str, "rootpw", "Password is not masked in the datasource URL")
 }
 
 func getTestDir(d string) (string, error) {
