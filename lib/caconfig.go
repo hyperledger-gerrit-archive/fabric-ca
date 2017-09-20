@@ -17,6 +17,9 @@ limitations under the License.
 package lib
 
 import (
+	"regexp"
+	"strings"
+
 	"github.com/cloudflare/cfssl/config"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
@@ -60,6 +63,10 @@ csr:
 `
 )
 
+var (
+	dbURLRegex = regexp.MustCompile("Datasource:\\s*\\S+:(\\S+)@|\\spassword=(\\S+)")
+)
+
 // CAConfig is the CA instance's config
 // The tags are recognized by the RegisterFlags function in fabric-ca/lib/util.go
 // and are as follows:
@@ -95,6 +102,29 @@ type CAConfigDB struct {
 	Type       string `def:"sqlite3" help:"Type of database; one of: sqlite3, postgres, mysql"`
 	Datasource string `def:"fabric-ca-server.db" help:"Data source which is database specific"`
 	TLS        tls.ClientTLSConfig
+}
+
+// Implements Stringer interface for CAConfigDB
+// Calls util.StructToString to convert the CAConfigDB struct to
+// string and masks the password from the database URL. Returns
+// resulting string.
+func (c CAConfigDB) String() string {
+	str := util.StructToString(&c)
+	matches := dbURLRegex.FindStringSubmatch(str)
+	// If there is a match, there should be three entries: 1 for
+	// the match and 2 for submatches (see dbURLRegex regular expression)
+	if len(matches) == 3 {
+		matchIdxs := dbURLRegex.FindStringSubmatchIndex(str)
+		substr := str[matchIdxs[0]:matchIdxs[1]]
+		var maskedSubstr string
+		if matches[1] != "" {
+			maskedSubstr = strings.Replace(substr, matches[1], "****", 1)
+		} else {
+			maskedSubstr = strings.Replace(substr, matches[2], "****", 1)
+		}
+		str = str[:matchIdxs[0]] + maskedSubstr + str[matchIdxs[1]:len(str)]
+	}
+	return str
 }
 
 // CAConfigRegistry is the registry part of the server's config
