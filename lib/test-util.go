@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	"github.com/cloudflare/cfssl/config"
+	"github.com/stretchr/testify/assert"
 )
 
 const (
@@ -122,4 +123,10 @@ func TestGetServer2(deleteHome bool, port int, home, parentURL string, maxEnroll
 		return nil
 	}
 	return srv
+}
+
+func fatalError(t *testing.T, err error, msg string) {
+	if !assert.NoError(t, err, msg) {
+		t.Fatal(msg)
+	}
 }
