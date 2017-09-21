@@ -1339,9 +1339,7 @@ func TestCfgCommand(t *testing.T) {
 
 	// Expected to fail for right now as no handler exists on server
 	err = RunMain([]string{cmdName, "servercfg", "add", `registry.identities={"id": "testuser", "secret": "1234"}`})
-	if assert.Error(t, err, "Failed to update server's configuration") {
-		assert.Contains(t, err.Error(), "404 page not found")
-	}
+	assert.Error(t, err, "Failed to update server's configuration")
 }
 
 func TestCleanUp(t *testing.T) {
