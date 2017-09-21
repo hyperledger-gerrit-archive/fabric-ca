@@ -1338,9 +1338,7 @@ func TestCfgCommand(t *testing.T) {
 
 	// Expected to fail for right now as no handler exists on server
 	err = RunMain([]string{cmdName, "servercfg", "add", "configOpt1:Val1", "add", "configOpt2:Val2"})
-	if assert.Error(t, err, "Failed to update server's configuration") {
-		assert.Contains(t, err.Error(), "404 page not found")
-	}
+	assert.Error(t, err, "Failed to update server's configuration")
 
 	err = srv.Stop()
 	assert.NoError(t, err, "Failed to stop server")

@@ -113,6 +113,10 @@ const (
 	ErrGetCASigner = 40
 	// Failed to generate CRL
 	ErrGenCRL = 41
+	// Server configuration authority error
+	ErrUpdateConfigAuth = 42
+	// Server configuration update error
+	ErrUpdateConfig = 43
 )
 
 // Construct a new HTTP error.
