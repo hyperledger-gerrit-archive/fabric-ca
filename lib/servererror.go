@@ -99,6 +99,10 @@ const (
 	ErrCallerIsNotAuthenticated = 33
 	// Invalid configuration setting
 	ErrConfig = 34
+	// Server configuration authority error
+	ErrUpdateConfigAuth = 35
+	// Server configuration update error
+	ErrUpdateConfig = 36
 )
 
 // Construct a new HTTP error.

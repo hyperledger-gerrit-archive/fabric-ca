@@ -446,8 +446,11 @@ func (c *Client) SendReq(req *http.Request, result interface{}) (err error) {
 			return errors.Wrapf(err, "Failed to parse response: %s", respBody)
 		}
 		if len(body.Errors) > 0 {
-			msg := body.Errors[0].Message
-			return errors.Errorf("Response from server: %s", msg)
+			var errorMsg string
+			for _, err := range body.Errors {
+				errorMsg = errorMsg + fmt.Sprintf("Response from server: Error Code: %d - %s\n", err.Code, err.Message)
+			}
+			return errors.Errorf(errorMsg)
 		}
 	}
 	scode := resp.StatusCode
