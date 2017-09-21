@@ -206,7 +206,7 @@ func (i *Identity) UpdateServerConfig(req *api.UpdateConfigRequest) error {
 	if err != nil {
 		return err
 	}
-	err = i.Post("update", reqBody, nil)
+	err = i.Post("config", reqBody, nil)
 	if err != nil {
 		return err
 	}

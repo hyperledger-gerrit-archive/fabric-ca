@@ -117,6 +117,10 @@ const (
 	ErrRegAttrAuth = 42
 	// Registrar does not own 'hf.Registrar.Attributes'
 	ErrMissingRegAttr = 43
+	// Server configuration authority error
+	ErrUpdateConfigAuth = 44
+	// Server configuration update error
+	ErrUpdateConfig = 45
 )
 
 // Construct a new HTTP error.
