@@ -465,6 +465,7 @@ func (s *Server) registerHandlers() {
 	s.registerHandler("reenroll", newReenrollEndpoint(s))
 	s.registerHandler("revoke", newRevokeEndpoint(s))
 	s.registerHandler("tcert", newTCertEndpoint(s))
+	s.registerHandler("config", newConfigEndpoint(s))
 }
 
 // Register a handler
