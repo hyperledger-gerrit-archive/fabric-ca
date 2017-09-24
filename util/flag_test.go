@@ -19,6 +19,7 @@ package util_test
 import (
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/lib"
 	. "github.com/hyperledger/fabric-ca/util"
@@ -29,6 +30,7 @@ import (
 
 // A test struct
 type A struct {
+	ADur        time.Duration     `help:"Duration"`
 	ASlice      []string          `help:"Slice description"`
 	AStr        string            `def:"defval" help:"Str1 description"`
 	AInt        int               `def:"10" help:"Int1 description"`
@@ -56,6 +58,10 @@ type C struct {
 }
 
 type ABad struct {
+}
+
+type DurBad struct {
+	ADur time.Duration `def:"xx" help:"Duration"`
 }
 
 func printit(f *Field) error {
@@ -91,6 +97,7 @@ func TestParseObj(t *testing.T) {
 func TestCheckForMissingValues(t *testing.T) {
 
 	src := &A{
+		ADur:      time.Hour,
 		AStr:      "AStr",
 		AStr2:     "AStr2",
 		AIntArray: []int{1, 2, 3},
@@ -184,7 +191,6 @@ func TestViperUnmarshal(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to correctly process valid path to be type string array: ", err)
 	}
-
 }
 
 func TestRegisterFlagsInvalidArgs(t *testing.T) {
@@ -208,7 +214,16 @@ func TestRegisterFlagsInvalidArgs(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "Field is missing a help tag")
 
-	data5 := struct{ Field float32 }{}
+	data5 := struct{ Field time.Duration }{}
 	err = RegisterFlags(viper.GetViper(), &pflag.FlagSet{}, &data5, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Field is missing a help tag")
+
+	err = RegisterFlags(viper.GetViper(), &pflag.FlagSet{}, &DurBad{}, nil)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "Invalid duration value in 'def' tag")
+
+	data6 := struct{ Field float32 }{}
+	err = RegisterFlags(viper.GetViper(), &pflag.FlagSet{}, &data6, nil)
 	assert.NoError(t, err)
 }
