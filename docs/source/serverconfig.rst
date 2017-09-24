@@ -124,6 +124,7 @@ Fabric-CA Server's Configuration File
               hf.Registrar.DelegateRoles: "client,user,validator,auditor"
               hf.Revoker: true
               hf.IntermediateCA: true
+              hf.GenCRL: true
     
     #############################################################################
     #  Database section
