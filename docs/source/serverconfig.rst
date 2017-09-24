@@ -91,6 +91,23 @@ Fabric-CA Server's Configuration File
       chainfile: ca-chain.pem
     
     #############################################################################
+    #  The gencrl REST endpoint is used to generate a CRL that contains unexpired
+    #  revoked certificates. This section contains configuration options are
+    #  used during gencrl request processing.
+    #############################################################################
+    crl:
+      # Specifies expiration (in days) for the generated CRL. The number of days
+      # specified by this property is added to the UTC time, the resulting time
+      # is used to set the 'Next Update' date of the CRL.
+      expiry: 1
+    
+      # This value in seconds is used to adjust current time to account for clock skews
+      # across systems when querying for unexpired revoked certificates. If the
+      # subtracted current time is less than the expiry value of a revoked certificate,
+      # the certificate is considered as unexpired.
+      certexpirationwindow: 10
+    
+    #############################################################################
     #  The registry section controls how the fabric-ca-server does two things:
     #  1) authenticates enrollment requests which contain a username and password
     #     (also known as an enrollment ID and secret).
@@ -124,6 +141,7 @@ Fabric-CA Server's Configuration File
               hf.Registrar.DelegateRoles: "client,user,validator,auditor"
               hf.Revoker: true
               hf.IntermediateCA: true
+              hf.GenCRL: true
     
     #############################################################################
     #  Database section
