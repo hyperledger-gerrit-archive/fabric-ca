@@ -50,6 +50,10 @@ WHERE (serial_number = ? AND authority_key_identifier = ?);`
 UPDATE certificates
 SET status='revoked', revoked_at=CURRENT_TIMESTAMP, reason=:reason
 WHERE (id = :id AND status != 'revoked');`
+
+	selectRevokedAndUnexpiredSQL = `
+SELECT %s FROM certificates
+	WHERE (CURRENT_TIMESTAMP < expiry AND status='revoked' AND revoked_at > ? AND revoked_at < ?);`
 )
 
 // CertRecord extends CFSSL CertificateRecord by adding an enrollment ID to the record
@@ -189,7 +193,23 @@ func (d *CertDBAccessor) GetUnexpiredCertificates() (crs []certdb.CertificateRec
 	return crs, err
 }
 
-// GetRevokedAndUnexpiredCertificates returns all revoked and unexpired certificates
+// GetRevokedCertificates returns revoked and unexpired certificates
+func (d *CertDBAccessor) GetRevokedCertificates(after, before time.Time) ([]certdb.CertificateRecord, error) {
+	log.Debugf("DB: Get revoked certificates that were revoked after %s and before %s", after, before)
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+	var crs []certdb.CertificateRecord
+	err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedAndUnexpiredSQL),
+		sqlstruct.Columns(certdb.CertificateRecord{})), after, before)
+	if err != nil {
+		return crs, dbGetError(err, "Certificate")
+	}
+	return crs, nil
+}
+
+// GetRevokedAndUnexpiredCertificates returns revoked and unexpired certificates
 func (d *CertDBAccessor) GetRevokedAndUnexpiredCertificates() ([]certdb.CertificateRecord, error) {
 	crs, err := d.accessor.GetRevokedAndUnexpiredCertificates()
 	if err != nil {
