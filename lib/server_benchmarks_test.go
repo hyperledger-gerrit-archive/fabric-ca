@@ -267,6 +267,60 @@ func BenchmarkRevokeIdentity(b *testing.B) {
 	invokeRevokeBenchmark(b)
 }
 
+func BenchmarkGenCRL(b *testing.B) {
+	b.StopTimer()
+	srv := getServerForBenchmark(serverbPort, rootDir, "", -1, b)
+	err := srv.Start()
+	if err != nil {
+		b.Fatalf("Server failed to start: %v", err)
+	}
+	defer cleanup(srv)
+
+	client := getTestClient(serverbPort)
+	eresp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	if err != nil {
+		b.Fatalf("Failed to enroll admin/adminpw: %s", err)
+	}
+	admin := eresp.Identity
+	for i := 0; i < 100; i++ {
+		userName := "gencrluser" + strconv.Itoa(i)
+		regReq := &api.RegistrationRequest{
+			Name:        userName,
+			Type:        "user",
+			Affiliation: "hyperledger.fabric.security",
+		}
+		_, err := admin.RegisterAndEnroll(regReq)
+		if err != nil {
+			b.Fatalf("Failed to register and enroll the user %s: %s", userName, err)
+		}
+		err = admin.Revoke(&api.RevocationRequest{
+			Name: userName,
+		})
+		if err != nil {
+			b.Fatalf("Failed to revoke the user %s: %s", userName, err)
+		}
+	}
+
+	req, err := createGenCRLRequest(client)
+	if err != nil {
+		b.Fatalf("Failed to create the genCRL request %s", err)
+	}
+
+	genCRLSE := newGenCRLEndpoint(srv)
+	for i := 0; i < b.N; i++ {
+		rw := httptest.NewRecorder()
+		b.StartTimer()
+		genCRLSE.ServeHTTP(rw, req)
+		b.StopTimer()
+		if err != nil {
+			b.Fatalf("GenCRL request handler returned an error: %s", err.Error())
+		}
+	}
+}
+
 func invokeRevokeBenchmark(b *testing.B) {
 	srv := getServerForBenchmark(serverbPort, rootDir, "", -1, b)
 	err := srv.Start()
@@ -442,4 +496,16 @@ func createGetCACertRequest(client *Client) (*http.Request, error) {
 		return nil, err
 	}
 	return cainforeq, nil
+}
+
+func createGenCRLRequest(client *Client) (*http.Request, error) {
+	body, err := util.Marshal(&api.GenCRLRequest{}, "GenCRL")
+	if err != nil {
+		return nil, err
+	}
+	gencrlreq, err := client.newPost("gencrl", body)
+	if err != nil {
+		return nil, err
+	}
+	return gencrlreq, nil
 }
