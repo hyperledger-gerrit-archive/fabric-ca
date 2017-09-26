@@ -11,6 +11,10 @@ KEYUSE                  = nonRepudiation,digitalSignature,keyEncipherment
 HTTP_PORT               = 3755
 #EXTKEYUSE               = "ipsecEndSystem"
 
+oid_section = oids
+
+[ oids ]
+url=2.5.4.87
 ####################################################################
 # CA Definition
 [ ca ]
@@ -77,13 +81,61 @@ emailAddress            = optional      # not required
 # be used by specifying '-policy policy_anything' to ca(8).
 #
 [ policy_anything ]
-countryName             = optional
-stateOrProvinceName     = optional
-localityName            = optional
-organizationName        = optional
-organizationalUnitName  = optional
-commonName              = supplied
-emailAddress            = optional
+countryName=optional
+stateOrProvinceName=optional
+localityName=optional
+organizationName=optional
+organizationalUnitName=optional
+streetAddress=optional
+serialNumber=optional
+title=optional
+description=optional
+surname=optional
+searchGuide=optional
+businessCategory=optional
+postalAddress=optional
+postalCode=optional
+postOfficeBox=optional
+physicalDeliveryOfficeName=optional
+telephoneNumber=optional
+telexNumber=optional
+teletexTerminalIdentifier=optional
+facsimileTelephoneNumber=optional
+x121Address=optional
+internationaliSDNNumber=optional
+registeredAddress=optional
+destinationIndicator=optional
+preferredDeliveryMethod=optional
+presentationAddress=optional
+supportedApplicationContext=optional
+member=optional
+owner=optional
+roleOccupant=optional
+seeAlso=optional
+userPassword=optional
+userCertificate=optional
+cACertificate=optional
+authorityRevocationList=optional
+certificateRevocationList=optional
+crossCertificatePair=optional
+name=optional
+givenName=optional
+initials=optional
+generationQualifier=optional
+x500UniqueIdentifier=optional
+dnQualifier=optional
+enhancedSearchGuide=optional
+protocolInformation=optional
+distinguishedName=optional
+uniqueMember=optional
+houseIdentifier=optional
+supportedAlgorithms=optional
+deltaRevocationList=optional
+dmdName=optional
+pseudonym=optional
+role=optional
+url=optional
+commonName=optional
 
 ####################################################################
 # This is where we define how to generate CSRs
