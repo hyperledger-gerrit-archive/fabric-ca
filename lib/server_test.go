@@ -846,6 +846,23 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	err = os.Remove("../testdata/ca/rootca/ca1/ca-key.pem")
 	err = os.Remove("../testdata/ca/rootca/ca1/ca-cert.pem")
 
+	// Starting server with existing certificates with long DN
+	err := os.Link("../testdata/longdn-cert.pem", "../testdata/ca/rootca/ca1/ca-cert.pem")
+	if err != nil {
+		t.Errorf("symlink longdn cert to ../testdata/ca1/ca-cert.pem failed %v", err)
+	}
+	err = os.Link("../testdata/longdn-key.pem", "../testdata/ca/rootca/ca1/ca-key.pem")
+	if err != nil {
+		t.Errorf("symlink longdn key to ../testdata/ca/rootca/ca1/ca-key.pem failed %v", err)
+	}
+
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml"}
+	err = srv.Start()
+	t.Logf("srv.Start ERROR %v", err)
+	if err != nil {
+		t.Error("Failed to start server: %v", err)
+	}
+
 	testBadCryptoData(t, srv, []string{"../testdata/expiredcert.pem", "../testdata/tls_client-key.pem", "expired cert"})
 	testBadCryptoData(t, srv, []string{"../testdata/noKeyUsage.cert.pem", "../testdata/noKeyUsage.key.pem", "invalid usage cert"})
 	testBadCryptoData(t, srv, []string{"../testdata/caFalse.cert.pem", "../testdata/caFalse.key.pem", "invalid Basic Constraints"})
