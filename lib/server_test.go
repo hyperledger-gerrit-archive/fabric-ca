@@ -860,7 +860,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	t.Log("TestMultiCA...")
 
 	srv := TestGetServer(rootPort, testdataDir, "", -1, t)
-	srv.Config.CAfiles = []string{"ca/ca1/fabric-ca-server-config.yaml", "ca/ca1/fabric-ca-server-config.yaml", "ca/ca2/fabric-ca-server-config.yaml"}
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
 
 	srv.CA.Config.CSR.Hosts = []string{"hostname"}
 	t.Logf("Server configuration: %+v", srv.Config)
@@ -870,6 +870,10 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	t.Logf("Start two CAs with the same name: %v", err)
 	if err == nil {
 		t.Error("Trying to create two CAs with the same name, server start should have failed")
+		err = srv.Stop()
+		if err != nil {
+			t.Errorf("Failed to stop server: %s", err)
+		}
 	}
 
 	// Starting server with a missing ca config file
@@ -1048,7 +1052,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 
 	err = srv.Stop()
 	if err != nil {
-		t.Error("Failed to stop server:", err)
+		t.Fatal("Failed to stop server:", err)
 	}
 
 	// Starting server with correct configuration and pre-existing cert/key
@@ -1076,9 +1080,35 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 
 	err = srv.Stop()
 	if err != nil {
-		t.Error("Failed to stop server:", err)
+		t.Fatal("Failed to stop server:", err)
 	}
 
+	// Starting server with existing certificates with long DN
+	err = os.Remove("../testdata/ca/rootca/ca1/ca-key.pem")
+	err = os.Remove("../testdata/ca/rootca/ca1/ca-cert.pem")
+	srv = getServer(rootPort, testdataDir, "", 0, t)
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	t.Logf("Server configuration: %+v\n\n", srv.Config)
+
+	err = os.Link("../testdata/longdn-cert.pem", "../testdata/ca/rootca/ca1/ca-cert.pem")
+	if err != nil {
+		t.Errorf("symlink longdn cert to ../testdata/ca1/ca-cert.pem failed %v", err)
+	}
+	err = os.Link("../testdata/longdn-key.pem", "../testdata/ca/rootca/ca1/ca-key.pem")
+	if err != nil {
+		t.Errorf("symlink longdn key to ../testdata/ca/rootca/ca1/ca-key.pem failed %v", err)
+	}
+
+	err = srv.Start()
+	t.Logf("srv.Start ERROR %v", err)
+	if err != nil {
+		t.Fatal("Failed to start server: ", err)
+	}
+
+	err = srv.Stop()
+	if err != nil {
+		t.Error("Failed to stop server:", err)
+	}
 	cleanMultiCADir(t)
 }
 
