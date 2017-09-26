@@ -342,9 +342,8 @@ func TestCAInit(t *testing.T) {
 	// ca.initConfig() error
 	os.RemoveAll(wd2)
 	ca, err = NewCA("", &cfg, &srv, false)
-	t.Log("NewCA err: ", err)
 	if err != nil {
-		t.Fatal("Should have failed")
+		t.Fatal("NewCA failed", err)
 	}
 	ca.HomeDir = ""
 	err = ca.init(false)
