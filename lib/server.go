@@ -775,20 +775,18 @@ func (dn *DN) equal(checkDN *DN) error {
 
 func (s *Server) getDNFromCert(namespace pkix.Name, sep string) (string, error) {
 	subject := []string{}
-	for _, s := range namespace.ToRDNSequence() {
-		for _, i := range s {
-			if v, ok := i.Value.(string); ok {
-				if name, ok := oid[i.Type.String()]; ok {
-					// <oid name>=<value>
-					subject = append(subject, fmt.Sprintf("%s=%s", name, v))
-				} else {
-					// <oid>=<value> if no <oid name> is found
-					subject = append(subject, fmt.Sprintf("%s=%s", i.Type.String(), v))
-				}
+	for _, i := range namespace.Names {
+		if v, ok := i.Value.(string); ok {
+			if name, ok := oid[i.Type.String()]; ok {
+				// <oid name>=<value>
+				subject = append(subject, fmt.Sprintf("%s=%s", name, v))
 			} else {
-				// <oid>=<value in default format> if value is not string
-				subject = append(subject, fmt.Sprintf("%s=%v", i.Type.String(), v))
+				// <oid>=<value> if no <oid name> is found
+				subject = append(subject, fmt.Sprintf("%s=%s", i.Type.String(), v))
 			}
+		} else {
+			// <oid>=<value in default format> if value is not string
+			subject = append(subject, fmt.Sprintf("%s=%v", i.Type.String(), v))
 		}
 	}
 	return sep + strings.Join(subject, sep), nil
