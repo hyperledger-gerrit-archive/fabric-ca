@@ -5,7 +5,7 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 
-TESTCASE="db_resiliency"
+: ${TESTCASE:="db_resiliency"}
 FABRIC_CA="$GOPATH/src/github.com/hyperledger/fabric-ca"
 echo $FABRIC_CA
 FABRIC_CAEXEC="$FABRIC_CA/bin/fabric-ca"
@@ -165,7 +165,7 @@ $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG 2>&1 > $SERVERLOG
 $SCRIPTDIR/fabric-ca_setup.sh -K
 
 # Starting server second time with a second bootstrap user
-$SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 >> $SERVERLOG 
+$SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 >> $SERVERLOG
 $SCRIPTDIR/fabric-ca_setup.sh -K
 
 existingIdentity "a" $SERVERLOG # Check to see that appropriate error message was seen for an already registered user
