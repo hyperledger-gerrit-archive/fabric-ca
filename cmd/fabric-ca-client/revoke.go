@@ -89,18 +89,26 @@ func (c *ClientCmd) runRevoke(cmd *cobra.Command) error {
 		return errInput
 	}
 
-	err = id.Revoke(
-		&api.RevocationRequest{
-			Name:   c.clientCfg.Revoke.Name,
-			Serial: c.clientCfg.Revoke.Serial,
-			AKI:    c.clientCfg.Revoke.AKI,
-			Reason: c.clientCfg.Revoke.Reason,
-			CAName: c.clientCfg.CAName,
-		})
-
-	if err == nil {
-		log.Infof("Revocation was successful")
+	req := &api.RevocationRequest{
+		Name:   c.clientCfg.Revoke.Name,
+		Serial: c.clientCfg.Revoke.Serial,
+		AKI:    c.clientCfg.Revoke.AKI,
+		Reason: c.clientCfg.Revoke.Reason,
+		GenCRL: c.clientCfg.Revoke.GenCRL,
+		CAName: c.clientCfg.CAName,
 	}
+	result, err := id.Revoke(req)
 
-	return err
+	if err != nil {
+		return err
+	}
+	log.Infof("Sucessfully revoked certificates: %+v", result.RevokedCerts)
+
+	if req.GenCRL && result.CRL != "" {
+		err = storeCRL(c.clientCfg, result.CRL)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

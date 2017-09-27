@@ -159,22 +159,23 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 }
 
 // Revoke the identity associated with 'id'
-func (i *Identity) Revoke(req *api.RevocationRequest) error {
+func (i *Identity) Revoke(req *api.RevocationRequest) (*api.RevocationResponse, error) {
 	log.Debugf("Entering identity.Revoke %+v", req)
 	reqBody, err := util.Marshal(req, "RevocationRequest")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = i.Post("revoke", reqBody, nil)
+	var result api.RevocationResponse
+	err = i.Post("revoke", reqBody, &result)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	log.Debugf("Successfully revoked %+v", req)
-	return nil
+	log.Debugf("Successfully revoked certificates: %+v", result)
+	return &result, nil
 }
 
 // RevokeSelf revokes the current identity and all certificates
-func (i *Identity) RevokeSelf() error {
+func (i *Identity) RevokeSelf() (*api.RevocationResponse, error) {
 	name := i.GetName()
 	log.Debugf("RevokeSelf %s", name)
 	req := &api.RevocationRequest{

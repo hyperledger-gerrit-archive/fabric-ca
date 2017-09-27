@@ -1542,7 +1542,7 @@ func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) []*big.I
 		}
 
 		// Revoke the user cert
-		err = admin.Revoke(revokeReq)
+		_, err = admin.Revoke(revokeReq)
 		if err != nil {
 			t.Fatalf("Failed to revoke the identity '%s': %s", userName, err)
 		}
