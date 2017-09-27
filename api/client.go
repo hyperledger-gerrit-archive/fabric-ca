@@ -107,6 +107,16 @@ type RevocationRequest struct {
 	Reason string `json:"reason,omitempty" opt:"r" help:"Reason for revocation"`
 	// CAName is the name of the CA to connect to
 	CAName string `json:"caname,omitempty" skip:"true"`
+	// GenCRL specifies whether to generate a CRL
+	GenCRL bool `json:"gencrl,omitempty" opt:"" help:"Generates a CRL if true"`
+}
+
+// RevocationResponse represents response from the server for a revocation request
+type RevocationResponse struct {
+	// RevokedCerts is serial-aki map of certificates that were revoked
+	RevokedCerts map[string]string
+	// CRL is base64 encoded DER bytes of a CRL that contains all unexpired revoked certificates
+	CRL string
 }
 
 // GetTCertBatchRequest is input provided to identity.GetTCertBatch

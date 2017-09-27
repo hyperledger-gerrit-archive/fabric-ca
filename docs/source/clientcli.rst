@@ -38,6 +38,7 @@ Fabric-CA Client's CLI
       -M, --mspdir string                  Membership Service Provider directory (default "msp")
       -m, --myhost string                  Hostname to include in the certificate signing request during enrollment (default "$HOSTNAME")
       -a, --revoke.aki string              AKI (Authority Key Identifier) of the certificate to be revoked
+          --revoke.gencrl                  Generates a CRL if true
       -e, --revoke.name string             Identity whose certificates should be revoked
       -r, --revoke.reason string           Reason for revocation
       -s, --revoke.serial string           Serial number of the certificate to be revoked
