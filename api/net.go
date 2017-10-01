@@ -17,6 +17,11 @@ limitations under the License.
 package api
 
 import (
+	"encoding/json"
+	"net/http"
+
+	"github.com/cloudflare/cfssl/api"
+	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
 )
@@ -84,4 +89,29 @@ type KeySig struct {
 	Sig []byte `json:"sig"`
 	// Alg is the signature algorithm
 	Alg string `json:"alg"`
+}
+
+// SendResultWithError sends response back with both a result and errors
+func SendResultWithError(w http.ResponseWriter, result interface{}, message string, rcode int, scode int) error {
+	response := &api.Response{
+		Success: false,
+		Result:  result,
+		Errors: []api.ResponseMessage{
+			api.ResponseMessage{
+				Code:    rcode,
+				Message: message,
+			},
+		},
+		Messages: []api.ResponseMessage{},
+	}
+
+	jsonMessage, err := json.Marshal(response)
+	if err != nil {
+		log.Errorf("Failed to marshal error to JSON: %v", err)
+		return err
+	}
+	msg := string(jsonMessage)
+	http.Error(w, msg, scode)
+
+	return nil
 }
