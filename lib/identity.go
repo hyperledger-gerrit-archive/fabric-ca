@@ -200,17 +200,15 @@ func (i *Identity) GenCRL(req *api.GenCRLRequest) (*api.GenCRLResponse, error) {
 }
 
 // UpdateServerConfig dynamically updates the server's config
-func (i *Identity) UpdateServerConfig(req *api.UpdateConfigRequest) error {
+func (i *Identity) UpdateServerConfig(req *api.ConfigRequest) (*api.ConfigResponse, error) {
 	log.Debugf("Update server's configuration request: %+v", req)
 	reqBody, err := util.Marshal(req, "UpdateServerConfigRequest")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = i.Post("config", reqBody, nil)
-	if err != nil {
-		return err
-	}
-	return nil
+	resp := &api.ConfigResponse{}
+	err = i.Post("config", reqBody, resp)
+	return resp, err // Could have both a response and errors when handling multiple updates in single call
 }
 
 // Store writes my identity info to disk

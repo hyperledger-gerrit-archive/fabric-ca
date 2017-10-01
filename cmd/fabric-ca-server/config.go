@@ -172,6 +172,7 @@ registry:
           hf.Revoker: true
           hf.IntermediateCA: true
           hf.GenCRL: true
+          hf.AffiliationMgr: true
 
 #############################################################################
 #  Database section
