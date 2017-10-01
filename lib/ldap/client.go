@@ -335,8 +335,12 @@ func (u *User) GetAffiliationPath() []string {
 }
 
 // GetAttribute returns the value of an attribute, or "" if not found
-func (u *User) GetAttribute(name string) string {
-	return u.attrs[name]
+func (u *User) GetAttribute(name string) (string, error) {
+	value, hasAttr := u.attrs[name]
+	if !hasAttr {
+		return "", errors.Errorf("User does not have attribute '%s'", name)
+	}
+	return value, nil
 }
 
 // GetAttributes returns the requested attributes

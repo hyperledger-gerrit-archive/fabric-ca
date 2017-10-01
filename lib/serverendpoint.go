@@ -17,6 +17,7 @@ limitations under the License.
 package lib
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/cloudflare/cfssl/api"
@@ -53,18 +54,35 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
 		}
-	} else if err == nil {
+	} else if resp != nil {
 		w.WriteHeader(200)
-		err = api.SendResponse(w, resp)
 		if err != nil {
-			log.Warning("Failed to send response for %s: %+v", url, err)
+			err = SendResultWithError(w, resp, err, r)
+			if err != nil {
+				log.Warningf("Failed to send response with errors for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response with errors for %s: %+v", url, resp)
+			}
+		} else {
+			err = api.SendResponse(w, resp)
+			if err != nil {
+				log.Warningf("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response for %s: %+v", url, resp)
+			}
 		}
 		log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
-	} else {
-		he := getHTTPErr(err)
-		he.writeResponse(w)
+	} else if err != nil {
+		allErrors, ok := err.(*allErrs) // Returning back more than one error
+		if ok {
+			allErrors.writeResponse(w)
+			log.Infof(`%s %s %s %d "%s"`, r.RemoteAddr, r.Method, r.URL, 401, "Multiple Errors")
+		} else {
+			he := getHTTPErr(err)
+			he.writeResponse(w)
+			log.Infof(`%s %s %s %d %d "%s"`, r.RemoteAddr, r.Method, r.URL, he.scode, he.lcode, he.lmsg)
+		}
 		log.Debugf("Sent error for %s: %+v", url, err)
-		log.Infof(`%s %s %s %d %d "%s"`, r.RemoteAddr, r.Method, r.URL, he.scode, he.lcode, he.lmsg)
 	}
 }
 
@@ -99,4 +117,49 @@ func getHTTPErr(err error) *httpErr {
 		}
 	}
 	return createHTTPErr(500, ErrUnknown, "nil error")
+}
+
+// SendResultWithError sends response back with both a result and errors
+func SendResultWithError(w http.ResponseWriter, result interface{}, err error, r *http.Request) error {
+	response := CreateResponse(err, result)
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	return enc.Encode(response)
+}
+
+// CreateResponse will check to see if error type contains an array of errors and create a response message
+func CreateResponse(err error, result interface{}) *api.Response {
+	respMessages := []api.ResponseMessage{}
+	allErrors, ok := err.(*allErrs) // Return back more than one error
+	if ok {
+		for _, err := range allErrors.errs {
+			respMessages = append(respMessages, getHTTPErrResp(err))
+		}
+	} else { // If only returning a single instance of an error
+		respMessages = append(respMessages, getHTTPErrResp(err))
+	}
+
+	response := &api.Response{
+		Success:  false,
+		Result:   result,
+		Errors:   respMessages,
+		Messages: []api.ResponseMessage{},
+	}
+
+	return response
+}
+
+func getHTTPErrResp(err error) api.ResponseMessage {
+	httpErr := getHTTPErr(err)
+	if httpErr == nil {
+		return api.ResponseMessage{
+			Code:    0,
+			Message: err.Error(),
+		}
+	}
+	respMessage := api.ResponseMessage{
+		Code:    httpErr.rcode,
+		Message: httpErr.rmsg,
+	}
+	return respMessage
 }

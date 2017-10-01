@@ -451,6 +451,13 @@ func (c *Client) SendReq(req *http.Request, result interface{}) (err error) {
 				msg := fmt.Sprintf("Error Code: %d - %s", err.Code, err.Message)
 				errorMsg = fmt.Sprintf("%s\n\t%s", errorMsg, msg)
 			}
+			// If response contained a result along with errors, decode the result
+			if result != nil {
+				err := mapstructure.Decode(body.Result, result)
+				if err != nil {
+					return err
+				}
+			}
 			return errors.Errorf(errorMsg)
 		}
 	}
