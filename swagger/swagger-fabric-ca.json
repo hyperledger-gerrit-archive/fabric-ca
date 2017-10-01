@@ -22,7 +22,7 @@
     }
   ],
   "paths": {
-    "/cainfo": {
+    "/api/v1/cainfo": {
       "get": {
         "tags": [
           "fabric-ca-server"
@@ -125,7 +125,7 @@
         }
       }
     },
-    "/enroll": {
+    "/api/v1/enroll": {
       "post": {
         "tags": [
           "fabric-ca-server"
@@ -272,7 +272,7 @@
         }
       }
     },
-    "/reenroll": {
+    "/api/v1/reenroll": {
       "post": {
         "tags": [
           "fabric-ca-server"
@@ -419,7 +419,7 @@
         }
       }
     },
-    "/register": {
+    "/api/v1/register": {
       "post": {
         "tags": [
           "fabric-ca-server"
@@ -584,7 +584,7 @@
         }
       }
     },
-    "/revoke": {
+    "/api/v1/revoke": {
       "post": {
         "tags": [
           "fabric-ca-server"
@@ -842,7 +842,7 @@
         }
       }
     },
-    "/tcert": {
+    "/api/v1/tcert": {
       "post": {
         "tags": [
           "fabric-ca-server"
@@ -996,6 +996,123 @@
                 "Messages": {
                   "type": "array",
                   "description": "An array of informational messages (code and message)",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "integer",
+                        "description": "Integer code denoting the type of message."
+                      },
+                      "message": {
+                        "type": "string",
+                        "description": "A more specific message."
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "Success",
+                "Result",
+                "Errors",
+                "Messages"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/config": {
+      "post": {
+        "tags": [
+          "fabric-ca-server"
+        ],
+        "description": "Perform dynamic server configuration update, able to add/remove/modify the following configurations on the server: \n* affiliations\n* identities",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "An enrollment token consisting of two base 64 encoded parts separated by a period:   \n* an enrollment certificate;   \n* a signature over the certificate and body of request.",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "The request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "commands": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "args": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                        },
+                      "description": "A string array consisting of arguments that define the configuration update request. The first element in the array is the action; the second element is the update request. Example: 'add affiliations.org3.dept1"
+                      },
+                    },
+                  },
+                  "description": "An array consisting of an array of arguments, each element in the array is one config update request"
+                },
+                "caname": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Name of the CA to direct traffic to within server."
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successfully completed updating server's configuration",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "Success": {
+                  "type": "boolean",
+                  "description": "Boolean indicating if the request was successful."
+                },
+                "Result": {
+                  "type": "string",
+                  "description": "Message related to configuration update"
+                },
+                "Errors": {
+                  "type": "array",
+                  "description": "An array of error messages (code and message)",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "integer",
+                        "description": "Integer code denoting the type of error."
+                      },
+                      "message": {
+                        "type": "string",
+                        "description": "An error message"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ]
+                  }
+                },
+                "Messages": {
+                  "type": "array",
+                  "description": "An array of information messages (code and message)",
                   "items": {
                     "type": "object",
                     "properties": {

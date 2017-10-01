@@ -299,6 +299,55 @@ func TestRegistrarAttribute(t *testing.T) {
 	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to register a user with attributes")
 }
 
+// Tests to see that the bootstrap by default has affiliation manager (hf.AffiliationMgr) attribute
+func TestAffMgrAttribute(t *testing.T) {
+	var err error
+	blockingStart = false
+
+	err = os.Setenv("FABRIC_CA_SERVER_HOME", "testaffmgrattr/server")
+	if !assert.NoError(t, err, "Failed to set environment variable") {
+		t.Fatal("Failed to set environment variable")
+	}
+
+	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-p", "7097", "-d"}, ""}
+	os.Args = args.input
+	scmd := NewCommand(args.input[1], blockingStart)
+	// Execute the command
+	err = scmd.Execute()
+	if !assert.NoError(t, err, "Failed to start server") {
+		t.Fatal("Failed to start server")
+	}
+
+	client := getTestClient(7097, "testaffmgrattr/client")
+
+	resp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "admin",
+	})
+	if !assert.NoError(t, err, "Failed to enroll 'admin'") {
+		t.Fatal("Failed to enroll 'admin'")
+	}
+
+	adminIdentity := resp.Identity
+	_, err = adminIdentity.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"add", "affiliations.org3"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to add affiliation 'org3'")
+
+	_, err = adminIdentity.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"add", `registry.identities={"id": "testuser", "secret": "testpass"}`},
+			},
+		},
+	})
+	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to add identities")
+}
+
 func TestVersion(t *testing.T) {
 	err := RunMain([]string{cmdName, "version"})
 	if err != nil {
@@ -337,6 +386,7 @@ func TestClean(t *testing.T) {
 	os.Remove("../../testdata/ca-cert.pem")
 	os.RemoveAll(ldapTestDir)
 	os.RemoveAll("testregattr")
+	os.RemoveAll("testaffmgrattr")
 }
 
 func cleanUpMultiCAFiles() {
