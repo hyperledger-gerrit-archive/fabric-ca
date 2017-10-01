@@ -103,6 +103,20 @@ const (
 	ErrUpdateConfigAuth = 35
 	// Server configuration update error
 	ErrUpdateConfig = 36
+	// Server configuration invalid arguments
+	ErrUpdateConfigArgs = 37
+	// Adding identity dynamically error
+	ErrUpdateConfigAddIdentity = 38
+	// Removing identity dynamically error
+	ErrUpdateConfigRemoveIdentity = 39
+	// Modifying identity dynamically error
+	ErrUpdateConfigModifyingIdentity = 40
+	// Adding affiliation dynamically error
+	ErrUpdateConfigAddAff = 41
+	// Removing affiliation dynamically error
+	ErrUpdateConfigRemoveAff = 42
+	// Modifying affiliation dynamically error
+	ErrUpdateConfigModifyingAff = 43
 )
 
 // Construct a new HTTP error.
