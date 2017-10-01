@@ -20,12 +20,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/pkg/errors"
 
+	cffslapi "github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
@@ -179,4 +182,39 @@ func getMaxEnrollments(userMaxEnrollments int, caMaxEnrollments int) (int, error
 			return userMaxEnrollments, nil
 		}
 	}
+}
+
+// SendResultWithError sends response back with both a result and errors
+func SendResultWithError(w http.ResponseWriter, result interface{}, err error, r *http.Request) error {
+	respMessages := []cffslapi.ResponseMessage{}
+
+	configErrs, ok := err.(*allErrs)
+	if ok {
+		for _, err := range configErrs.errs {
+			respMessage := cffslapi.ResponseMessage{
+				Code:    err.code,
+				Message: err.msg,
+			}
+			respMessages = append(respMessages, respMessage)
+		}
+	} else {
+		// If only returning a single instance of an error
+		httpErr := getHTTPErr(err.(error))
+		respMessage := cffslapi.ResponseMessage{
+			Code:    httpErr.rcode,
+			Message: httpErr.rmsg,
+		}
+		respMessages = append(respMessages, respMessage)
+	}
+
+	response := &cffslapi.Response{
+		Success:  false,
+		Result:   result,
+		Errors:   respMessages,
+		Messages: []cffslapi.ResponseMessage{},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	return enc.Encode(response)
 }

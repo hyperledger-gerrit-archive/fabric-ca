@@ -144,7 +144,13 @@ type GetCAInfoRequest struct {
 
 // UpdateConfigRequest is a request to modify the server's configuration
 type UpdateConfigRequest struct {
-	Update []string
+	Update []string `json:"update"`
+	CAName string   `json:"caname,omitempty" skip:"true"`
+}
+
+// UpdateConfigResponse contains response from server for successfull completions of update requests
+type UpdateConfigResponse struct {
+	Success string `json:"success"`
 }
 
 // CSRInfo is Certificate Signing Request (CSR) Information

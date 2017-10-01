@@ -53,16 +53,25 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
 		}
-	} else if err == nil {
+	} else if resp != nil {
 		w.WriteHeader(200)
-		err = api.SendResponse(w, resp)
 		if err != nil {
-			log.Warning("Failed to send response for %s: %+v", url, err)
+			err = SendResultWithError(w, resp, err, r)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response with errors for %s: %+v", url, resp)
+			}
 		} else {
-			log.Debugf("Sent response for %s: %+v", url, resp)
+			err = api.SendResponse(w, resp)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response for %s: %+v", url, resp)
+			}
 		}
 		log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
-	} else {
+	} else if err != nil {
 		he := getHTTPErr(err)
 		he.writeResponse(w)
 		log.Debugf("Sent error for %s: %+v", url, err)

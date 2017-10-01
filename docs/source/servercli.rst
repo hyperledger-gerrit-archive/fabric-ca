@@ -15,6 +15,8 @@ Fabric-CA Server's CLI
     
     Flags:
           --address string                            Listening address of fabric-ca-server (default "0.0.0.0")
+          --allowremove.affiliations                  Enable dynamically removing affiliations
+          --allowremove.users                         Enable dynamically removing users
       -b, --boot string                               The user:pass for bootstrap admin which is required to build default config file
           --ca.certfile string                        PEM-encoded CA certificate file (default "ca-cert.pem")
           --ca.chainfile string                       PEM-encoded CA chain file (default "ca-chain.pem")

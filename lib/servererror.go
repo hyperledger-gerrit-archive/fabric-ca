@@ -103,6 +103,20 @@ const (
 	ErrUpdateConfigAuth = 35
 	// Server configuration update error
 	ErrUpdateConfig = 36
+	// Server configuration invalid arguments
+	ErrUpdateConfigArgs = 37
+	// Adding identity dynamically error
+	ErrUpdateConfigAddIdentity = 38
+	// Removing identity dynamically error
+	ErrUpdateConfigRemoveIdentity = 39
+	// Modifying identity dynamically error
+	ErrUpdateConfigModifyingIdentity = 40
+	// Adding affiliation dynamically error
+	ErrUpdateConfigAddAff = 41
+	// Removing affiliation dynamically error
+	ErrUpdateConfigRemoveAff = 42
+	// Modifying affiliation dynamically error
+	ErrUpdateConfigModifyingAff = 43
 )
 
 // Construct a new HTTP error.
@@ -212,4 +226,52 @@ func isFatalError(err error) bool {
 		return true
 	}
 	return false
+}
+
+type errorResponse struct {
+	code int
+	msg  string
+}
+
+func newUpdateConfigErr(action string, configErr error) *errorResponse {
+	httpErr := getHTTPErr(errors.Cause(configErr))
+	errMsg := fmt.Sprintf("'%s' = %s", action, httpErr.rmsg)
+
+	return &errorResponse{
+		code: httpErr.rcode,
+		msg:  errMsg,
+	}
+}
+
+func (er *errorResponse) Error() string {
+	return fmt.Sprintf("%d - %s", er.code, er.msg)
+}
+
+type allErrs struct {
+	errs []errorResponse
+}
+
+func newAllErrs(errs []errorResponse) *allErrs {
+	return &allErrs{
+		errs: errs,
+	}
+}
+
+func (ae *allErrs) Error() string {
+	return ae.String()
+}
+
+func (ae *allErrs) String() string {
+	var allErrors string
+
+	for _, err := range ae.errs {
+		if allErrors == "" {
+			allErrors = allErrors + err.Error()
+		} else {
+			allErrors = allErrors + fmt.Sprintf("\n%s", err.Error())
+		}
+
+	}
+
+	return allErrors
 }
