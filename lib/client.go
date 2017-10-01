@@ -332,7 +332,7 @@ func (c *Client) StoreMyIdentity(cert []byte) error {
 
 // LoadIdentity loads an identity from disk
 func (c *Client) LoadIdentity(keyFile, certFile string) (*Identity, error) {
-	log.Debug("Loading identity: keyFile=%s, certFile=%s", keyFile, certFile)
+	log.Debugf("Loading identity: keyFile=%s, certFile=%s", keyFile, certFile)
 	err := c.Init()
 	if err != nil {
 		return nil, err
@@ -450,6 +450,13 @@ func (c *Client) SendReq(req *http.Request, result interface{}) (err error) {
 			for _, err := range body.Errors {
 				msg := fmt.Sprintf("Error Code: %d - %s", err.Code, err.Message)
 				errorMsg = fmt.Sprintf("%s\n\t%s", errorMsg, msg)
+			}
+			// If response contained a result along with errors, decode the result
+			if result != nil {
+				err := mapstructure.Decode(body.Result, result)
+				if err != nil {
+					return err
+				}
 			}
 			return errors.Errorf(errorMsg)
 		}

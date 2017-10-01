@@ -17,8 +17,8 @@ limitations under the License.
 package api
 
 import (
+	"fmt"
 	"regexp"
-	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -120,6 +120,11 @@ type RevocationRequest struct {
 	CAName string `json:"caname,omitempty" skip:"true"`
 }
 
+// RevocationResponse returns the AKI and serial number of certs which were revoked
+type RevocationResponse struct {
+	result map[string]string
+}
+
 // GetTCertBatchRequest is input provided to identity.GetTCertBatch
 type GetTCertBatchRequest struct {
 	// Number of TCerts in the batch.
@@ -167,17 +172,40 @@ type GenCRLResponse struct {
 	CRL string
 }
 
-// UpdateConfigRequest is a request to modify the server's configuration
-type UpdateConfigRequest struct {
-	Update []string
+// ConfigRequest is a request to modify the server's configuration
+type ConfigRequest struct {
+	Commands []Command `json:"commands"`
+	CAName   string    `json:"caname,omitempty" skip:"true"`
 }
 
-func (uc UpdateConfigRequest) String() string {
+// Command is the command to be executed
+type Command struct {
+	Args []string `json:"args"`
+}
+
+// ConfigResponse contains response from server for successfull completions of update requests
+type ConfigResponse struct {
+	Responses []CommandResponse `json:"responses"`
+}
+
+// CommandResponse contains the result of the requested command
+type CommandResponse struct {
+	Request string `json:"request"`
+	Result  string `json:"result"`
+}
+
+func (c Command) String() string {
+	var str string
 	re := regexp.MustCompile(`("secret": )([^,}]+)`)
-	for i := range uc.Update {
-		uc.Update[i] = re.ReplaceAllString(uc.Update[i], `"secret": ****`)
+	for _, arg := range c.Args {
+		arg = re.ReplaceAllString(arg, `"secret": ****`)
+		if str == "" {
+			str = arg
+		} else {
+			str = fmt.Sprintf("%s %s", str, arg)
+		}
 	}
-	return strings.Join(uc.Update, " ")
+	return str
 }
 
 // CSRInfo is Certificate Signing Request (CSR) Information
