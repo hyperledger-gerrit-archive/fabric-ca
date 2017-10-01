@@ -1306,6 +1306,14 @@ fabric-ca-server-config.yaml file.
 
     fabric-ca-client servercfg add affiliations.org1.dept1
 
+Multiple affiliations can be added in a single request. The following command requests to add
+a new affiliation named ‘org1.dept1.team1.group1’. Assuming that 'org1.dept1' is the only affiliation that
+already exists, then this request would add both 'org1.dept1.team1' and 'org1.dept1.team1.group1' affiliations.
+
+.. code:: bash
+
+    fabric-ca-client servercfg add affiliations.org1.dept1.team1.group1
+
 Modifying an affiliation
 """""""""""""""""""""""""
 

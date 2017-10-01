@@ -75,6 +75,7 @@ var (
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
 type CAConfig struct {
+	AllowRemove  Remove
 	CA           CAInfo
 	Signing      *config.Signing
 	CSR          api.CSRInfo
@@ -87,6 +88,12 @@ type CAConfig struct {
 	// of the root (or parent) server
 	Client       *ClientConfig
 	Intermediate IntermediateCA
+}
+
+// Remove is a CA configuration for allowing dynamic removing of users and/or affiliations
+type Remove struct {
+	Identities   bool `help:"Enable dynamically removing identities"`
+	Affiliations bool `help:"Enable dynamically removing affiliations"`
 }
 
 // CAInfo is the CA information on a fabric-ca-server
