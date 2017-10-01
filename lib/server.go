@@ -61,6 +61,7 @@ const (
 	attrIntermediateCA = "hf.IntermediateCA"
 	attrGenCRL         = "hf.GenCRL"
 	attrRegistrarAttr  = "hf.Registrar.Attributes"
+	attrAffiliationMgr = "hf.AffiliationMgr"
 )
 
 // Server is the fabric-ca server
@@ -211,6 +212,7 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 			attrIntermediateCA: "true",
 			attrGenCRL:         "true",
 			attrRegistrarAttr:  "*",
+			attrAffiliationMgr: "true",
 		},
 	}
 

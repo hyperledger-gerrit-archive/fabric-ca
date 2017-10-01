@@ -62,6 +62,9 @@ LOGFILE=$FABRIC_CA_SERVER_HOME/log.txt
 USER=administrator
 PSWD=thisIs_aLongUniquePasswordWith_aMinisculePossibilityOfBeingDuplicated
 
+setTLS
+URI="${PROTO}localhost:$PROXY_PORT"
+
 # Test using bootstrap ID
 fabric-ca-server init -b $USER:$PSWD -d 2>&1 | tee $LOGFILE
 test ${PIPESTATUS[0]} -eq 0 && checkPasswd "$PSWD" || ErrorMsg "Init of CA failed"
@@ -82,10 +85,12 @@ for server in ldap mysql postgres; do
    test ${PIPESTATUS[0]} -eq 0 && checkPasswd "$PSWD" $server || ErrorMsg "Init of CA failed"
 done
 
-$SCRIPTDIR/fabric-ca_setup.sh -I -X -S -D 
+$SCRIPTDIR/fabric-ca_setup.sh -K
+$SCRIPTDIR/fabric-ca_setup.sh -I -X -S -D 2>&1 | tee $LOGFILE &
+pollServer fabric-ca-server 127.0.0.1 17054 10 startserver
 enroll
-fabric-ca-client servercfg add registry.identities="{\"id\": \"testuser1\", \"secret\": \"$PSWD\"}" add registry.identities="{\"id\": \"testuser2\", \"secret\": \"$PSWD\"}" -d 2>&1 | tee $LOGFILE
-checkPasswd "testpass" servercfg || ErrorMsg "Failed to mask secret on client side for 'servercfg' command"
+fabric-ca-client servercfg -u $URI $TLSOPT add registry.identities="{\"id\": \"testuser1\", \"secret\": \"$PSWD\"}" add registry.identities="{\"id\": \"testuser2\", \"secret\": \"$PSWD\"}" -d
+checkPasswd "$PSWD" servercfg || ErrorMsg "Failed to mask secret on server side for 'servercfg' command"
 
 CleanUp $RC
 exit $RC

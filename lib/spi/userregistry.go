@@ -45,7 +45,7 @@ type User interface {
 	// Get the complete path for the user's affiliation.
 	GetAffiliationPath() []string
 	// GetAttribute returns the value for an attribute name
-	GetAttribute(name string) string
+	GetAttribute(name string) (string, error)
 	// GetAttributes returns the requested attributes
 	GetAttributes(attrNames []string) []tcert.Attribute
 	// LoginComplete completes the login process by incrementing the state of the user
