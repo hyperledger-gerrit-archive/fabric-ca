@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cloudflare/cfssl/config"
@@ -51,6 +52,7 @@ type serverRequestContext struct {
 		buf  []byte // the body itself
 		err  error  // any error from reading the body
 	}
+	callerRoles map[string]bool
 }
 
 // newServerRequestContext is the constructor for a serverRequestContext
@@ -341,6 +343,80 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 		return nil, errors.WithMessage(err, "Failed to get user")
 	}
 	return ctx.caller, nil
+}
+
+// HasRole returns true if the caller has the role, for boolean roles it does not check if the value is true
+func (ctx *serverRequestContext) HasRole(role string) (bool, error) {
+	if ctx.callerRoles == nil {
+		ctx.callerRoles = make(map[string]bool)
+	}
+
+	roleStatus, hasRole := ctx.callerRoles[role]
+	if hasRole {
+		return roleStatus, nil
+	}
+
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	roleValue, err := caller.GetAttribute(role)
+	if err != nil {
+		ctx.callerRoles[role] = false
+	} else {
+		roleStatus, err = strconv.ParseBool(roleValue)
+		if err != nil {
+			return false, errors.Wrap(err, fmt.Sprintf("Failed to get boolean value of '%s'", affiliationMgrRole))
+		}
+		ctx.callerRoles[role] = roleStatus
+	}
+
+	return ctx.callerRoles[role], nil
+}
+
+// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	callerAffiliationPath := strings.Join(caller.GetAffiliationPath(), ".")
+	log.Debugf("Checking to see if affiliation '%s' contains caller's affiliation '%s'", affiliation, callerAffiliationPath)
+
+	// If the caller has root affiliation return "true"
+	if callerAffiliationPath == "" {
+		return true, nil
+	}
+
+	if strings.HasPrefix(affiliation, callerAffiliationPath) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return "", false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' is a registrar", caller.GetName())
+
+	rolesStr, err := caller.GetAttribute(registrarRole)
+	if err != nil {
+		return "", false, errors.WithMessage(err, fmt.Sprintf("'%s' is not a registrar", caller.GetName()))
+	}
+
+	// Has some value for attribute 'hf.Registrar.Roles' then user is a registrar
+	if rolesStr != "" {
+		return rolesStr, true, nil
+	}
+
+	return "", false, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

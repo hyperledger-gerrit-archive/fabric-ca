@@ -114,10 +114,13 @@ function testIntermediateCa() {
 }
 
 function testServerCfg() {
-   $SCRIPTDIR/fabric-ca_setup.sh -I -X -S -D
+   URI="${PROTO}localhost:$PROXY_PORT"
+   $SCRIPTDIR/fabric-ca_setup.sh -K
+   $SCRIPTDIR/fabric-ca_setup.sh -I -X -S -D 2>&1 | tee $LOGFILE &
+   pollServer fabric-ca-server 127.0.0.1 17054 10 startserver
    enroll
-   fabric-ca-client servercfg add registry.identities="{\"id\": \"testuser1\", \"secret\": \"$PSWD\"}" add registry.identities="{\"id\": \"testuser2\", \"secret\": \"$PSWD\"}" -d 2>&1 | tee $LOGFILE
-   checkPasswd "$PSWD" servercfg || ErrorMsg "Failed to mask secret on client side for 'servercfg' command"
+   fabric-ca-client servercfg -u $URI $TLSOPT add registry.identities="{\"id\": \"testuser1\", \"secret\": \"$PSWD\"}" add registry.identities="{\"id\": \"testuser2\", \"secret\": \"$PSWD\"}" -d
+   checkPasswd "$PSWD" servercfg || ErrorMsg "Failed to mask secret on server side for 'servercfg' command"
 }
 
 ### Start Main Test ###
