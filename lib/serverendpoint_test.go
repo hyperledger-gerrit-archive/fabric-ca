@@ -33,19 +33,20 @@ func TestServerEndpoint(t *testing.T) {
 	// Positive tests
 	url := "http://localhost:7054/api/v1/enroll"
 	handlerError = nil
-	testEndpoint(t, "HEAD", url, 200, 0)
-	testEndpoint(t, "GET", url, 200, 0)
-	testEndpoint(t, "POST", url, 200, 0)
+	testEndpoint(t, "HEAD", url, 200, 0, testEndpointHandler)
+	testEndpoint(t, "GET", url, 200, 0, testEndpointHandler)
+	testEndpoint(t, "POST", url, 200, 0, testEndpointHandler)
 	// Negative tests
-	testEndpoint(t, "DELETE", url, 405, ErrMethodNotAllowed)
+	testEndpoint(t, "DELETE", url, 405, ErrMethodNotAllowed, testEndpointHandler)
 	handlerError = newAuthErr(ErrInvalidToken, "Invalid token")
-	testEndpoint(t, "GET", url, 401, ErrAuthFailure)
+	testEndpoint(t, "GET", url, 200, ErrAuthFailure, testEndpointHandler)
+	testEndpoint(t, "GET", url, 401, ErrAuthFailure, testEndpointHandler2)
 }
 
-func testEndpoint(t *testing.T, method, url string, scode, rcode int) {
+func testEndpoint(t *testing.T, method, url string, scode, rcode int, handler func(ctx *serverRequestContext) (interface{}, error)) {
 	se := &serverEndpoint{
 		Methods: []string{"GET", "POST", "HEAD"},
-		Handler: testEndpointHandler,
+		Handler: handler,
 	}
 	r, err := http.NewRequest(method, url, nil)
 	assert.NoError(t, err)
@@ -72,4 +73,8 @@ func testEndpoint(t *testing.T, method, url string, scode, rcode int) {
 
 func testEndpointHandler(ctx *serverRequestContext) (interface{}, error) {
 	return "result", handlerError
+}
+
+func testEndpointHandler2(ctx *serverRequestContext) (interface{}, error) {
+	return nil, handlerError
 }

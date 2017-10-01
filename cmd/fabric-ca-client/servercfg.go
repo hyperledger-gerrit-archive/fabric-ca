@@ -17,10 +17,12 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/spf13/cobra"
@@ -72,9 +74,35 @@ func (c *ClientCmd) runServerCfg(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	req := new(api.UpdateConfigRequest)
-	req.Update = args
-	err = id.UpdateServerConfig(req)
+	if len(args) == 0 {
+		return errors.Errorf("No arguments specified")
+	}
+
+	if len(args)%2 != 0 {
+		return errors.Errorf("Incorrect number of arguments specified; each action must have an associated configuration update request")
+	}
+
+	numberOfCmds := len(args) % 2
+	commands := make([]api.Command, numberOfCmds)
+	// Process the array of args consisting of configuration updates request
+	for i := 0; i < len(args); i = i + 2 {
+		commands = append(commands, api.Command{Args: []string{args[i], args[i+1]}})
+	}
+
+	req := &api.ConfigRequest{
+		Commands: commands,
+	}
+	resp, err := id.UpdateServerConfig(req)
+
+	if resp != nil {
+		if len(resp.Responses) != 0 {
+			fmt.Println("Successful Configuration Updates:")
+			for request, response := range resp.Responses {
+				fmt.Printf("Request: %s\n\tResponse: %s\n", request, response)
+			}
+		}
+	}
+
 	if err != nil {
 		return err
 	}
