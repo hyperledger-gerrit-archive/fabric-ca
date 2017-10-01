@@ -53,16 +53,28 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
 		}
-	} else if err == nil {
-		w.WriteHeader(200)
-		err = api.SendResponse(w, resp)
+	} else if resp != nil {
 		if err != nil {
-			log.Warning("Failed to send response for %s: %+v", url, err)
+			he := getHTTPErr(err)
+			err = SendResultWithError(w, resp, he.rmsg, he.rcode, he.scode)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response for %s: %+v", url, resp)
+			}
+			log.Infof(`%s %s %s %d 0 "OK"`, r.RemoteAddr, r.Method, r.URL, he.scode)
 		} else {
-			log.Debugf("Sent response for %s: %+v", url, resp)
+			w.WriteHeader(200)
+			err = api.SendResponse(w, resp)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response for %s: %+v", url, resp)
+			}
+			log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
 		}
-		log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
-	} else {
+
+	} else if err != nil && resp == nil {
 		he := getHTTPErr(err)
 		he.writeResponse(w)
 		log.Debugf("Sent error for %s: %+v", url, err)

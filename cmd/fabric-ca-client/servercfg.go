@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 
 	"github.com/hyperledger/fabric-ca/api"
@@ -73,7 +74,13 @@ func (c *ClientCmd) runServerCfg(cmd *cobra.Command, args []string) error {
 
 	req := new(api.UpdateConfigRequest)
 	req.Update = args
-	err = id.UpdateServerConfig(req)
+	resp, err := id.UpdateServerConfig(req)
+
+	if resp.Success != "" {
+		fmt.Println("Successful Configuration Updates:")
+		fmt.Println(resp.Success)
+	}
+
 	if err != nil {
 		return err
 	}

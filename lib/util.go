@@ -20,12 +20,15 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
+	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/pkg/errors"
 
+	cffslapi "github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
@@ -179,4 +182,29 @@ func getMaxEnrollments(userMaxEnrollments int, caMaxEnrollments int) (int, error
 			return userMaxEnrollments, nil
 		}
 	}
+}
+
+// SendResultWithError sends response back with both a result and errors
+func SendResultWithError(w http.ResponseWriter, result interface{}, message string, rcode int, scode int) error {
+	response := &cffslapi.Response{
+		Success: false,
+		Result:  result,
+		Errors: []cffslapi.ResponseMessage{
+			cffslapi.ResponseMessage{
+				Code:    rcode,
+				Message: message,
+			},
+		},
+		Messages: []cffslapi.ResponseMessage{},
+	}
+
+	jsonMessage, err := json.Marshal(response)
+	if err != nil {
+		log.Errorf("Failed to marshal error to JSON: %v", err)
+		return err
+	}
+	msg := string(jsonMessage)
+	http.Error(w, msg, scode)
+
+	return nil
 }
