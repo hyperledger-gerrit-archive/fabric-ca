@@ -184,17 +184,18 @@ func (i *Identity) RevokeSelf() error {
 }
 
 // UpdateServerConfig dynamically updates the server's config
-func (i *Identity) UpdateServerConfig(req *api.UpdateConfigRequest) error {
+func (i *Identity) UpdateServerConfig(req *api.UpdateConfigRequest) (*api.UpdateConfigResponse, error) {
 	log.Debugf("Update server's configuration request: %+v", req)
 	reqBody, err := util.Marshal(req, "UpdateServerConfigRequest")
 	if err != nil {
-		return err
+		return nil, err
 	}
-	err = i.Post("config", reqBody, nil)
+	resp := &api.UpdateConfigResponse{}
+	err = i.Post("config", reqBody, resp)
 	if err != nil {
-		return err
+		return resp, err // Could have both a response and errors when handling multiple updates in single call
 	}
-	return nil
+	return resp, nil
 }
 
 // Store writes my identity info to disk

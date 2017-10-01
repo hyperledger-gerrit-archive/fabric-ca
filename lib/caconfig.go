@@ -75,6 +75,7 @@ var (
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
 type CAConfig struct {
+	AllowDelete  Delete
 	CA           CAInfo
 	Signing      *config.Signing
 	CSR          api.CSRInfo
@@ -87,6 +88,12 @@ type CAConfig struct {
 	// of the root (or parent) server
 	Client       *ClientConfig
 	Intermediate IntermediateCA
+}
+
+// Delete is CA configuration for allowing dynamic deletion of users and/or affiliations
+type Delete struct {
+	Users        bool `help:"Enable dynamic deletion of users"`
+	Affiliations bool `help:"Enable dynamic deletion of affiliations"`
 }
 
 // CAInfo is the CA information on a fabric-ca-server
