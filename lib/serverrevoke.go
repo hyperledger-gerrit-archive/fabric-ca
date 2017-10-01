@@ -140,7 +140,7 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 	log.Debugf("Revoke was successful: %+v", req)
 
 	// TODO: Return the AKI and serial number of certs which were revoked
-	result := map[string]string{}
+	result := &api.RevocationResponse{}
 	return result, nil
 }
 

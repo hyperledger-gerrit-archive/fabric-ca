@@ -587,6 +587,11 @@ func GetSerialAsHex(serial *big.Int) string {
 // StructToString converts a struct to a string. If a field
 // has a 'secret' tag, it is masked in the returned string
 func StructToString(si interface{}) string {
+	kind := reflect.TypeOf(si).Kind()
+	// Return if string is passed in, logic below would not apply
+	if kind == reflect.String {
+		return si.(string)
+	}
 	rval := reflect.ValueOf(si).Elem()
 	tipe := rval.Type()
 	var buffer bytes.Buffer
@@ -610,6 +615,13 @@ func StructToString(si interface{}) string {
 			}
 		} else {
 			fStr = fmt.Sprintf("%s:%v ", tf.Name, rval.Field(i).Interface())
+			// Sometimes a field might contain password information but sometimes not,
+			// so can't mask the entire field all the time. Need to mask the password
+			// only if the string contains a password. This happens when returning results
+			// for dynamic config update. Adding a new identity would return a password in
+			// the result, but removing an identity would not contain a password.
+			re := regexp.MustCompile(`(\bPassword: ([^,}\] ]+))`)
+			fStr = re.ReplaceAllString(fStr, `"Password": ****`)
 		}
 		buffer.WriteString(fStr)
 	}

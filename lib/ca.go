@@ -885,7 +885,10 @@ func (ca *CA) getUserAttrValue(username, attrname string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	attrval := user.GetAttribute(attrname)
+	attrval, err := user.GetAttribute(attrname)
+	if err != nil {
+		return "", err
+	}
 	log.Debugf("getUserAttrValue identity=%s, name=%s, value=%s", username, attrname, attrval)
 	return attrval, nil
 }
