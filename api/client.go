@@ -156,9 +156,20 @@ type GenCRLResponse struct {
 	CRL string
 }
 
-// UpdateConfigRequest is a request to modify the server's configuration
-type UpdateConfigRequest struct {
-	Update []string
+// ConfigRequest is a request to modify the server's configuration
+type ConfigRequest struct {
+	Commands []Command `json:"command"`
+	CAName   string    `json:"caname,omitempty" skip:"true"`
+}
+
+// Command is the command to be executed
+type Command struct {
+	Args []string `json:"args"`
+}
+
+// ConfigResponse contains response from server for successfull completions of update requests
+type ConfigResponse struct {
+	Success string `json:"success"`
 }
 
 // CSRInfo is Certificate Signing Request (CSR) Information

@@ -455,8 +455,12 @@ func (u *DBUser) GetAffiliationPath() []string {
 }
 
 // GetAttribute returns the value for an attribute name
-func (u *DBUser) GetAttribute(name string) string {
-	return u.attrs[name]
+func (u *DBUser) GetAttribute(name string) (string, error) {
+	value, hasAttr := u.attrs[name]
+	if !hasAttr {
+		return "", errors.Errorf("User does not have attribute '%s'", name)
+	}
+	return value, nil
 }
 
 func dbGetError(err error, prefix string) error {

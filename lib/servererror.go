@@ -117,6 +117,24 @@ const (
 	ErrUpdateConfigAuth = 42
 	// Server configuration update error
 	ErrUpdateConfig = 43
+	// Server configuration invalid arguments
+	ErrUpdateConfigArgs = 44
+	// Adding identity dynamically error
+	ErrUpdateConfigAddIdentity = 45
+	// Removing identity dynamically error
+	ErrUpdateConfigRemoveIdentity = 46
+	// Modifying identity dynamically error
+	ErrUpdateConfigModifyingIdentity = 47
+	// Adding affiliation dynamically error
+	ErrUpdateConfigAddAff = 48
+	// Removing affiliation dynamically error
+	ErrUpdateConfigRemoveAff = 49
+	// Modifying affiliation dynamically error
+	ErrUpdateConfigModifyingAff = 50
+	// Error related to any action against affiliation update
+	ErrUpdateConfigAff = 51
+	// Registrar's affiliation not equal to or above revokee's affiliation
+	ErrRegistrarNotAffiliated = 52
 )
 
 // Construct a new HTTP error.
@@ -226,4 +244,46 @@ func isFatalError(err error) bool {
 		return true
 	}
 	return false
+}
+
+type allErrs struct {
+	errs []error
+}
+
+func newAllErrs(errs []error) *allErrs {
+	return &allErrs{
+		errs: errs,
+	}
+}
+
+func (ae *allErrs) Error() string {
+	return ae.String()
+}
+
+func (ae *allErrs) String() string {
+	var allErrors string
+
+	for _, err := range ae.errs {
+		if allErrors == "" {
+			allErrors = fmt.Sprintf("%s", err.Error())
+		} else {
+			allErrors = allErrors + fmt.Sprintf("\n%s", err.Error())
+		}
+
+	}
+
+	return allErrors
+}
+
+// Write the server's HTTP error response
+func (ae *allErrs) writeResponse(w http.ResponseWriter) error {
+	response := CreateResponse(ae, nil)
+	jsonMessage, err := json.Marshal(response)
+	if err != nil {
+		log.Errorf("Failed to marshal error to JSON: %v", err)
+		return err
+	}
+	msg := string(jsonMessage)
+	http.Error(w, msg, 401)
+	return nil
 }

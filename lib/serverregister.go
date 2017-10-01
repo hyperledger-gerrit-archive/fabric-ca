@@ -26,7 +26,6 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -57,12 +56,8 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	registrarRolesAttr, registrarAffiliation, err := ctx.GetUserInfo([]string{"hf.Registrar.Roles"})
-	if err != nil {
-		return "", fmt.Errorf("Failed to get user info for registrar: %s", err)
-	}
 	// Register User
-	secret, err := registerUser(&req, registrarRolesAttr[0], registrarAffiliation, callerID, ca)
+	secret, err := registerUser(&req.RegistrationRequest, callerID, ca, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -74,26 +69,25 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 }
 
 // RegisterUser will register a user and return the secret
-func registerUser(req *api.RegistrationRequestNet, registrarRoles tcert.Attribute, registrarAffiliation []string, registrar string, ca *CA) (string, error) {
-
-	secret := req.Secret
-	req.Secret = "<<user-specified>>"
-	req.Secret = secret
+func registerUser(req *api.RegistrationRequest, registrar string, ca *CA, ctx *serverRequestContext) (string, error) {
 
 	var err error
+	var registrarUser spi.User
 
-	if registrar != "" {
-		// Check the permissions of member named 'registrar' to perform this registration
-		err = canRegister(registrarRoles, registrar, req)
-		if err != nil {
-			log.Debugf("Registration of '%s' failed: %s", req.Name, err)
-			return "", err
-		}
+	registrarUser, err = ctx.GetCaller()
+	if err != nil {
+		return "", err
+	}
+	// Check the permissions of member named 'registrar' to perform this registration
+	err = canRegister(registrar, req, registrarUser, ctx)
+	if err != nil {
+		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
+		return "", err
 	}
 
 	// Check that the affiliation requested is of the appropriate level
-	registrarAff := strings.Join(registrarAffiliation, ".")
-	err = validateAffiliation(registrarAff, req)
+	registrarAff := strings.Join(registrarUser.GetAffiliationPath(), ".")
+	err = validateAffiliation(registrarAff, req, ctx)
 	if err != nil {
 		return "", fmt.Errorf("Registration of '%s' failed in affiliation validation: %s", req.Name, err)
 	}
@@ -103,7 +97,7 @@ func registerUser(req *api.RegistrationRequestNet, registrarRoles tcert.Attribut
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' to validate", req.Name))
 	}
 
-	secret, err = registerUserID(req, ca)
+	secret, err := registerUserID(req, ca)
 
 	if err != nil {
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' failed", req.Name))
@@ -112,7 +106,7 @@ func registerUser(req *api.RegistrationRequestNet, registrarRoles tcert.Attribut
 	return secret, nil
 }
 
-func validateAffiliation(registrarAff string, req *api.RegistrationRequestNet) error {
+func validateAffiliation(registrarAff string, req *api.RegistrationRequest, ctx *serverRequestContext) error {
 	log.Debug("Validate Affiliation")
 	if req.Affiliation == "" {
 		log.Debugf("No affiliation provided in registeration request, will default to using registrar's affiliation of '%s'", registrarAff)
@@ -121,8 +115,12 @@ func validateAffiliation(registrarAff string, req *api.RegistrationRequestNet) e
 		log.Debugf("Affiliation of '%s' specified in registration request", req.Affiliation)
 		if registrarAff != "" {
 			log.Debug("Registrar does not have absolute root affiliation path, checking to see if registrar has proper authority to register requested affiliation")
-			if !strings.Contains(req.Affiliation, registrarAff) {
-				return fmt.Errorf("Registrar does not have authority to request '%s' affiliation", req.Affiliation)
+			validAffiliation, err := ctx.ContainsAffiliation(req.Affiliation)
+			if err != nil {
+				return newHTTPErr(400, ErrGettingAffiliation, "Failed to validate if caller has authority to register affiliation: %s", err)
+			}
+			if !validAffiliation {
+				return newAuthErr(ErrRegistrarNotAffiliated, "Registrar does not have authority to request '%s' affiliation", req.Affiliation)
 			}
 		} else if req.Affiliation == "." {
 			// Affiliation request of '.' signifies request for root affiliation
@@ -133,7 +131,7 @@ func validateAffiliation(registrarAff string, req *api.RegistrationRequestNet) e
 	return nil
 }
 
-func validateID(req *api.RegistrationRequestNet, ca *CA) error {
+func validateID(req *api.RegistrationRequest, ca *CA) error {
 	log.Debug("Validate ID")
 	// Check whether the affiliation is required for the current user.
 	if requireAffiliation(req.Type) {
@@ -147,7 +145,7 @@ func validateID(req *api.RegistrationRequestNet, ca *CA) error {
 }
 
 // registerUserID registers a new user and its enrollmentID, role and state
-func registerUserID(req *api.RegistrationRequestNet, ca *CA) (string, error) {
+func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 	log.Debugf("Registering user id: %s\n", req.Name)
 	var err error
 
@@ -214,12 +212,19 @@ func requireAffiliation(idType string) bool {
 	return true
 }
 
-func canRegister(registrarRoles tcert.Attribute, registrar string, req *api.RegistrationRequestNet) error {
-	log.Debugf("canRegister - Check to see if registrar '%s' with registrar roles of '%s' can register user type '%s'", registrar, registrarRoles.Value, req.Type)
+func canRegister(registrar string, req *api.RegistrationRequest, user spi.User, ctx *serverRequestContext) error {
+	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
 	var roles []string
-	if registrarRoles.Value != "" {
-		roles = strings.Split(registrarRoles.Value, ",")
+	rolesStr, isRegistrar, err := ctx.IsRegistrar()
+	if err != nil {
+		return err
+	}
+	if !isRegistrar {
+		return errors.Errorf("'%s' does not have authority to register identities", registrar)
+	}
+	if rolesStr != "" {
+		roles = strings.Split(rolesStr, ",")
 	} else {
 		roles = make([]string, 0)
 	}
