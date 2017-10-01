@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/cloudflare/cfssl/config"
@@ -52,6 +53,12 @@ type serverRequestContext struct {
 		buf  []byte // the body itself
 		err  error  // any error from reading the body
 	}
+	callerPerm *callerPermissions
+}
+
+type callerPermissions struct {
+	isRegistrar      bool
+	isAffiliationMgr bool
 }
 
 // newServerRequestContext is the constructor for a serverRequestContext
@@ -346,6 +353,60 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 		return nil, errors.WithMessage(err, "Failed to get user")
 	}
 	return ctx.caller, nil
+}
+
+// GetCallerPermissions gets the permissions for the caller
+func (ctx *serverRequestContext) GetCallerPermissions() (*callerPermissions, error) {
+	if ctx.callerPerm != nil {
+		return ctx.callerPerm, nil
+	}
+
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("Checking if caller '%s' has permission to update config", caller.GetName())
+
+	ctx.callerPerm = &callerPermissions{}
+
+	isRegistrar := caller.GetAttribute("hf.Registrar.Roles")
+	if isRegistrar != "" {
+		log.Debug("Caller has permission to update identities")
+		ctx.callerPerm.isRegistrar = true
+	}
+
+	isAffiliationMgr, err := ctx.HasRole("hf.AffiliationMgr")
+	if err != nil {
+		return nil, err
+	}
+
+	if isAffiliationMgr {
+		log.Debug("Caller has permission to update affiliations")
+		ctx.callerPerm.isAffiliationMgr = true
+	}
+
+	return ctx.callerPerm, nil
+}
+
+// HasRole returns true if the caller has the role and value of the role is "true"
+func (ctx *serverRequestContext) HasRole(role string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+	log.Debugf("Checking to see if caller '%s' has role '%s'", caller.GetName(), role)
+
+	hasRole := caller.GetAttribute(role)
+	var roleStatus bool
+	if hasRole != "" {
+		roleStatus, err = strconv.ParseBool(hasRole)
+		if err != nil {
+			return false, errors.Wrap(err, fmt.Sprintf("Failed to get boolean value of '%s'", role))
+		}
+	}
+
+	return roleStatus, nil
 }
 
 // ReadBodyBytes reads the request body and returns bytes

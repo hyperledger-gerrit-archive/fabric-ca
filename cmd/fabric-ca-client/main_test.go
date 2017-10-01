@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/common/attrmgr"
 	"github.com/stretchr/testify/assert"
@@ -1199,7 +1200,7 @@ func TestHomeDirectory(t *testing.T) {
 	}
 }
 
-func TestCfgCommand(t *testing.T) {
+func TestServercfgCommand(t *testing.T) {
 	os.RemoveAll("cfgtest")
 	defer os.RemoveAll("cfgtest")
 	var err error
@@ -1212,12 +1213,61 @@ func TestCfgCommand(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	assert.NoError(t, err, "Failed to enroll user")
 
-	// Expected to fail for right now as no handler exists on server
-	err = RunMain([]string{cmdName, "servercfg", "add", "configOpt1:Val1", "add", "configOpt2:Val2"})
-	assert.Error(t, err, "Failed to update server's configuration")
+	// Register an identity that has the 'hf.AffiliationMgr=true' attribute
+	err = RunMain([]string{cmdName, "register", "--id.name", "admin2", "--id.secret", "adminpw2", "--id.attrs", "hf.AffiliationMgr=true", "--id.affiliation", "org2"})
+	util.FatalError(t, err, "Failed to register 'admin2'")
+
+	db := srv.DBAccessor()
+
+	addIdentities(t)
+
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL1}) // Has "hf.AffiliationMgr" attribute
+	assert.NoError(t, err, "Failed to enroll 'admin2'")
+
+	addAffiliations(t, db)
+	badInput(t)
 
 	err = srv.Stop()
 	assert.NoError(t, err, "Failed to stop server")
+}
+
+func addIdentities(t *testing.T) {
+	var err error
+
+	err = RunMain([]string{cmdName, "servercfg", "add", "registry.identities={\"id\": \"testuser\", \"secret\": \"testpass\", \"type\": \"user\"}",
+		"add", "registry.identities={\"id\": \"testuser1\", \"secret\": \"testpass\", \"type\": \"user\"}"})
+	assert.NoError(t, err, "Should have added identity")
+
+	err = RunMain([]string{cmdName, "servercfg", "add", "registry.identities={\"id\": \"testuser\", \"type\": \"user\"}",
+		"add", "registry.identities={\"id\": \"testuser1\", \"type\": \"user\"}", "add", "registry.identities={\"id\": \"testuser2\", \"type\": \"user\"}"})
+	assert.Error(t, err, "Should have failed, can't register same username 'testuser' twice")
+}
+
+func addAffiliations(t *testing.T, db spi.UserRegistry) {
+	var err error
+
+	err = RunMain([]string{cmdName, "servercfg", "add", "affiliations.org2.dept1.team3"})
+	assert.NoError(t, err, "Failed to add affiliation")
+
+	_, err = db.GetAffiliation("org2.dept1")
+	assert.NoError(t, err, "Affiliation should exist")
+
+	_, err = db.GetAffiliation("org2.dept1.team3")
+	assert.NoError(t, err, "Failed to get affiliations")
+
+	// Should fail to add affiliation that invoker is not a part of
+	err = RunMain([]string{cmdName, "servercfg", "add", "affiliations.org1"})
+	assert.Error(t, err, "Failed to add affiliation")
+}
+
+func badInput(t *testing.T) {
+	var err error
+
+	err = RunMain([]string{cmdName, "servercfg"})
+	assert.Error(t, err, "Should error if no arguments provided")
+
+	err = RunMain([]string{cmdName, "servercfg", "add", "affiliations.org1", "add"})
+	assert.Error(t, err, "Should error if incorrect number of arguments specified")
 }
 
 func TestCleanUp(t *testing.T) {

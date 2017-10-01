@@ -17,6 +17,7 @@ limitations under the License.
 package lib
 
 import (
+	"encoding/json"
 	"net/http"
 
 	"github.com/cloudflare/cfssl/api"
@@ -53,16 +54,25 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(200)
 			log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
 		}
-	} else if err == nil {
+	} else if resp != nil {
 		w.WriteHeader(200)
-		err = api.SendResponse(w, resp)
 		if err != nil {
-			log.Warning("Failed to send response for %s: %+v", url, err)
+			err = SendResultWithError(w, resp, err, r)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response with errors for %s: %+v", url, resp)
+			}
 		} else {
-			log.Debugf("Sent response for %s: %+v", url, resp)
+			err = api.SendResponse(w, resp)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			} else {
+				log.Debugf("Sent response for %s: %+v", url, resp)
+			}
 		}
 		log.Infof(`%s %s %s 200 0 "OK"`, r.RemoteAddr, r.Method, r.URL)
-	} else {
+	} else if err != nil {
 		he := getHTTPErr(err)
 		he.writeResponse(w)
 		log.Debugf("Sent error for %s: %+v", url, err)
@@ -101,4 +111,43 @@ func getHTTPErr(err error) *httpErr {
 		}
 	}
 	return createHTTPErr(500, ErrUnknown, "nil error")
+}
+
+// SendResultWithError sends response back with both a result and errors
+func SendResultWithError(w http.ResponseWriter, result interface{}, err error, r *http.Request) error {
+	respMessages := []api.ResponseMessage{}
+	allErrors, ok := err.(*allErrs) // Return back more than one error
+	if ok {
+		for _, err := range allErrors.errs {
+			respMessages = append(respMessages, getHTTPErrResp(err))
+		}
+	} else { // If only returning a single instance of an error
+		respMessages = append(respMessages, getHTTPErrResp(err))
+	}
+
+	response := &api.Response{
+		Success:  false,
+		Result:   result,
+		Errors:   respMessages,
+		Messages: []api.ResponseMessage{},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	enc := json.NewEncoder(w)
+	return enc.Encode(response)
+}
+
+func getHTTPErrResp(err error) api.ResponseMessage {
+	httpErr := getHTTPErr(err)
+	if httpErr == nil {
+		return api.ResponseMessage{
+			Code:    0,
+			Message: err.Error(),
+		}
+	}
+	respMessage := api.ResponseMessage{
+		Code:    httpErr.rcode,
+		Message: httpErr.rmsg,
+	}
+	return respMessage
 }

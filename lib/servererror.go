@@ -103,6 +103,22 @@ const (
 	ErrUpdateConfigAuth = 35
 	// Server configuration update error
 	ErrUpdateConfig = 36
+	// Server configuration invalid arguments
+	ErrUpdateConfigArgs = 37
+	// Adding identity dynamically error
+	ErrUpdateConfigAddIdentity = 38
+	// Removing identity dynamically error
+	ErrUpdateConfigRemoveIdentity = 39
+	// Modifying identity dynamically error
+	ErrUpdateConfigModifyingIdentity = 40
+	// Adding affiliation dynamically error
+	ErrUpdateConfigAddAff = 41
+	// Removing affiliation dynamically error
+	ErrUpdateConfigRemoveAff = 42
+	// Modifying affiliation dynamically error
+	ErrUpdateConfigModifyingAff = 43
+	// Error related to any action against affiliation update
+	ErrUpdateConfigAff = 43
 )
 
 // Construct a new HTTP error.
@@ -212,4 +228,33 @@ func isFatalError(err error) bool {
 		return true
 	}
 	return false
+}
+
+type allErrs struct {
+	errs []error
+}
+
+func newAllErrs(errs []error) *allErrs {
+	return &allErrs{
+		errs: errs,
+	}
+}
+
+func (ae *allErrs) Error() string {
+	return ae.String()
+}
+
+func (ae *allErrs) String() string {
+	var allErrors string
+
+	for _, err := range ae.errs {
+		if allErrors == "" {
+			allErrors = err.Error()
+		} else {
+			allErrors = allErrors + fmt.Sprintf("\n%s", err.Error())
+		}
+
+	}
+
+	return allErrors
 }
