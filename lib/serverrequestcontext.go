@@ -59,6 +59,7 @@ type serverRequestContext struct {
 type callerPermissions struct {
 	isRegistrar      bool
 	isAffiliationMgr bool
+	registrarRoles   string
 }
 
 // newServerRequestContext is the constructor for a serverRequestContext
@@ -370,10 +371,11 @@ func (ctx *serverRequestContext) GetCallerPermissions() (*callerPermissions, err
 
 	ctx.callerPerm = &callerPermissions{}
 
-	isRegistrar := caller.GetAttribute("hf.Registrar.Roles")
-	if isRegistrar != "" {
+	registrarRoles := caller.GetAttribute("hf.Registrar.Roles")
+	if registrarRoles != "" {
 		log.Debug("Caller has permission to update identities")
 		ctx.callerPerm.isRegistrar = true
+		ctx.callerPerm.registrarRoles = registrarRoles
 	}
 
 	isAffiliationMgr, err := ctx.HasRole("hf.AffiliationMgr")
