@@ -1429,15 +1429,20 @@ Removing an affiliation
 The following removes affiliation 'org2' and also any sub affiliations.
 For example, if 'org2.dept1' is an affiliation below 'org2', it is also removed.
 
-Warning: Removing an affiliation also removes all identities that are associated with that affiliation,
-and also revokes all certificates associated with any of these identities.
+By default, an affiliation can only be removed if there are no identities that are registered
+with that affiliation. If there are identities registered with an affiliation that needs to be removed,
+then the fabric-ca-server must allow for forcing of identity removal. To enable identities to
+be removed alongside the affiliation, the `--options.affiliations.ForceRemoveIdentities` and
+`--options.identities.allowremove` options must be enabled when starting the fabric-ca-server. 
+Any identities that are removed as part of the affiliation removal will also have all their
+certificates revoked. 
 
 .. code:: bash
 
     fabric-ca-client servercfg remove affiliations.org2
 
 Note: Removal of affiliations is disabled in the fabric-ca-server by default, but may be enabled
-by starting the fabric-ca-server with the `--allowremove.affiliations` option.
+by starting the fabric-ca-server with the `--options.affiliations.allowremove` option.
 
 Dynamically updating identities
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1519,7 +1524,7 @@ The following removes identity 'user1' and also revokes any certificates associa
     fabric-ca-client servercfg remove registry.identities.user1
 
 Note: Removal of identities is disabled in the fabric-ca-server by default, but may be enabled
-by starting the fabric-ca-server with the `--allowremove.identities` option.
+by starting the fabric-ca-server with the `--options.identities.allowremove` option.
 
 Performing multiple updates
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^

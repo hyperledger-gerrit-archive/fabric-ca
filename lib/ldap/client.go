@@ -253,7 +253,7 @@ func (lc *Client) InsertAffiliation(name string, prekey string) error {
 }
 
 // DeleteAffiliation deletes an affiliation group
-func (lc *Client) DeleteAffiliation(name string) error {
+func (lc *Client) DeleteAffiliation(name string, forceRemoveIdentities bool) error {
 	return errNotSupported
 }
 
