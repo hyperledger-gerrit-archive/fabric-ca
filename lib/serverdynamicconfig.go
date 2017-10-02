@@ -40,10 +40,6 @@ type action int
 const (
 	identity = "registry.identities"
 	aff      = "affiliations"
-
-	add action = 1 + iota
-	remove
-	modify
 )
 
 // Handle a config request
@@ -94,13 +90,13 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 	}
 
 	for _, cmd := range req.Commands {
-		updateAction := cmd.Args[0]
+		updateAction := strings.ToLower(cmd.Args[0])
 		updateReq := cmd.Args[1]
 		updateStr := fmt.Sprintf("%s %s", updateAction, updateReq)
-		switch strings.ToLower(updateAction) {
+		switch updateAction {
 		case "add":
-			log.Debugf("Requesting to add '%s' to server's configuration", updateStr)
-			result, err := processAdd(updateReq, ctx)
+			log.Debugf("Requesting to add '%s' to server's configuration", updateReq)
+			result, err := processRequest(updateAction, updateReq, ctx)
 			if err != nil {
 				configErrs = append(configErrs, addActionToError(updateStr, err))
 			}
@@ -108,8 +104,14 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 				allSuccess = aggregateMessages(updateStr, allSuccess, result)
 			}
 		case "remove":
-			log.Debugf("Requesting to remove '%s' from server's configuration", updateStr)
-			return nil, errors.Errorf("Not Implemented")
+			log.Debugf("Requesting to remove '%s' from server's configuration", updateReq)
+			result, err := processRequest(updateAction, updateReq, ctx)
+			if err != nil {
+				configErrs = append(configErrs, addActionToError(updateStr, err))
+			}
+			if result != "" {
+				allSuccess = aggregateMessages(updateStr, allSuccess, result)
+			}
 		case "modify":
 			log.Debugf("Requesting to modify '%s' from server's configuration", updateStr)
 			return nil, errors.Errorf("Not Implemented")
@@ -130,17 +132,17 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 	return allSuccess, nil
 }
 
-func processAdd(addStr string, ctx *serverRequestContext) (string, error) {
-	log.Debugf("Processing add request: '%s'", addStr)
+func processRequest(action, addStr string, ctx *serverRequestContext) (string, error) {
+	log.Debugf("Processing '%s' request to '%s'", action, addStr)
 
 	if strings.HasPrefix(addStr, identity) { // Checks to see if request contains 'registry.identities' prefix
-		result, err := processIdentity(add, addStr, ctx)
+		result, err := processIdentity(action, addStr, ctx)
 		if err != nil {
 			return "", err
 		}
 		return result, nil
 	} else if strings.HasPrefix(addStr, aff) { // Checks to see if request contains 'affiliations' prefix
-		result, err := processAffiliation(add, addStr, ctx)
+		result, err := processAffiliation(action, addStr, ctx)
 		if err != nil {
 			return "", err
 		}
@@ -150,19 +152,18 @@ func processAdd(addStr string, ctx *serverRequestContext) (string, error) {
 	}
 }
 
-func processIdentity(configAction action, actionStr string, ctx *serverRequestContext) (string, error) {
-	log.Debugf("Process identity configuration update: '%s'", actionStr)
+func processIdentity(action, configReq string, ctx *serverRequestContext) (string, error) {
+	log.Debugf("Process identity configuration update: '%s'", configReq)
 	if !ctx.callerPerm.isRegistrar {
 		return "", newAuthErr(ErrUpdateConfigAuth, "Caller does not have permission to update identities")
 	}
 
-	switch configAction {
-	case add:
-		return addIdentity(actionStr, ctx)
-	case remove:
-		// TODO
-		return "", errors.Errorf("Not Implemented")
-	case modify:
+	switch action {
+	case "add":
+		return addIdentity(configReq, ctx)
+	case "remove":
+		return removeIdentity(configReq, ctx)
+	case "modify":
 		// TODO
 		return "", errors.Errorf("Not Implemented")
 	}
@@ -198,11 +199,46 @@ func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 	return fmt.Sprintf("ID: %s, Password: %s", id, secret), nil
 }
 
-func processAffiliation(configAction action, affiliation string, ctx *serverRequestContext) (string, error) {
+func removeIdentity(removeStr string, ctx *serverRequestContext) (string, error) {
+	removeID := strings.TrimPrefix(removeStr, identity+".")
+	log.Debugf("Removing identity '%s'", removeID)
+
+	if !ctx.ca.Config.AllowRemove.Identities {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Server does not allow for user deletions")
+	}
+
+	registry := ctx.ca.registry
+
+	userToRemove, err := registry.GetUserInfo(removeID)
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(ctx.callerPerm.registrarRoles, userToRemove.Type) {
+		return "", newAuthErr(ErrUpdateConfigRemoveIdentity, "Caller is not authorized to remove identity")
+	}
+	log.Debugf("Caller is authorized to remove identities of type '%s'", ctx.callerPerm.registrarRoles)
+
+	err = registry.DeleteUser(removeID)
+	if err != nil {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Failed to remove identity: ", err)
+
+	}
+	_, err = ctx.ca.certDBAccessor.RevokeCertificatesByID(removeID, 0)
+	if err != nil {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Failed to revoke certificates associated with removed identity: ", err)
+	}
+	log.Debugf("User '%s' successfully removed", removeID)
+	return fmt.Sprintf("User '%s' successfully removed", removeID), nil
+}
+
+func processAffiliation(action, affiliation string, ctx *serverRequestContext) (string, error) {
 	log.Debug("Processing affiliation configuration request")
 	if !ctx.callerPerm.isAffiliationMgr {
 		return "", newAuthErr(ErrUpdateConfigAuth, "Caller does not have permission to update affiliations")
 	}
+
+	affiliation = strings.TrimPrefix(affiliation, fmt.Sprintf("%s.", aff))
 
 	log.Debug("Checking if the caller is authorized to edit affiliation configuration")
 	registrar, err := ctx.GetCaller()
@@ -210,17 +246,16 @@ func processAffiliation(configAction action, affiliation string, ctx *serverRequ
 		return "", newHTTPErr(400, ErrUpdateConfigAff, "Failed to get caller identity: %s", err)
 	}
 	registrarAff := strings.Join(registrar.GetAffiliationPath(), ".")
-	if !strings.Contains(affiliation, registrarAff+".") {
+	if !strings.HasPrefix(affiliation, registrarAff+".") {
 		return "", newAuthErr(ErrUpdateConfigAuth, "Not authorized to edit '%s' affiliation", affiliation)
 	}
 
-	switch configAction {
-	case add:
+	switch action {
+	case "add":
 		return addAffiliation(affiliation, ctx)
-	case remove:
-		// TODO
-		return "", errors.Errorf("Not Implemented")
-	case modify:
+	case "remove":
+		return removeAffiliation(affiliation, ctx)
+	case "modify":
 		// TODO
 		return "", errors.Errorf("Not Implemented")
 	}
@@ -229,8 +264,6 @@ func processAffiliation(configAction action, affiliation string, ctx *serverRequ
 }
 
 func addAffiliation(affiliation string, ctx *serverRequestContext) (string, error) {
-	affiliation = strings.TrimPrefix(affiliation, fmt.Sprintf("%s.", aff))
-
 	registry := ctx.ca.registry
 
 	_, err := registry.GetAffiliation(affiliation)
@@ -255,6 +288,49 @@ func addAffiliation(affiliation string, ctx *serverRequestContext) (string, erro
 
 	log.Debugf("Affiliation '%s' successfully added", affiliation)
 	return fmt.Sprintf("Affiliation '%s' successfully added", affiliation), nil
+}
+
+func removeAffiliation(affiliation string, ctx *serverRequestContext) (string, error) {
+	if !ctx.ca.Config.AllowRemove.Affiliations {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Modification/Removing of affiliations is not allowed")
+	}
+
+	if !ctx.ca.Config.AllowRemove.Identities {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation can't be modified/removed, because removing of users is not allowed")
+	}
+
+	if !ctx.callerPerm.isRegistrar {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation can't be modified/removed, caller does not have permission to update identities")
+	}
+
+	log.Debugf("Removing affiliation '%s' and any affiliations below", affiliation)
+
+	removeAff := affiliation + "%"
+	query := "DELETE FROM affiliations WHERE name LIKE ?"
+	_, err := ctx.ca.db.Exec(ctx.ca.db.Rebind(query), removeAff)
+	if err != nil {
+		return "", err
+	}
+	query = "SELECT id FROM users WHERE (affiliation LIKE ?)"
+	ids := []string{}
+	err = ctx.ca.db.Select(&ids, ctx.ca.db.Rebind(query), removeAff)
+	if err != nil {
+		return "", err
+	}
+	log.Debugf("IDs '%s' to removed based on affiliation '%s' removal", ids, removeAff)
+	for _, id := range ids {
+		err = ctx.ca.registry.DeleteUser(id)
+		if err != nil {
+			return "", err
+		}
+		_, err = ctx.ca.certDBAccessor.RevokeCertificatesByID(id, 3)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	log.Debugf("Affiliation '%s' successfully removed", removeAff)
+	return fmt.Sprintf("Affiliation '%s' successfully removed", removeAff), nil
 }
 
 func aggregateMessages(action string, allMsgs string, msg string) string {
