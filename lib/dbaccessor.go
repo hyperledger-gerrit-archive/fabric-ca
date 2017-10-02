@@ -59,9 +59,7 @@ SELECT * FROM users
 INSERT INTO affiliations (name, prekey)
 	VALUES (?, ?)`
 
-	deleteAffiliation = `
-DELETE FROM affiliations
-	WHERE (name = ?)`
+	deleteAffiliation = `DELETE FROM affiliations WHERE name LIKE ?`
 
 	getAffiliation = `
 SELECT name, prekey FROM affiliations
@@ -164,7 +162,27 @@ func (d *Accessor) DeleteUser(id string) error {
 		return err
 	}
 
-	_, err = d.db.Exec(deleteUser, id)
+	tx := d.db.MustBegin()
+	defer txReturnFunc(tx, err)
+
+	err = deleteUserTx(id, 6, tx) // 6 (cessationofoperation) reason for certificate revocation
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func deleteUserTx(id string, reason int, tx *sqlx.Tx) error {
+	_, err := tx.Exec(deleteUser, id)
+	if err != nil {
+		return err
+	}
+
+	var record = new(CertRecord)
+	record.ID = id
+	record.Reason = reason
+	_, err = tx.NamedExec(tx.Rebind(updateRevokeSQL), record)
 	if err != nil {
 		return err
 	}
@@ -310,11 +328,32 @@ func (d *Accessor) DeleteAffiliation(name string) error {
 		return err
 	}
 
-	_, err = d.db.Exec(deleteAffiliation, name)
+	removeAff := name + "%"
+	tx := d.db.MustBegin() // Start database transaction
+	defer txReturnFunc(tx, err)
+
+	_, err = tx.Exec(tx.Rebind(deleteAffiliation), removeAff)
 	if err != nil {
 		return err
 	}
-
+	query := "SELECT id FROM users WHERE (affiliation LIKE ?)"
+	ids := []string{}
+	err = tx.Select(&ids, tx.Rebind(query), removeAff)
+	if err != nil {
+		return err
+	}
+	log.Debugf("IDs '%s' to removed based on affiliation '%s' removal", ids, name)
+	for _, id := range ids {
+		log.Debugf("Removing identity '%s'", id)
+		_, err = tx.Exec(tx.Rebind(deleteUser), id)
+		if err != nil {
+			return err
+		}
+		err = deleteUserTx(id, 3, tx) // 3 (affiliationchange) reason for certificate revocation
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -468,4 +507,16 @@ func dbGetError(err error, prefix string) error {
 		return errors.Errorf("%s not found", prefix)
 	}
 	return err
+}
+
+func txReturnFunc(tx *sqlx.Tx, err error) error {
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
 }
