@@ -61,5 +61,5 @@ type UserRegistry interface {
 	DeleteUser(id string) error
 	GetAffiliation(name string) (Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
-	DeleteAffiliation(name string) error
+	DeleteAffiliation(name string, forceRemoveIdentities bool) error
 }

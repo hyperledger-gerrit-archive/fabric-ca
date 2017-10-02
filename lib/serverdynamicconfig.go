@@ -98,10 +98,16 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 				configErrs = append(configErrs, addActionToError(updateStr, err))
 			}
 			if result != "" {
-				aggregateResponses(updateStr, allResponses, result)
+				allResponses.Responses[updateStr] = result
 			}
 		case remove:
-			return nil, errors.Errorf("Not Implemented")
+			result, err := processRequest(updateAction, updateReq, ctx)
+			if err != nil {
+				configErrs = append(configErrs, addActionToError(updateStr, err))
+			}
+			if result != "" {
+				allResponses.Responses[updateStr] = result
+			}
 		case modify:
 			return nil, errors.Errorf("Not Implemented")
 		default:
@@ -148,9 +154,9 @@ func processRequest(action, actionStr string, ctx *serverRequestContext) (string
 	}
 }
 
-func processIdentity(action, actionStr string, ctx *serverRequestContext) (string, error) {
+func processIdentity(action, configReq string, ctx *serverRequestContext) (string, error) {
 	log.Debugf("Process identity configuration update")
-	_, isRegistrar, err := ctx.IsRegistrar()
+	registrarRoles, isRegistrar, err := ctx.IsRegistrar()
 	if err != nil {
 		return "", newAuthErr(ErrUpdateConfigAuth, "Caller is unable to edit identities: %s", err)
 	}
@@ -160,10 +166,9 @@ func processIdentity(action, actionStr string, ctx *serverRequestContext) (strin
 
 	switch action {
 	case add:
-		return addIdentity(actionStr, ctx)
+		return addIdentity(configReq, ctx)
 	case remove:
-		// TODO
-		return "", errors.Errorf("Not Implemented")
+		return removeIdentity(configReq, registrarRoles, ctx)
 	case modify:
 		// TODO
 		return "", errors.Errorf("Not Implemented")
@@ -174,7 +179,7 @@ func processIdentity(action, actionStr string, ctx *serverRequestContext) (strin
 
 func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 	if !strings.Contains(addStr, "=") {
-		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Incorrect format for adding identity request, missing '=' in request")
+		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Incorrect format for adding identity, missing equals sign")
 	}
 	req := strings.SplitN(addStr, "=", 2)
 	value := req[1]
@@ -187,6 +192,10 @@ func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 	log.Debugf("Adding identity %+v", identity)
 	if identity.Name == "" {
 		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Missing 'ID' in request to add a new intentity")
+	}
+
+	if identity.Name == "" {
+		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "ID is required to add a new identity")
 	}
 
 	caller, err := ctx.GetCaller()
@@ -204,6 +213,35 @@ func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 	id := identity.Name
 	log.Debugf("Identity '%s' successfully added", id)
 	return fmt.Sprintf("ID: %s, Password: %s", id, secret), nil
+}
+
+func removeIdentity(removeStr string, registrarRoles string, ctx *serverRequestContext) (string, error) {
+	removeID := strings.TrimPrefix(removeStr, identity+".")
+	log.Debugf("Removing identity '%s'", removeID)
+
+	if !ctx.ca.Config.Options.Identities.AllowRemove {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Server does not allow for removing of identities")
+	}
+
+	registry := ctx.ca.registry
+
+	userToRemove, err := registry.GetUserInfo(removeID)
+	if err != nil {
+		return "", err
+	}
+
+	if !strings.Contains(registrarRoles, userToRemove.Type) {
+		return "", newAuthErr(ErrUpdateConfigRemoveIdentity, "Caller is not authorized to remove identity")
+	}
+	log.Debugf("Caller is authorized to remove identities of type '%s'", registrarRoles)
+
+	registry.DeleteUser(removeID)
+	if err != nil {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Failed to remove identity: ", err)
+	}
+
+	log.Debugf("Identity '%s' successfully removed", removeID)
+	return fmt.Sprintf("Identity '%s' successfully removed", removeID), nil
 }
 
 func processAffiliation(action, affiliation string, ctx *serverRequestContext) (string, error) {
@@ -231,8 +269,7 @@ func processAffiliation(action, affiliation string, ctx *serverRequestContext) (
 	case add:
 		return addAffiliation(affiliation, ctx)
 	case remove:
-		// TODO
-		return "", errors.Errorf("Not Implemented")
+		return removeAffiliation(affiliation, ctx)
 	case modify:
 		// TODO
 		return "", errors.Errorf("Not Implemented")
@@ -269,8 +306,43 @@ func addAffiliation(affiliation string, ctx *serverRequestContext) (string, erro
 	return fmt.Sprintf("Affiliation '%s' successfully added", affiliation), nil
 }
 
-func aggregateResponses(actionStr string, allResponses *api.ConfigResponse, msg string) {
-	allResponses.Responses[actionStr] = msg
+func removeAffiliation(affiliation string, ctx *serverRequestContext) (string, error) {
+	log.Debugf("Removing affiliation '%s' and any affiliations below", affiliation)
+
+	if !ctx.ca.Config.Options.Affiliations.AllowRemove {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Modification/Removing of affiliations is not allowed")
+	}
+
+	forceRemoveIdentities := ctx.ca.Config.Options.Affiliations.ForceRemoveIdentities
+
+	_, isRegistar, err := ctx.IsRegistrar()
+	if err != nil {
+		return "", err
+	}
+	if !isRegistar {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation can't be modified/removed, caller does not have permission to update identities")
+	}
+
+	callerAff := strings.Join(ctx.caller.GetAffiliationPath(), ".")
+	if callerAff == affiliation {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Can't remove affiliation '%s' that the caller is also a part of", affiliation)
+	}
+
+	if forceRemoveIdentities {
+		if !ctx.ca.Config.Options.Identities.AllowRemove {
+			return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation can't be modified/removed, because removing of identities is not allowed by server")
+		}
+	}
+
+	// Affiliation can still be removed, even if removing of identities is not allwed by server, as long as the affiliation being removed
+	// does not have any identities associated with it
+	err = ctx.ca.registry.DeleteAffiliation(affiliation, forceRemoveIdentities)
+	if err != nil {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveAff, "Failed to remove affiliation: ", err)
+	}
+
+	log.Debugf("Affiliation '%s' successfully removed", affiliation)
+	return fmt.Sprintf("Affiliation '%s' successfully removed", affiliation), nil
 }
 
 func addActionToError(action string, err error) error {

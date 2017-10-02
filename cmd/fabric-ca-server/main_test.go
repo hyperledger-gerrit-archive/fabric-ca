@@ -309,7 +309,7 @@ func TestAffMgrAttribute(t *testing.T) {
 		t.Fatal("Failed to set environment variable")
 	}
 
-	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-p", "7097", "-d"}, ""}
+	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-p", "7097", "-d", "--options.affiliations.allowremove"}, ""}
 	os.Args = args.input
 	scmd := NewCommand(args.input[1], blockingStart)
 	// Execute the command
@@ -346,6 +346,15 @@ func TestAffMgrAttribute(t *testing.T) {
 		},
 	})
 	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to add identities")
+
+	_, err = adminIdentity.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"remove", "affiliations.org3"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to remove affiliation 'org3'")
 }
 
 func TestVersion(t *testing.T) {
