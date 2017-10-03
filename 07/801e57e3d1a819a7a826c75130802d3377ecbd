@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Kostas Christidis <kostas@gmail.com>
+Code-Review+2: Artem Barger <bartem@il.ibm.com>
+Submitted-by: Artem Barger <bartem@il.ibm.com>
+Submitted-at: Tue, 03 Oct 2017 13:28:10 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/14129
+Project: fabric-ca
+Branch: refs/heads/release
