@@ -233,7 +233,6 @@ func TestCAInit(t *testing.T) {
 	}
 	t.Log("Working dir", wd)
 	defer cleanupTmpfiles(t, wd)
-
 	ca, err := newCA(confDir, &cfg, &srv, false)
 	if err != nil {
 		t.Fatal("newCA FAILED")
@@ -287,7 +286,13 @@ func TestCAInit(t *testing.T) {
 	}
 
 	err = os.Remove(caKey)
+	if err != nil {
+		t.Fatalf("Remove failed: %s", err)
+	}
 	err = os.Remove(caCert)
+	if err != nil {
+		t.Fatalf("Remove failed: %s", err)
+	}
 	ca.Config.CA.Keyfile = ""
 	ca.Config.CA.Certfile = ""
 	ca.Config.DB.Datasource = ""
@@ -418,7 +423,7 @@ func TestCAwriteFile(t *testing.T) {
 }
 
 func TestCAloadCNFromEnrollmentInfo(t *testing.T) {
-	ca, err := newCA("/tmp", &CAConfig{}, &srv, true)
+	ca, err := newCA(os.TempDir(), &CAConfig{}, &srv, true)
 	_, err = ca.loadCNFromEnrollmentInfo(string(0))
 	t.Log("loadCNFromEnrollmentInfo err: ", err)
 	if err == nil {
@@ -497,30 +502,17 @@ func TestCAaddIdentity(t *testing.T) {
 }
 
 func TestCAinitUserRegistry(t *testing.T) {
-	err := os.RemoveAll(testdir + dbname)
-	if err != nil {
-		t.Fatal("RemoveAll failed: ", err)
-	}
-	err = os.RemoveAll(configFile)
-	if err != nil {
-		t.Fatal("RemoveAll failed: ", err)
-	}
 	cfg = CAConfig{}
 	cfg.LDAP.Enabled = true
 	cfg.LDAP.URL = "ldap://CN=admin,dc=example,dc=com:adminpw@localhost:389/dc=example,dc=com"
-	_, err = newCA(configFile, &cfg, &srv, false)
+	ca, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
 		t.Fatal("newCA FAILED", err)
 	}
-	err = os.RemoveAll(testdir + dbname)
-	if err != nil {
-		t.Fatal("RemoveAll failed: ", err)
-	}
+	CAclean(ca, t)
 }
 
 func TestCAgetCaCert(t *testing.T) {
-	CAclean(nil, t)
-	os.Remove(configFile)
 	cfg = CAConfig{}
 
 	cfg.CSR = api.CSRInfo{CA: &csr.CAConfig{}}
@@ -551,12 +543,13 @@ func TestCAgetCaCert(t *testing.T) {
 	}
 
 	CAclean(ca, t)
-	os.Remove(configFile)
+	err = os.RemoveAll(configFile)
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
 }
 
 func TestCAinitEnrollmentSigner(t *testing.T) {
-	os.Remove(testdir + dbname)
-	os.Remove(configFile)
 	cfg = CAConfig{}
 	ca, err := newCA(configFile, &cfg, &srv, true)
 	if err != nil {
@@ -577,7 +570,7 @@ func TestCAinitEnrollmentSigner(t *testing.T) {
 	if err == nil {
 		t.Error("initEnrollmentSigner should have failed")
 	}
-	os.Remove(testdir + dbname)
+	CAclean(ca, t)
 }
 
 func TestCADBinit(t *testing.T) {
@@ -604,8 +597,6 @@ func TestCADBinit(t *testing.T) {
 }
 
 func TestCAloadAffiliationsTableR(t *testing.T) {
-	os.Remove(testdir + dbname)
-	os.Remove(configFile)
 	cfg = CAConfig{}
 	ca, err := newCA(configFile, &cfg, &srv, true)
 	if err != nil {
@@ -635,16 +626,10 @@ func TestCAloadAffiliationsTableR(t *testing.T) {
 	if err == nil {
 		t.Error("ca.loadAffiliationsTableR should have failed ", err)
 	}
-
-	os.Remove(testdir + dbname)
+	CAclean(ca, t)
 }
 
 func TestCAloadUsersTable(t *testing.T) {
-	CAclean(nil, t)
-	err := os.RemoveAll(configFile)
-	if err != nil {
-		t.Fatalf("RemoveAll failed: %s", err)
-	}
 	cfg = CAConfig{}
 	u := &CAConfigIdentity{Name: "a", MaxEnrollments: -10}
 	cfg.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
@@ -706,8 +691,6 @@ func TestCAloadUsersTable(t *testing.T) {
 }
 
 func TestCAVerifyCertificate(t *testing.T) {
-	CAclean(nil, t)
-	os.Remove(configFile)
 	cfg = CAConfig{}
 	ca, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
@@ -737,14 +720,17 @@ func TestCAVerifyCertificate(t *testing.T) {
 
 	caCert1, err := ioutil.ReadFile("../testdata/ec_cert.pem")
 	caCert2 := append(caCert1, util.RandomString(128)...)
-	err = ioutil.WriteFile("/tmp/ca-chainfile.pem", caCert2, 0644)
-	ca.Config.CA.Chainfile = "/tmp/ca-chainfile.pem"
+	err = ioutil.WriteFile(filepath.Join(os.TempDir(), "ca-chainfile.pem"), caCert2, 0644)
+	ca.Config.CA.Chainfile = filepath.Join(os.TempDir(), "ca-chainfile.pem")
 	err = ca.VerifyCertificate(cert)
 	t.Log("ca.VerifyCertificate error: ", err)
 	if err == nil {
 		t.Error("VerifyCertificate should have failed")
 	}
-	os.Remove("/tmp/ca-chainfile.pem")
+	err = os.Remove(filepath.Join(os.TempDir(), "ca-chainfile.pem"))
+	if err != nil {
+		t.Errorf("Remove failed: %s", err)
+	}
 
 	ca.Config.CA.Chainfile = "doesNotExist"
 	ca.Config.CA.Certfile = "doesNotExist"
