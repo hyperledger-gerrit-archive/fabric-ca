@@ -217,7 +217,7 @@ func TestCAInit(t *testing.T) {
 	defer func() {
 		err = os.RemoveAll(wd)
 		if err != nil {
-			t.Fatalf("RemoveAll failed: %s", err)
+			t.Errorf("RemoveAll failed: %s", err)
 		} else {
 			t.Logf("Removed all: %s", wd)
 		}
@@ -254,7 +254,7 @@ func TestCAInit(t *testing.T) {
 	defer func() {
 		err = os.RemoveAll(wd2)
 		if err != nil {
-			t.Fatalf("RemoveAll failed: %s", err)
+			t.Errorf("RemoveAll failed: %s", err)
 		} else {
 			t.Logf("Removed all: %s", wd2)
 		}
@@ -282,7 +282,13 @@ func TestCAInit(t *testing.T) {
 	}
 
 	err = os.Remove(caKey)
+	if err != nil {
+		t.Fatalf("Remove failed: %s", err)
+	}
 	err = os.Remove(caCert)
+	if err != nil {
+		t.Fatalf("Remove failed: %s", err)
+	}
 	ca.Config.CA.Keyfile = ""
 	ca.Config.CA.Certfile = ""
 	ca.Config.DB.Datasource = ""
