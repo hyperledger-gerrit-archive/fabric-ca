@@ -220,24 +220,22 @@ func requireAffiliation(idType string) bool {
 func canRegister(registrar string, req *api.RegistrationRequest, user spi.User, ctx *serverRequestContext) error {
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
-	var roles []string
-	rolesStr, isRegistrar, err := ctx.IsRegistrar()
+	_, isRegistrar, err := ctx.IsRegistrar()
 	if err != nil {
 		return err
 	}
 	if !isRegistrar {
 		return errors.Errorf("'%s' does not have authority to register identities", registrar)
 	}
-	if rolesStr != "" {
-		roles = strings.Split(rolesStr, ",")
-	} else {
-		roles = make([]string, 0)
-	}
 	if req.Type == "" {
 		req.Type = "user"
 	}
-	if !util.StrContained(req.Type, roles) {
-		return fmt.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
+	canRegister, err := ctx.CanRegisterRole(req.Type)
+	if err != nil {
+		return err
+	}
+	if !canRegister {
+		return errors.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
 	}
 	return nil
 }
