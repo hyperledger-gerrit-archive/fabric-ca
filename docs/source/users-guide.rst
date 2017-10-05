@@ -1421,7 +1421,11 @@ The following renames the 'org1' affiliation to 'org2'.
 
 .. code:: bash
 
-    fabric-ca-client servercfg modify affiliations.org1=org2 
+    fabric-ca-client servercfg modify affiliations.org1=org2
+
+Modifying an affiliation will rename the requested affiliation and any affiliation that
+are hierarchically below it to the new affiliation. It will also update the affiliations
+of any identities that are using the old affiliation to use the new affiliation.
 
 Removing an affiliation
 """""""""""""""""""""""""

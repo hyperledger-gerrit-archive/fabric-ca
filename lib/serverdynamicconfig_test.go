@@ -89,14 +89,16 @@ func TestUpdatingConfig(t *testing.T) {
 	editIdentitiesNotAuthorized(t, notadmin, client)
 	removeIdentitiesAllowedFail(t, admin2, srv)
 	removeIdentitiesAllowedPass(t, admin, srv)
+	modifyIdentities(t, admin, admin2, srv)
 	removeAffiliationsNotAllowed(t, admin2, srv)
 
 	srv.CA.Config.Options.Affiliations.AllowRemove = true
 
 	removeAffiliationsAllowed(t, admin2, srv)
 	removeAffCheckUserAndCerts(t, admin2, client, srv)
+	modifyAffiliations(t, admin2, srv)
 
-	badInput(t, admin2)
+	// badInput(t, admin2)
 
 	err = srv.Stop()
 	assert.NoError(t, err, "Failed to stop server")
@@ -104,7 +106,7 @@ func TestUpdatingConfig(t *testing.T) {
 }
 
 func testPermissions(admin *Identity, client *Client, t *testing.T) {
-	// Register a user that does not posses the attributes to modify identites, should result in an authorization error
+	// Register a user that does not posses the attributes to modify identities, should result in an authorization error
 	regResp, err := admin.Register(&api.RegistrationRequest{
 		Name: "cant_update_id",
 		Attributes: []api.Attribute{
@@ -128,7 +130,7 @@ func testPermissions(admin *Identity, client *Client, t *testing.T) {
 			},
 		},
 	})
-	if assert.Error(t, err, "Error should have occured, invoker does not have proper attributes modify identities") {
+	if assert.Error(t, err, "Error should have occurred, invoker does not have proper attributes modify identities") {
 		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
 	}
 
@@ -160,7 +162,7 @@ func testPermissions(admin *Identity, client *Client, t *testing.T) {
 			},
 		},
 	})
-	if assert.Error(t, err, "Error should have occured, invoker does not have proper attributes modify affiliations") {
+	if assert.Error(t, err, "Error should have occurred, invoker does not have proper attributes modify affiliations") {
 		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
 	}
 }
@@ -249,7 +251,7 @@ func editIdentitiesNotAuthorized(t *testing.T, notadmin *Identity, client *Clien
 	_, err = notadmin.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
-				Args: []string{"add", "registry.identities={\"id\": \"testuser1_1\", \"secret\": \"testpass\", \"type\": \"user\"}"},
+				Args: []string{"add", `registry.identities={"id": "testuser1_1", "secret": "testpass", "type": "user"}`},
 			},
 		},
 	})
@@ -367,13 +369,120 @@ func addAffiliations(t *testing.T, notadmin, admin, admin2 *Identity, srv *Serve
 	assert.Error(t, err, "Should have failed to add affiliation that invoker does not have access to")
 }
 
-func removeAffiliationsNotAllowed(t *testing.T, admin *Identity, srv *Server) {
-	var err error
+func modifyIdentities(t *testing.T, admin, admin2 *Identity, srv *Server) {
+	_, err := admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.secret=test_pw"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to modify password")
 
 	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
-				Args: []string{"remove", "affiliations:org2.dept1"},
+				Args: []string{"modify", "registry.identities.testuser.type=peer"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to modify type")
+
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.type=user"},
+			},
+		},
+	})
+	assert.Error(t, err, "Should have fail to change type to 'user' as admin2 is not authorized to register type 'user'")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.affiliation=org1"},
+			},
+		},
+	})
+	assert.Error(t, err, "Should have failed to modified identity with an unregistered affiliation")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.affiliation=org2"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to modiy affiliation")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.affiliation=org1"},
+			},
+		},
+	})
+	assert.Error(t, err, "Should have failed to modified identity with an unregistered affiliation")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.maxenrollments=2"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to modify max enrollments")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", `registry.identities.testuser.attributes={"Name": "hf.Revoker", "Value": "false"}`},
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to modify max enrollments")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", `registry.identities.testuser.attributes={"Name": "hf.Revoker", "Value": "true"}`},
+			},
+			api.Command{
+				Args: []string{"modify", `registry.identities.testuser.attributes={"Name": "hf.AffiliationMgr", "Value": "false"}`},
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to modify max enrollments")
+
+	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "registry.identities.testuser.state=5"},
+			},
+		},
+	})
+	assert.Error(t, err, "Should have failed to modifiy identity with an unregistered affiliation")
+
+	ui, err := srv.CA.registry.GetUserInfo("testuser")
+	assert.NoError(t, err, "User should exist")
+	if ui.MaxEnrollments != 2 {
+		t.Error("Failed to correctly modify max enrollments for existing user")
+	}
+	if ui.Type != "peer" {
+		t.Error("Failed to correctly modify type for existing user")
+	}
+	if len(ui.Attributes) != 2 {
+		t.Error("Failed to correctly modify attributes for existing user")
+	}
+}
+
+func removeAffiliationsNotAllowed(t *testing.T, admin2 *Identity, srv *Server) {
+	var err error
+
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"remove", "affiliations.org2.dept1"},
 			},
 		},
 	})
@@ -383,15 +492,28 @@ func removeAffiliationsNotAllowed(t *testing.T, admin *Identity, srv *Server) {
 	assert.NoError(t, err, "Affiliation should exist")
 }
 
-func removeAffiliationsAllowed(t *testing.T, admin *Identity, srv *Server) {
+func removeAffiliationsAllowed(t *testing.T, admin2 *Identity, srv *Server) {
 	var err error
+
+	// admin2 does not have proper affiliation authority to remove
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"remove", "affiliations.hyperledger"},
+			},
+		},
+	})
+	assert.Error(t, err, "Should have failed to remove affiliation")
+
+	_, err = srv.CA.registry.GetAffiliation("hyperledger")
+	assert.NoError(t, err, "Affiliation should exist")
 
 	// Deletion of users is not allowed even though deletion of affiliations is allowed
 	srv.CA.Config.Options.Identities.AllowRemove = false
 
 	// Affiliation can be removed, even if removing of identities is not allwed by server, as long as the affiliation being removed
 	// does not have any identities associated with it
-	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
 				Args: []string{"remove", "affiliations.org2.dept1.team4"},
@@ -405,7 +527,7 @@ func removeAffiliationsAllowed(t *testing.T, admin *Identity, srv *Server) {
 
 	srv.CA.Config.Options.Affiliations.ForceRemoveIdentities = true
 
-	_, err = admin.Register(&api.RegistrationRequest{
+	_, err = admin2.Register(&api.RegistrationRequest{
 		Name:        "testAffRemoval1",
 		Affiliation: "org2.dept1",
 		Type:        "client",
@@ -415,7 +537,7 @@ func removeAffiliationsAllowed(t *testing.T, admin *Identity, srv *Server) {
 	// If server does not allow removal of identities and there is an identity that
 	// is using the affiliation even if 'option.affiliations.forceremoveidentities' config is set to true
 	// the affiliation won't be removed
-	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
 				Args: []string{"remove", "affiliations.org2.dept1"},
@@ -435,7 +557,7 @@ func removeAffiliationsAllowed(t *testing.T, admin *Identity, srv *Server) {
 
 	// Affiliation can't be removed, if there is an identity that is using the affiliation even if server allows removing of identities unless
 	// the 'option.affiliations.forceremoveidentities' config is set to true
-	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
 				Args: []string{"remove", "affiliations.org2.dept1"},
@@ -454,7 +576,7 @@ func removeAffiliationsAllowed(t *testing.T, admin *Identity, srv *Server) {
 
 	// Affiliation can be removed, even if there is an identity that is using the affiliation if 'option.affiliations.forceremoveidentities'
 	// and 'option.identities.allowremove' are both set to true
-	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
 				Args: []string{"remove", "affiliations.org2.dept1"},
@@ -470,7 +592,7 @@ func removeAffiliationsAllowed(t *testing.T, admin *Identity, srv *Server) {
 	assert.Error(t, err, "User should not exist")
 
 	// Should not be able to remove affiliation that invoker is part of
-	_, err = admin.UpdateServerConfig(&api.ConfigRequest{
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
 				Args: []string{"remove", "affiliations.org2"},
@@ -512,7 +634,7 @@ func removeAffCheckUserAndCerts(t *testing.T, admin *Identity, client *Client, s
 			},
 		},
 	})
-	assert.NoError(t, err, "Failed to remove affiliaton")
+	assert.NoError(t, err, "Failed to remove affiliation")
 
 	_, err = srv.CA.registry.GetAffiliation("org2.dept2.team1")
 	assert.Error(t, err, "Affiliation should not exist")
@@ -528,6 +650,63 @@ func removeAffCheckUserAndCerts(t *testing.T, admin *Identity, client *Client, s
 	if cert.Status != "revoked" {
 		t.Error("Failed to revoke certificate when an affiliation was removed")
 	}
+}
+
+func modifyAffiliations(t *testing.T, admin2 *Identity, srv *Server) {
+	var err error
+
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"add", "affiliations.org2.dept1.team4"},
+			},
+		},
+	})
+	util.FatalError(t, err, "Failed to add affiliations")
+
+	_, err = admin2.Register(&api.RegistrationRequest{
+		Name:        "testuser3",
+		Affiliation: "org2.dept1.team4",
+		Type:        "client",
+	})
+	util.FatalError(t, err, "Failed to register 'testuser3'")
+
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "affiliations.org2.dept1=org2.dept3"},
+			},
+		},
+	})
+	util.FatalError(t, err, "Failed to modify affiliation")
+
+	_, err = srv.CA.registry.GetAffiliation("org2.dept1")
+	assert.Error(t, err, "Affiliation should not exist")
+
+	_, err = srv.CA.registry.GetAffiliation("org2.dept1.team4")
+	assert.Error(t, err, "Affiliation should not exist")
+
+	_, err = srv.CA.registry.GetAffiliation("org2.dept3")
+	assert.NoError(t, err, "Affiliation should exist")
+
+	_, err = srv.CA.registry.GetAffiliation("org2.dept3.team4")
+	assert.NoError(t, err, "Affiliation should exist")
+
+	// Check to see if identities using old affiliation are now using the new affiliation
+	ui, err := srv.CA.registry.GetUserInfo("testuser3")
+	assert.NoError(t, err, "Falied to get user 'testuser3'")
+	if ui.Affiliation != "org2.dept3.team4" {
+		t.Errorf("Failed to update identity affiliation after renaming affiliation")
+	}
+
+	_, err = admin2.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"modify", "affiliations.org2.dept4=org2.dept5"},
+			},
+		},
+	})
+	assert.Error(t, err, "Should error if trying to modify affiliation to an affiliation that does not exist")
 }
 
 func badInput(t *testing.T, admin *Identity) {
