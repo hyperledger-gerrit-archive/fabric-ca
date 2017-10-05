@@ -54,7 +54,8 @@ Table of Contents
    4. `Reenrolling an identity`_
    5. `Revoking a certificate or identity`_
    6. `Enabling TLS`_
-   7. `Contact specific CA instance`_
+   7. `Attribute-Based Access Control`_
+   8. `Contact specific CA instance`_
 
 6. `HSM`_
 
@@ -1252,7 +1253,6 @@ There are two methods:
 
     fabric-ca-client register --id.name user1 --id.secret user1pw --id.type user --id.affiliation org1 --id.attrs 'app1Admin=true:ecert,email=user1@gmail.com'
 
-
   2. When you enroll an identity, you may request that one or more attributes
      be added to the certificate.
      For each attribute requested, you may specify whether the attribute is
@@ -1265,6 +1265,21 @@ There are two methods:
 .. code:: bash
 
     fabric-ca-client enroll -u http://user1:user1pw@localhost:7054 --enrollment.attrs "email,phone:opt"
+
+There are three well-known attributes which are automatically registered for
+each identity as shown in table below.
+
+===============    ===================================
+ Attribute Name            Attribute Value
+===============    ===================================
+hf.EnrollmentID    The enrollment ID of the identity
+hf.Type            The type of the identity
+hf.Affiliation     The affiliation of the identity
+===============    ===================================
+
+These attributes are not included in an enrollment certificate by default;
+however, each of these may be registered like any other attribute so that
+they are included in an enrollment certificate by default.
 
 For information on the chaincode library API for Attribute-Based Access Control,
 see https://github.com/hyperledger/fabric/tree/release/core/chaincode/lib/cid/README.md
@@ -1365,7 +1380,7 @@ Troubleshooting
 
 2. The error ``[ERROR] No certificates found for provided serial and aki`` will occur
    if the following sequence of events occurs:
- 
+
    a. You issue a `fabric-ca-client enroll` command, creating an enrollment certificate (i.e. an ECert).
       This stores a copy of the ECert in the fabric-ca-server's database.
    b. The fabric-ca-server's database is deleted and recreated, thus losing the ECert from step 'a'.

@@ -168,6 +168,12 @@ func registerUserID(req *api.RegistrationRequestNet, ca *CA) (string, error) {
 		return "", errors.WithMessage(err, "The delegateRoles field is a superset of roles")
 	}
 
+	// Add attributes containing the enrollment ID, type, and affiliation if not
+	// already defined
+	addAttributeToRequest("hf.EnrollmentID", req.Name, req)
+	addAttributeToRequest("hf.Type", req.Type, req)
+	addAttributeToRequest("hf.Affiliation", req.Affiliation, req)
+
 	insert := spi.UserInfo{
 		Name:           req.Name,
 		Pass:           req.Secret,
@@ -230,4 +236,14 @@ func canRegister(registrarRoles tcert.Attribute, registrar string, req *api.Regi
 		return fmt.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
 	}
 	return nil
+}
+
+// Add an attribute to the 'req' request if not already found.
+func addAttributeToRequest(name, value string, req *api.RegistrationRequestNet) {
+	for _, attr := range req.Attributes {
+		if attr.Name == name {
+			return
+		}
+	}
+	req.Attributes = append(req.Attributes, api.Attribute{Name: name, Value: value})
 }
