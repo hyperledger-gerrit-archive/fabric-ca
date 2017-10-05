@@ -419,6 +419,34 @@ func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
 	return "", false, nil
 }
 
+// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+func (ctx *serverRequestContext) CanRegisterRole(requestedRole string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' can register role '%s'", caller.GetName(), requestedRole)
+
+	rolesStr, err := caller.GetAttribute(registrarRole)
+	if err != nil {
+		return false, errors.WithMessage(err, fmt.Sprintf("'%s' is not a registrar", caller.GetName()))
+	}
+
+	var roles []string
+	if rolesStr != "" {
+		roles = strings.Split(rolesStr, ",")
+	} else {
+		roles = make([]string, 0)
+	}
+
+	if !util.StrContained(requestedRole, roles) {
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
 	rtn := make([]attrmgr.AttributeRequest, len(attrReqs))
 	for i := range attrReqs {

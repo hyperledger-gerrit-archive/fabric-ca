@@ -18,6 +18,7 @@ package lib
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -76,6 +77,12 @@ type UserRecord struct {
 	Attributes     string `db:"attributes"`
 	State          int    `db:"state"`
 	MaxEnrollments int    `db:"max_enrollments"`
+}
+
+// AffiliationRecord an affiliation entry in the database
+type AffiliationRecord struct {
+	Name   string `db:"name"`
+	Parent string `db:"prekey"`
 }
 
 // Accessor implements db.Accessor interface.
@@ -164,7 +171,7 @@ func (d *Accessor) DeleteUser(id string) error {
 	}
 
 	tx := d.db.MustBegin()
-	defer txReturnFunc(tx, err)
+	defer txReturnFunc(tx, &err)
 
 	err = deleteUserTx(id, 6, tx) // 6 (cessationofoperation) reason for certificate revocation
 	if err != nil {
@@ -238,6 +245,100 @@ func (d *Accessor) UpdateUser(user spi.UserInfo) error {
 
 	return err
 
+}
+
+// ModifyIdentity updates a identity in the database
+func (d *Accessor) ModifyIdentity(id, update, newConfig string) error {
+	log.Debugf("DB: Update identity '%s' value for '%s'", id, update)
+	err := d.checkDB()
+	if err != nil {
+		return err
+	}
+
+	var supportedUpdateReq = map[string]string{
+		"secret":         "token",
+		"type":           "type",
+		"maxenrollments": "max_enrollments",
+		"attributes":     "attributes",
+		"affiliation":    "affiliation",
+	}
+
+	updateReq, validRequest := supportedUpdateReq[update]
+	if !validRequest {
+		return errors.Errorf("Updating '%s' for a user is not allowed", update)
+	}
+
+	tx := d.db.MustBegin()
+	defer txReturnFunc(tx, &err)
+
+	// If updating secret, generate a hash for the secret
+	transact := func() error {
+		if updateReq == "token" {
+			pwd := []byte(newConfig)
+			pwd, err = bcrypt.GenerateFromPassword(pwd, bcrypt.DefaultCost)
+			if err != nil {
+				return errors.Wrap(err, "Failed to hash password")
+			}
+			newConfig = string(pwd)
+		}
+
+		if updateReq == "attributes" {
+			var newAttribute api.Attribute
+			json.Unmarshal([]byte(newConfig), &newAttribute)
+
+			var userRec UserRecord
+			err = tx.Get(&userRec, tx.Rebind(getUser), id)
+			if err != nil {
+				return dbGetError(err, "Failed to get user")
+			}
+			var attributes []api.Attribute
+			json.Unmarshal([]byte(userRec.Attributes), &attributes)
+			if len(attributes) != 0 {
+				for i := range attributes {
+					if attributes[i].Name == newAttribute.Name {
+						attributes[i].Value = newAttribute.Value
+					} else {
+						attributes = append(attributes, newAttribute)
+					}
+				}
+			} else {
+				attributes = append(attributes, newAttribute)
+			}
+
+			attrBytes, err := json.Marshal(attributes)
+			if err != nil {
+				return err
+			}
+			newConfig = string(attrBytes)
+		}
+
+		query := fmt.Sprintf("UPDATE users SET %s = ? where (id = ?)", updateReq)
+		res, err := tx.Exec(tx.Rebind(query), newConfig, id)
+		if err != nil {
+			return err
+		}
+
+		numRowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return errors.Wrap(err, "Failed to get number of rows affected")
+		}
+
+		if numRowsAffected == 0 {
+			return errors.Errorf("No rows were affected when updating the state of identity %s", id)
+		}
+
+		if numRowsAffected != 1 {
+			return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, id)
+		}
+		return nil
+	}
+
+	err = transact()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetUser gets user from database
@@ -331,7 +432,7 @@ func (d *Accessor) DeleteAffiliation(name string, forceRemoveIdentities bool) er
 
 	removeAff := name + "%"
 	tx := d.db.MustBegin() // Start database transaction
-	defer txReturnFunc(tx, err)
+	defer txReturnFunc(tx, &err)
 
 	query := "SELECT id FROM users WHERE (affiliation LIKE ?)"
 	ids := []string{}
@@ -384,6 +485,86 @@ func (d *Accessor) GetAffiliation(name string) (spi.Affiliation, error) {
 	}
 
 	return &affiliation, nil
+}
+
+// ModifyAffiliation renames the affiliation and updates all identities to use the new affiliation
+func (d *Accessor) ModifyAffiliation(oldAff, newAff string) error {
+	log.Debugf("DB: Modify affiliation from '%s' to '%s'", oldAff, newAff)
+	err := d.checkDB()
+	if err != nil {
+		return err
+	}
+
+	_, err = d.GetAffiliation(oldAff)
+	if err != nil {
+		return errors.Errorf("Affiliation '%s' requesting to be modified does not exist", oldAff)
+	}
+
+	_, err = d.GetAffiliation(newAff)
+	if err == nil {
+		return errors.Errorf("Affiliation requested '%s' already exists", newAff)
+	}
+
+	tx := d.db.MustBegin() // Start database transaction
+	defer txReturnFunc(tx, &err)
+
+	transact := func() error {
+		query := "SELECT name, prekey FROM affiliations WHERE (name LIKE ?)"
+		var allOldAffiliations []AffiliationRecord
+		err = tx.Select(&allOldAffiliations, tx.Rebind(query), oldAff+"%")
+		if err != nil {
+			return err
+		}
+
+		log.Debugf("Affiliations to be modified %+v", allOldAffiliations)
+
+		for _, affiliation := range allOldAffiliations {
+			oldPath := affiliation.Name
+			oldParentPath := affiliation.Parent
+			newPath := strings.Replace(oldPath, oldAff, newAff, 1)
+			newParentPath := strings.Replace(oldParentPath, oldAff, newAff, 1)
+			log.Debugf("oldPath: %s, newPath: %s, oldParentPath: %s, newParentPath: %s", oldPath, newPath, oldParentPath, newParentPath)
+
+			query = "Update affiliations SET name = ?, prekey = ? WHERE (name = ?)"
+			res := tx.MustExec(tx.Rebind(query), newPath, newParentPath, oldPath)
+			numRowsAffected, err := res.RowsAffected()
+			if err != nil {
+				return errors.Errorf("Failed to get number of rows affected")
+			}
+			if numRowsAffected == 0 {
+				return errors.Errorf("Failed to update any affiliation records for '%s'", oldPath)
+			}
+
+			query = "SELECT id FROM users WHERE (affiliation = ?)"
+			var idsWithOldAff []string
+			err = tx.Select(&idsWithOldAff, tx.Rebind(query), oldPath)
+			if err != nil {
+				return err
+			}
+
+			for _, id := range idsWithOldAff {
+				log.Debugf("Identities %s to be updated to use new affiliation of '%s' from '%s'", idsWithOldAff, newPath, oldPath)
+
+				query = "Update users SET affiliation = ? WHERE (id = ?)"
+				res := tx.MustExec(tx.Rebind(query), newPath, id)
+				numRowsAffected, err := res.RowsAffected()
+				if err != nil {
+					return errors.Errorf("Failed to get number of rows affected")
+				}
+				if numRowsAffected == 0 {
+					return errors.Errorf("Failed to update identities record for '%s'", id)
+				}
+			}
+		}
+		return nil
+	}
+
+	err = transact()
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Creates a DBUser object from the DB user record
@@ -530,14 +711,18 @@ func dbGetError(err error, prefix string) error {
 	return err
 }
 
-func txReturnFunc(tx *sqlx.Tx, err error) error {
-	if err != nil {
+func txReturnFunc(tx *sqlx.Tx, err *error) error {
+	if *err != nil {
+		log.Debugf("Rolling back transaction, error ocurred: %s", *err)
 		tx.Rollback()
-		return err
+		return *err
 	}
-	err = tx.Commit()
-	if err != nil {
-		return err
+	cerr := tx.Commit()
+	if cerr != nil {
+		log.Debug("Transaction failed to commit")
+		*err = cerr
+		return *err
 	}
+	log.Debug("Transaction committed")
 	return nil
 }
