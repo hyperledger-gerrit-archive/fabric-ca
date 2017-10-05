@@ -636,6 +636,13 @@
                     "null"
                   ],
                   "description": "Name of the CA to direct traffic to within server."
+                },
+                "gencrl": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ],
+                  "description": "Boolean indicating whether to generate a CRL"
                 }
               }
             }
