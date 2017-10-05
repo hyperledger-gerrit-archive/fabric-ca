@@ -1389,9 +1389,12 @@ This section describes how to use fabric-ca-client to dynamically update affilia
 An authorization failure will occur if the client identity does not satisfy all of the following:
 
   - The client identity must possess the attribute 'hf.AffiliationMgr' with a value of 'true'.
-  - The affiliation of the client identity must be hierarchically above the affiliation being updated.
-    For example, if the client's affiliation is "a.b", the client may update affiliation "a.b.c" but not
-    "a" or "a.b".
+  - For adding and removing an affiliation, the affiliation of the client identity must be hierarchically
+    above the affiliation being updated. For example, if the client's affiliation is "a.b", the client may
+    update affiliation "a.b.c" but not "a" or "a.b".
+  - For modifying an affiliation, the affiliation of the client identity must be hierarchically
+    above the affiliation of both the old affiliation and the new affiliation. For example, if the client's
+    affiliation is "a.b", the client may modify affiliation "a.b.c" to "a.b.d" but not to "a" or "a.b".
 
 The following shows how to add, modify, and remove an affiliation.
 
@@ -1423,6 +1426,10 @@ The following renames the 'org1' affiliation to 'org2'.
 
     fabric-ca-client servercfg modify affiliations.org1=org2
 
+Modifying an affiliation will rename the requested affiliation and any affiliation that
+are hierarchically below it to the new affiliation. It will also update the affiliations
+of any identities that are using the old affiliation to use the new affiliation.
+
 Removing an affiliation
 """""""""""""""""""""""""
 
@@ -1430,12 +1437,11 @@ The following removes affiliation 'org2' and also any sub affiliations.
 For example, if 'org2.dept1' is an affiliation below 'org2', it is also removed.
 
 By default, an affiliation can only be removed if there are no identities that are registered
-with that affiliation. If there are identities registered with an affiliation that needs to be removed,
-then the fabric-ca-client may request to force identity removal. To enable identities to
-be removed alongside the affiliation, the `--force` option on the CLI command for 'servercfg' must be set and
-`--cfg.identities.allowremove` option must be enabled on the fabric-ca-server.
-Any identities that are removed as part of the affiliation removal will also have all their
-certificates revoked.
+with that affiliation. If you would like to remove an affiliation while automatically removing
+all identities associated with that affiliation, you must specify the `--force` option of the
+`fabric-ca-client servercfg` command and the `cfg.identities.allowremove` option of the
+`fabric-ca-server start` command.  Any identities that are removed as part of the affiliation
+removal will also have their certificates revoked.
 
 .. code:: bash
 
@@ -1512,7 +1518,14 @@ possess the 'hf.Revoker' attribute, the attribute is added to the identity.
 
 .. code:: bash
 
-    fabric-ca-client servercfg modify registry.identities.user1.attributes='{"name": "hf.Revoker", "value": "false"}'
+    fabric-ca-client servercfg modify registry.identities.user1.attributes='[{"Name": "hf.Revoker", "Value": "true"}]'
+
+Multiple attributes can be modified in a single request, the following command modifies attributes for identity 'user1'.
+The command modifies the value of attribute 'hf.Revoker' to 'false' and the value of attribute 'hf.AffiliationMgr' to 'true'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user1.attributes='[{"Name": "hf.Revoker", "Value": "true"}, {"Name": "hf.AffiliationMgr", "Value": "true"}]'
 
 Removing an identity
 """""""""""""""""""""

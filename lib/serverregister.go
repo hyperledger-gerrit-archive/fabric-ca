@@ -81,7 +81,7 @@ func registerUser(req *api.RegistrationRequest, ca *CA, ctx *serverRequestContex
 	// Check the permissions of member named 'registrar' to perform this registration
 	err = canRegister(req, ctx)
 	if err != nil {
-		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
+		log.Debugf("Registration of '%s' failed in validating type: %s", req.Name, err)
 		return "", err
 	}
 
@@ -94,16 +94,15 @@ func registerUser(req *api.RegistrationRequest, ca *CA, ctx *serverRequestContex
 
 	err = validateID(req, ca)
 	if err != nil {
-		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' to validate", req.Name))
+		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' failed in validating ID", req.Name))
 	}
 
-	err = validateRequestedAttributes(req.Attributes, registrarUser)
+	err = ctx.canRegisterRequestedAttributes(req.Attributes)
 	if err != nil {
 		return "", err
 	}
 
 	secret, err := registerUserID(req, ca)
-
 	if err != nil {
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' failed", req.Name))
 	}
@@ -228,71 +227,7 @@ func canRegister(req *api.RegistrationRequest, ctx *serverRequestContext) error 
 		return errors.WithMessage(err, "Failed to validate if registrar has proper authority to act on role")
 	}
 	if !canActOnRole {
-		return newAuthErr(ErrRegistrarInvalidRole, "Registrar does not have authority to action on role '%s'", req.Type)
+		return newAuthErr(ErrRegistrarRoleAuth, "Registrar does not have authority to action on role '%s'", req.Type)
 	}
-	return nil
-}
-
-// Validate that the registrar can register the requested attributes
-func validateRequestedAttributes(reqAttrs []api.Attribute, registrar spi.User) error {
-	if len(reqAttrs) == 0 {
-		return nil
-	}
-	registrarAttrs, err := registrar.GetAttribute(attrRegistrarAttr)
-	if err != nil {
-		return newHTTPErr(401, ErrMissingRegAttr, "Failed to get attribute '%s': %s", attrRegistrarAttr, err)
-	}
-	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%s' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs, reqAttrs)
-	if registrarAttrs == "" {
-		return newHTTPErr(401, ErrMissingRegAttr, "Registrar does not have any values for '%s' thus can't register any attributes", attrRegistrarAttr)
-	}
-
-	hfRegistrarAttrsSlice := strings.Split(strings.Replace(registrarAttrs, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
-
-	// Function will iterate through the values of registrar's 'hf.Registrar.Attributes' attribute to check if registrar can register the requested attributes
-	registrarCanRegisterAttr := func(requestedAttr string) error {
-		for _, regAttr := range hfRegistrarAttrsSlice {
-			if strings.HasSuffix(regAttr, "*") { // Wildcard matching
-				if strings.HasPrefix(requestedAttr, strings.TrimRight(regAttr, "*")) {
-					return nil // Requested attribute found, break out of loop
-				}
-			} else {
-				if requestedAttr == regAttr { // Exact name matching
-					return nil // Requested attribute found, break out of loop
-				}
-			}
-		}
-		return errors.Errorf("Attribute is not part of '%s' attribute", attrRegistrarAttr)
-	}
-
-	for _, reqAttr := range reqAttrs {
-		reqAttrName := reqAttr.Name // Name of the requested attribute
-
-		// Requesting 'hf.Registrar.Attributes' attribute
-		if reqAttrName == attrRegistrarAttr {
-			// Check if registrar is allowed to register 'hf.Registrar.Attribute' by examining it's value for 'hf.Registrar.Attribute'
-			err := registrarCanRegisterAttr(attrRegistrarAttr)
-			if err != nil {
-				return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
-			}
-
-			reqRegistrarAttrsSlice := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
-			// Loop through the requested values for 'hf.Registrar.Attributes' to see if they can be registered
-			for _, reqRegistrarAttr := range reqRegistrarAttrsSlice {
-				err := registrarCanRegisterAttr(reqRegistrarAttr)
-				if err != nil {
-					return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
-				}
-			}
-			continue // Continue to next requested attribute
-		}
-
-		// Iterate through the registrar's value for 'hf.Registrar.Attributes' to check if it can register the requested attribute
-		err := registrarCanRegisterAttr(reqAttrName)
-		if err != nil {
-			return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
-		}
-	}
-
 	return nil
 }
