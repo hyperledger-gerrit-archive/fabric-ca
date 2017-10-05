@@ -81,7 +81,7 @@ func registerUser(req *api.RegistrationRequest, ca *CA, ctx *serverRequestContex
 	// Check the permissions of member named 'registrar' to perform this registration
 	err = canRegister(req, ctx)
 	if err != nil {
-		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
+		log.Debugf("Registration of '%s' failed in validating type: %s", req.Name, err)
 		return "", err
 	}
 
@@ -94,7 +94,7 @@ func registerUser(req *api.RegistrationRequest, ca *CA, ctx *serverRequestContex
 
 	err = validateID(req, ca)
 	if err != nil {
-		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' to validate", req.Name))
+		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' failed in validating ID", req.Name))
 	}
 
 	err = validateRequestedAttributes(req.Attributes, registrarUser)
@@ -103,7 +103,6 @@ func registerUser(req *api.RegistrationRequest, ca *CA, ctx *serverRequestContex
 	}
 
 	secret, err := registerUserID(req, ca)
-
 	if err != nil {
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' failed", req.Name))
 	}
@@ -228,7 +227,7 @@ func canRegister(req *api.RegistrationRequest, ctx *serverRequestContext) error 
 		return errors.WithMessage(err, "Failed to validate if registrar has proper authority to act on role")
 	}
 	if !canActOnRole {
-		return newAuthErr(ErrRegistrarInvalidRole, "Registrar does not have authority to action on role '%s'", req.Type)
+		return newAuthErr(ErrRegistrarRoleAuth, "Registrar does not have authority to action on role '%s'", req.Type)
 	}
 	return nil
 }

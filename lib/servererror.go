@@ -113,7 +113,7 @@ const (
 	ErrGetCASigner = 40
 	// Failed to generate CRL
 	ErrGenCRL = 41
-	// Registrar does not have the authority to register an attribute
+
 	ErrRegAttrAuth = 42
 	// Registrar does not own 'hf.Registrar.Attributes'
 	ErrMissingRegAttr = 43
@@ -140,7 +140,7 @@ const (
 	// Registrar's affiliation not equal to or above revokee's affiliation
 	ErrRegistrarNotAffiliated = 54
 	// Registrar can not act on role type
-	ErrRegistrarInvalidRole = 55
+	ErrRegistrarRoleAuth = 55
 )
 
 // Construct a new HTTP error.

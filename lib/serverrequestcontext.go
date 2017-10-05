@@ -408,7 +408,7 @@ func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
 
 	rolesStr, err := caller.GetAttribute(registrarRole)
 	if err != nil {
-		return "", false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar", caller.GetName())
+		return "", false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar: %s", caller.GetName(), err)
 	}
 
 	// Has some value for attribute 'hf.Registrar.Roles' then user is a registrar
@@ -426,8 +426,6 @@ func (ctx *serverRequestContext) CanActOnRole(role string) (bool, error) {
 		return false, err
 	}
 
-	log.Debugf("Checking to see if caller '%s' can register role '%s'", caller.GetName(), role)
-
 	rolesStr, isRegistrar, err := ctx.IsRegistrar()
 	if err != nil {
 		return false, err
@@ -437,6 +435,8 @@ func (ctx *serverRequestContext) CanActOnRole(role string) (bool, error) {
 			return false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar", caller.GetName())
 		}
 	}
+
+	log.Debugf("Checking to see if caller '%s' with roles '%s' can register role '%s'", caller.GetName(), rolesStr, role)
 
 	var roles []string
 	if rolesStr != "" {

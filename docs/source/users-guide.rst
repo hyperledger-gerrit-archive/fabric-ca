@@ -1389,9 +1389,12 @@ This section describes how to use fabric-ca-client to dynamically update affilia
 An authorization failure will occur if the client identity does not satisfy all of the following:
 
   - The client identity must possess the attribute 'hf.AffiliationMgr' with a value of 'true'.
-  - The affiliation of the client identity must be hierarchically above the affiliation being updated.
-    For example, if the client's affiliation is "a.b", the client may update affiliation "a.b.c" but not
-    "a" or "a.b".
+  - For adding and removing an affiliation, the affiliation of the client identity must be hierarchically
+    above the affiliation being updated. For example, if the client's affiliation is "a.b", the client may
+    update affiliation "a.b.c" but not "a" or "a.b".
+  - For modifying an affiliation, the affiliation of the client identity must be hierarchically
+    above the affiliation of both the old affiliation and the new affiliation. For example, if the client's
+    affiliation is "a.b", the client may modify affiliation "a.b.c" to "a.b.d" but not to "a" or "a.b".
 
 The following shows how to add, modify, and remove an affiliation.
 
@@ -1421,7 +1424,11 @@ The following renames the 'org1' affiliation to 'org2'.
 
 .. code:: bash
 
-    fabric-ca-client servercfg modify affiliations.org1=org2 
+    fabric-ca-client servercfg modify affiliations.org1=org2
+
+Modifying an affiliation will rename the requested affiliation and any affiliation that
+are hierarchically below it to the new affiliation. It will also update the affiliations
+of any identities that are using the old affiliation to use the new affiliation.
 
 Removing an affiliation
 """""""""""""""""""""""""
@@ -1512,7 +1519,14 @@ possess the 'hf.Revoker' attribute, the attribute is added to the identity.
 
 .. code:: bash
 
-    fabric-ca-client servercfg modify registry.identities.user1.attributes='{"name": "hf.Revoker", "value": "false"}'
+    fabric-ca-client servercfg modify registry.identities.user1.attributes='[{"Name": "hf.Revoker", "Value": "true"}]'
+
+Multiple attributes can be modified in single request, the following command sets the value of the 'hf.Revoker'
+attribute for identity 'user1' to 'false' and sets the value of 'hf.AffiliationMgr' to 'true'.
+
+.. code:: bash
+
+    fabric-ca-client servercfg modify registry.identities.user1.attributes='[{"Name": "hf.Revoker", "Value": "true"}, {"Name": "hf.AffiliationMgr", "Value": "true"}]'
 
 Removing an identity
 """""""""""""""""""""

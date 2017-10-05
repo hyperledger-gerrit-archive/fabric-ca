@@ -58,8 +58,10 @@ type UserRegistry interface {
 	GetUserInfo(id string) (UserInfo, error)
 	InsertUser(user UserInfo) error
 	UpdateUser(user UserInfo) error
+	ModifyIdentity(id, update, newConfig string) error
 	DeleteUser(id string) error
 	GetAffiliation(name string) (Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
 	DeleteAffiliation(name string, force bool) error
+	ModifyAffiliation(oldAff, newAff string) error
 }
