@@ -232,6 +232,11 @@ func (lc *Client) UpdateUser(user spi.UserInfo) error {
 	return errNotSupported
 }
 
+// ModifyIdentity updates a user
+func (lc *Client) ModifyIdentity(id, update, newConfig string) error {
+	return errNotSupported
+}
+
 // DeleteUser deletes a user
 func (lc *Client) DeleteUser(id string) error {
 	return errNotSupported
@@ -254,6 +259,11 @@ func (lc *Client) InsertAffiliation(name string, prekey string) error {
 
 // DeleteAffiliation deletes an affiliation group
 func (lc *Client) DeleteAffiliation(name string, force bool) error {
+	return errNotSupported
+}
+
+// ModifyAffiliation renames the affiliation and updates all identities to use the new affiliation
+func (lc *Client) ModifyAffiliation(oldAff, newAff string) error {
 	return errNotSupported
 }
 
