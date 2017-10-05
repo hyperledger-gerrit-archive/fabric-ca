@@ -350,11 +350,20 @@ func TestAffMgrAttribute(t *testing.T) {
 	_, err = adminIdentity.UpdateServerConfig(&api.ConfigRequest{
 		Commands: []api.Command{
 			api.Command{
-				Args: []string{"remove", "affiliations.org3"},
+				Args: []string{"modify", "affiliations.org3=org4"},
 			},
 		},
 	})
-	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to remove affiliation 'org3'")
+	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to modify affiliation 'org3' to 'org4'")
+
+	_, err = adminIdentity.UpdateServerConfig(&api.ConfigRequest{
+		Commands: []api.Command{
+			api.Command{
+				Args: []string{"remove", "affiliations.org4"},
+			},
+		},
+	})
+	assert.NoError(t, err, "Bootstrap user 'admin' should have been able to remove affiliation 'org4'")
 }
 
 func TestVersion(t *testing.T) {

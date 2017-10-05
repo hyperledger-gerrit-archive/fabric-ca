@@ -1349,6 +1349,7 @@ func TestServercfgCommand(t *testing.T) {
 	srv.CA.Config.Options.Identities.AllowRemove = true
 
 	removeIdentitiesAllowed(t, db)
+	modifyIdentities(t, db)
 
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL1}) // Has "hf.AffiliationMgr" attribute
 	util.FatalError(t, err, "Failed to enroll 'admin2'")
@@ -1358,6 +1359,7 @@ func TestServercfgCommand(t *testing.T) {
 
 	srv.CA.Config.Options.Affiliations.AllowRemove = true
 
+	modifyAffiliations(t, db)
 	removeAffiliationsAllowed(t, db)
 	badInput(t)
 
@@ -1368,12 +1370,12 @@ func TestServercfgCommand(t *testing.T) {
 func addIdentities(t *testing.T) {
 	var err error
 
-	err = RunMain([]string{cmdName, "servercfg", "add", "registry.identities={\"id\": \"testuser\", \"secret\": \"testpass\", \"type\": \"user\"}",
-		"add", "registry.identities={\"id\": \"testuser1\", \"secret\": \"testpass\", \"type\": \"user\"}"})
+	err = RunMain([]string{cmdName, "servercfg", "add", `registry.identities={"id": "testuser", "secret": "testpass", "type": "user"}`,
+		"add", `registry.identities={"id": "testuser1", "secret": "testpass", "type": "user"}`})
 	assert.NoError(t, err, "Should have added identity")
 
-	err = RunMain([]string{cmdName, "servercfg", "add", "registry.identities={\"id\": \"testuser\", \"type\": \"user\"}",
-		"add", "registry.identities={\"id\": \"testuser1\", \"type\": \"user\"}", "add", "registry.identities={\"id\": \"testuser2\", \"type\": \"user\"}"})
+	err = RunMain([]string{cmdName, "servercfg", "add", `registry.identities={"id": "testuser", "type": "user"}`,
+		"add", `registry.identities={"id": "testuser1", "type": "user"}", "add", "registry.identities={"id": "testuser2", "type": "user"}`})
 	assert.Error(t, err, "Should have failed, can't register same username 'testuser' twice")
 }
 
@@ -1385,7 +1387,6 @@ func removeIdentitiesNotAllowed(t *testing.T, db spi.UserRegistry) {
 
 	_, err = db.GetUser("testuser", nil)
 	assert.NoError(t, err, "User should exist")
-
 }
 
 func removeIdentitiesAllowed(t *testing.T, db spi.UserRegistry) {
@@ -1396,6 +1397,47 @@ func removeIdentitiesAllowed(t *testing.T, db spi.UserRegistry) {
 
 	_, err = db.GetUser("testuser", nil)
 	assert.Error(t, err, "User should not exist")
+}
+
+func modifyIdentities(t *testing.T, db spi.UserRegistry) {
+	var err error
+
+	err = RunMain([]string{cmdName, "servercfg", "modify", "registry.identities.testuser1.secret=newsecret"})
+	assert.NoError(t, err, "Failed to modify secret")
+
+	err = RunMain([]string{cmdName, "enroll", "-u", "http://testuser1:newsecret@localhost:7090"})
+	assert.NoError(t, err, "Failed to correctly update secret to 'newsecret'")
+
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	util.FatalError(t, err, "Failed to enroll 'admin'")
+
+	err = RunMain([]string{cmdName, "servercfg", "modify", "registry.identities.testuser1.affiliation=org2"})
+	assert.NoError(t, err, "Failed to modify affiliation")
+
+	err = RunMain([]string{cmdName, "servercfg", "modify", "registry.identities.testuser1.type=client"})
+	assert.NoError(t, err, "Failed to modify type")
+
+	err = RunMain([]string{cmdName, "servercfg", "modify", `registry.identities.testuser1.attributes={"Name": "hf.Revoker", "Value": "true"}`})
+	assert.NoError(t, err, "Failed to modify attribute")
+
+	ui, err := db.GetUserInfo("testuser1")
+	assert.NoError(t, err, "User should exist")
+
+	if ui.Affiliation != "org2" {
+		t.Error("Failed to correctly modify affiliation")
+	}
+
+	if ui.Type != "client" {
+		t.Error("Failed to correctly modify type")
+	}
+
+	if ui.Attributes[0].Name != "hf.Revoker" {
+		t.Error("Failed to correctly modify attribute")
+	}
+
+	if ui.Attributes[0].Value != "true" {
+		t.Error("Failed to correctly modify attribute")
+	}
 }
 
 func addAffiliations(t *testing.T, db spi.UserRegistry) {
@@ -1435,13 +1477,26 @@ func removeAffiliationsNotAllowed(t *testing.T, db spi.UserRegistry) {
 	assert.NoError(t, err, "Affiliation should exist")
 }
 
-func removeAffiliationsAllowed(t *testing.T, db spi.UserRegistry) {
+func modifyAffiliations(t *testing.T, db spi.UserRegistry) {
 	var err error
 
-	err = RunMain([]string{cmdName, "servercfg", "remove", "affiliations.org2.dept1"})
+	err = RunMain([]string{cmdName, "servercfg", "modify", "affiliations.org2.dept1=org2.dept2"})
 	assert.NoError(t, err, "Failed to remove affiliation")
 
 	_, err = db.GetAffiliation("org2.dept1")
+	assert.Error(t, err, "Affiliation should not exist")
+
+	_, err = db.GetAffiliation("org2.dept2")
+	assert.NoError(t, err, "Affiliation should exist")
+}
+
+func removeAffiliationsAllowed(t *testing.T, db spi.UserRegistry) {
+	var err error
+
+	err = RunMain([]string{cmdName, "servercfg", "remove", "affiliations.org2.dept2"})
+	assert.NoError(t, err, "Failed to remove affiliation")
+
+	_, err = db.GetAffiliation("org2.dept2")
 	assert.Error(t, err, "Affiliation should not exist")
 
 	// Invoker has affilation of 'org2', can remove anything below 'org2' but not 'org2' itself
