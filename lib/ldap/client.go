@@ -26,6 +26,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"github.com/Knetic/govaluate"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
@@ -36,7 +37,6 @@ import (
 )
 
 var (
-	dnAttr          = []string{"dn"}
 	errNotSupported = errors.New("Not supported")
 	ldapURLRegex    = regexp.MustCompile("ldaps*://(\\S+):(\\S+)@")
 )
@@ -47,7 +47,20 @@ type Config struct {
 	URL         string `help:"LDAP client URL of form ldap://adminDN:adminPassword@host[:port]/base" mask:"url"`
 	UserFilter  string `def:"(uid=%s)" help:"The LDAP user filter to use when searching for users"`
 	GroupFilter string `def:"(memberUid=%s)" help:"The LDAP group filter for a single affiliation group"`
+	Attribute   AttrConfig
 	TLS         ctls.ClientTLSConfig
+}
+
+// AttrConfig is attribute configuration information
+type AttrConfig struct {
+	Names      []string    `help:"The names of LDAP attributes to request on an LDAP search"`
+	Converters []Converter `help:"Converters from LDAP attributes to fabric CA attributes"`
+}
+
+// Converter converts an LDAP attribute to a fabric CA attribute
+type Converter struct {
+	Name string `help:"The name of a fabric CA attribute"`
+	Expr string `help:"The expression to evaluate in order to obtain the value of the fabric CA attribute"`
 }
 
 // Implements Stringer interface for ldap.Config
@@ -107,6 +120,17 @@ func NewClient(cfg *Config, csp bccsp.BCCSP) (*Client, error) {
 	}
 	c.UserFilter = cfgVal(cfg.UserFilter, "(uid=%s)")
 	c.GroupFilter = cfgVal(cfg.GroupFilter, "(memberUid=%s)")
+	c.attrNames = cfg.Attribute.Names
+	c.attrExprs = map[string]*userExpr{}
+	for _, converter := range cfg.Attribute.Converters {
+		attrName := converter.Name
+		ue, err := newUserExpr(attrName, converter.Expr)
+		if err != nil {
+			return nil, err
+		}
+		c.attrExprs[converter.Name] = ue
+		log.Debugf("Added LDAP mapping expression for attribute '%s'", attrName)
+	}
 	c.TLS = &cfg.TLS
 	c.CSP = csp
 	log.Debug("LDAP client was successfully created")
@@ -128,8 +152,10 @@ type Client struct {
 	AdminDN       string
 	AdminPassword string
 	Base          string
-	UserFilter    string // e.g. "(uid=%s)"
-	GroupFilter   string // e.g. "(memberUid=%s)"
+	UserFilter    string               // e.g. "(uid=%s)"
+	GroupFilter   string               // e.g. "(memberUid=%s)"
+	attrNames     []string             // Names of attributes to request on an LDAP search
+	attrExprs     map[string]*userExpr // Expressions to evaluate to get attribute value
 	AdminConn     *ldap.Conn
 	TLS           *ctls.ClientTLSConfig
 	CSP           bccsp.BCCSP
@@ -149,7 +175,7 @@ func (lc *Client) GetUser(username string, attrNames []string) (spi.User, error)
 		lc.Base, ldap.ScopeWholeSubtree,
 		ldap.NeverDerefAliases, 0, 0, false,
 		fmt.Sprintf(lc.UserFilter, username),
-		attrNames,
+		lc.attrNames,
 		nil,
 	)
 
@@ -191,27 +217,16 @@ func (lc *Client) GetUser(username string, attrNames []string) (spi.User, error)
 		return nil, errors.Errorf("Multiple users with name '%s' exist in LDAP directory", username)
 	}
 
-	DN := sresp.Entries[0].DN
-
-	// Create the map of attributes
-	attrs := make(map[string]string)
-	for _, attrName := range attrNames {
-		if attrName == "dn" {
-			attrs["dn"] = DN
-		} else {
-			attrs[attrName] = sresp.Entries[0].GetAttributeValue(attrName)
-		}
-	}
+	entry := sresp.Entries[0]
 
 	// Construct the user object
-	user := &User{
+	user := &user{
 		name:   username,
-		dn:     DN,
-		attrs:  attrs,
+		entry:  entry,
 		client: lc,
 	}
 
-	log.Debugf("Successfully retrieved user '%s', DN: %s", username, DN)
+	log.Debugf("Successfully retrieved user '%s', DN: %s", username, entry.DN)
 
 	return user, nil
 }
@@ -291,21 +306,20 @@ func (lc *Client) newConnection() (conn *ldap.Conn, err error) {
 	return conn, nil
 }
 
-// User represents a single user
-type User struct {
+// A user represents a single user or identity from LDAP
+type user struct {
 	name   string
-	dn     string
-	attrs  map[string]string
+	entry  *ldap.Entry
 	client *Client
 }
 
 // GetName returns the user's enrollment ID, which is the DN (Distinquished Name)
-func (u *User) GetName() string {
-	return u.dn
+func (u *user) GetName() string {
+	return u.entry.DN
 }
 
 // Login logs a user in using password
-func (u *User) Login(password string, caMaxEnrollment int) error {
+func (u *user) Login(password string, caMaxEnrollment int) error {
 
 	// Get a connection to use to bind over as the user to check the password
 	conn, err := u.client.newConnection()
@@ -315,9 +329,9 @@ func (u *User) Login(password string, caMaxEnrollment int) error {
 	defer conn.Close()
 
 	// Bind calls the LDAP server to check the user's password
-	err = conn.Bind(u.dn, password)
+	err = conn.Bind(u.entry.DN, password)
 	if err != nil {
-		return errors.Wrapf(err, "LDAP authentication failure for user '%s' (DN=%s)", u.name, u.dn)
+		return errors.Wrapf(err, "LDAP authentication failure for user '%s' (DN=%s)", u.name, u.entry.DN)
 	}
 
 	return nil
@@ -325,25 +339,47 @@ func (u *User) Login(password string, caMaxEnrollment int) error {
 }
 
 // LoginComplete requires no action on LDAP
-func (u *User) LoginComplete() error {
+func (u *user) LoginComplete() error {
 	return nil
 }
 
-// GetAffiliationPath returns the affiliation path for this user
-func (u *User) GetAffiliationPath() []string {
-	return reverse(strings.Split(u.dn, ","))
+// GetAffiliationPath returns the affiliation path for this user.
+// We convert the OU hierarchy to an array of strings, orderered
+// from top-to-bottom.
+func (u *user) GetAffiliationPath() []string {
+	dn := u.entry.DN
+	path := []string{}
+	parts := strings.Split(dn, ",")
+	for i := len(parts) - 1; i >= 0; i-- {
+		p := parts[i]
+		if strings.HasPrefix(p, "OU=") {
+			path = append(path, strings.Trim(p[3:], " "))
+		}
+	}
+	log.Debugf("Affilation path for DN '%s' is '%+v'", dn, path)
+	return path
 }
 
 // GetAttribute returns the value of an attribute, or "" if not found
-func (u *User) GetAttribute(name string) string {
-	return u.attrs[name]
+func (u *user) GetAttribute(name string) string {
+	expr := u.client.attrExprs[name]
+	if expr == nil {
+		log.Debugf("Getting attribute '%s' from LDAP user '%s'", name, u.name)
+		return u.entry.GetAttributeValue(name)
+	}
+	log.Debugf("Evaluating expression for attribute '%s' from LDAP user '%s'", name, u.name)
+	val, err := expr.evaluate(u)
+	if err != nil {
+		panic(err) // TODO: return error
+	}
+	return fmt.Sprintf("%v", val)
 }
 
 // GetAttributes returns the requested attributes
-func (u *User) GetAttributes(attrNames []string) []tcert.Attribute {
+func (u *user) GetAttributes(attrNames []string) []tcert.Attribute {
 	var attrs []tcert.Attribute
 	for _, name := range attrNames {
-		value := u.attrs[name]
+		value := u.GetAttribute(name)
 		attrs = append(attrs, tcert.Attribute{Name: name, Value: value})
 	}
 	return attrs
@@ -357,4 +393,84 @@ func reverse(in []string) []string {
 		out[i] = in[size-i-1]
 	}
 	return out
+}
+
+func newUserExpr(attr, expr string) (*userExpr, error) {
+	ue := &userExpr{attr: attr, expr: expr}
+	err := ue.parse()
+	if err != nil {
+		return nil, err
+	}
+	return ue, nil
+}
+
+type userExpr struct {
+	attr, expr string
+	eval       *govaluate.EvaluableExpression
+	user       *user
+}
+
+func (ue *userExpr) parse() error {
+	eval, err := govaluate.NewEvaluableExpression(ue.expr)
+	if err == nil {
+		// We were able to parse 'expr' without reference to any defined
+		// functions, so we can reuse this evaluator across multiple users.
+		ue.eval = eval
+		return nil
+	}
+	// Try to parse 'expr' with defined functions
+	_, err = govaluate.NewEvaluableExpressionWithFunctions(ue.expr, ue.functions())
+	if err != nil {
+		return errors.Wrapf(err, "Invalid expression for attribute '%s'", ue.attr)
+	}
+	return nil
+}
+
+func (ue *userExpr) evaluate(user *user) (interface{}, error) {
+	var err error
+	parms := map[string]interface{}{
+		"DN":          user.entry.DN,
+		"affiliation": user.GetAffiliationPath(),
+	}
+	eval := ue.eval
+	if eval == nil {
+		ue2 := &userExpr{
+			attr: ue.attr,
+			expr: ue.expr,
+			user: user,
+		}
+		eval, err = govaluate.NewEvaluableExpressionWithFunctions(ue.expr, ue2.functions())
+		if err != nil {
+			return nil, errors.Wrapf(err, "Invalid expression for attribute '%s'", ue.attr)
+		}
+	}
+	result, err := eval.Evaluate(parms)
+	if err != nil {
+		log.Debugf("Error evaluating expression for attribute '%s'; parms: %+v; error: %+v", ue.attr, parms, err)
+		return nil, err
+	}
+	log.Debugf("Evaluated expression for attribute '%s'; parms: %+v; result: %+v", ue.attr, parms, result)
+	return result, nil
+}
+
+func (ue *userExpr) functions() map[string]govaluate.ExpressionFunction {
+	return map[string]govaluate.ExpressionFunction{
+		"attr": ue.attrFunction,
+	}
+}
+
+// Get an attribute's value
+func (ue *userExpr) attrFunction(args ...interface{}) (interface{}, error) {
+	if len(args) != 1 {
+		return nil, fmt.Errorf("Expecting one argument for 'attr' but found %d", len(args))
+	}
+	attrName, ok := args[0].(string)
+	if !ok {
+		return nil, errors.New("Expecting string argument to 'attr'")
+	}
+	attrVal := ue.user.GetAttribute(attrName)
+	if attrVal == "" {
+		return nil, fmt.Errorf("No value for attribute '%s'", attrName)
+	}
+	return attrVal, nil
 }
