@@ -734,7 +734,23 @@ server to connect to an LDAP server.
        enabled: false
        # The URL of the LDAP server
        url: <scheme>://<adminDN>:<adminPassword>@<host>:<port>/<base>
-       userfilter: filter
+       userfilter: <filter>
+       attribute:
+          # 'names' is an array of strings containing the attribute names which are
+          # requested from the LDAP server.
+          names: <LDAPAttrs>
+          # The 'converters' section is used to convert LDAP attributes to
+          # fabric CA attributes.
+          # For example, the following converts an LDAP 'uid' attribute
+          # whose value begins with 'revoker' to a fabric CA attribute
+          # named "hf.Revoker" with a value of "true" (because the expression
+          # evaluates to true).
+          #    converters:
+          #       - name: hf.Revoker
+          #         expr: attr("uid") =~ "revoker*"
+          converters:
+            - name: <fcaAttrName>
+              expr: <fcaExpr>
 
 Where:
 
@@ -750,8 +766,38 @@ Where:
     ``(uid=%s)`` searches for LDAP entries with the value of a ``uid``
     attribute whose value is the login user name. Similarly,
     ``(email=%s)`` may be used to login with an email address.
+  * ``LDAPAttrs` is an array of LDAP attribute names to request from the
+    LDAP server on a user's behalf;
+  * the attribute.converters section is used to convert LDAP attributes to fabric
+    CA attributes, where
+    * ``fcaAttrName`` is the name of a fabric CA attribute;
+    * ``fcaExpr`` is an expression whose evaluated value is assigned to
+      the fabric CA attribute.
+    For example, suppose that <LDAPAttrs> is ["uid"], <fcaAttrName> is 'hf.Revoker',
+    and <fcaExpr> is 'attr("uid") =~ "revoker*"'.  This means that an attribute
+    named "uid" is requested from the LDAP server on a user's behalf.  The user is
+    then given a value of 'true' for the 'hf.Revoker' attribute if the value of
+    the user's 'uid' LDAP attribute begins with 'revoker'; otherwise, the user
+    is given a value of 'false' for the 'hf.Revoker' attribute.
 
-The following is a sample configuration section for the default settings
+The LDAP expression language uses the govaluate package as described at
+https://github.com/Knetic/govaluate/blob/master/MANUAL.md.  This defines
+operators such as "=~" and literals such as "revoker*", which is a regular
+expression.  The LDAP-specific variables and functions which extend the
+base govaluate language are as follows:
+  * ``DN`` is a variable equal to the user's distinguished name;
+  * ``affiliation`` is a variable equal to the user's affiliation;
+  * ``attr`` is a function which takes a single argument whose value is
+    an LDAP attribute name; the function returns the user's value of the
+    LDAP attribute.
+
+For example, the following expression evaluates to true if the user has
+a distinguished name ending in "O=org1,C=US", or if the user has an affiliation
+beginning with "org1.dept2." and also has the "admin" attribute of "true".
+
+  **DN =~ "*O=org1,C=US" || (affiliation =~ "org1.dept2.*" && attr('admin') = 'true')**
+
+The following is a sample configuration section for the default setting
 for the OpenLDAP server whose docker image is at
 ``https://github.com/osixia/docker-openldap``.
 
@@ -1036,7 +1082,7 @@ during registration as follows:
         because the registrar's 'hf.Registrar.Attributes' attribute values do not contain 'attr1'.
 
         3. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
-        is registering attribute 'a.b', it is invalid because the value 'a.b' is not contained in 
+        is registering attribute 'a.b', it is invalid because the value 'a.b' is not contained in
         'a.b.*'.
 
         4. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
@@ -1465,7 +1511,7 @@ Troubleshooting
 
 2. The error ``[ERROR] No certificates found for provided serial and aki`` will occur
    if the following sequence of events occurs:
- 
+
    a. You issue a `fabric-ca-client enroll` command, creating an enrollment certificate (i.e. an ECert).
       This stores a copy of the ECert in the fabric-ca-server's database.
    b. The fabric-ca-server's database is deleted and recreated, thus losing the ECert from step 'a'.
