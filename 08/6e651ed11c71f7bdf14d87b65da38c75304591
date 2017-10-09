@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Keith Smith <keithsmithlfid@gmail.com>
+Code-Review+2: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-by: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-at: Mon, 09 Oct 2017 20:50:42 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/14239
+Project: fabric-ca
+Branch: refs/heads/master
