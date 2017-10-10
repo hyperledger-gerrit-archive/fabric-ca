@@ -61,7 +61,7 @@ var cfg CAConfig
 var srv Server
 
 func TestCABadCACertificates(t *testing.T) {
-	ca, err := NewCA(configFile, &CAConfig{}, &srv, false)
+	ca, err := newCA(configFile, &CAConfig{}, &srv, false)
 	err = ca.validateCert(noCACert, noCAkey)
 	t.Log("validateCert Error: ", err)
 	if err == nil {
@@ -234,9 +234,9 @@ func TestCAInit(t *testing.T) {
 	t.Log("Working dir", wd)
 	defer cleanupTmpfiles(t, wd)
 
-	ca, err := NewCA(confDir, &cfg, &srv, false)
+	ca, err := newCA(confDir, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED")
+		t.Fatal("newCA FAILED")
 	}
 
 	// BCCSP error
@@ -266,9 +266,9 @@ func TestCAInit(t *testing.T) {
 	defer cleanupTmpfiles(t, wd2)
 
 	ca.Config.CSP = &factory.FactoryOpts{ProviderName: "SW", SwOpts: swo, Pkcs11Opts: pko}
-	ca, err = NewCA(confDir, &cfg, &srv, true)
+	ca, err = newCA(confDir, &cfg, &srv, true)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 	ca.Config.CA.Keyfile = caKey
 	ca.Config.CA.Certfile = caCert
@@ -291,9 +291,9 @@ func TestCAInit(t *testing.T) {
 	ca.Config.CA.Keyfile = ""
 	ca.Config.CA.Certfile = ""
 	ca.Config.DB.Datasource = ""
-	ca, err = NewCA(confDir, &cfg, &srv, true)
+	ca, err = newCA(confDir, &cfg, &srv, true)
 	if err != nil {
-		t.Fatal("NewCA FAILED: ", err)
+		t.Fatal("newCA FAILED: ", err)
 	}
 	err = ca.init(false)
 	t.Log("init err: ", err)
@@ -311,9 +311,9 @@ func TestCAInit(t *testing.T) {
 
 	// initEnrollmentSigner error
 	ca.Config.LDAP.Enabled = false
-	ca, err = NewCA(confDir, &cfg, &srv, false)
+	ca, err = newCA(confDir, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED")
+		t.Fatal("newCA FAILED")
 	}
 	err = os.RemoveAll("./msp")
 	if err != nil {
@@ -341,8 +341,8 @@ func TestCAInit(t *testing.T) {
 
 	// ca.initConfig() error
 	os.RemoveAll(wd2)
-	ca, err = NewCA("", &cfg, &srv, false)
-	t.Log("NewCA err: ", err)
+	ca, err = newCA("", &cfg, &srv, false)
+	t.Log("newCA err: ", err)
 	if err != nil {
 		t.Fatal("Should have failed")
 	}
@@ -432,7 +432,7 @@ func TestCAwriteFile(t *testing.T) {
 }
 
 func TestCAloadCNFromEnrollmentInfo(t *testing.T) {
-	ca, err := NewCA("/tmp", &CAConfig{}, &srv, true)
+	ca, err := newCA("/tmp", &CAConfig{}, &srv, true)
 	_, err = ca.loadCNFromEnrollmentInfo(string(0))
 	t.Log("loadCNFromEnrollmentInfo err: ", err)
 	if err == nil {
@@ -447,7 +447,7 @@ func TestCAloadCNFromEnrollmentInfo(t *testing.T) {
 }
 
 func TestCAgetUserAffiliation(t *testing.T) {
-	ca, err := NewCA(configFile, &CAConfig{}, &srv, false)
+	ca, err := newCA(configFile, &CAConfig{}, &srv, false)
 	if err != nil {
 		t.Fatal("NewCa failed ", err)
 	}
@@ -460,7 +460,7 @@ func TestCAgetUserAffiliation(t *testing.T) {
 }
 
 func TestCAuserHasAttribute(t *testing.T) {
-	ca, err := NewCA(configFile, &CAConfig{}, &srv, false)
+	ca, err := newCA(configFile, &CAConfig{}, &srv, false)
 	if err != nil {
 		t.Fatal("NewCa failed ", err)
 	}
@@ -473,7 +473,7 @@ func TestCAuserHasAttribute(t *testing.T) {
 }
 
 func TestCAgetUserAttrValue(t *testing.T) {
-	ca, err := NewCA(configFile, &CAConfig{}, &srv, false)
+	ca, err := newCA(configFile, &CAConfig{}, &srv, false)
 	if err != nil {
 		t.Fatal("NewCa failed: ", err)
 	}
@@ -493,7 +493,7 @@ func TestCAaddIdentity(t *testing.T) {
 
 	cfg = CAConfig{}
 	cfg.Registry = CAConfigRegistry{MaxEnrollments: 10}
-	ca, err := NewCA(configFile, &cfg, &srv, false)
+	ca, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
 		t.Fatal("NewCa failed: ", err)
 	}
@@ -516,9 +516,9 @@ func TestCAinitUserRegistry(t *testing.T) {
 	cfg = CAConfig{}
 	cfg.LDAP.Enabled = true
 	cfg.LDAP.URL = "ldap://CN=admin,dc=example,dc=com:adminpw@localhost:389/dc=example,dc=com"
-	_, err := NewCA(configFile, &cfg, &srv, false)
+	_, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 	os.Remove(testdir + dbname)
 }
@@ -530,16 +530,16 @@ func TestCAgetCaCert(t *testing.T) {
 
 	cfg.CSR = api.CSRInfo{CA: &csr.CAConfig{}}
 	cfg.CSR.CA.Expiry = string(0)
-	_, err := NewCA(configFile, &cfg, &srv, false)
+	_, err := newCA(configFile, &cfg, &srv, false)
 	t.Log("getCaCert error: ", err)
 	if err == nil {
-		t.Error("NewCA should have failed")
+		t.Error("newCA should have failed")
 	}
 
 	cfg.CSR.CA.Expiry = ""
-	ca, err := NewCA(configFile, &cfg, &srv, false)
+	ca, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA failed ", err)
+		t.Fatal("newCA failed ", err)
 	}
 	cfg.CSR.CA.Expiry = ""
 	_, err = ca.getCACert()
@@ -549,10 +549,10 @@ func TestCAgetCaCert(t *testing.T) {
 
 	ca.Config.CA.Keyfile = ecPrivKeyMatching
 	ca.Config.CA.Certfile = "/"
-	ca, err = NewCA(configFile, &cfg, &srv, true)
+	ca, err = newCA(configFile, &cfg, &srv, true)
 	t.Log("getCaCert error: ", err)
 	if err == nil {
-		t.Fatal("NewCA should have failed")
+		t.Fatal("newCA should have failed")
 	}
 
 	CAclean()
@@ -563,15 +563,15 @@ func TestCAinitEnrollmentSigner(t *testing.T) {
 	os.Remove(testdir + dbname)
 	os.Remove(configFile)
 	cfg = CAConfig{}
-	ca, err := NewCA(configFile, &cfg, &srv, true)
+	ca, err := newCA(configFile, &cfg, &srv, true)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 
 	cfg.Intermediate.ParentServer.URL = "1"
-	ca, err = NewCA(configFile, &cfg, &srv, false)
+	ca, err = newCA(configFile, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 
 	//Rely on default policy
@@ -602,7 +602,7 @@ func TestCADBinit(t *testing.T) {
 
 	cfg = CAConfig{}
 	cfg.DB = CAConfigDB{Datasource: "root:mysql@" + util.RandomString(237)}
-	ca, err := NewCA(confDir, &cfg, &srv, false)
+	ca, err := newCA(confDir, &cfg, &srv, false)
 	if ca.db != nil {
 		t.Error("Create DB shold have failed")
 	}
@@ -612,9 +612,9 @@ func TestCAloadAffiliationsTableR(t *testing.T) {
 	os.Remove(testdir + dbname)
 	os.Remove(configFile)
 	cfg = CAConfig{}
-	ca, err := NewCA(configFile, &cfg, &srv, true)
+	ca, err := newCA(configFile, &cfg, &srv, true)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 
 	//Failure to write to DB; non-valid accessor
@@ -654,9 +654,9 @@ func TestCAmakeFileNamesAbsolute(t *testing.T) {
 		t.Fatal("failed to cd to tmp dir")
 	}
 
-	ca, err := NewCA(confDir, &cfg, &srv, false)
+	ca, err := newCA(confDir, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 
 	err = os.RemoveAll("../" + confDir)
@@ -689,10 +689,10 @@ func TestCAmakeFileNamesAbsolute(t *testing.T) {
 		t.Error("makeFileNamesAbsolute should have failed")
 	}
 
-	ca, err = NewCA(confDir, &cfg, &srv, false)
-	t.Log("NewCA error: ", err)
+	ca, err = newCA(confDir, &cfg, &srv, false)
+	t.Log("newCA error: ", err)
 	if err == nil {
-		t.Error("NewCA should have failed")
+		t.Error("newCA should have failed")
 	}
 
 	os.Chdir("..")
@@ -704,10 +704,10 @@ func TestCAloadUsersTable(t *testing.T) {
 	cfg = CAConfig{}
 	u := &CAConfigIdentity{Name: "a", MaxEnrollments: -10}
 	cfg.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
-	_, err := NewCA(configFile, &cfg, &srv, false)
-	t.Log("ca.NewCA error: ", err)
+	_, err := newCA(configFile, &cfg, &srv, false)
+	t.Log("ca.newCA error: ", err)
 	if err == nil {
-		t.Error("ca.NewCA should have failed")
+		t.Error("ca.newCA should have failed")
 	}
 
 	//Chase down all error paths using duplicate entries
@@ -720,9 +720,9 @@ func TestCAloadUsersTable(t *testing.T) {
 	os.Remove(testdir + dbname)
 	u = &CAConfigIdentity{Name: "a", MaxEnrollments: 10}
 	cfg.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
-	ca, err := NewCA(configFile, &cfg, &srv, false)
+	ca, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 
 	u = &CAConfigIdentity{Name: "a", MaxEnrollments: 10}
@@ -756,9 +756,9 @@ func TestCAVerifyCertificate(t *testing.T) {
 	CAclean()
 	os.Remove(configFile)
 	cfg = CAConfig{}
-	ca, err := NewCA(configFile, &cfg, &srv, false)
+	ca, err := newCA(configFile, &cfg, &srv, false)
 	if err != nil {
-		t.Fatal("NewCA FAILED", err)
+		t.Fatal("newCA FAILED", err)
 	}
 
 	cert, err := getCertFromFile(noCACert)
