@@ -447,6 +447,31 @@ func TestRBAC(t *testing.T) {
 		"--enrollment.attrs", "unknown",
 		"-c", testUserConfig,
 		"-u", fmt.Sprintf("http://%s:%s@localhost:7054", testUser, testPass)})
+	fmt.Printf("err=%s\n", err)
+	if err == nil {
+		t.Error("enrollment request with unknown required attribute should fail")
+	}
+
+	// Register test user with an attribute to be inserted in ecert by default
+	err = RunMain([]string{
+		cmdName, "register", "-d",
+		"-c", adminUserConfig,
+		"--id.name", "testuserxyz",
+		"--id.secret", testPass,
+		"--id.type", "user",
+		"--id.affiliation", "org1",
+		"--id.attrs", "hf.Registrar.Roles=client,ibm=raleigh:ecert,test1attr=1234"})
+	if err != nil {
+		t.Errorf("client register failed: %s", err)
+	}
+
+	// Negative test case to request an attribute that the identity doesn't have
+	err = RunMain([]string{
+		cmdName, "enroll", "-d",
+		"--enrollment.attrs", "ibm,test1attr,test2attr",
+		"-c", testUserConfig,
+		"-u", fmt.Sprintf("http://%s:%s@localhost:7054", "testuserxyz", testPass)})
+	fmt.Printf("err=%s\n", err)
 	if err == nil {
 		t.Error("enrollment request with unknown required attribute should fail")
 	}
