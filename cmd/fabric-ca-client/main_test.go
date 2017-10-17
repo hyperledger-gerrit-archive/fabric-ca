@@ -447,6 +447,7 @@ func TestRBAC(t *testing.T) {
 		"--enrollment.attrs", "unknown",
 		"-c", testUserConfig,
 		"-u", fmt.Sprintf("http://%s:%s@localhost:7054", testUser, testPass)})
+	fmt.Printf("err=%s\n", err)
 	if err == nil {
 		t.Error("enrollment request with unknown required attribute should fail")
 	}
