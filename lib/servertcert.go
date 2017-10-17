@@ -18,8 +18,8 @@ package lib
 
 import (
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric/bccsp"
+	"github.com/pkg/errors"
 )
 
 func newTCertEndpoint(s *Server) *serverEndpoint {
@@ -53,7 +53,10 @@ func tcertHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	attrs := caller.GetAttributes(req.AttrNames)
+	attrs, err := caller.GetAttributes(req.AttrNames)
+	if err != nil {
+		return nil, errors.Errorf("Failed to get attributes '%s': %s", req.AttrNames, err)
+	}
 	affiliationPath := caller.GetAffiliationPath()
 	// Get the prekey associated with the affiliation path
 	prekey, err := ca.keyTree.GetKey(affiliationPath)
@@ -65,7 +68,7 @@ func tcertHandler(ctx *serverRequestContext) (interface{}, error) {
 	//       which isn't correct.
 	prekeyStr := string(prekey.SKI())
 	// Call the tcert library to get the batch of tcerts
-	tcertReq := &tcert.GetBatchRequest{
+	tcertReq := &api.GetTCertBatchRequest{
 		Count:          req.Count,
 		Attrs:          attrs,
 		EncryptAttrs:   req.EncryptAttrs,

@@ -216,12 +216,12 @@ func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeReque
 		log.Debug("No attributes will be added to certificate with LDAP enabled")
 		return nil, nil
 	}
-	ui, err := ca.registry.GetUserInfo(ctx.enrollmentID)
+	ui, err := ca.registry.GetUser(ctx.enrollmentID, nil)
 	if err != nil {
 		return nil, err
 	}
 	if attrReqs == nil {
-		attrReqs = getDefaultAttrReqs(ui.Attributes)
+		attrReqs = getDefaultAttrReqs(ui.GetAllAttributes())
 		if attrReqs == nil {
 			// No attributes are being requested, so we are done
 			return nil, nil
@@ -229,7 +229,7 @@ func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeReque
 	}
 	attrs, err := ca.attrMgr.ProcessAttributeRequests(
 		convertAttrReqs(attrReqs),
-		convertAttrs(ui.Attributes),
+		convertAttrs(ui.GetAllAttributes()),
 	)
 	if err != nil {
 		return nil, err
