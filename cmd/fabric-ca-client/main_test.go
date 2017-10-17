@@ -818,20 +818,21 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 
 	db := lib.NewDBAccessor()
 	db.SetDB(sqliteDB)
-	user, err := db.GetUserInfo("testRegister3")
+	user, err := db.GetUser("testRegister3", nil)
 	assert.NoError(t, err)
 
-	val := lib.GetAttrValue(user.Attributes, fooName)
+	allAttrs, _ := user.GetAttributes(nil)
+	val := lib.GetAttrValue(allAttrs, fooName)
 	if val != fooVal {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", fooName, fooVal, val)
 	}
-	val = lib.GetAttrValue(user.Attributes, roleName)
+	val = lib.GetAttrValue(allAttrs, roleName)
 	if val != roleVal {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", roleName, roleVal, val)
 	}
 
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4",
-		"--id.secret", "testRegister4", "--id.affiliation", "hyperledger.org2", "--id.type", "client"})
+		"--id.secret", "testRegister4", "--id.affiliation", "hyperledger.org2", "--id.type", "user"})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
@@ -842,9 +843,9 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", userName,
 		"--id.secret", "testRegister5", "--id.affiliation", "hyperledger.org1"})
 	assert.NoError(t, err, "Failed to register identity "+userName)
-	user, err = db.GetUserInfo(userName)
+	user, err = db.GetUser(userName, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, "user", user.Type, "Identity type for '%s' should have been 'user'", userName)
+	assert.Equal(t, "user", user.GetType(), "Identity type for '%s' should have been 'user'", userName)
 
 	os.Remove(defYaml) // Delete default config file
 
@@ -933,6 +934,7 @@ func testRevoke(t *testing.T) {
 	if err != nil {
 		t.Errorf("User with root affiliation failed to revoke, error: %s", err)
 	}
+
 	crlFile := filepath.Join(clientHome, "msp/crls/crl.pem")
 	_, err = os.Stat(crlFile)
 	assert.NoError(t, err, "CRL should be created when revoke is called with --gencrl parameter")
@@ -965,8 +967,8 @@ func testRevoke(t *testing.T) {
 	// testRegister2's affiliation: hyperledger, revoker's affiliation: ""
 	err = RunMain([]string{cmdName, "revoke", "-u", serverURL, "--revoke.name",
 		"testRegister2", "--revoke.serial", "", "--revoke.aki", ""})
-	if err != nil {
-		t.Errorf("Failed to revoke proper affiliation hierarchy, error: %s", err)
+	if err == nil {
+		t.Errorf("Revoker has different type than the identity being revoked, should have failed")
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-d", "-u", "http://admin3:adminpw3@localhost:7090"})
@@ -1035,11 +1037,12 @@ func testAffiliation(t *testing.T) {
 
 	db := lib.NewDBAccessor()
 	db.SetDB(sqliteDB)
-	user, err := db.GetUserInfo("testRegister6")
+	user, err := db.GetUser("testRegister6", nil)
 	assert.NoError(t, err)
 
-	if user.Affiliation != "hyperledger" {
-		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", user.Affiliation)
+	userAff := lib.GetUserAffiliation(user)
+	if userAff != "hyperledger" {
+		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", userAff)
 	}
 
 	os.RemoveAll(filepath.Dir(defYaml))
