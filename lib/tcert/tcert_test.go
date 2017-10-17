@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -43,7 +44,7 @@ func TestTCertWithoutAttribute(t *testing.T) {
 		t.Errorf("LoadCert unable to load ec.pem %v", err)
 	}
 
-	resp, err := mgr.GetBatch(&GetBatchRequest{
+	resp, err := mgr.GetBatch(&api.GetTCertBatchRequest{
 		Count:  1,
 		PreKey: "anyroot",
 	}, ecert)
@@ -71,7 +72,7 @@ func TestTCertWitAttributes(t *testing.T) {
 	if err != nil {
 		return
 	}
-	var Attrs = []Attribute{
+	var Attrs = []api.Attribute{
 		{
 			Name:  "SSN",
 			Value: "123-456-789",
@@ -82,7 +83,7 @@ func TestTCertWitAttributes(t *testing.T) {
 			Value: "USD",
 		},
 	}
-	resp, err := mgr.GetBatch(&GetBatchRequest{
+	resp, err := mgr.GetBatch(&api.GetTCertBatchRequest{
 		Count:        2,
 		EncryptAttrs: true,
 		Attrs:        Attrs,

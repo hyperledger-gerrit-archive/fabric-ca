@@ -216,9 +216,12 @@ func canRegister(registrar string, req *api.RegistrationRequestNet, user spi.Use
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
 	var roles []string
-	rolesStr := user.GetAttribute("hf.Registrar.Roles")
-	if rolesStr != "" {
-		roles = strings.Split(rolesStr, ",")
+	rolesStr, err := user.GetAttribute("hf.Registrar.Roles")
+	if err != nil {
+		return errors.Errorf("Failed to get attribute 'hf.Registrar.Roles': %s", err)
+	}
+	if rolesStr.Value != "" {
+		roles = strings.Split(rolesStr.Value, ",")
 	} else {
 		roles = make([]string, 0)
 	}
@@ -233,7 +236,11 @@ func canRegister(registrar string, req *api.RegistrationRequestNet, user spi.Use
 
 // Validate that the registrar can register the requested attributes
 func validateRequestedAttributes(reqAttrs []api.Attribute, registrar spi.User) error {
-	registrarAttrs := registrar.GetAttribute(attrRegistrarAttr)
+	registrarCanRegisterAttrs, err := registrar.GetAttribute(attrRegistrarAttr)
+	if err != nil {
+		return newHTTPErr(401, ErrMissingRegAttr, "Registrar does not have attribute '%s' thus can't register any attributes", attrRegistrarAttr)
+	}
+	registrarAttrs := registrarCanRegisterAttrs.Value
 	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%s' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs, reqAttrs)
 	if len(reqAttrs) == 0 {
 		return nil

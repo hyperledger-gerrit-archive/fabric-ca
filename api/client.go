@@ -17,10 +17,10 @@ limitations under the License.
 package api
 
 import (
+	"math/big"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
-	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -139,11 +139,22 @@ type GetTCertBatchRequest struct {
 	DisableKeyDerivation bool `json:"disable_kdf,omitempty"`
 	// CAName is the name of the CA to connect to
 	CAName string `json:"caname,omitempty" skip:"true"`
+	// The attribute name and values that are to be inserted in the issued TCerts.
+	Attrs []Attribute `json:"attrs,omitempty"`
+}
+
+// TCert encapsulates a signed transaction certificate and optionally a map of keys
+type TCert struct {
+	Cert []byte            `json:"cert"`
+	Keys map[string][]byte `json:"keys,omitempty"` //base64 encoded string as value
 }
 
 // GetTCertBatchResponse is the return value of identity.GetTCertBatch
 type GetTCertBatchResponse struct {
-	tcert.GetBatchResponse
+	ID     *big.Int  `json:"id"`
+	TS     time.Time `json:"ts"`
+	Key    []byte    `json:"key"`
+	TCerts []TCert   `json:"tcerts"`
 }
 
 // GetCAInfoRequest is request to get generic CA information
