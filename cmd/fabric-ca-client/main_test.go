@@ -780,7 +780,7 @@ func testRegisterEnvVar(t *testing.T) {
 	os.Setenv("FABRIC_CA_CLIENT_HOME", "../../testdata/")
 	os.Setenv("FABRIC_CA_CLIENT_ID_NAME", "testRegister2")
 	os.Setenv("FABRIC_CA_CLIENT_ID_AFFILIATION", "hyperledger")
-	os.Setenv("FABRIC_CA_CLIENT_ID_TYPE", "client")
+	os.Setenv("FABRIC_CA_CLIENT_ID_TYPE", "user")
 	defer func() {
 		os.Unsetenv("FABRIC_CA_CLIENT_HOME")
 		os.Unsetenv("FABRIC_CA_CLIENT_ID_NAME")
@@ -818,14 +818,15 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 
 	db := lib.NewDBAccessor()
 	db.SetDB(sqliteDB)
-	user, err := db.GetUserInfo("testRegister3")
+	user, err := db.GetUser("testRegister3", nil)
 	assert.NoError(t, err)
 
-	val := lib.GetAttrValue(user.Attributes, fooName)
+	allAttrs, _ := user.GetAttributes(nil)
+	val := lib.GetAttrValue(allAttrs, fooName)
 	if val != fooVal {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", fooName, fooVal, val)
 	}
-	val = lib.GetAttrValue(user.Attributes, roleName)
+	val = lib.GetAttrValue(allAttrs, roleName)
 	if val != roleVal {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", roleName, roleVal, val)
 	}
@@ -842,9 +843,9 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", userName,
 		"--id.affiliation", "hyperledger.org1"})
 	assert.NoError(t, err, "Failed to register identity "+userName)
-	user, err = db.GetUserInfo(userName)
+	user, err = db.GetUser(userName, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, "user", user.Type, "Identity type for '%s' should have been 'user'", userName)
+	assert.Equal(t, "user", user.GetType(), "Identity type for '%s' should have been 'user'", userName)
 
 	os.Remove(defYaml) // Delete default config file
 
@@ -916,10 +917,10 @@ func testRevoke(t *testing.T) {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
-	// testRegister4's affiliation: company2, revoker's affiliation: "" (root)
+	// testRegister4's type: client, revoker's type: user
 	err = RunMain([]string{cmdName, "revoke", "-u", serverURL, "--revoke.name", "testRegister4", "--revoke.serial", "", "--revoke.aki", ""})
-	if err != nil {
-		t.Errorf("User with root affiliation failed to revoke, error: %s", err)
+	if err == nil {
+		t.Errorf("Revoker has different type than the identity being revoked, should have failed")
 	}
 
 	// testRegister2's affiliation: hyperledger, revoker's affiliation: ""
@@ -994,11 +995,12 @@ func testAffiliation(t *testing.T) {
 
 	db := lib.NewDBAccessor()
 	db.SetDB(sqliteDB)
-	user, err := db.GetUserInfo("testRegister6")
+	user, err := db.GetUser("testRegister6", nil)
 	assert.NoError(t, err)
 
-	if user.Affiliation != "hyperledger" {
-		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", user.Affiliation)
+	userAff := lib.GetUserAffiliation(user)
+	if userAff != "hyperledger" {
+		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", userAff)
 	}
 
 	os.RemoveAll(filepath.Dir(defYaml))

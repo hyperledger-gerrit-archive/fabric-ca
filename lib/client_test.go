@@ -1050,7 +1050,7 @@ func TestRevokedIdentity(t *testing.T) {
 	// 'admin' registers 'TestUser' user
 	registerReq := &api.RegistrationRequest{
 		Name:           "TestUser",
-		Type:           "Client",
+		Type:           "user",
 		Affiliation:    "hyperledger",
 		MaxEnrollments: 1,
 	}
