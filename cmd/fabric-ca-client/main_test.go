@@ -818,14 +818,15 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 
 	db := lib.NewDBAccessor()
 	db.SetDB(sqliteDB)
-	user, err := db.GetUserInfo("testRegister3")
+	user, err := db.GetUser("testRegister3", nil)
 	assert.NoError(t, err)
 
-	val := lib.GetAttrValue(user.Attributes, fooName)
+	allAttrs, _ := user.GetAttributes(nil)
+	val := lib.GetAttrValue(allAttrs, fooName)
 	if val != fooVal {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", fooName, fooVal, val)
 	}
-	val = lib.GetAttrValue(user.Attributes, roleName)
+	val = lib.GetAttrValue(allAttrs, roleName)
 	if val != roleVal {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", roleName, roleVal, val)
 	}
@@ -842,9 +843,9 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", userName,
 		"--id.affiliation", "hyperledger.org1"})
 	assert.NoError(t, err, "Failed to register identity "+userName)
-	user, err = db.GetUserInfo(userName)
+	user, err = db.GetUser(userName, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, "user", user.Type, "Identity type for '%s' should have been 'user'", userName)
+	assert.Equal(t, "user", user.GetType(), "Identity type for '%s' should have been 'user'", userName)
 
 	os.Remove(defYaml) // Delete default config file
 
@@ -994,11 +995,12 @@ func testAffiliation(t *testing.T) {
 
 	db := lib.NewDBAccessor()
 	db.SetDB(sqliteDB)
-	user, err := db.GetUserInfo("testRegister6")
+	user, err := db.GetUser("testRegister6", nil)
 	assert.NoError(t, err)
 
-	if user.Affiliation != "hyperledger" {
-		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", user.Affiliation)
+	userAff := strings.Join(user.GetAffiliationPath(), ".")
+	if userAff != "hyperledger" {
+		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", userAff)
 	}
 
 	os.RemoveAll(filepath.Dir(defYaml))

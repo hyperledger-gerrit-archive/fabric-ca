@@ -78,7 +78,7 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 				req.Serial, req.AKI, req.Name)
 		}
 
-		userInfo, err := registry.GetUserInfo(certificate.ID)
+		userInfo, err := registry.GetUser(certificate.ID, nil)
 		if err != nil {
 			return nil, newHTTPErr(404, ErrRevokeIDNotFound, "Identity %s was not found: %s", certificate.ID, err)
 		}
@@ -101,22 +101,14 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 
 		// Set user state to -1 for revoked user
 		if user != nil {
-			var userInfo spi.UserInfo
-			userInfo, err = registry.GetUserInfo(req.Name)
-			if err != nil {
-				return nil, newHTTPErr(500, ErrRevokeUserInfoNotFound, "Failed getting info for identity %s: %s", req.Name, err)
-			}
-
-			err = checkAffiliations(id, userInfo, ca)
+			err = checkAffiliations(id, user, ca)
 			if err != nil {
 				return nil, err
 			}
 
-			userInfo.State = -1
-
-			err = registry.UpdateUser(userInfo)
+			err = user.Revoke()
 			if err != nil {
-				return nil, newHTTPErr(500, ErrRevokeUpdateUser, "Failed to update identity info: %s", err)
+				return nil, newHTTPErr(500, ErrRevokeUpdateUser, "Failed to revoke user: %s", err)
 			}
 		}
 
@@ -144,14 +136,16 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 	return result, nil
 }
 
-func checkAffiliations(revoker string, revoking spi.UserInfo, ca *CA) error {
-	log.Debugf("Check to see if revoker %s has affiliations to revoke: %s", revoker, revoking.Name)
+func checkAffiliations(revoker string, revoking spi.User, ca *CA) error {
+	log.Debugf("Check to see if revoker %s has affiliations to revoke: %s", revoker, revoking.GetName())
 	userAffiliation, err := ca.getUserAffiliation(revoker)
 	if err != nil {
 		return newHTTPErr(500, ErrGettingAffiliation, "Failed to get affiliation of %s: %s", revoker, err)
 	}
 
-	log.Debugf("Affiliation of revoker: %s, affiliation of identity being revoked: %s", userAffiliation, revoking.Affiliation)
+	revokingAffiliation := revoking.GetAffiliationPath()
+
+	log.Debugf("Affiliation of revoker: %s, affiliation of identity being revoked: %s", userAffiliation, strings.Join(revokingAffiliation, "."))
 
 	// Revoking user has root affiliation thus has ability to revoke
 	if userAffiliation == "" {
@@ -159,12 +153,11 @@ func checkAffiliations(revoker string, revoking spi.UserInfo, ca *CA) error {
 		return nil
 	}
 
-	revokingAffiliation := strings.Split(revoking.Affiliation, ".")
 	revokerAffiliation := strings.Split(userAffiliation, ".")
 	for i := range revokerAffiliation {
 		if revokerAffiliation[i] != revokingAffiliation[i] {
 			return newHTTPErr(401, ErrRevokerNotAffiliated,
-				"Revoker %s does not have proper affiliation to revoke identity %s", revoker, revoking.Name)
+				"Revoker %s does not have proper affiliation to revoke identity %s", revoker, revoking.GetName())
 		}
 	}
 
