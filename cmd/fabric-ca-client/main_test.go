@@ -245,10 +245,10 @@ func TestGenCRL(t *testing.T) {
 	defer os.RemoveAll(adminHome)
 
 	// Set up for the test case
-	srv := setupGenCRLTest(t, adminHome)
+	srv := setupTest(t, "gencrlsrvhome", adminHome)
 
 	// Cleanup before exiting the test case
-	defer cleanupGenCRLTest(t, srv)
+	defer cleanupTest(t, srv)
 
 	// Error case 1: gencrl command should fail when called without enrollment info
 	tmpHome := filepath.Join(os.TempDir(), "gencrlhome")
@@ -348,6 +348,32 @@ func TestGenCRL(t *testing.T) {
 	err = RunMain([]string{cmdName, "gencrl", "--expireafter", "2017-09-13T16:39:57-08:00",
 		"--expirebefore", "2017-09-13T15:39:57-08:00"})
 	assert.Error(t, err, "gencrl should have failed when --expireafter value is greater than --expirebefore")
+}
+
+func TestTLSEnroll(t *testing.T) {
+	t.Log("Testing TLSEnroll")
+	adminHome := filepath.Join(tdDir, "tlsenrolladminhome")
+
+	// Remove server home directory if it exists
+	err := os.RemoveAll(adminHome)
+	if err != nil {
+		t.Fatalf("Failed to remove directory %s: %s", adminHome, err)
+	}
+
+	// Remove server home directory that this test is going to create before
+	// exiting the test case
+	defer os.RemoveAll(adminHome)
+
+	// Set up for the test case
+	srv := setupTest(t, "testenrollsrvhome", adminHome)
+
+	// Cleanup before exiting the test case
+	defer cleanupTest(t, srv)
+
+	// TLS enroll, make sure tls certificate does not overwrite enrollment certificate
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "--enrollment.profile", "tls", "-H", adminHome})
+	assert.NoError(t, err, "Failed to TLS Enroll")
+	checkCerts(t, adminHome)
 }
 
 // Test role based access control
@@ -1451,8 +1477,8 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	return
 }
 
-func setupGenCRLTest(t *testing.T, adminHome string) *lib.Server {
-	srvHome := filepath.Join(tdDir, "gencrlsrvhom")
+func setupTest(t *testing.T, serverHome, adminHome string) *lib.Server {
+	srvHome := filepath.Join(tdDir, serverHome)
 	err := os.RemoveAll(srvHome)
 	if err != nil {
 		t.Fatalf("Failed to remove home directory %s: %s", srvHome, err)
@@ -1483,7 +1509,7 @@ func setupGenCRLTest(t *testing.T, adminHome string) *lib.Server {
 	return srv
 }
 
-func cleanupGenCRLTest(t *testing.T, srv *lib.Server) {
+func cleanupTest(t *testing.T, srv *lib.Server) {
 	defer os.RemoveAll(srv.HomeDir)
 	if srv != nil {
 		err := srv.Stop()
@@ -1578,6 +1604,20 @@ func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) []*big.I
 	}
 	t.Logf("Revoked certificates: %v", serials)
 	return serials
+}
+
+func checkCerts(t *testing.T, home string) {
+	// Load the user's ecert
+	cert, err := util.GetX509CertificateFromPEMFile(path.Join(home, "msp", "signcerts", "cert.pem"))
+	assert.NoError(t, err, "Failed to load sign cert")
+	assert.Equal(t, x509.KeyUsageCertSign, cert.KeyUsage,
+		"Key usage of the enrollment cert must be Certifcate Sign")
+
+	// Load the tls cert
+	cert, err = util.GetX509CertificateFromPEMFile(path.Join(home, "msp", "tlscert", "cert.pem"))
+	assert.NoError(t, err, "Failed to load tls cert")
+	assert.Equal(t, x509.KeyUsageDigitalSignature|x509.KeyUsageKeyEncipherment|x509.KeyUsageKeyAgreement, cert.KeyUsage,
+		"Key usage of the TLS cert must be Digital Signature, Key Encipherment and Key Agreement")
 }
 
 func extraArgErrorTest(in *TestData, t *testing.T) {
