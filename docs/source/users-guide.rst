@@ -1141,6 +1141,20 @@ You may also set the FABRIC_CA_CLIENT_HOME to the home directory of your peer.
 Enrolling an orderer is the same, except the path to the MSP directory is
 the 'LocalMSPDir' setting in your orderer's orderer.yaml file.
 
+A TLS certificate can also be generated for a peer or orderer using the enroll command using
+tls profile. For example:
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/peer1
+    fabric-ca-client enroll -u http://peer1:peer1pw@localhost:7054 -M $FABRIC_CA_CLIENT_HOME/msp --enrollment.profile tls
+
+This will generate a TLS certificate and place it in the `tlscert` folder of the MSP. The root CA
+certificate is placed in the `tlscacerts` folder of the MSP. If the TLS certificate was signed by an
+intermediate CA then the intermediate CA certificate is placed in the `tlsintermediatecerts` folder of
+the MSP. You need to modify peer's core.yml file to set `tls.cert.file` and `tls.key.file properties`
+to the generated TLS certificate and corresponding private key.
+
 Getting a CA certificate chain from another Fabric CA server
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

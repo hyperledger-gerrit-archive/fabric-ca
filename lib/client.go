@@ -50,7 +50,7 @@ type Client struct {
 	// Denotes if the client object is already initialized
 	initialized bool
 	// File and directory paths
-	keyFile, certFile, caCertsDir string
+	keyFile, certFile, tlsCertFile, caCertsDir string
 	// The crypto service provider (BCCSP)
 	csp bccsp.BCCSP
 	// HTTP client associated with this Fabric CA client
@@ -83,7 +83,14 @@ func (c *Client) Init() error {
 		if err != nil {
 			return errors.Wrap(err, "Failed to create signcerts directory")
 		}
+		// TLS Cert directory and file
+		tlsCertDir := path.Join(mspDir, "tlscert")
+		err = os.MkdirAll(tlsCertDir, 0755)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create tlscert directory")
+		}
 		c.certFile = path.Join(certDir, "cert.pem")
+		c.tlsCertFile = path.Join(tlsCertDir, "cert.pem")
 		// CA certs directory
 		c.caCertsDir = path.Join(mspDir, "cacerts")
 		err = os.MkdirAll(c.caCertsDir, 0755)
@@ -322,7 +329,11 @@ func (c *Client) StoreMyIdentity(cert []byte) error {
 	if err != nil {
 		return err
 	}
-	err = util.WriteFile(c.certFile, cert, 0644)
+	fileName := c.certFile
+	if c.Config.Enrollment.Profile == "tls" {
+		fileName = c.tlsCertFile
+	}
+	err = util.WriteFile(fileName, cert, 0644)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store my certificate")
 	}
