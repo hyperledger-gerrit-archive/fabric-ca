@@ -18,7 +18,9 @@ package dbutil
 
 import (
 	"fmt"
+	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -28,6 +30,11 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/jmoiron/sqlx"
+)
+
+const (
+	// SQLLite busy time out environment variable name
+	sqliteBusyTimeout = "SQLITE_BUSY_TIMEOUT"
 )
 
 var (
@@ -43,7 +50,8 @@ func NewUserRegistrySQLLite3(datasource string) (*sqlx.DB, error) {
 		return nil, errors.WithMessage(err, "Failed to create SQLite3 database")
 	}
 
-	db, err := sqlx.Open("sqlite3", datasource+"?_busy_timeout=5000")
+	timeout := getSQLiteBusyTimeout()
+	db, err := sqlx.Open("sqlite3", fmt.Sprintf("%s?_busy_timeout=%s", datasource, timeout))
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to open sqlite3 DB")
 	}
@@ -62,6 +70,23 @@ func NewUserRegistrySQLLite3(datasource string) (*sqlx.DB, error) {
 	log.Debug("Successfully opened sqlite3 DB")
 
 	return db, nil
+}
+
+func getSQLiteBusyTimeout() string {
+	timeout := "5000"
+
+	envVal := os.Getenv(sqliteBusyTimeout)
+	if envVal != "" {
+		_, err := strconv.Atoi(envVal)
+		if err != nil {
+			log.Errorf("Environment variable '%s' is invalid: %s. It must be a number that specifies SQLite busy timeout in milliseconds. Using default value '%s'",
+				sqliteBusyTimeout, envVal, timeout)
+			timeout = "5000"
+		} else {
+			timeout = envVal
+		}
+	}
+	return timeout
 }
 
 func createSQLiteDBTables(datasource string) error {

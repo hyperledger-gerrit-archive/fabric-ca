@@ -1479,5 +1479,12 @@ Troubleshooting
    To resolve this error, you must enroll again by repeating step 'a'.  This will issue a new ECert
    which will be stored in the current database.
 
+3. When sending multiple parallel requests to a Fabric CA Server cluster that uses shared sqlite3 databases,
+   the server occasionally returns a 'database locked' error. This is most probably because the database
+   transaction timed out while waiting for database lock (held by another cluster member) to be released.
+   To resolve this problem, increase the busy timeout by setting the environment variable `SQLITE_BUSY_TIMEOUT`
+   to higher value and restart the Fabric CA server. The value must be an integer that specifies the
+   busy timeout in milliseconds. By default, the busy timeout is set to 5000 milliseconds.
+
 .. Licensed under Creative Commons Attribution 4.0 International License
    https://creativecommons.org/licenses/by/4.0/
