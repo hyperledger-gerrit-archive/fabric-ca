@@ -43,7 +43,7 @@ func NewUserRegistrySQLLite3(datasource string) (*sqlx.DB, error) {
 		return nil, errors.WithMessage(err, "Failed to create SQLite3 database")
 	}
 
-	db, err := sqlx.Open("sqlite3", datasource+"?_busy_timeout=5000")
+	db, err := sqlx.Open("sqlite3", datasource+"?_busy_timeout=10000")
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to open sqlite3 DB")
 	}
@@ -180,8 +180,10 @@ func NewUserRegistryMySQL(datasource string, clientTLSConfig *tls.ClientTLSConfi
 	dbName := getDBName(datasource)
 	log.Debug("Database Name: ", dbName)
 
-	re := regexp.MustCompile(`\/([a-zA-z]+)`)
+	re := regexp.MustCompile(`\/([0-9,a-z,A-Z$_]+)`)
 	connStr := re.ReplaceAllString(datasource, "/")
+	log.Debug("datasource ==============>", datasource)
+	log.Debug("connStr after ReplaceAllString /  ==============>", connStr)
 
 	if clientTLSConfig.Enabled {
 		tlsConfig, err := tls.GetClientTLSConfig(clientTLSConfig, csp)
@@ -193,6 +195,7 @@ func NewUserRegistryMySQL(datasource string, clientTLSConfig *tls.ClientTLSConfi
 	}
 
 	log.Debug("Connecting to MySQL server, using connection string: ", MaskDBCred(connStr))
+	log.Debug("Connecting to MySQL server, using unmasked connection string: ", connStr)
 	db, err := sqlx.Open("mysql", connStr)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to open MySQL database")
