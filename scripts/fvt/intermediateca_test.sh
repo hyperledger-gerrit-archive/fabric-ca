@@ -16,7 +16,7 @@ ROOT_CA_ADDR=localhost
 TLSDIR="$TDIR/tls"
 NUMINTCAS=8
 MAXENROLL=$((2*NUMINTCAS))
-TIMEOUT=10
+TIMEOUT=90
 RC=0
 TDIR=/tmp/intermediateca-tests
 PROTO="http://"
@@ -240,7 +240,7 @@ function genIntCAConfig() {
 }
 
 ### Start Test ###
-for driver in sqlite3 postgres mysql; do
+for driver in postgres mysql; do
    $SCRIPTDIR/fabric-ca_setup.sh -R -x $TDIR/root -D -d $driver
    rm -rf $TDIR
 
