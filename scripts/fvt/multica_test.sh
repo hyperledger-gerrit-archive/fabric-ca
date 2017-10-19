@@ -115,7 +115,7 @@ function revokeUser() {
 #}
 
 ### Start Test ###
-for driver in sqlite3 postgres mysql; do
+for driver in postgres mysql; do
 
   # Expected codes
    # Result after enroll/reenroll -

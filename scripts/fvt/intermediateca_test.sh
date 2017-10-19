@@ -15,7 +15,6 @@ PROTO="http://"
 ROOT_CA_ADDR=localhost
 TLSDIR="$TDIR/tls"
 NUMINTCAS=8
-MAXENROLL=$((2*NUMINTCAS))
 TIMEOUT=10
 RC=0
 TDIR=/tmp/intermediateca-tests
@@ -78,8 +77,8 @@ function createRootCA() {
 function createIntCA() {
 # Start intermediate CAs
    i=0;while test $((i++)) -lt $NUMINTCAS; do
-      mkdir -p "$TDIR/int${i}"
-      cp "$TDIR/intFabricCaFvt.yaml" "$TDIR/int${i}/runFabricCaFvt.yaml"
+      mkdir -p "$TDIR/ca/ca${i}"
+      cp "$TDIR/intFabricCaFvt.yaml" "$TDIR/ca/ca${i}/runFabricCaFvt.yaml"
       $($FABRIC_TLS) && tlsopts="--tls.enabled --tls.certfile $TLSDIR/intFabCaTls${i}-cert.pem \
                                  --tls.keyfile $TLSDIR/intFabCaTls${i}-key.pem \
                                  --db.tls.certfiles $FABRIC_CA_DATA/$TLS_BUNDLE \
@@ -89,10 +88,10 @@ function createIntCA() {
                                  --intermediate.tls.client.certfile $TLSDIR/intFabCaTls${i}-cert.pem \
                                  --intermediate.tls.client.keyfile $TLSDIR/intFabCaTls${i}-key.pem"
       ADDR=127.0.${i}.1
-      FABRIC_CA_SERVER_HOME="$TDIR/int${i}" fabric-ca-server start --csr.hosts $ADDR -c $TDIR/int${i}/runFabricCaFvt.yaml \
+      FABRIC_CA_SERVER_HOME="$TDIR/ca/ca${i}" fabric-ca-server start --csr.hosts $ADDR -c $TDIR/ca/ca${i}/runFabricCaFvt.yaml \
                                            --address $ADDR $tlsopts -b admin:adminpw \
                                            -u ${PROTO}intermediateCa$i:intermediateCa${i}pw@$ROOT_CA_ADDR:$CA_DEFAULT_PORT -d 2>&1 |
-                                           tee $TDIR/int${i}/server.log &
+                                           tee $TDIR/ca/ca${i}/server.log &
    done
    i=0;while test $((i++)) -lt $NUMINTCAS; do
       ADDR=127.0.${i}.1
@@ -102,8 +101,8 @@ function createIntCA() {
 
 function createFailingCA {
    last=$((NUMINTCAS+1))
-   mkdir -p "$TDIR/int${last}"
-   cp "$TDIR/intFabricCaFvt.yaml" "$TDIR/int${last}/runFabricCaFvt.yaml"
+   mkdir -p "$TDIR/ca/ca${last}"
+   cp "$TDIR/intFabricCaFvt.yaml" "$TDIR/ca/ca${last}/runFabricCaFvt.yaml"
    $($FABRIC_TLS) && tlsopts="--tls.enabled --tls.certfile $TLSDIR/intFabCaTls${last}-cert.pem \
                               --tls.keyfile $TLSDIR/intFabCaTls${last}-key.pem \
                               --db.tls.certfiles $FABRIC_CA_DATA/$TLS_BUNDLE \
@@ -112,9 +111,9 @@ function createFailingCA {
                               --intermediate.tls.certfiles $TLSDIR/tlsroots.pem \
                               --intermediate.tls.client.certfile $TLSDIR/intFabCaTls${last}-cert.pem \
                               --intermediate.tls.client.keyfile $TLSDIR/intFabCaTls${last}-key.pem"
-   FABRIC_CA_SERVER_HOME="$TDIR/int${last}" fabric-ca-server init --csr.hosts 127.0.${last}.1 -c "$TDIR/int${last}/runFabricCaFvt.yaml" \
+   FABRIC_CA_SERVER_HOME="$TDIR/ca/ca${last}" fabric-ca-server init --csr.hosts 127.0.${last}.1 -c "$TDIR/ca/ca${last}/runFabricCaFvt.yaml" \
                                            --address 127.0.${last}.1 $tlsopts -b admin:adminpw \
-                                           -u ${PROTO}intermediateCa${last}:intermediateCa${last}pw@$ADDR:$CA_DEFAULT_PORT -d 2>&1 | tee $TDIR/int${last}/server.log
+                                           -u ${PROTO}intermediateCa${last}:intermediateCa${last}pw@$ADDR:$CA_DEFAULT_PORT -d 2>&1 | tee $TDIR/ca/ca${last}/server.log
    test ${PIPESTATUS[0]} -eq 0 && return 1 || return 0
 }
 
@@ -125,7 +124,7 @@ function enrollUser() {
       /usr/local/bin/fabric-ca-client enroll \
                       --id.maxenrollments $MAXENROLL \
                       -u ${PROTO}admin:adminpw@$ADDR:${CA_DEFAULT_PORT} \
-                      -c $TDIR/int${i}/admin/enroll.yaml \
+                      -c $TDIR/ca/ca${i}/admin/enroll.yaml \
                       --tls.certfiles $TLSDIR/tlsroots.pem \
                       --csr.hosts admin@fab-client.raleigh.ibm.com \
                       --csr.hosts admin.fabric.raleigh.ibm.com,127.42.42.$i
@@ -139,9 +138,9 @@ function getCaCert() {
    local intDir=""
    i=0;while test $((i++)) -lt $NUMINTCAS; do
       ADDR=127.0.${i}.1
-      export FABRIC_CA_CLIENT_HOME="$TDIR/int${i}"
+      export FABRIC_CA_CLIENT_HOME="$TDIR/ca/ca${i}"
       # the location a filename of the returned cert bundle
-      intDir="$TDIR/int${i}/msp/cacerts"
+      intDir="$TDIR/ca/ca${i}/msp/cacerts"
       caCertFile=$(echo ${ADDR}|sed 's/\./-/g')-${CA_DEFAULT_PORT}.pem
 
       /usr/local/bin/fabric-ca-client getcacert \
@@ -161,7 +160,7 @@ function verifyCaCert() {
    i=0;while test $((i++)) -lt $NUMINTCAS; do
       ADDR=127.0.${i}.1
       # the location and filename of the returned cert bundle
-      intDir="$TDIR/int${i}/msp/cacerts"
+      intDir="$TDIR/ca/ca${i}/msp/cacerts"
       caCertFile=$(echo ${ADDR}|sed 's/\./-/g')-${CA_DEFAULT_PORT}.pem
       # verify that the returned bundle contains both the
       # root CA public cert and the intermediate CA public cert
@@ -178,7 +177,7 @@ function verifyCaCert() {
                   if ($NF!=s) rc+=1
                }; END {exit rc}'
       if test "$rc" -ne 0; then
-         echo "CA cert bundle $TDIR/int${i}/msp/cacerts/$caCertFile does not contain the correct certificates"
+         echo "CA cert bundle $TDIR/ca/ca${i}/msp/cacerts/$caCertFile does not contain the correct certificates"
          return 1
       fi
    done
@@ -188,17 +187,18 @@ function verifyCaCert() {
 function registerAndEnrollUser() {
    local rc=0
    i=0;while test $((i++)) -lt $NUMINTCAS; do
+      ADDR=127.0.${i}.1
       pswd=$(/usr/local/bin/fabric-ca-client register -u ${PROTO}admin:adminpw@$ADDR:${CA_DEFAULT_PORT} \
+                              -H $TDIR/ca/ca$i/admin \
                               --id.name user${i} \
                               --id.type user \
                               --id.maxenrollments $MAXENROLL \
                               --id.affiliation org1 \
-                              --tls.certfiles $TLSDIR/tlsroots.pem \
-                              -c $TDIR/int${i}/register.yaml|tail -n1 | awk '{print $NF}')
+                              --tls.certfiles $TLSDIR/tlsroots.pem | tail -n1 | awk '{print $NF}')
       /usr/local/bin/fabric-ca-client enroll \
                          --id.maxenrollments $MAXENROLL \
                          -u ${PROTO}user${i}:$pswd@$ADDR:${CA_DEFAULT_PORT} \
-                         -c $TDIR/int${i}/user${i}/enroll.yaml \
+                         -c $TDIR/ca/ca${i}/user${i}/enroll.yaml \
                          --tls.certfiles $TLSDIR/tlsroots.pem \
                          --csr.hosts user${i}@fab-client.raleigh.ibm.com \
                          --csr.hosts user${i}.fabric.raleigh.ibm.com,127.37.37.$i
@@ -214,7 +214,7 @@ function reenrollUser() {
       /usr/local/bin/fabric-ca-client reenroll \
                          --id.maxenrollments $MAXENROLL \
                          -u ${PROTO}@$ADDR:${CA_DEFAULT_PORT} \
-                         -c $TDIR/int${i}/admin/reenroll.yaml \
+                         -c $TDIR/ca/ca${i}/admin/reenroll.yaml \
                          --tls.certfiles $TLSDIR/tlsroots.pem \
                          --csr.hosts admin@fab-client.raleigh.ibm.com \
                          --csr.hosts admin.fabric.raleigh.ibm.com,127.42.42.$i
@@ -241,6 +241,7 @@ function genIntCAConfig() {
 
 ### Start Test ###
 for driver in sqlite3 postgres mysql; do
+   test $driver = "sqlite3" && MAXENROLL=2 || MAXENROLL=$((2*NUMINTCAS))
    $SCRIPTDIR/fabric-ca_setup.sh -R -x $TDIR/root -D -d $driver
    rm -rf $TDIR
 
@@ -256,7 +257,7 @@ for driver in sqlite3 postgres mysql; do
 
    # Attempt to enroll with an intermediate CA with pathlen 0 should fail
    createFailingCA || ErrorMsg "Intermediate CA enroll should have failed"
-   grep "Policy violation request" $TDIR/int${i}/server.log || ErrorMsg "Policy violation request not found in response"
+   grep "Policy violation request" $TDIR/ca/ca${i}/server.log || ErrorMsg "Policy violation request not found in response"
 
    # roundrobin through all intermediate servers and grab the cacert
    getCaCert || ErrorExit "Failed to getCaCert(s)"
@@ -281,7 +282,7 @@ for driver in sqlite3 postgres mysql; do
       reenrollUser || ErrorMsg "Failed to reenroll users"
    done
 
-   $SCRIPTDIR/fabric-ca_setup.sh -L -x $TDIR/root -D -d $driver
+   $SCRIPTDIR/fabric-ca_setup.sh -L -u $NUMINTCAS -x $TDIR -D -d $driver
    kill $(ps -x -o pid,comm | awk '$2~/fabric-ca-serve/ {print $1}')
 done
 
