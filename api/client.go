@@ -120,9 +120,20 @@ type RevocationRequest struct {
 	CAName string `json:"caname,omitempty" skip:"true"`
 }
 
-// RevocationResponse returns the AKI and serial number of certs which were revoked
+// RevocationResponse returns the name of the identity whose certificates were removed
+// and AKI and serial number of certificates that were revoked
 type RevocationResponse struct {
-	result map[string]string
+	result []RevokedID
+}
+
+// RevokedID contains information on the id/certificate that was revoked
+type RevokedID struct {
+	// Name of the identity whose certificate was revoked
+	EnrollmentID string
+	// Serial number of the certificate that was revoked
+	Serial string
+	// AKI (Authority Key Identifier) of the certificate that was revoked
+	AKI string
 }
 
 // GetTCertBatchRequest is input provided to identity.GetTCertBatch
@@ -176,6 +187,7 @@ type GenCRLResponse struct {
 type ConfigRequest struct {
 	Commands []Command `json:"commands"`
 	CAName   string    `json:"caname,omitempty" skip:"true"`
+	Force    bool      `json:"force"`
 }
 
 // Command is the command to be executed
