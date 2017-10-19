@@ -16,7 +16,7 @@ ROOT_CA_ADDR=localhost
 CA_PORT=17054
 TLSDIR="$TESTDATA"
 NUMINTCAS=4
-TIMEOUT=30
+TIMEOUT=60
 MAXENROLL=$((2*NUMINTCAS))
 NUMUSERS=2
 RC=0
@@ -133,7 +133,7 @@ function resetDB() {
 #}
 
 ### Start Test ###
-for driver in sqlite3 postgres mysql; do
+for driver in postgres mysql; do
 
   # Expected codes
    # Result after enroll/reenroll -
