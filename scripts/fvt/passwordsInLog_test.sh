@@ -73,7 +73,7 @@ for server in ldap mysql postgres; do
    $SCRIPTDIR/fabric-ca_setup.sh -R; mkdir -p $TESTDIR
    case $server in
       ldap) $SCRIPTDIR/fabric-ca_setup.sh -a -I -D > $LOGFILE 2>&1 ;;
-         *) $SCRIPTDIR/fabric-ca_setup.sh -I -D -d $server 2>&1 > $LOGFILE ;;
+         *) $SCRIPTDIR/fabric-ca_setup.sh -I -D -d $server > $LOGFILE 2>&1 ;;
    esac
    passWordSub
    $SCRIPTDIR/fabric-ca_setup.sh -S >> $LOGFILE 2>&1

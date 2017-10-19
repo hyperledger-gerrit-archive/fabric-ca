@@ -167,13 +167,13 @@ mysql --host=localhost --user=root --password=mysql --database=$DBNAME -e "CREAT
 
 # Starting server first time with one bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
 # Starting server second time with a second bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
@@ -192,7 +192,7 @@ echo "Dropping and creating an empty '$DBNAME' database"
 mysql --host=localhost --user=root --password=mysql -e "drop database fabric_ca;" -e "create database fabric_ca;" &> /dev/null
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
@@ -208,7 +208,7 @@ echo "Dropping '$DBNAME' database"
 mysql --host=localhost --user=root --password=mysql -e "drop database fabric_ca;" &> /dev/null
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
@@ -230,15 +230,14 @@ psql -d fabric_ca -c "CREATE TABLE users (id VARCHAR(64), token bytea, type VARC
 
 # Starting server first time with one bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG 2>&1 | tee $SERVERLOG &
-
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
 sleep 1
 # Starting server second time with a second bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
@@ -257,7 +256,7 @@ psql -c "drop database $DBNAME"
 psql -c "create database $DBNAME"
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 pid=$(pidof fabric-ca-server)
 killserver $pid
 
@@ -287,7 +286,7 @@ pollServer postgres 127.0.0.1 5432 5 stop # Wait for PostgreSQL to stop
 
 # Start fabric-ca server connecting to postgres, this will fail
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 
 # Enroll with a server that does not have a DB initialized, should expect to get back error
 enroll a b 2>&1 | grep "Failed to create user registry for PostgreSQL"
@@ -315,7 +314,7 @@ pollServer mysql 127.0.0.1 3306 2 stop # Wait for MySQL to stop
 
 # Start fabric-ca server connecting to MySQL, this will fail
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2
-pollServer fabric-ca-server 127.0.0.1 17054 10 start
+sleep 1; pollServer fabric-ca-server 127.0.0.1 17054 10 start
 
 # Enroll with a server that does not have a DB initialized, should expect to get back error
 enroll a b 2>&1 | grep "Failed to create user registry for MySQL"
