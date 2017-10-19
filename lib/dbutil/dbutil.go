@@ -65,7 +65,7 @@ func NewUserRegistrySQLLite3(datasource string) (*sqlx.DB, error) {
 }
 
 func createSQLiteDBTables(datasource string) error {
-	log.Debug("Creating SQLite database (%s) if it does not exist...", datasource)
+	log.Debugf("Creating SQLite database (%s) if it does not exist...", datasource)
 	db, err := sqlx.Open("sqlite3", datasource)
 	if err != nil {
 		return errors.Wrap(err, "Failed to open SQLite database")
@@ -92,7 +92,7 @@ func createSQLiteDBTables(datasource string) error {
 func NewUserRegistryPostgres(datasource string, clientTLSConfig *tls.ClientTLSConfig) (*sqlx.DB, error) {
 	log.Debugf("Using postgres database, connecting to database...")
 
-	dbName := getDBName(datasource)
+	dbName := GetDBName(datasource)
 	log.Debug("Database Name: ", dbName)
 
 	if strings.Contains(dbName, "-") || strings.HasSuffix(dbName, ".db") {
@@ -177,10 +177,10 @@ func createPostgresTables(dbName string, db *sqlx.DB) error {
 func NewUserRegistryMySQL(datasource string, clientTLSConfig *tls.ClientTLSConfig, csp bccsp.BCCSP) (*sqlx.DB, error) {
 	log.Debugf("Using MySQL database, connecting to database...")
 
-	dbName := getDBName(datasource)
+	dbName := GetDBName(datasource)
 	log.Debug("Database Name: ", dbName)
 
-	re := regexp.MustCompile(`\/([a-zA-z]+)`)
+	re := regexp.MustCompile(`\/([0-9,a-z,A-Z$_]+)`)
 	connStr := re.ReplaceAllString(datasource, "/")
 
 	if clientTLSConfig.Enabled {
@@ -260,7 +260,7 @@ func createMySQLTables(dbName string, db *sqlx.DB) error {
 }
 
 // GetDBName gets database name from connection string
-func getDBName(datasource string) string {
+func GetDBName(datasource string) string {
 	var dbName string
 	datasource = strings.ToLower(datasource)
 

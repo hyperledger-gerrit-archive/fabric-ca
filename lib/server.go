@@ -38,6 +38,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
 	"github.com/cloudflare/cfssl/signer"
+	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
@@ -432,6 +433,17 @@ func (s *Server) createDefaultCAConfigs(cacount int) error {
 
 		cn := fmt.Sprintf("fabric-ca-server-ca%d", i)
 		cfg = strings.Replace(cfg, "<<<COMMONNAME>>>", cn, 1)
+
+		datasource := s.CA.Config.DB.Datasource
+		if s.CA.Config.DB.Type == "sqlite3" {
+			ext := filepath.Ext(datasource)
+			dbName := strings.TrimSuffix(filepath.Base(datasource), ext)
+			datasource = fmt.Sprintf("%s_ca%d%s", dbName, i, ext)
+		} else {
+			dbName := dbutil.GetDBName(datasource)
+			datasource = strings.Replace(datasource, dbName, fmt.Sprintf("%s_ca%d", dbName, i), 1)
+		}
+		cfg = strings.Replace(cfg, "<<<DATASOURCE>>>", datasource, 1)
 
 		s.Config.CAfiles = append(s.Config.CAfiles, cfgFileName)
 
