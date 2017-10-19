@@ -22,6 +22,7 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
@@ -56,7 +57,7 @@ func (c *ClientCmd) newServerCfgCommand() *cobra.Command {
 			return nil
 		},
 	}
-
+	util.RegisterFlags(c.myViper, servercfgCmd.Flags(), &c.affiliations, nil)
 	return servercfgCmd
 }
 
@@ -91,6 +92,8 @@ func (c *ClientCmd) runServerCfg(cmd *cobra.Command, args []string) error {
 
 	req := &api.ConfigRequest{
 		Commands: commands,
+		CAName:   c.clientCfg.CAName,
+		Force:    c.affiliations.Force,
 	}
 	resp, err := id.UpdateServerConfig(req)
 

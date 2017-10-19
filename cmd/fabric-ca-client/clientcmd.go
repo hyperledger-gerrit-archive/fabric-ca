@@ -58,6 +58,11 @@ type crlArgs struct {
 	ExpireBefore string `help:"Generate CRL with certificates that expire before this UTC timestamp (in RFC3339 format)"`
 }
 
+type affiliationsCfg struct {
+	// Force if set true will remove any affiliation and any identities associated with that affiliation
+	Force bool `help:"Enables forcefully removing of identities if their associated affiliation is removed"`
+}
+
 // ClientCmd encapsulates cobra command that provides command line interface
 // for the Fabric CA client and the configuration used by the Fabric CA client
 type ClientCmd struct {
@@ -91,6 +96,8 @@ type ClientCmd struct {
 	profileInst interface {
 		Stop()
 	}
+	// affiliations has configurations related to affiliations
+	affiliations affiliationsCfg
 }
 
 // NewCommand returns new ClientCmd ready for running
