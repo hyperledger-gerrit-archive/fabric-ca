@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jim Zhang <jim_the_matrix@hotmail.com>
+Code-Review+2: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-by: Yacov Manevich <yacovm@il.ibm.com>
+Submitted-at: Thu, 19 Oct 2017 16:27:39 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/14555
+Project: fabric-ca
+Branch: refs/heads/release
