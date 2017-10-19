@@ -176,6 +176,7 @@ type GenCRLResponse struct {
 type ConfigRequest struct {
 	Commands []Command `json:"commands"`
 	CAName   string    `json:"caname,omitempty" skip:"true"`
+	Force    bool      `json:"force"`
 }
 
 // Command is the command to be executed

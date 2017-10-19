@@ -375,7 +375,7 @@ func (ctx *serverRequestContext) HasRole(role string) (bool, error) {
 	return ctx.callerRoles[role], nil
 }
 
-// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+// ContainsAffiliation returns true if caller's affiliation is a prefix of the requested affiliation
 func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) (bool, error) {
 	caller, err := ctx.GetCaller()
 	if err != nil {
@@ -397,7 +397,7 @@ func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) (bool, 
 	return false, nil
 }
 
-// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+// IsRegistrar returns true if caller has 'hf.Registrar.Roles' attribute
 func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
 	caller, err := ctx.GetCaller()
 	if err != nil {
@@ -408,7 +408,7 @@ func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
 
 	rolesStr, err := caller.GetAttribute(registrarRole)
 	if err != nil {
-		return "", false, errors.WithMessage(err, fmt.Sprintf("'%s' is not a registrar", caller.GetName()))
+		return "", false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar", caller.GetName())
 	}
 
 	// Has some value for attribute 'hf.Registrar.Roles' then user is a registrar
@@ -417,6 +417,39 @@ func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
 	}
 
 	return "", false, nil
+}
+
+// CanActOnRole returns true if the caller has the proper authority to take action on specific role type
+func (ctx *serverRequestContext) CanActOnRole(role string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' can register role '%s'", caller.GetName(), role)
+
+	rolesStr, isRegistrar, err := ctx.IsRegistrar()
+	if err != nil {
+		return false, err
+	}
+	if !isRegistrar {
+		if err != nil {
+			return false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar", caller.GetName())
+		}
+	}
+
+	var roles []string
+	if rolesStr != "" {
+		roles = strings.Split(rolesStr, ",")
+	} else {
+		roles = make([]string, 0)
+	}
+
+	if !util.StrContained(role, roles) {
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

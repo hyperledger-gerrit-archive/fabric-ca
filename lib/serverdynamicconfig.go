@@ -24,6 +24,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -92,7 +93,7 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 		log.Debugf("Requesting to '%s' to server's configuration", updateStr)
 		switch updateAction {
 		case add:
-			result, err := processRequest(add, updateReq, ctx)
+			result, err := processRequest(add, updateReq, req.Force, ctx)
 			if err != nil {
 				configErrs = append(configErrs, addActionToError(updateStr, err))
 			}
@@ -100,7 +101,13 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 				aggregateResponses(updateStr, result, cfgResp)
 			}
 		case remove:
-			return nil, errors.Errorf("Not Implemented")
+			result, err := processRequest(remove, updateReq, req.Force, ctx)
+			if err != nil {
+				configErrs = append(configErrs, addActionToError(updateStr, err))
+			}
+			if result != "" {
+				aggregateResponses(updateStr, result, cfgResp)
+			}
 		case modify:
 			return nil, errors.Errorf("Not Implemented")
 		default:
@@ -127,7 +134,7 @@ func processConfigUpdate(ctx *serverRequestContext, req *api.ConfigRequest) (int
 	return cfgResp, nil
 }
 
-func processRequest(action, actionStr string, ctx *serverRequestContext) (string, error) {
+func processRequest(action, actionStr string, force bool, ctx *serverRequestContext) (string, error) {
 	log.Debugf("Processing '%s' request", action)
 
 	if strings.HasPrefix(actionStr, identity) { // Checks to see if request contains 'registry.identities' prefix
@@ -137,7 +144,7 @@ func processRequest(action, actionStr string, ctx *serverRequestContext) (string
 		}
 		return result, nil
 	} else if strings.HasPrefix(actionStr, aff) { // Checks to see if request contains 'affiliations' prefix
-		result, err := processAffiliation(action, actionStr, ctx)
+		result, err := processAffiliation(action, actionStr, force, ctx)
 		if err != nil {
 			return "", err
 		}
@@ -147,22 +154,14 @@ func processRequest(action, actionStr string, ctx *serverRequestContext) (string
 	}
 }
 
-func processIdentity(action, actionStr string, ctx *serverRequestContext) (string, error) {
+func processIdentity(action, configReq string, ctx *serverRequestContext) (string, error) {
 	log.Debugf("Process identity configuration update")
-	_, isRegistrar, err := ctx.IsRegistrar()
-	if err != nil {
-		return "", newAuthErr(ErrUpdateConfigAuth, "Caller is unable to edit identities: %s", err)
-	}
-	if !isRegistrar {
-		return "", newAuthErr(ErrUpdateConfigAuth, "Caller does not have the attribute '%s', unable to edit identities", registrarRole)
-	}
 
 	switch action {
 	case add:
-		return addIdentity(actionStr, ctx)
+		return addIdentity(configReq, ctx)
 	case remove:
-		// TODO
-		return "", errors.Errorf("Not Implemented")
+		return removeIdentity(configReq, ctx)
 	case modify:
 		// TODO
 		return "", errors.Errorf("Not Implemented")
@@ -173,7 +172,7 @@ func processIdentity(action, actionStr string, ctx *serverRequestContext) (strin
 
 func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 	if !strings.Contains(addStr, "=") {
-		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Incorrect format for adding identity request, missing '=' in request")
+		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Incorrect format for adding identity, missing equals sign")
 	}
 	req := strings.SplitN(addStr, "=", 2)
 	value := req[1]
@@ -188,16 +187,9 @@ func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Missing 'ID' in request to add a new intentity")
 	}
 
-	caller, err := ctx.GetCaller()
-	if err != nil {
-		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Failed to get caller identity: %s", err)
-	}
-	callerID := caller.GetName()
-
-	secret, err := registerUser(identity, callerID, ctx.ca, ctx)
+	secret, err := registerUser(identity, ctx.ca, ctx)
 	if err != nil {
 		return "", newHTTPErr(400, ErrUpdateConfigAddIdentity, "Failed to add identity: %s", err)
-
 	}
 
 	id := identity.Name
@@ -205,7 +197,36 @@ func addIdentity(addStr string, ctx *serverRequestContext) (string, error) {
 	return fmt.Sprintf("ID: %s, Password: %s", id, secret), nil
 }
 
-func processAffiliation(action, affiliation string, ctx *serverRequestContext) (string, error) {
+func removeIdentity(removeStr string, ctx *serverRequestContext) (string, error) {
+	removeID := strings.TrimPrefix(removeStr, identity+".")
+	log.Debugf("Removing identity '%s'", removeID)
+
+	if !ctx.ca.Config.Cfg.Identities.AllowRemove {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Identity removal is disabled")
+	}
+
+	registry := ctx.ca.registry
+
+	userToRemove, err := registry.GetUserInfo(removeID)
+	if err != nil {
+		return "", err
+	}
+
+	err = performIdentityAuthCheck(userToRemove, ctx)
+	if err != nil {
+		return "", errors.WithMessage(err, "Caller is not authorized to remove identity")
+	}
+
+	registry.DeleteUser(removeID)
+	if err != nil {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveIdentity, "Failed to remove identity: ", err)
+	}
+
+	log.Debugf("Identity '%s' successfully removed", removeID)
+	return fmt.Sprintf("Identity '%s' successfully removed", removeID), nil
+}
+
+func processAffiliation(action, affiliation string, force bool, ctx *serverRequestContext) (string, error) {
 	log.Debug("Processing affiliation configuration request")
 	hasRole, err := ctx.HasRole(affiliationMgrRole)
 	if err != nil {
@@ -230,8 +251,7 @@ func processAffiliation(action, affiliation string, ctx *serverRequestContext) (
 	case add:
 		return addAffiliation(affiliation, ctx)
 	case remove:
-		// TODO
-		return "", errors.Errorf("Not Implemented")
+		return removeAffiliation(affiliation, force, ctx)
 	case modify:
 		// TODO
 		return "", errors.Errorf("Not Implemented")
@@ -266,6 +286,73 @@ func addAffiliation(affiliation string, ctx *serverRequestContext) (string, erro
 
 	log.Debugf("Affiliation '%s' successfully added", affiliation)
 	return fmt.Sprintf("Affiliation '%s' successfully added", affiliation), nil
+}
+
+func removeAffiliation(affiliation string, force bool, ctx *serverRequestContext) (string, error) {
+	log.Debugf("Removing affiliation '%s' and any affiliations below", affiliation)
+
+	if !ctx.ca.Config.Cfg.Affiliations.AllowRemove {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation removal is disabled")
+	}
+
+	callerAff := strings.Join(ctx.caller.GetAffiliationPath(), ".")
+	if callerAff == affiliation {
+		return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Can't remove affiliation '%s' that the caller is also a part of because it is the caller's affiliation", affiliation)
+	}
+
+	if force {
+		_, isRegistrar, err := ctx.IsRegistrar()
+		if err != nil {
+			return "", err
+		}
+		if !isRegistrar {
+			return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation can't be removed, caller does not have permission to update identities but request forced removal of identities")
+		}
+		if !ctx.ca.Config.Cfg.Identities.AllowRemove {
+			return "", newHTTPErr(401, ErrUpdateConfigRemoveAff, "Affiliation can't be removed, because removing of identities is not allowed by server")
+		}
+	}
+
+	// Affiliation can still be removed, even if removing of identities is not allowed by server, as long as the affiliation being removed
+	// does not have any identities associated with it
+	err := ctx.ca.registry.DeleteAffiliation(affiliation, force)
+	if err != nil {
+		return "", newHTTPErr(400, ErrUpdateConfigRemoveAff, "Failed to remove affiliation: %s", err)
+	}
+
+	log.Debugf("Affiliation '%s' successfully removed", affiliation)
+	return fmt.Sprintf("Affiliation '%s' successfully removed", affiliation), nil
+}
+
+func performIdentityAuthCheck(user spi.UserInfo, ctx *serverRequestContext) error {
+	userRole := user.Type
+	userAff := user.Affiliation
+
+	_, isRegistrar, err := ctx.IsRegistrar()
+	if err != nil {
+		return newAuthErr(ErrUpdateConfigAuth, "Caller is unable to edit identities: %s", err)
+	}
+	if !isRegistrar {
+		return newAuthErr(ErrUpdateConfigAuth, "Caller does not have the attribute '%s', unable to edit identities", registrarRole)
+	}
+
+	canActOnRole, err := ctx.CanActOnRole(userRole)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to validate if registrar has proper authority to act on role")
+	}
+	if !canActOnRole {
+		return newAuthErr(ErrRegistrarInvalidRole, "Registrar does not have authority to action on role '%s'", userRole)
+	}
+
+	validAffiliation, err := ctx.ContainsAffiliation(userAff)
+	if err != nil {
+		return newHTTPErr(400, ErrGettingAffiliation, "Failed to validate if caller has authority to remove identity affiliation: %s", err)
+	}
+	if !validAffiliation {
+		return newAuthErr(ErrRegistrarNotAffiliated, "Registrar does not have authority to action on affiliation '%s'", userAff)
+	}
+
+	return nil
 }
 
 func aggregateResponses(request, result string, cfgResp *api.ConfigResponse) {

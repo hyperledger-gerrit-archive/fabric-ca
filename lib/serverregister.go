@@ -57,7 +57,7 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 		return nil, err
 	}
 	// Register User
-	secret, err := registerUser(&req.RegistrationRequest, callerID, ca, ctx)
+	secret, err := registerUser(&req.RegistrationRequest, ca, ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func registerHandler(ctx *serverRequestContext) (interface{}, error) {
 }
 
 // RegisterUser will register a user and return the secret
-func registerUser(req *api.RegistrationRequest, registrar string, ca *CA, ctx *serverRequestContext) (string, error) {
+func registerUser(req *api.RegistrationRequest, ca *CA, ctx *serverRequestContext) (string, error) {
 
 	var err error
 	var registrarUser spi.User
@@ -79,7 +79,7 @@ func registerUser(req *api.RegistrationRequest, registrar string, ca *CA, ctx *s
 		return "", err
 	}
 	// Check the permissions of member named 'registrar' to perform this registration
-	err = canRegister(registrar, req, registrarUser, ctx)
+	err = canRegister(req, ctx)
 	if err != nil {
 		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
 		return "", err
@@ -217,27 +217,18 @@ func requireAffiliation(idType string) bool {
 	return true
 }
 
-func canRegister(registrar string, req *api.RegistrationRequest, user spi.User, ctx *serverRequestContext) error {
-	log.Debugf("canRegister - Check to see if user %s can register", registrar)
+func canRegister(req *api.RegistrationRequest, ctx *serverRequestContext) error {
+	log.Debugf("canRegister - Check to see if user %s can register", ctx.caller.GetName())
 
-	var roles []string
-	rolesStr, isRegistrar, err := ctx.IsRegistrar()
-	if err != nil {
-		return err
-	}
-	if !isRegistrar {
-		return errors.Errorf("'%s' does not have authority to register identities", registrar)
-	}
-	if rolesStr != "" {
-		roles = strings.Split(rolesStr, ",")
-	} else {
-		roles = make([]string, 0)
-	}
 	if req.Type == "" {
 		req.Type = "user"
 	}
-	if !util.StrContained(req.Type, roles) {
-		return fmt.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
+	canActOnRole, err := ctx.CanActOnRole(req.Type)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to validate if registrar has proper authority to act on role")
+	}
+	if !canActOnRole {
+		return newAuthErr(ErrRegistrarInvalidRole, "Registrar does not have authority to action on role '%s'", req.Type)
 	}
 	return nil
 }

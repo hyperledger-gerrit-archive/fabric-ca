@@ -139,6 +139,8 @@ const (
 	ErrUpdateConfigAff = 53
 	// Registrar's affiliation not equal to or above revokee's affiliation
 	ErrRegistrarNotAffiliated = 54
+	// Registrar can not act on role type
+	ErrRegistrarInvalidRole = 55
 )
 
 // Construct a new HTTP error.

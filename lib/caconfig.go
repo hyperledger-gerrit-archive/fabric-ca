@@ -71,7 +71,7 @@ csr:
 // "help" - the help message to display on the command line;
 // "skip" - to skip the field.
 type CAConfig struct {
-	AllowRemove  RemoveOptions
+	Cfg          cfgOptions
 	CA           CAInfo
 	Signing      *config.Signing
 	CSR          api.CSRInfo
@@ -87,10 +87,20 @@ type CAConfig struct {
 	CRL          CRLConfig
 }
 
-// RemoveOptions is a CA configuration for allowing dynamic removing of users and/or affiliations
-type RemoveOptions struct {
-	Identities   bool `help:"Enables removing of identities dynamically"`
-	Affiliations bool `help:"Enables removing of affiliations dynamically"`
+// cfgOptions is a CA configuration that allows for setting different options
+type cfgOptions struct {
+	Identities   identitiesOptions
+	Affiliations affiliationsOptions
+}
+
+// identitiesOptions are options that are related to identities
+type identitiesOptions struct {
+	AllowRemove bool `help:"Enables removing of identities dynamically"`
+}
+
+// affiliationsOptions are options that are related to affiliations
+type affiliationsOptions struct {
+	AllowRemove bool `help:"Enables removing of affiliations dynamically"`
 }
 
 // CAInfo is the CA information on a fabric-ca-server
