@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Srinivasan Muralidharan <srinivasan.muralidharan99@gmail.com>
+Code-Review+2: Artem Barger <bartem@il.ibm.com>
+Submitted-by: Artem Barger <bartem@il.ibm.com>
+Submitted-at: Fri, 20 Oct 2017 13:35:07 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/14729
+Project: fabric-ca
+Branch: refs/heads/release
