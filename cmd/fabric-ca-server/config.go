@@ -25,6 +25,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
+	metadata "github.com/hyperledger/fabric-ca/cmd"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 )
@@ -76,6 +77,7 @@ const (
 #   of this configuration file.
 #
 #############################################################################
+version: <<<VERSION>>>
 
 # Server's listening port (default: 7054)
 port: 7054
@@ -421,6 +423,18 @@ func (s *ServerCmd) configInit() (err error) {
 		return err
 	}
 
+	version := s.myViper.Get("version")
+	if version == nil {
+		s.configFileVersion = "0"
+	} else {
+		s.configFileVersion = s.myViper.Get("version").(string)
+	}
+	executableVersion := metadata.GetServerVersion()
+	olderExec := util.CompareVersions("server configuration file", "server executable", s.configFileVersion, executableVersion)
+	if olderExec {
+		return errors.Errorf("The configuration file version '%s' is higher than the server executable version '%s'", s.configFileVersion, executableVersion)
+	}
+
 	// The pathlength field controls how deep the CA hierarchy when requesting
 	// certificates. If it is explicitly set to 0, set the PathLenZero field to
 	// true as CFSSL expects.
@@ -484,6 +498,7 @@ func (s *ServerCmd) createDefaultConfigFile() error {
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
+	cfg = strings.Replace(cfg, "<<<VERSION>>>", metadata.GetServerVersion(), 1)
 	purl := s.myViper.GetString("intermediate.parentserver.url")
 	log.Debugf("parent server URL: '%s'", purl)
 	if purl == "" {

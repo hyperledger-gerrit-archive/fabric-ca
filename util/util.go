@@ -37,6 +37,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -771,4 +772,34 @@ func ValidateAndReturnAbsConf(configFilePath, homeDir, cmdName string) (string, 
 
 	configFile := filepath.Join(homeDir, filepath.Base(defaultConfig)) // Join specified home directory with default config file name
 	return configFile, homeDir, nil
+}
+
+// CompareVersions returns true if version1 is higher thant version2
+func CompareVersions(compare1, compare2, version1, version2 string) bool {
+	log.Debugf("Checking if %s version '%s' is higher than %s version '%s'", compare1, version1, compare2, version2)
+	version1Parts := strings.Split(version1, ".")
+	version2Parts := strings.Split(version2, ".")
+
+	var smallestVersionLength int
+	if len(version1Parts) <= len(version2Parts) {
+		smallestVersionLength = len(version1Parts)
+	} else {
+		smallestVersionLength = len(version2Parts)
+	}
+
+	for i := 0; i < smallestVersionLength; i++ {
+		version1Int, _ := strconv.Atoi(version1Parts[i])
+		version2Int, _ := strconv.Atoi(version2Parts[i])
+		if version1Int > version2Int {
+			return true
+		}
+	}
+
+	if len(version1Parts) > len(version2Parts) {
+		if version1Parts[smallestVersionLength] != "0" {
+			return true
+		}
+	}
+
+	return false
 }

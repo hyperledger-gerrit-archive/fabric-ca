@@ -762,3 +762,54 @@ func TestValidateAndReturnAbsConf(t *testing.T) {
 		t.Error("Failed to get correct path for configuration file")
 	}
 }
+
+func TestCompareVersion(t *testing.T) {
+	version1 := "1.1.0"
+	version2 := "0"
+	test := CompareVersions("version1", "version2", version1, version2)
+	if test != true {
+		t.Errorf("Should have returned true, %s is higher than %s", version1, version2)
+	}
+
+	version1 = "1.1"
+	version2 = "1.0.1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != true {
+		t.Errorf("Should have returned true, %s is higher than %s", version1, version2)
+	}
+
+	version1 = "1.0.0"
+	version2 = "1.0.1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != false {
+		t.Errorf("Should have returned false, %s is lower than %s", version1, version2)
+	}
+
+	version1 = "1.0.0.0.0.0"
+	version2 = "1.0.0.1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != false {
+		t.Errorf("Should have returned false, %s is lower than %s", version1, version2)
+	}
+
+	version1 = "1.0.0"
+	version2 = "1.0.0"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != false {
+		t.Errorf("Should have returned false, %s is the same value a %s", version1, version2)
+	}
+
+	version1 = "1"
+	version2 = "0"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != true {
+		t.Errorf("Should have returned true, %s is higher than %s", version1, version2)
+	}
+
+	version1 = "0"
+	version2 = "1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != false {
+		t.Errorf("Should have returned false, %s is lower than %s", version1, version2)
+	}
+}

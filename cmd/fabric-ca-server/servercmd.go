@@ -51,6 +51,8 @@ type ServerCmd struct {
 	homeDirectory string
 	// serverCfg is the server's configuration
 	cfg *lib.ServerConfig
+	// configuration file version
+	configFileVersion string
 }
 
 // NewCommand returns new ServerCmd ready for running
@@ -185,8 +187,9 @@ func (s *ServerCmd) getServer() *lib.Server {
 		Config:        s.cfg,
 		BlockingStart: s.blockingStart,
 		CA: lib.CA{
-			Config:         &s.cfg.CAcfg,
-			ConfigFilePath: s.cfgFileName,
+			Config:            &s.cfg.CAcfg,
+			ConfigFilePath:    s.cfgFileName,
+			ConfigFileVersion: s.configFileVersion,
 		},
 	}
 }
