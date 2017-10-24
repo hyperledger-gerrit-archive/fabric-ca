@@ -48,6 +48,8 @@ type User interface {
 	GetAttribute(name string) string
 	// GetAttributes returns the requested attributes
 	GetAttributes(attrNames []string) []tcert.Attribute
+	// SetAttributes adds a new attribute or modifies existing attribute
+	SetAttributes(attrs []api.Attribute) error
 	// LoginComplete completes the login process by incrementing the state of the user
 	LoginComplete() error
 }

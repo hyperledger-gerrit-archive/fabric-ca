@@ -25,6 +25,7 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/hyperledger/fabric/bccsp/pkcs11"
@@ -761,6 +762,48 @@ func TestCAVerifyCertificate(t *testing.T) {
 		t.Error("VerifyCertificate should have failed")
 	}
 	CAclean(ca, t)
+}
+
+func TestServerMigration(t *testing.T) {
+	os.RemoveAll("migrationTest")
+	defer os.RemoveAll("migrationTest")
+	os.Mkdir("migrationTest", 0777)
+	db, err := dbutil.NewUserRegistrySQLLite3("migrationTest/fabric-ca-server.db")
+	util.FatalError(t, err, "Failed to create db")
+	_, err = db.Exec("INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments) VALUES ('registrar', '', 'user', 'org2', '[{\"name\":\"hf.Registrar.Roles\",\"value\":\"user,peer,client\"}]', '0', '-1')")
+	assert.NoError(t, err, "Failed to insert user 'registrar' into database")
+	_, err = db.Exec("INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments) VALUES ('notregistrar', '', 'user', 'org2', '[{\"name\":\"hf.Revoker\",\"value\":\"true\"}]', '0', '-1')")
+	assert.NoError(t, err, "Failed to insert user 'notregistrar' into database")
+
+	server := TestGetServer2(false, rootPort, "migrationTest", "", -1, t)
+	if server == nil {
+		return
+	}
+	server.version = "1.1.0"
+	err = server.Start()
+	util.FatalError(t, err, "Server start failed")
+	defer func() {
+		err = server.Stop()
+		if err != nil {
+			t.Errorf("Failed to stop server: %s", err)
+		}
+	}()
+
+	registrar, err := server.CA.registry.GetUser("registrar", nil)
+	assert.NoError(t, err, "Failed to get user")
+	registrarAttr := registrar.GetAttribute("hf.Registrar.Attributes")
+	t.Logf("registrarAttr: '%s'", registrarAttr)
+	if registrarAttr == "" {
+		t.Error("Failed to correctly migrate user 'registrar'")
+	}
+
+	notregistrar, err := server.CA.registry.GetUser("notregistrar", nil)
+	assert.NoError(t, err, "Failed to get user")
+	notregistrarAttr := notregistrar.GetAttribute("hf.Registrar.Attributes")
+	t.Logf("notregistrarAttr: '%s'", notregistrarAttr)
+	if notregistrarAttr != "" {
+		t.Error("Failed to correctly migrate user 'notregistrar'")
+	}
 }
 
 func getCertFromFile(f string) (*x509.Certificate, error) {
