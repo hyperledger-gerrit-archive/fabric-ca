@@ -25,6 +25,7 @@ import (
 	"testing"
 
 	"github.com/cloudflare/cfssl/config"
+	"github.com/hyperledger/fabric-ca/lib/dbutil"
 )
 
 const (
@@ -110,6 +111,11 @@ func TestGetServer2(deleteHome bool, port int, home, parentURL string, maxEnroll
 				Signing: &config.Signing{
 					Profiles: profiles,
 					Default:  defaultProfile,
+				},
+				Levels: dbutil.Levels{
+					Identity:    IdentityLevel,
+					Affiliation: AffiliationLevel,
+					Certificate: CertificateLevel,
 				},
 			},
 		},

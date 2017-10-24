@@ -52,12 +52,16 @@ type User interface {
 	GetAttribute(name string) (*api.Attribute, error)
 	// GetAttributes returns the requested attributes
 	GetAttributes(attrNames []string) ([]api.Attribute, error)
+	// ModifyAttributes adds a new attribute or modifies existing attribute
+	ModifyAttributes(attrs []api.Attribute) error
 	// LoginComplete completes the login process by incrementing the state of the user
 	LoginComplete() error
 	// Revoke will revoke the user, setting the state of the user to be -1
 	Revoke() error
 	// GetLevel returns the level of the user
 	GetLevel() int
+	// SetLevel sets the level of the user
+	SetLevel(level int) error
 }
 
 // UserRegistry is the API for retreiving users and groups
@@ -70,4 +74,5 @@ type UserRegistry interface {
 	InsertAffiliation(name string, prekey string, version int) error
 	DeleteAffiliation(name string) error
 	GetProperties(name []string) (map[string]string, error)
+	GetUserLessThanLevel(version int) ([]User, error)
 }
