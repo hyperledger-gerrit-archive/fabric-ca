@@ -655,7 +655,7 @@ func (ca *CA) initUserRegistry() error {
 		return err
 	}
 
-	// Use the DB for the user registry and load users
+	// Use the DB for the user registry
 	dbAccessor := new(Accessor)
 	dbAccessor.SetDB(ca.db)
 	ca.registry = dbAccessor
@@ -1097,7 +1097,23 @@ func (ca *CA) loadCNFromEnrollmentInfo(certFile string) (string, error) {
 func (ca *CA) performMigration() error {
 	log.Debug("Checking and performing migration, if needed")
 
-	// TODO: Migration logic will go here
+	users, err := ca.registry.GetUserLessThanLevel(metadata.IdentityLevel)
+	if err != nil {
+		return err
+	}
+
+	for _, user := range users {
+		currentLevel := user.GetLevel()
+		for currentLevel < metadata.IdentityLevel {
+			if currentLevel < 1 {
+				err := ca.migrateUsertoLevel1(user)
+				if err != nil {
+					return err
+				}
+				currentLevel++
+			}
+		}
+	}
 
 	sl, err := metadata.GetLevels(metadata.GetVersion())
 	if err != nil {
@@ -1112,7 +1128,14 @@ func (ca *CA) performMigration() error {
 }
 
 func (ca *CA) checkConfigLevels() error {
+	var err error
 	serverVersion := metadata.GetVersion()
+	if ca.server.levels == nil {
+		ca.server.levels, err = metadata.GetLevels(serverVersion)
+		if err != nil {
+			return err
+		}
+	}
 	configVersion := ca.Config.Version
 	log.Debugf("Checking configuration file verion '%+v' against server version: '%+v'", configVersion, serverVersion)
 	// Check configuration file version against server version to make sure that newer configuration file is not being used with server
@@ -1148,6 +1171,30 @@ func (ca *CA) checkDBLevels() error {
 	if (idVer > sl.Identity) || (affVer > sl.Affiliation) || (certVer > sl.Certificate) {
 		return newFatalError(ErrDBLevel, "The version of the database is newer than the server version.  Upgrade your server.")
 	}
+	return nil
+}
+
+func (ca *CA) migrateUsertoLevel1(user spi.User) error {
+	log.Debugf("Migrating user '%s' to level 1", user.GetName())
+
+	// Update identity to level 1
+	attr, _ := user.GetAttribute("hf.Registrar.Roles") // Check if user a registrar
+	if attr != nil {
+		attr2, _ := user.GetAttribute("hf.Registrar.Attributes") // Check if user already has "hf.Registrar.Attributes" attribute
+		if attr2 == nil {
+			addAttr := []api.Attribute{api.Attribute{Name: "hf.Registrar.Attributes", Value: "*"}}
+			err := user.ModifyAttributes(addAttr)
+			if err != nil {
+				return errors.WithMessage(err, "Failed to set attribute")
+			}
+		}
+	}
+
+	err := user.SetLevel(1)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to update level of user")
+	}
+
 	return nil
 }
 
