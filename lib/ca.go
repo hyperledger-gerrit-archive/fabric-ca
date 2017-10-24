@@ -598,11 +598,6 @@ func (ca *CA) initDB() error {
 			return errors.Wrap(err, "Failed to migrate database")
 		}
 
-		// err = initFunc(ca.loadUsersTable)
-		// if err != nil {
-		// 	return err
-		// }
-
 		err = initFunc(ca.loadAffiliationsTable)
 		if err != nil {
 			return err
@@ -649,7 +644,7 @@ func (ca *CA) initUserRegistry() error {
 		return err
 	}
 
-	// Use the DB for the user registry and load users
+	// Use the DB for the user registry
 	dbAccessor := new(Accessor)
 	dbAccessor.SetDB(ca.db)
 	ca.registry = dbAccessor
@@ -1111,7 +1106,10 @@ func (ca *CA) checkVersions() error {
 			}
 		}
 
-		// TODO: Migration logic goes here
+		err := ca.migrateDBto1_1_0()
+		if err != nil {
+			return err
+		}
 
 		// Using current version of the configuration file, migrate all existing users before adding new users defined in configuration file
 		if !usingOldConfig {
@@ -1121,7 +1119,7 @@ func (ca *CA) checkVersions() error {
 			}
 		}
 
-		err := dbutil.UpdateDBVersion(ca.db, ca.server.version)
+		err = dbutil.UpdateDBVersion(ca.db, ca.server.version)
 		if err != nil {
 			return errors.Wrap(err, "Failed to update database version")
 		}
@@ -1138,6 +1136,35 @@ func (ca *CA) checkVersions() error {
 	err := ca.loadUsersTable()
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (ca *CA) migrateDBto1_1_0() error {
+	log.Debug("Migrating database to version 1.1.0")
+	db := ca.db
+
+	// Select all the ids that are a registrar, have 'hf.Registrar.Roles' attribute
+	var ids []string
+	err := db.Select(&ids, db.Rebind("SELECT id FROM users WHERE attributes LIKE '%hf.Registrar.Roles%' AND attributes NOT LIKE '%hf.Registrar.Attributes%'"))
+	if err != nil {
+		return errors.Wrap(err, "Failed to get ids that need to be updated")
+	}
+
+	// Update all the identities found above to have the newly introduced attribute
+	log.Debugf("IDs %s that need migration", ids)
+	for _, id := range ids {
+		user, err := ca.registry.GetUser(id, nil)
+		if err != nil {
+			return err
+		}
+
+		addAttr := []api.Attribute{api.Attribute{Name: "hf.Registrar.Attributes", Value: "*"}}
+		err = user.SetAttributes(addAttr)
+		if err != nil {
+			return errors.WithMessage(err, "Failed to set attribute")
+		}
 	}
 
 	return nil

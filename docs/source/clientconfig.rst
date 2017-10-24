@@ -50,7 +50,7 @@ Fabric-CA Client's Configuration File
     # Membership Service Provider (MSP) directory
     # This is useful when the client is used to enroll a peer or orderer, so
     # that the enrollment artifacts are stored in the format expected by MSP.
-    mspdir:
+    mspdir: msp
     
     #############################################################################
     #    TLS section for secure socket connection

@@ -39,9 +39,11 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/stretchr/testify/assert"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric/bccsp"
@@ -802,4 +804,12 @@ func CompareVersions(compare1, compare2, version1, version2 string) bool {
 	}
 
 	return false
+}
+
+// FatalError will check to see if an error occured if so it will cause the test cases exit
+func FatalError(t *testing.T, err error, msg string, args ...interface{}) {
+	msg = fmt.Sprintf(msg, args)
+	if !assert.NoError(t, err, msg) {
+		t.Fatal(msg)
+	}
 }

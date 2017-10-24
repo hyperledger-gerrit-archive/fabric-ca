@@ -27,6 +27,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
 	ctls "github.com/hyperledger/fabric-ca/lib/tls"
@@ -347,6 +348,11 @@ func (u *User) GetAttributes(attrNames []string) []tcert.Attribute {
 		attrs = append(attrs, tcert.Attribute{Name: name, Value: value})
 	}
 	return attrs
+}
+
+// SetAttributes adds a new attribute or modifies existing attribute
+func (u *User) SetAttributes(attrs []api.Attribute) error {
+	return nil
 }
 
 // Returns a slice with the elements reversed
