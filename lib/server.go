@@ -63,6 +63,7 @@ const (
 	attrIntermediateCA = "hf.IntermediateCA"
 	attrGenCRL         = "hf.GenCRL"
 	attrRegistrarAttr  = "hf.Registrar.Attributes"
+	version101         = "1.0.1"
 )
 
 // Server is the fabric-ca server
