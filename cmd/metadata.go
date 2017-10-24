@@ -39,6 +39,6 @@ func GetVersionInfo(prgName string) string {
 
 // GetServerVersion return the version information of the fabric-ca-server
 func GetServerVersion() string {
-	baseVersion := strings.Split(Version, "-")
+	baseVersion := strings.SplitN(Version, "-", 2)
 	return baseVersion[0]
 }

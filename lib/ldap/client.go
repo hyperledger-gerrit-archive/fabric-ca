@@ -375,6 +375,11 @@ func (u *User) Revoke() error {
 	return nil
 }
 
+// ModifyAttributes adds a new attribute or modifies existing attribute
+func (u *User) ModifyAttributes(attrs []api.Attribute) error {
+	return errNotSupported
+}
+
 // Returns a slice with the elements reversed
 func reverse(in []string) []string {
 	size := len(in)

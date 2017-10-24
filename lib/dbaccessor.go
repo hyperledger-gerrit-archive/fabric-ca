@@ -495,6 +495,55 @@ func (u *DBUser) Revoke() error {
 	return nil
 }
 
+// ModifyAttributes adds a new attribute or modifies existing attribute of the user
+func (u *DBUser) ModifyAttributes(attrs []api.Attribute) error {
+	log.Debugf("Set Attributes: %+v", attrs)
+	userAttrs, _ := u.GetAttributes(nil)
+	var addAttr api.Attribute
+	for _, addAttr = range attrs {
+		log.Debugf("Attribute: %+v", addAttr)
+		found := false
+		for i := range userAttrs {
+			if userAttrs[i].Name == addAttr.Name {
+				log.Debugf("Updating existing attribute")
+				userAttrs[i].Value = addAttr.Value
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Debugf("Adding as new attribute")
+			userAttrs = append(userAttrs, addAttr)
+		}
+	}
+
+	attrBytes, err := json.Marshal(userAttrs)
+	if err != nil {
+		return err
+	}
+
+	query := "UPDATE users SET attributes = ? where (id = ?)"
+	id := u.GetName()
+	res, err := u.db.Exec(u.db.Rebind(query), string(attrBytes), id)
+	if err != nil {
+		return err
+	}
+
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "Failed to get number of rows affected")
+	}
+
+	if numRowsAffected == 0 {
+		return errors.Errorf("No rows were affected when updating the state of identity %s", id)
+	}
+
+	if numRowsAffected != 1 {
+		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, id)
+	}
+	return nil
+}
+
 func dbGetError(err error, prefix string) error {
 	if err.Error() == "sql: no rows in result set" {
 		return errors.Errorf("%s not found", prefix)
