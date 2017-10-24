@@ -50,6 +50,7 @@ import (
 )
 
 const (
+	currentVersion            = "1.1.0"
 	defaultClientAuth         = "noclientcert"
 	fabricCAServerProfilePort = "FABRIC_CA_SERVER_PROFILE_PORT"
 	allRoles                  = "user,app,peer,orderer,client,validator,auditor"
@@ -815,7 +816,7 @@ func (s *Server) getLevels() *dbutil.Levels {
 func getVersion() string {
 	version := mycmd.Version
 	if version == "" {
-		version = "1.1.0"
+		version = currentVersion
 	}
 	return version
 }

@@ -111,6 +111,7 @@ func TestGetServer2(deleteHome bool, port int, home, parentURL string, maxEnroll
 					Profiles: profiles,
 					Default:  defaultProfile,
 				},
+				Version: currentVersion,
 			},
 		},
 		HomeDir: home,
