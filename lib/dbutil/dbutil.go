@@ -364,7 +364,7 @@ func UpdateDBVersion(db *sqlx.DB, serverVersion string) error {
 
 	_, err := db.Exec(db.Rebind("UPDATE properties SET value = ? WHERE (property = version)"), serverVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "no such column") {
+		if strings.Contains(err.Error(), "no such column") || strings.Contains(err.Error(), "does not exist") || strings.Contains(err.Error(), "Unknown column") {
 			_, err := db.Exec(db.Rebind("INSERT INTO properties (property, value) Values(?, ?)"), "version", serverVersion)
 			if err != nil {
 				return err
