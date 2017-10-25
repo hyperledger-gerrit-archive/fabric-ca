@@ -1006,8 +1006,8 @@ func validateUsage(cert *x509.Certificate) error {
 		return errors.New("No usage specified for certificate")
 	}
 
-	if cert.KeyUsage&x509.KeyUsageCertSign == 0 {
-		return errors.New("'Cert Sign' key usage is required")
+	if cert.KeyUsage&(x509.KeyUsageCertSign|x509.KeyUsageCRLSign) == 0 {
+		return errors.New("'cert sign' and 'crl sign' key usages are required")
 	}
 
 	return nil
@@ -1126,7 +1126,7 @@ func initSigningProfile(spp **config.SigningProfile, expiry time.Duration, isCA 
 		*spp = sp
 	}
 	if sp.Usage == nil {
-		sp.Usage = []string{"cert sign"}
+		sp.Usage = []string{"cert sign", "crl sign"}
 	}
 	if sp.Expiry == 0 {
 		sp.Expiry = expiry
