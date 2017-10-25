@@ -17,6 +17,7 @@ limitations under the License.
 package lib
 
 import (
+	"bytes"
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -56,6 +57,9 @@ import (
 
 const (
 	defaultDatabaseType = "sqlite3"
+	// CAChainParentFirstEnvVar is the name of the environment variable that needs to be set
+	// for server to return CA chain in parent-first order
+	CAChainParentFirstEnvVar = "CA_CHAIN_PARENT_FIRST"
 )
 
 var (
@@ -367,8 +371,15 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 // Return a certificate chain which is the concatenation of chain and cert
 func (ca *CA) concatChain(chain []byte, cert []byte) []byte {
 	result := make([]byte, len(chain)+len(cert))
-	copy(result[:len(chain)], chain)
-	copy(result[len(chain):], cert)
+	parentFirst := os.Getenv(CAChainParentFirstEnvVar)
+	parentFirstBool, err := strconv.ParseBool(parentFirst)
+	if err == nil && parentFirstBool {
+		copy(result[:len(chain)], chain)
+		copy(result[len(chain):], cert)
+	} else {
+		copy(result[:len(cert)], cert)
+		copy(result[len(cert):], chain)
+	}
 	return result
 }
 
@@ -473,23 +484,43 @@ func (ca *CA) getVerifyOptions() (*x509.VerifyOptions, error) {
 	if err != nil {
 		return nil, err
 	}
-	block, rest := pem.Decode(chain)
-	if block == nil {
-		return nil, errors.New("No root certificate was found")
-	}
-	rootCert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to parse root certificate")
-	}
-	rootPool := x509.NewCertPool()
-	rootPool.AddCert(rootCert)
 	var intPool *x509.CertPool
-	if len(rest) > 0 {
-		intPool = x509.NewCertPool()
-		if !intPool.AppendCertsFromPEM(rest) {
-			return nil, errors.New("Failed to add intermediate PEM certificates")
+	var rootPool *x509.CertPool
+
+	for len(chain) > 0 {
+		var block *pem.Block
+		block, chain = pem.Decode(chain)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" || len(block.Headers) != 0 {
+			continue
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to parse CA chain certificate")
+		}
+
+		if !cert.IsCA {
+			return nil, errors.New("A certificate in the CA chain is not a CA certificate")
+		}
+
+		// If authority key id is not present or if it is present and equal to subject key id,
+		// then it is a root certificate
+		if len(cert.AuthorityKeyId) == 0 || bytes.Equal(cert.AuthorityKeyId, cert.SubjectKeyId) {
+			if rootPool == nil {
+				rootPool = x509.NewCertPool()
+			}
+			rootPool.AddCert(cert)
+		} else {
+			if intPool == nil {
+				intPool = x509.NewCertPool()
+			}
+			intPool.AddCert(cert)
 		}
 	}
+
 	ca.verifyOptions = &x509.VerifyOptions{
 		Roots:         rootPool,
 		Intermediates: intPool,
