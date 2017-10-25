@@ -351,6 +351,25 @@ func TestWriteFile(t *testing.T) {
 	os.Remove("../testdata/test.txt")
 }
 
+func TestAppendToFile(t *testing.T) {
+	fileName := "../testdata/test.txt"
+	os.Remove(fileName)
+	// Append to non-existent file...file is created and content is written
+	err := AppendToFile(fileName, []byte("foo"), 0777)
+	assert.NoError(t, err, "Failed to append to file %s", fileName)
+	defer os.Remove(fileName)
+	data, err := ReadFile(fileName)
+	assert.NoError(t, err, "Failed to read file %s after append to non-existent file", fileName)
+	assert.Equal(t, "foo", string(data))
+
+	// Append to existing file
+	err = AppendToFile(fileName, []byte("bar"), 0777)
+	assert.NoError(t, err, "Failed to append to file %s", fileName)
+	data, err = ReadFile(fileName)
+	assert.NoError(t, err, "Failed to read file %s after append to an existing file", fileName)
+	assert.Equal(t, "foobar", string(data))
+}
+
 func getPath(file string) string {
 	return "../testdata/" + file
 }
