@@ -127,6 +127,23 @@ func WriteFile(file string, buf []byte, perm os.FileMode) error {
 	return ioutil.WriteFile(file, buf, perm)
 }
 
+// AppendToFile appends data to an existing file. If file does not exist,
+// creates the file and writes the data to the file.
+func AppendToFile(file string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	n, err := f.Write(data)
+	if err == nil && n < len(data) {
+		err = io.ErrShortWrite
+	}
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
+}
+
 // FileExists checks to see if a file exists
 func FileExists(name string) bool {
 	if _, err := os.Stat(name); err != nil {
@@ -484,6 +501,26 @@ func GetX509CertificateFromPEM(cert []byte) (*x509.Certificate, error) {
 		return nil, errors.Wrap(err, "Error parsing certificate")
 	}
 	return x509Cert, nil
+}
+
+// GetX509CertificatesFromPEM returns X509 certificates from bytes in PEM format
+func GetX509CertificatesFromPEM(pemBytes []byte) ([]*x509.Certificate, error) {
+	chain := pemBytes
+	var certs []*x509.Certificate
+	for len(chain) > 0 {
+		var block *pem.Block
+		block, chain = pem.Decode(chain)
+		if block == nil {
+			break
+		}
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, errors.Wrap(err, "Error parsing certificate")
+		}
+		certs = append(certs, cert)
+	}
+	return certs, nil
 }
 
 // GetCertificateDurationFromFile returns the validity duration for a certificate
