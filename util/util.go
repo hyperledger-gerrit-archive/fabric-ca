@@ -127,6 +127,23 @@ func WriteFile(file string, buf []byte, perm os.FileMode) error {
 	return ioutil.WriteFile(file, buf, perm)
 }
 
+// AppendToFile appends data to an existing file. If file does not exist,
+// creates the file and writes the data to the file.
+func AppendToFile(file string, data []byte, perm os.FileMode) error {
+	f, err := os.OpenFile(file, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	n, err := f.Write(data)
+	if err == nil && n < len(data) {
+		err = io.ErrShortWrite
+	}
+	if err1 := f.Close(); err == nil {
+		err = err1
+	}
+	return err
+}
+
 // FileExists checks to see if a file exists
 func FileExists(name string) bool {
 	if _, err := os.Stat(name); err != nil {
