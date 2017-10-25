@@ -1126,7 +1126,7 @@ func initSigningProfile(spp **config.SigningProfile, expiry time.Duration, isCA 
 		*spp = sp
 	}
 	if sp.Usage == nil {
-		sp.Usage = []string{"cert sign"}
+		sp.Usage = []string{"cert sign", "crl sign"}
 	}
 	if sp.Expiry == 0 {
 		sp.Expiry = expiry
