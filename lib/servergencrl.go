@@ -114,6 +114,11 @@ func genCRL(ca *CA, req api.GenCRLRequest) ([]byte, error) {
 		return nil, newHTTPErr(500, ErrGetCACert, "Failed to get certficate for the CA '%s': %s", ca.HomeDir, err)
 	}
 
+	if (caCert.KeyUsage & x509.KeyUsageCRLSign) == 0 {
+		log.Errorf("CA certificate does not have 'crl sign' key usage.")
+		return nil, newHTTPErr(500, ErrNoCrlSignAuth, "The CA does not have authority to generate a CRL. It's certificate does not have 'crl sign' key usage")
+	}
+
 	// Get the signer for the CA
 	_, signer, err := util.GetSignerFromCert(caCert, ca.csp)
 	if err != nil {
