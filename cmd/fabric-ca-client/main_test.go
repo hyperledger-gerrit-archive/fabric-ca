@@ -18,6 +18,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/pem"
@@ -731,6 +732,107 @@ func validCertsInDir(rootCertDir, interCertsDir string, t *testing.T) {
 	if reflect.DeepEqual(intercert.Issuer, rootcert.Subject) && reflect.DeepEqual(intercert.Subject, intercert.Issuer) {
 		t.Errorf("Not a valid intermediate certificate '%s' stored in '%s' directory", interCertPath, filepath.Base(interCertsDir))
 	}
+}
+
+// TestThreeCAHierarchy tests three CA hierarchy (root CA -- intermediate CA -- Issuing CA)
+// The client enrolls a user with the Issuing CA and checks if the there is one root CA cert
+// in the 'cacerts' folder of client msp and two intermediate CA certs in the pem file in
+// the 'intermediatecerts' folder.
+func TestThreeCAHierarchy(t *testing.T) {
+	validateCACerts := func(rootCertDir, interCertsDir string) {
+		files, err := ioutil.ReadDir(rootCertDir)
+		file := files[0].Name()
+		rootCertPath := filepath.Join(rootCertDir, file)
+		rootcaCertBytes, err := util.ReadFile(rootCertPath)
+		assert.NoError(t, err, "Failed to read root CA certificate file %s", rootCertPath)
+		rootcerts, err := util.GetX509CertificatesFromPEM(rootcaCertBytes)
+		assert.NoError(t, err, "Failed to retrieve root certificate from root CA certificate file")
+		assert.Equal(t, 1, len(rootcerts), "There should be only one root CA certificate")
+		assert.True(t, reflect.DeepEqual(rootcerts[0].Subject, rootcerts[0].Issuer),
+			"Not a valid root certificate '%s' stored in the '%s' directory",
+			rootCertPath, filepath.Base(rootCertDir))
+
+		interCertPath := filepath.Join(interCertsDir, file)
+		intcaCertBytes, err := util.ReadFile(interCertPath)
+		assert.NoError(t, err, "Failed to read intermediate CA certificates file %s", interCertPath)
+		intcerts, err := util.GetX509CertificatesFromPEM(intcaCertBytes)
+		assert.NoError(t, err, "Failed to retrieve certs from intermediate CA certificates file")
+		assert.Equal(t, 2, len(intcerts), "There should be 2 intermediate CA certificates")
+		// Assert that first int CA cert's issuer must be second int CA's subject
+		assert.True(t, bytes.Equal(intcerts[0].RawIssuer, intcerts[1].RawSubject), "Issuing CA's issuer should be intermediate CA's subject")
+		// Assert that second int CA cert's issuer must be root CA's subject
+		assert.True(t, bytes.Equal(intcerts[1].RawIssuer, rootcerts[0].RawSubject), "Intermediate CA's issuer should be root CA's subject")
+	}
+
+	multiIntCATestDir := "multi-intca-test"
+	os.RemoveAll(multiIntCATestDir)
+	defer os.RemoveAll(multiIntCATestDir)
+
+	// Create and start the Root CA server
+	rootCAPort := 7173
+	rootServer := startServer(path.Join(multiIntCATestDir, "rootServer"), rootCAPort, "", t)
+	if rootServer == nil {
+		return
+	}
+	defer rootServer.Stop()
+
+	// Create and start the Intermediate CA server
+	rootCAURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", rootCAPort)
+	intCAPort := 7174
+	intServer := startServer(path.Join(multiIntCATestDir, "intServer"), intCAPort, rootCAURL, t)
+	if intServer == nil {
+		return
+	}
+	defer intServer.Stop()
+
+	// Stop the Intermediate CA server to register identity of the Issuing CA
+	err := intServer.Stop()
+	if err != nil {
+		t.Fatal("Failed to stop intermediate CA server after registering identity for the Issuing CA server")
+	}
+
+	// Register an identity for Issuing CA with the Intermediate CA, this identity will be used by the Issuing
+	// CA to get it's CA certificate
+	intCA1Admin := "int-ca1-admin"
+	err = intServer.RegisterBootstrapUser(intCA1Admin, "adminpw", "")
+	if err != nil {
+		t.Fatal("Failed to register identity for the Issuing CA server")
+	}
+
+	// Restart the Intermediate CA server
+	err = intServer.Start()
+	if err != nil {
+		t.Fatal("Failed to start intermediate CA server after registering identity for the Issuing CA server")
+	}
+
+	// Create and start the Issuing CA server
+	intCAURL := fmt.Sprintf("http://%s:adminpw@localhost:%d", intCA1Admin, intCAPort)
+	intCA1Port := 7175
+	intServer1 := startServer(path.Join(multiIntCATestDir, "intServer1"), intCA1Port, intCAURL, t)
+	if intServer1 == nil {
+		return
+	}
+	defer intServer1.Stop()
+
+	// Enroll bootstrap admin of the Issuing CA
+	homedir := path.Join(multiIntCATestDir, "client")
+	mspdir := "msp" // relative to homedir
+	err = RunMain([]string{
+		cmdName, "enroll",
+		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCA1Port),
+		"-c", path.Join(homedir, "config.yaml"),
+		"-M", mspdir, "-d"})
+	if err != nil {
+		t.Fatalf("Client enroll -u failed: %s", err)
+	}
+
+	assertOneFileInDir(path.Join(homedir, mspdir, "keystore"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "cacerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "intermediatecerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "tlscacerts"), t)
+	assertOneFileInDir(path.Join(homedir, mspdir, "tlsintermediatecerts"), t)
+	validateCACerts(path.Join(homedir, mspdir, "cacerts"), path.Join(homedir, mspdir, "intermediatecerts"))
+	validateCACerts(path.Join(homedir, mspdir, "tlscacerts"), path.Join(homedir, mspdir, "tlsintermediatecerts"))
 }
 
 // TestReenroll tests fabric-ca-client reenroll
