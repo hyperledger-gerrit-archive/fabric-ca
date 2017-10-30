@@ -37,6 +37,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -771,4 +772,57 @@ func ValidateAndReturnAbsConf(configFilePath, homeDir, cmdName string) (string, 
 
 	configFile := filepath.Join(homeDir, filepath.Base(defaultConfig)) // Join specified home directory with default config file name
 	return configFile, homeDir, nil
+}
+
+// CompareVersions returns +1 if version1 is higher thant version2, 0 if the same, or -1 if version1 is lower than version2
+func CompareVersions(compare1, compare2, version1, version2 string) int {
+	log.Debugf("Comparing %s version '%s' to %s version '%s'", compare1, version1, compare2, version2)
+	version1Parts := strings.Split(version1, ".")
+	version2Parts := strings.Split(version2, ".")
+	lenVersion1 := len(version1Parts)
+	lenVersion2 := len(version2Parts)
+
+	var shortestVersionLength int
+	if lenVersion1 <= lenVersion2 {
+		shortestVersionLength = lenVersion1
+	} else {
+		shortestVersionLength = lenVersion2
+	}
+
+	for i := 0; i < shortestVersionLength; i++ {
+		version1Int := atoi(version1Parts[i])
+		version2Int := atoi(version2Parts[i])
+		if version1Int > version2Int {
+			return 1
+		} else if version1Int < version2Int {
+			return -1
+		}
+	}
+
+	if lenVersion1 > lenVersion2 {
+		for i := shortestVersionLength; i < lenVersion1; i++ {
+			version1Int := atoi(version1Parts[i])
+			if version1Int > 0 {
+				return 1
+			}
+		}
+	} else if lenVersion2 > lenVersion1 {
+		for i := shortestVersionLength; i < lenVersion2; i++ {
+			version2Int := atoi(version2Parts[i])
+			if version2Int > 0 {
+				return -1
+			}
+		}
+	}
+
+	return 0
+}
+
+// atoi converts string to integer
+func atoi(str string) int {
+	i, err := strconv.Atoi(str)
+	if err != nil {
+		panic(err)
+	}
+	return i
 }

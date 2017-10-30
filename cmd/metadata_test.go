@@ -31,3 +31,9 @@ func TestGetVersionInfo(t *testing.T) {
 	info = metadata.GetVersionInfo("fabric-ca-client")
 	assert.Contains(t, info, "Version: 1.0.0")
 }
+
+func TestGetServerVersion(t *testing.T) {
+	metadata.Version = "1.0.0-snapshot1234abc"
+	version := metadata.GetServerVersion()
+	assert.Contains(t, version, "1.0.0")
+}

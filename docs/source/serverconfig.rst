@@ -40,6 +40,7 @@ Fabric-CA Server's Configuration File
     #   of this configuration file.
     #
     #############################################################################
+    version: "1.1.0"
     
     # Server's listening port (default: 7054)
     port: 7054
