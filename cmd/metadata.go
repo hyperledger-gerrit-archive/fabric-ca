@@ -19,6 +19,7 @@ package metadata
 import (
 	"fmt"
 	"runtime"
+	"strings"
 )
 
 // Version specifies fabric-ca-client/fabric-ca-server version
@@ -34,4 +35,10 @@ func GetVersionInfo(prgName string) string {
 	return fmt.Sprintf("%s:\n Version: %s\n Go version: %s\n OS/Arch: %s\n",
 		prgName, Version, runtime.Version(),
 		fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH))
+}
+
+// GetServerVersion return the version information of the fabric-ca-server
+func GetServerVersion() string {
+	baseVersion := strings.Split(Version, "-")
+	return baseVersion[0]
 }

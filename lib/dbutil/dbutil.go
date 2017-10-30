@@ -85,11 +85,14 @@ func createSQLiteDBTables(datasource string) error {
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS certificates (id VARCHAR(255), serial_number blob NOT NULL, authority_key_identifier blob NOT NULL, ca_label blob, status blob NOT NULL, reason int, expiry timestamp, revoked_at timestamp, pem blob NOT NULL, PRIMARY KEY(serial_number, authority_key_identifier))"); err != nil {
 		return errors.Wrap(err, "Error creating certificates table")
 	}
-
+	log.Debug("Creating properties table if it does not exist")
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS properties (property VARCHAR(255), value VARCHAR(256), PRIMARY KEY(property))"); err != nil {
+		return errors.Wrap(err, "Error creating properties table")
+	}
 	return nil
 }
 
-// NewUserRegistryPostgres opens a connecton to a postgres database
+// NewUserRegistryPostgres opens a connection to a postgres database
 func NewUserRegistryPostgres(datasource string, clientTLSConfig *tls.ClientTLSConfig) (*sqlx.DB, error) {
 	log.Debugf("Using postgres database, connecting to database...")
 
@@ -171,6 +174,10 @@ func createPostgresTables(dbName string, db *sqlx.DB) error {
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS certificates (id VARCHAR(255), serial_number bytea NOT NULL, authority_key_identifier bytea NOT NULL, ca_label bytea, status bytea NOT NULL, reason int, expiry timestamp, revoked_at timestamp, pem bytea NOT NULL, PRIMARY KEY(serial_number, authority_key_identifier))"); err != nil {
 		return errors.Wrap(err, "Error creating certificates table")
 	}
+	log.Debug("Creating properties table if it does not exist")
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS properties (property VARCHAR(255), value VARCHAR(256), PRIMARY KEY(property))"); err != nil {
+		return errors.Wrap(err, "Error creating properties table")
+	}
 	return nil
 }
 
@@ -239,24 +246,24 @@ func createMySQLTables(dbName string, db *sqlx.DB) error {
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(255) NOT NULL, token blob, type VARCHAR(256), affiliation VARCHAR(1024), attributes TEXT, state INTEGER, max_enrollments INTEGER, PRIMARY KEY (id)) DEFAULT CHARSET=utf8 COLLATE utf8_bin"); err != nil {
 		return errors.Wrap(err, "Error creating users table")
 	}
-
 	log.Debug("Creating affiliations table if it doesn't exist")
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024))"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
-
 	log.Debug("Creating index on 'name' in the affiliations table")
 	if _, err := db.Exec("CREATE INDEX name_index on affiliations (name)"); err != nil {
 		if !strings.Contains(err.Error(), "Error 1061") { // Error 1061: Duplicate key name, index already exists
 			return errors.Wrap(err, "Error creating index on affiliations table")
 		}
 	}
-
 	log.Debug("Creating certificates table if it doesn't exist")
 	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS certificates (id VARCHAR(255), serial_number varbinary(128) NOT NULL, authority_key_identifier varbinary(128) NOT NULL, ca_label varbinary(128), status varbinary(128) NOT NULL, reason int, expiry timestamp DEFAULT 0, revoked_at timestamp DEFAULT 0, pem varbinary(4096) NOT NULL, PRIMARY KEY(serial_number, authority_key_identifier)) DEFAULT CHARSET=utf8 COLLATE utf8_bin"); err != nil {
 		return errors.Wrap(err, "Error creating certificates table")
 	}
-
+	log.Debug("Creating properties table if it does not exist")
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS properties (property VARCHAR(255), value VARCHAR(256), PRIMARY KEY(property))"); err != nil {
+		return errors.Wrap(err, "Error creating properties table")
+	}
 	return nil
 }
 
@@ -336,6 +343,36 @@ func UpdateSchema(db *sqlx.DB) error {
 	default:
 		return errors.Errorf("Unsupported database type: %s", db.DriverName())
 	}
+}
+
+// GetDBVersion returns the version of the database
+func GetDBVersion(db *sqlx.DB) (string, error) {
+	version := "0"
+	err := db.Get(&version, "SELECT value FROM properties WHERE (property = 'version')")
+	if err != nil {
+		return version, err
+	}
+	return version, nil
+}
+
+// UpdateDBVersion updates the database version
+func UpdateDBVersion(db *sqlx.DB, serverVersion string) error {
+	log.Debugf("Updating database version to '%s'", serverVersion)
+
+	_, err := GetDBVersion(db)
+	if err != nil {
+		_, err := db.Exec(db.Rebind("INSERT INTO properties (property, value) Values(?, ?)"), "version", serverVersion)
+		if err != nil {
+			return err
+		}
+	} else {
+		_, err := db.Exec(db.Rebind("UPDATE properties SET value = ? WHERE (property = version)"), serverVersion)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func updateMySQLSchema(db *sqlx.DB) error {
