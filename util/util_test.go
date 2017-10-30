@@ -762,3 +762,68 @@ func TestValidateAndReturnAbsConf(t *testing.T) {
 		t.Error("Failed to get correct path for configuration file")
 	}
 }
+
+func TestCompareVersion(t *testing.T) {
+	version1 := "1.1.0"
+	version2 := "0"
+	test := CompareVersions("version1", "version2", version1, version2)
+	if test != 1 {
+		t.Errorf("Should have returned 1 but returned %d, %s is higher than %s", test, version1, version2)
+	}
+
+	version1 = "1.1"
+	version2 = "1.0.1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != 1 {
+		t.Errorf("Should have returned 1 but returned %d, %s is higher than %s", test, version1, version2)
+	}
+
+	version1 = "1.0.0"
+	version2 = "1.0.1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != -1 {
+		t.Errorf("Should have returned -1 but returned %d, %s is lower than %s", test, version1, version2)
+	}
+
+	version1 = "1.0.0.0.0.0"
+	version2 = "1.0.0.1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != -1 {
+		t.Errorf("Should have returned -1 but returned %d, %s is lower than %s", test, version1, version2)
+	}
+
+	version1 = "1.0.0"
+	version2 = "1.0.0"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != 0 {
+		t.Errorf("Should have returned 0 but returned %d, %s is equal to %s", test, version1, version2)
+	}
+
+	version1 = "1"
+	version2 = "0"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != 1 {
+		t.Errorf("Should have returned 1 but returned %d, %s is higher than %s", test, version1, version2)
+	}
+
+	version1 = "0"
+	version2 = "1"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != -1 {
+		t.Errorf("Should have returned -1 but returned %d, %s is lower than %s", test, version1, version2)
+	}
+
+	version1 = "1.0.0.0.5"
+	version2 = "1.0"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != 1 {
+		t.Errorf("Should have returned 1 but returned %d, %s is lower than %s", test, version1, version2)
+	}
+
+	version1 = "1.0.0.0"
+	version2 = "1.0.0.0.0.0.0.2"
+	test = CompareVersions("version1", "version2", version1, version2)
+	if test != -1 {
+		t.Errorf("Should have returned -1 but returned %d, %s is lower than %s", test, version1, version2)
+	}
+}

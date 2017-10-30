@@ -38,6 +38,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
 	"github.com/cloudflare/cfssl/signer"
+	metadata "github.com/hyperledger/fabric-ca/cmd"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
@@ -89,6 +90,8 @@ type Server struct {
 	wait chan bool
 	// Server mutex
 	mutex sync.Mutex
+	// Server's version
+	version string
 }
 
 // Init initializes a fabric-ca server
@@ -103,6 +106,15 @@ func (s *Server) Init(renew bool) (err error) {
 
 // init initializses the server leaving the DB open
 func (s *Server) init(renew bool) (err error) {
+	serverVersion := metadata.GetServerVersion()
+	if s.version == "" {
+		if serverVersion == "" {
+			s.version = "0"
+		} else {
+			s.version = serverVersion
+		}
+	}
+
 	// Initialize the config
 	err = s.initConfig()
 	if err != nil {
@@ -358,6 +370,10 @@ func (s *Server) loadCA(caFile string, renew bool) error {
 	ca, err := newCA(caFile, cfg, s, renew)
 	if err != nil {
 		return err
+	}
+	ca.ConfigFileVersion = caViper.GetString("version")
+	if ca.ConfigFileVersion == "" {
+		ca.ConfigFileVersion = "0"
 	}
 	err = s.addCA(ca)
 	if err != nil {

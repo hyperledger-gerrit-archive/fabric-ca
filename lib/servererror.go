@@ -117,6 +117,8 @@ const (
 	ErrRegAttrAuth = 42
 	// Registrar does not own 'hf.Registrar.Attributes'
 	ErrMissingRegAttr = 43
+	// DB version is higher than server
+	ErrDBVersion = 44
 )
 
 // Construct a new HTTP error.
