@@ -59,6 +59,11 @@ var cfg CAConfig
 var srv Server
 
 func TestCABadCACertificates(t *testing.T) {
+	srv.HomeDir = testdir
+	err := srv.init(false)
+	if err != nil {
+		t.Fatal("Failed to initialize server")
+	}
 	ca, err := newCA(configFile, &CAConfig{}, &srv, false)
 	if err != nil {
 		t.Fatal("newCA failed ", err)
@@ -649,6 +654,10 @@ func TestCAloadUsersTable(t *testing.T) {
 	u := &CAConfigIdentity{Name: "a", MaxEnrollments: -10}
 	cfg.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
 	ca, err := newCA(configFile, &cfg, &srv, false)
+	if err != nil {
+		t.Error("Failed to create ca instance")
+	}
+	err = ca.initDB()
 	t.Log("ca.newCA error: ", err)
 	if err == nil {
 		t.Error("ca.newCA should have failed")
