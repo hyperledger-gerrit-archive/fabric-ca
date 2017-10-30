@@ -33,11 +33,6 @@ function cleanup {
     rm $SERVERLOG
 }
 
-function killserver {
-    echo "killing server $1"
-    kill -9 $1
-}
-
 function existingIdentity {
     grep "Identity '$1' already registered, loaded identity" $2 &> /dev/null
     if [ $? != 0 ]; then
