@@ -100,10 +100,10 @@ type CA struct {
 	server *Server
 	// Indicates if database was successfully initialized
 	dbInitialized bool
-	// Indicates if errors encountered during db initialization
-	dbError bool
 	// CA mutex
 	mutex sync.Mutex
+	// Server's configuration file version
+	ConfigFileVersion string
 }
 
 const (
@@ -402,6 +402,9 @@ func (ca *CA) initConfig() (err error) {
 		}
 	}
 	log.Debugf("CA Home Directory: %s", ca.HomeDir)
+	if ca.ConfigFileVersion == "" {
+		ca.ConfigFileVersion = "0"
+	}
 	// Init config if not set
 	if ca.Config == nil {
 		ca.Config = new(CAConfig)
@@ -503,15 +506,6 @@ func (ca *CA) getVerifyOptions() (*x509.VerifyOptions, error) {
 func (ca *CA) initDB() error {
 	log.Debug("Initializing DB")
 
-	initFunc := func(fn func() error) error {
-		initErr := fn()
-		if initErr != nil {
-			ca.dbError = true
-			log.Error(initErr)
-		}
-		return initErr
-	}
-
 	// If DB is initialized, don't need to proceed further
 	if ca.dbInitialized {
 		return nil
@@ -526,7 +520,7 @@ func (ca *CA) initDB() error {
 	}
 
 	db := &ca.Config.DB
-	ca.dbError = false
+	dbError := false
 	var err error
 
 	if db.Type == "" || db.Type == defaultDatabaseType {
@@ -584,19 +578,35 @@ func (ca *CA) initDB() error {
 	}
 
 	// Initialize user registry to either use DB or LDAP
-	err = initFunc(ca.initUserRegistry)
+	err = ca.initUserRegistry()
 	if err != nil {
 		return err
 	}
-	// If not using LDAP, load the affiliations table
+
+	// If not using LDAP, migrate database if needed to latest version and load the users and affiliations table
 	if !ca.Config.LDAP.Enabled {
-		err = initFunc(ca.loadAffiliationsTable)
+		migrationStatus, err := ca.checkVersions()
 		if err != nil {
 			return err
 		}
+
+		err = ca.loadUsers(migrationStatus)
+		if err != nil {
+			log.Error(err)
+			dbError = true
+			if isFatalError(err) {
+				return err
+			}
+		}
+
+		err = ca.loadAffiliationsTable()
+		if err != nil {
+			log.Error(err)
+			dbError = true
+		}
 	}
 
-	if ca.dbError {
+	if dbError {
 		return errors.Errorf("Failed to initialize %s database at %s ", db.Type, ds)
 	}
 
@@ -640,10 +650,6 @@ func (ca *CA) initUserRegistry() error {
 	dbAccessor := new(Accessor)
 	dbAccessor.SetDB(ca.db)
 	ca.registry = dbAccessor
-	err = ca.loadUsersTable()
-	if err != nil {
-		return err
-	}
 	log.Debug("Initialized DB identity registry")
 	return nil
 }
@@ -681,6 +687,56 @@ func (ca *CA) initEnrollmentSigner() (err error) {
 	ca.enrollSigner.SetDBAccessor(ca.certDBAccessor)
 
 	// Successful enrollment
+	return nil
+}
+
+func (ca *CA) loadUsers(migrationStatus int) error {
+	serverVersion := ca.server.version
+	switch migrationStatus {
+	case 1:
+		// Server version is higher than the database version, need to do a database migration
+		log.Debugf("Performing migration to version '%s'", serverVersion)
+
+		usingOldConfig := util.CompareVersions("server", "configuration file", serverVersion, ca.ConfigFileVersion)
+
+		// Server version is higher than the configuration file, using older version configuration file. Load all the users into a database before doing a migration
+		if usingOldConfig == 1 {
+			err := ca.loadUsersTable()
+			if err != nil {
+				return err
+			}
+		}
+
+		// TODO: Migration logic goes here
+
+		// Using current version of the configuration file, migrate all existing users before adding new users defined in configuration file
+		if usingOldConfig == 0 {
+			err := ca.loadUsersTable()
+			if err != nil {
+				return err
+			}
+		}
+
+		err := dbutil.UpdateDBVersion(ca.db, ca.server.version)
+		if err != nil {
+			return errors.Wrap(err, "Failed to update database version")
+		}
+
+		err = ca.updateConfigFileVersion(ca.server.version)
+		if err != nil {
+			return errors.Wrap(err, "Failed to update configuration file version")
+		}
+
+		return nil
+	case 0:
+		// No migration needed, load all users
+		err := ca.loadUsersTable()
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.Errorf("Invalid migration status: %d", migrationStatus)
+	}
 	return nil
 }
 
@@ -1069,6 +1125,56 @@ func (ca *CA) loadCNFromEnrollmentInfo(certFile string) (string, error) {
 		return "", err
 	}
 	return name, nil
+}
+
+func (ca *CA) checkVersions() (int, error) {
+	dbVersion, err := dbutil.GetDBVersion(ca.db)
+	if err != nil {
+		return 0, errors.Wrap(err, "Failed to get database version")
+	}
+	serverVersion := ca.server.version
+	caConfigFileVersion := ca.ConfigFileVersion
+
+	log.Infof("Current server version: %s, Current database version: %s, Current configuration file version: %s", serverVersion, dbVersion, caConfigFileVersion)
+
+	olderServerVersion := util.CompareVersions("server configuration file", "server executable", ca.ConfigFileVersion, ca.server.version)
+	if olderServerVersion == 1 {
+		return 0, newFatalError(ErrDBVersion, "The configuration file version '%s' is higher than the server executable version '%s'", ca.ConfigFileVersion, ca.server.version)
+	}
+
+	migrationNeeded := util.CompareVersions("server", "database", serverVersion, dbVersion)
+	if migrationNeeded == -1 {
+		// Database version is higher than server version, can't use a higher version database
+		return 0, newFatalError(ErrDBVersion, "The database version '%s' is higher than the server executable version '%s'", dbVersion, serverVersion)
+	}
+
+	return migrationNeeded, nil
+}
+
+func (ca *CA) updateConfigFileVersion(serverVersion string) error {
+	log.Debugf("Updating configuration file version to '%s'", serverVersion)
+	readInFile, err := ioutil.ReadFile(ca.ConfigFilePath)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("Failed to read in configuration file: %s", ca.ConfigFilePath))
+	}
+	cfgFile := string(readInFile)
+	lines := strings.Split(cfgFile, "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "version") {
+			lines[i] = fmt.Sprintf("version: \"%s\"", serverVersion)
+		}
+	}
+	cfgFile = strings.Join(lines, "\n")
+
+	if !strings.Contains(cfgFile, "version") {
+		cfgFile = fmt.Sprintf("version: \"%s\"\n\n%s", serverVersion, cfgFile)
+	}
+
+	err = ioutil.WriteFile(ca.ConfigFilePath, []byte(cfgFile), 0644)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to write file at '%s'", ca.ConfigFilePath)
+	}
+	return nil
 }
 
 func writeFile(file string, buf []byte, perm os.FileMode) error {
