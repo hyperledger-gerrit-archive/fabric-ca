@@ -31,9 +31,10 @@ import (
 
 func newRegisterEndpoint(s *Server) *serverEndpoint {
 	return &serverEndpoint{
-		Methods: []string{"POST"},
-		Handler: registerHandler,
-		Server:  s,
+		Methods:   []string{"POST"},
+		Handler:   registerHandler,
+		Server:    s,
+		successRC: 201,
 	}
 }
 
