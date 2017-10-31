@@ -13,6 +13,7 @@ Fabric-CA Client's CLI
       gencrl      Generate a CRL
       gencsr      Generate a CSR
       getcacert   Get CA certificate chain
+      identity    Dynamically update an identity
       reenroll    Reenroll an identity
       register    Register an identity
       revoke      Revoke an identity
