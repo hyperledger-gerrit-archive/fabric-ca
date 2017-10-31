@@ -458,6 +458,53 @@ func TestRBAC(t *testing.T) {
 	}
 }
 
+func TestIdentityCmd(t *testing.T) {
+	var err error
+
+	// Start with a clean test dir
+	os.RemoveAll("identity")
+	defer os.RemoveAll("identity")
+
+	// Start the server
+	server := startServer("identity", 7090, "", t)
+	defer server.Stop()
+
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	util.FatalError(t, err, "Failed to enroll user")
+
+	err = RunMain([]string{
+		cmdName, "identity", "list"})
+	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+
+	err = RunMain([]string{
+		cmdName, "identity", "list", "--id", "testuser"})
+	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+
+	err = RunMain([]string{
+		cmdName, "identity", "add"})
+	assert.Error(t, err, "Should have failed, no arguments provided")
+
+	err = RunMain([]string{
+		cmdName, "identity", "modify"})
+	assert.Error(t, err, "Should have failed, no arguments provided")
+
+	err = RunMain([]string{
+		cmdName, "identity", "remove"})
+	assert.Error(t, err, "Should have failed, no arguments provided")
+
+	err = RunMain([]string{
+		cmdName, "identity", "add", "--json", `{"id": "testuser"}`})
+	assert.Error(t, err, "Should have failed, not yet implemented")
+
+	err = RunMain([]string{
+		cmdName, "identity", "modify", "--name", "testuser", "--type", "peer"})
+	assert.Error(t, err, "Should have failed, not yet implemented")
+
+	err = RunMain([]string{
+		cmdName, "identity", "remove", "--name", "testuser"})
+	assert.Error(t, err, "Should have failed, not yet implemented")
+}
+
 // Verify the certificate has attribute 'name' with a value of 'val'
 // and does not have the 'missing' attribute.
 func checkAttrsInCert(t *testing.T, home, name, val, missing string) {
