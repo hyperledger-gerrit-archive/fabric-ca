@@ -165,6 +165,25 @@ type GenCRLResponse struct {
 	CRL string
 }
 
+// AddIdentityRequest represents the request to add a new identity to the
+// fabric-ca-server
+type AddIdentityRequest struct {
+	RegistrationRequest
+}
+
+// ModifyIdentityRequest represents the request to modify an existing identity on the
+// fabric-ca-server
+type ModifyIdentityRequest struct {
+	RegistrationRequest
+}
+
+// RemoveIdentityRequest represents the request to remove an existing identity from the
+// fabric-ca-server
+type RemoveIdentityRequest struct {
+	Name   string `json:"id" help:"Name of the identity to removed"`
+	CAName string `json:"caname" skip:"true"`
+}
+
 // CSRInfo is Certificate Signing Request (CSR) Information
 type CSRInfo struct {
 	CN           string               `json:"CN"`

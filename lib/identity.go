@@ -199,6 +199,69 @@ func (i *Identity) GenCRL(req *api.GenCRLRequest) (*api.GenCRLResponse, error) {
 	return &result, nil
 }
 
+// IdentityInfo contains information about an identity
+type IdentityInfo struct {
+	Name           string          `mapstructure:"id" json:"id"`
+	Type           string          `json:"type"`
+	Affiliation    string          `json:"affiliation"`
+	Attributes     []api.Attribute `mapstructure:"attrs" json:"attrs"`
+	MaxEnrollments int             `mapstructure:"max_enrollments" json:"max_enrollments"`
+}
+
+// GetIDResponse is the response from the GetIdentity call
+type GetIDResponse struct {
+	IdentityInfo `mapstructure:",squash"`
+	CAName       string `json:"caname"`
+}
+
+// GetIdentity returns information about the requested identity
+func (i *Identity) GetIdentity(id, caname string) (*GetIDResponse, error) {
+	log.Debugf("Entering identity.GetIdentity %+v", id)
+	var result GetIDResponse
+	req, err := i.Get(fmt.Sprintf("identities/%s", id))
+	if err != nil {
+		return nil, err
+	}
+	if caname != "" {
+		url := req.URL.Query()
+		url.Add("ca", caname)
+		req.URL.RawQuery = url.Encode()
+	}
+	err = i.client.SendReq(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("Successfully retrieved identity: %+v", result)
+	return &result, nil
+}
+
+// GetAllIDsResponse is the response from the GetAllIdentities call
+type GetAllIDsResponse struct {
+	Identities []IdentityInfo
+	CAName     string `json:"caname"`
+}
+
+// GetAllIdentities returns all identities that the caller is authorized to see
+func (i *Identity) GetAllIdentities(caname string) (*GetAllIDsResponse, error) {
+	log.Debugf("Entering identity.GetAllIdentities")
+	var result GetAllIDsResponse
+	req, err := i.Get("identities")
+	if err != nil {
+		return nil, err
+	}
+	if caname != "" {
+		url := req.URL.Query()
+		url.Add("ca", caname)
+		req.URL.RawQuery = url.Encode()
+	}
+	err = i.client.SendReq(req, &result)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("Successfully retrieved identities: %+v", result)
+	return &result, nil
+}
+
 // Store writes my identity info to disk
 func (i *Identity) Store() error {
 	if i.client == nil {
@@ -207,7 +270,20 @@ func (i *Identity) Store() error {
 	return i.client.StoreMyIdentity(i.ecert.cert)
 }
 
-// Post sends arbtrary request body (reqBody) to an endpoint.
+// Get sends a get request to an endpoint
+func (i *Identity) Get(endpoint string) (*http.Request, error) {
+	req, err := i.client.newGet(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	err = i.addTokenAuthHdr(req, nil)
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// Post sends arbitrary request body (reqBody) to an endpoint.
 // This adds an authorization header which contains the signature
 // of this identity over the body and non-signature part of the authorization header.
 // The return value is the body of the response.
