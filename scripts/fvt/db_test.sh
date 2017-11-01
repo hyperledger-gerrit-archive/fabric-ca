@@ -7,7 +7,6 @@
 
 : ${TESTCASE:="db_resiliency"}
 FABRIC_CA="$GOPATH/src/github.com/hyperledger/fabric-ca"
-echo $FABRIC_CA
 FABRIC_CAEXEC="$FABRIC_CA/bin/fabric-ca"
 TESTDATA="$FABRIC_CA/testdata"
 SCRIPTDIR="$FABRIC_CA/scripts/fvt"
@@ -36,6 +35,8 @@ function cleanup {
 function killserver {
     echo "killing server $1"
     kill -9 $1
+    pollFabricCa "" "" "$CA_DEFAULT_PORT" stop 30
+    return $?
 }
 
 function existingIdentity {
@@ -150,8 +151,10 @@ EOF
    $PGSQLSERVERCONFIG $PGSQLSERVERCONFIG2
 }
 
+$SCRIPTDIR/fabric-ca_setup.sh -R -x $FABRIC_CA_SERVER_HOME
 genConfig
-cleanup
+touch $SERVERLOG
+ls -l $FABRIC_CA_SERVER_HOME
 
 # MySQL Test
 echo "############################ MySQL Test ############################"
@@ -167,15 +170,14 @@ mysql --host=localhost --user=root --password=mysql --database=$DBNAME -e "CREAT
 
 # Starting server first time with one bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
-
+killserver $pid || ErrorExit "Failed to stop CA"
 # Starting server second time with a second bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
+killserver $pid || ErrorExit "Failed to stop CA"
 
 existingIdentity "a" $SERVERLOG # Check to see that appropriate error message was seen for an already registered user
 checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got registered
@@ -192,10 +194,9 @@ echo "Dropping and creating an empty '$DBNAME' database"
 mysql --host=localhost --user=root --password=mysql -e "drop database fabric_ca;" -e "create database fabric_ca;" &> /dev/null
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
-
+killserver $pid || ErrorExit "Failed to stop CA"
 checkIdentity "a" $SERVERLOG # Check to see that a new identity properly got registered
 checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got registered
 
@@ -208,9 +209,9 @@ echo "Dropping '$DBNAME' database"
 mysql --host=localhost --user=root --password=mysql -e "drop database fabric_ca;" &> /dev/null
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
+killserver $pid || ErrorExit "Failed to stop CA"
 
 checkIdentity "a" $SERVERLOG # Check to see that a new identity properly got registered
 checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got registered
@@ -230,16 +231,16 @@ psql -d fabric_ca -c "CREATE TABLE users (id VARCHAR(64), token bytea, type VARC
 
 # Starting server first time with one bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
+killserver $pid || ErrorExit "Failed to stop CA"
 
 sleep 1
 # Starting server second time with a second bootstrap user
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
+killserver $pid || ErrorExit "Failed to stop CA"
 
 existingIdentity "a" $SERVERLOG # Check to see that appropriate error message was seen for an already registered user
 checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got registered
@@ -256,9 +257,9 @@ psql -c "drop database $DBNAME"
 psql -c "create database $DBNAME"
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
+killserver $pid || ErrorExit "Failed to stop CA"
 
 checkIdentity "a" $SERVERLOG # Check to see that a new identity properly got registered
 checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got registered
@@ -272,9 +273,9 @@ psql -c "drop database $DBNAME"
 
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2 2>&1 | tee $SERVERLOG &
 sleep 6 # Need to allow for Postgres to complete database and table creation
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 pid=$(pidof fabric-ca-server)
-killserver $pid
+killserver $pid || ErrorExit "Failed to stop CA"
 
 checkIdentity "a" $SERVERLOG # Check to see that a new identity properly got registered
 checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got registered
@@ -282,11 +283,11 @@ checkIdentity "c" $SERVERLOG # Check to see that a new identity properly got reg
 echo "############################ PostgresSQL Test with Client ############################"
 
 kill -INT `head -1 /usr/local/pgsql/data/postmaster.pid` # Shutdown postgres server
-pollServer postgres 127.0.0.1 5432 5 stop # Wait for PostgreSQL to stop
+pollPostgres "" "" "" stop 2>&1
 
 # Start fabric-ca server connecting to postgres, this will fail
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 
 # Enroll with a server that does not have a DB initialized, should expect to get back error
 enroll a b 2>&1 | grep "Failed to create user registry for PostgreSQL"
@@ -296,7 +297,7 @@ fi
 
 # Start postgres server
 su postgres -c 'postgres -D /usr/local/pgsql/data' &
-pollServer postgres 127.0.0.1 5432 20 start # Wait for PostgreSQL to start
+pollPostgres
 sleep 5 # Postgres port is available but sometimes get back 'pq: the database system is starting up' error. Putting in sleep to allow for start up to complete
 
 # Enroll again, this time the server should try to reinitialize the DB before processing enroll request and this should succeed
@@ -309,12 +310,12 @@ $SCRIPTDIR/fabric-ca_setup.sh -K
 
 echo "############################ MySQL Test with Client ############################"
 
-/etc/init.d/mysql stop
-pollServer mysql 127.0.0.1 3306 2 stop # Wait for MySQL to stop
+/etc/init.d/mysql stop 2>&1
+pollMySql "" "" "" stop
 
 # Start fabric-ca server connecting to MySQL, this will fail
 $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2
-pollServer fabric-ca-server 127.0.0.1 17054 20 start
+pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 
 # Enroll with a server that does not have a DB initialized, should expect to get back error
 enroll a b 2>&1 | grep "Failed to create user registry for MySQL"
@@ -324,7 +325,7 @@ fi
 
 # Start mysql server
 /usr/bin/mysqld_safe --sql-mode=STRICT_TRANS_TABLES &
-pollServer mysql 127.0.0.1 3306 20 start # Wait for MySQL to start
+pollMySql
 
 # Enroll again, this time the server should try to reinitialize the DB before processing enroll request and this should succeed
 enroll a b 2>&1 | grep "Stored client certificate"
@@ -332,12 +333,7 @@ if [ $? != 0 ]; then
     ErrorMsg "Enroll request should have passed"
 fi
 
-$SCRIPTDIR/fabric-ca_setup.sh -K
-
-rm $MYSQLSERVERCONFIG
-rm $MYSQLSERVERCONFIG2
-rm $PGSQLSERVERCONFIG
-rm $PGSQLSERVERCONFIG2
+$SCRIPTDIR/fabric-ca_setup.sh -R -x $FABRIC_CA_SERVER_HOME
 
 CleanUp $RC
 exit $RC
