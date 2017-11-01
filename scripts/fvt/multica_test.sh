@@ -17,7 +17,6 @@ ROOT_CA_ADDR=localhost
 CA_PORT=17054
 TLSDIR="$TESTDATA"
 NUMINTCAS=4
-TIMEOUT=30
 MAXENROLL=$((2*NUMINTCAS))
 NUMUSERS=2
 RC=0
@@ -31,7 +30,7 @@ function createRootCA() {
                                       --csr.hosts $ROOT_CA_ADDR --address $ROOT_CA_ADDR \
                                       -c $TDIR/ca0/runFabricCaFvt.yaml 2>&1 |
                                       tee $TDIR/ca0/server.log &
-   pollServer fabric-ca-server $ROOT_CA_ADDR $CA_PORT $TIMEOUT
+   pollServer fabric-ca-server $ROOT_CA_ADDR $CA_PORT
 }
 
 function enrollUser() {

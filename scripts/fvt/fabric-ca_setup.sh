@@ -248,7 +248,7 @@ function startFabricCa() {
    local port=${USER_CA_PORT-$CA_DEFAULT_PORT}
    port=$((port+$inst))
    # if not explcitly set, use default
-   local server_port="--port $port" 
+   local server_port="--port $port"
 
    if test -n "$FABRIC_CA_SERVER_PROFILE_PORT" ; then
       local profile_port=$((FABRIC_CA_SERVER_PROFILE_PORT+$inst))
@@ -308,7 +308,7 @@ while getopts "\?hRCISKXLDTAPad:t:l:n:c:k:x:g:m:p:r:o:" option; do
 done
 
 : ${LDAP_ENABLE:="false"}
-: ${TIMEOUT:="10"}
+: ${TIMEOUT:=$DEFAULT_TIMEOUT}
 : ${HTTP_PORT:="3755"}
 : ${DBNAME:="fabric_ca"}
 : ${MAXENROLL:="-1"}
