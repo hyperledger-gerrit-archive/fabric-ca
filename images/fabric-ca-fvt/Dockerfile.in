@@ -43,6 +43,8 @@ RUN $FABRIC_CA_DATA/postgres_setup.sh
 RUN $FABRIC_CA_DATA/slapd_setup.sh
 RUN $FABRIC_CA_DATA/mysql_setup.sh
 
+RUN apt-get update && apt-get install -y netcat && rm -rf /var/cache/apt
+
 # Install fabric-ca dependencies
 RUN go get github.com/go-sql-driver/mysql
 RUN go get github.com/lib/pq
