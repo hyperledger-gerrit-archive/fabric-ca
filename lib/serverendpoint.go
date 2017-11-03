@@ -47,6 +47,7 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var resp interface{}
 	if err == nil {
 		if r.Method == "GET" && se.Streaming {
+			log.Debug("Response will be streamed back to client")
 			w.Header().Set("Connection", "Keep-Alive")
 			w.Header().Set("Transfer-Encoding", "chunked")
 			// Write the beginning of the JSON object
@@ -66,7 +67,7 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if err == nil {
 		w.WriteHeader(se.getSuccessRC())
-		if se.Streaming {
+		if r.Method == "GET" && se.Streaming {
 			msg := ", \"errors\":[], \"messages\":[],\"success\":\"true\"}"
 			w.Write([]byte(msg))
 			w.(http.Flusher).Flush()
@@ -79,7 +80,7 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		log.Infof(`%s %s %s %d 0 "OK"`, r.RemoteAddr, r.Method, r.URL, se.getSuccessRC())
 	} else {
 		he := getHTTPErr(err)
-		if se.Streaming {
+		if r.Method == "GET" && se.Streaming {
 			msg := fmt.Sprintf("]}, \"errors\":[{\"code\":%d,\"message\":\"%s\"}], \"messages\":[], \"success\":\"false\"}", he.rcode, he.rmsg)
 			w.Write([]byte(msg))
 			w.(http.Flusher).Flush()
