@@ -233,15 +233,8 @@ func (i *Identity) GetAllIdentities(caname string, cb func(*json.Decoder) error)
 	return nil
 }
 
-// IdentityResponse is the response from the any add/modify/remove identity call
-type IdentityResponse struct {
-	api.IdentityInfo `mapstructure:",squash"`
-	Secret           string `json:"secret"`
-	CAName           string `json:"caname"`
-}
-
 // AddIdentity adds a new identity to the server
-func (i *Identity) AddIdentity(req *api.AddIdentityRequest) (*IdentityResponse, error) {
+func (i *Identity) AddIdentity(req *api.AddIdentityRequest) (*api.IdentityResponse, error) {
 	log.Debugf("Entering identity.AddIdentity with request: %+v", req)
 	if req.ID == "" {
 		return nil, errors.New("Adding identity with no 'ID' set")
@@ -253,18 +246,18 @@ func (i *Identity) AddIdentity(req *api.AddIdentityRequest) (*IdentityResponse, 
 	}
 
 	// Send a post to the "identities" endpoint with req as body
-	result := &IdentityResponse{}
+	result := &api.IdentityResponse{}
 	err = i.Post("identities", reqBody, result)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debug("Successfully added new identity")
+	log.Debugf("Successfully added new identity '%s'", result.ID)
 	return result, nil
 }
 
 // ModifyIdentity modifies an existing identity on the server
-func (i *Identity) ModifyIdentity(req *api.ModifyIdentityRequest) (*IdentityResponse, error) {
+func (i *Identity) ModifyIdentity(req *api.ModifyIdentityRequest) (*api.IdentityResponse, error) {
 	log.Debugf("Entering identity.ModifyIdentity with request: %+v", req)
 	if req.ID == "" {
 		return nil, errors.New("Name of identity to be modified not specified")
@@ -276,7 +269,7 @@ func (i *Identity) ModifyIdentity(req *api.ModifyIdentityRequest) (*IdentityResp
 	}
 
 	// Send a put to the "identities" endpoint with req as body
-	result := &IdentityResponse{}
+	result := &api.IdentityResponse{}
 	err = i.Put(fmt.Sprintf("identities/%s", req.ID), reqBody, result)
 	if err != nil {
 		return nil, err
@@ -287,7 +280,7 @@ func (i *Identity) ModifyIdentity(req *api.ModifyIdentityRequest) (*IdentityResp
 }
 
 // RemoveIdentity removes a new identity from the server
-func (i *Identity) RemoveIdentity(req *api.RemoveIdentityRequest) (*IdentityResponse, error) {
+func (i *Identity) RemoveIdentity(req *api.RemoveIdentityRequest) (*api.IdentityResponse, error) {
 	log.Debugf("Entering identity.RemoveIdentity with request: %+v", req)
 	id := req.ID
 	if id == "" {
@@ -295,7 +288,7 @@ func (i *Identity) RemoveIdentity(req *api.RemoveIdentityRequest) (*IdentityResp
 	}
 
 	// Send a delete to the "identities" endpoint id as a path parameter
-	result := &IdentityResponse{}
+	result := &api.IdentityResponse{}
 	err := i.Delete(fmt.Sprintf("identities/%s", id), req.CAName, result)
 	if err != nil {
 		return nil, err
