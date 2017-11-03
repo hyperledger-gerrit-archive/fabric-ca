@@ -97,6 +97,10 @@ func (c *ClientCmd) newAddIdentityCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if c.dynamicIdentity.json != "" && checkOtherFlags(cmd) {
+				return errors.Errorf("Can't use 'json' flag in conjunction with other flags")
+			}
+
 			err := c.runAddIdentity()
 			if err != nil {
 				return err
@@ -125,10 +129,6 @@ func (c *ClientCmd) newModifyIdentityCommand() *cobra.Command {
 		Long:    "Modify an existing identity on Fabric CA server",
 		Example: "fabric-ca-client identity modify <id> [flags]\nfabric-ca-client identity modify user1 --type peer",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return errors.Errorf(extraArgsError, args, cmd.UsageString())
-			}
-
 			err := c.configInit()
 			if err != nil {
 				return err
@@ -139,7 +139,15 @@ func (c *ClientCmd) newModifyIdentityCommand() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			err := c.runModifyIdentity()
+			if len(args) == 0 {
+				return errors.Errorf("ID not specified for the identity to be modified")
+			}
+
+			if c.dynamicIdentity.json != "" && checkOtherFlags(cmd) {
+				return errors.Errorf("Can't use 'json' flag in conjunction with other flags")
+			}
+
+			err := c.runModifyIdentity(args)
 			if err != nil {
 				return err
 			}
@@ -230,27 +238,110 @@ func (c *ClientCmd) runListIdentity() error {
 
 // The client side logic for adding an identity
 func (c *ClientCmd) runAddIdentity() error {
-	log.Debug("Entered runAddIdentity")
+	log.Debugf("Entered runAddIdentity: %+v", c.dynamicIdentity)
 
-	// TODO
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
 
-	return errors.Errorf("Not Implemented")
+	req := &api.AddIdentityRequest{}
+
+	if c.dynamicIdentity.json != "" {
+		newIdentity := api.IdentityInfo{}
+		err := util.Unmarshal([]byte(c.dynamicIdentity.json), &newIdentity, "addIdentity")
+		if err != nil {
+			return errors.Wrap(err, "Invalid valued for --json option")
+		}
+		req.IdentityInfo = newIdentity
+	} else {
+		req.IdentityInfo = c.dynamicIdentity.add.IdentityInfo
+		req.IdentityInfo.Attributes = c.clientCfg.ID.Attributes
+	}
+
+	req.CAName = c.clientCfg.CAName
+	resp, err := id.AddIdentity(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully added identity: %+v\n", resp)
+
+	return nil
 }
 
 // The client side logic for modifying an identity
-func (c *ClientCmd) runModifyIdentity() error {
-	log.Debug("Entered runModifyIdentity")
+func (c *ClientCmd) runModifyIdentity(args []string) error {
+	log.Debugf("Entered runModifyIdentity: %+v", c.dynamicIdentity)
 
-	// TODO
+	req := &api.ModifyIdentityRequest{}
+	req.ID = args[0]
+	req.IdentityInfo.Attributes = c.clientCfg.ID.Attributes
 
-	return errors.Errorf("Not Implemented")
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
+
+	if c.dynamicIdentity.json != "" {
+		modifyIdentity := &api.IdentityInfo{}
+		err := util.Unmarshal([]byte(c.dynamicIdentity.json), modifyIdentity, "modifyIdentity")
+		if err != nil {
+			return errors.Wrap(err, "Invalied value for --json option")
+		}
+		req.IdentityInfo = *modifyIdentity
+	} else {
+		req.IdentityInfo = c.dynamicIdentity.modify.IdentityInfo
+	}
+
+	req.CAName = c.clientCfg.CAName
+	resp, err := id.ModifyIdentity(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully modified identity: %+v\n", resp)
+
+	return nil
 }
 
 // The client side logic for removing an identity
 func (c *ClientCmd) runRemoveIdentity() error {
-	log.Debug("Entered runRemoveIdentity")
+	log.Debugf("Entered runRemoveIdentity: %+v", c.dynamicIdentity)
 
-	// TODO
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
 
-	return errors.Errorf("Not Implemented")
+	req := &c.dynamicIdentity.remove
+
+	req.CAName = c.clientCfg.CAName
+	resp, err := id.RemoveIdentity(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully removed identity: %+v\n", resp)
+
+	return nil
+}
+
+// checkOtherFlags returs true if other flags besides '--json' are set
+// Viper.IsSet does not work correctly if there are defaults defined for
+// flags. This is a workaround until this bug is addressed in Viper.
+// Viper Bug: https://github.com/spf13/viper/issues/276
+func checkOtherFlags(cmd *cobra.Command) bool {
+	checkFlags := []string{"id", "type", "affiliation", "secret", "maxenrollments", "attrs"}
+	flags := cmd.Flags()
+	for _, checkFlag := range checkFlags {
+		flag := flags.Lookup(checkFlag)
+		if flag != nil {
+			if flag.Changed {
+				return true
+			}
+		}
+	}
+
+	return false
 }
