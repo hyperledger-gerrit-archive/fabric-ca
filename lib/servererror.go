@@ -117,10 +117,16 @@ const (
 	ErrRegAttrAuth = 42
 	// Registrar does not own 'hf.Registrar.Attributes'
 	ErrMissingRegAttr = 43
-	// Failed to get caller's affiliation
+	// Caller does not have appropriate affiliation to perform requested action
 	ErrCallerNotAffiliated = 44
-	// Failed to verify if caller has appropriate
-	ErrGettingType = 33
+	// Failed to get user's type
+	ErrGettingType = 45
+	// Failed to get user from database
+	ErrGettingUser = 46
+	// Error processing HTTP request
+	ErrHTTPRequest = 47
+	// Error connecting to database
+	ErrConnectingDB = 48
 )
 
 // Construct a new HTTP error.
