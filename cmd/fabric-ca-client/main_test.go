@@ -54,13 +54,14 @@ const (
 	tlsCertFile          = "tls_server-cert.pem"
 	tlsKeyFile           = "tls_server-key.pem"
 	rootCert             = "root.pem"
+	rootTLSCert          = "tls_server-cert.pem"
 	tlsClientCertFile    = "tls_client-cert.pem"
 	tlsClientCertExpired = "expiredcert.pem"
 	tlsClientKeyFile     = "tls_client-key.pem"
 	tdDir                = "../../testdata"
 	db                   = "fabric-ca-server.db"
 	serverPort           = 7090
-	rootCertEnvVar       = "FABRIC_CA_CLIENT_TLS_CERTFILES"
+	rootTLSCertEnvVar    = "FABRIC_CA_CLIENT_TLS_CERTFILES"
 	clientKeyEnvVar      = "FABRIC_CA_CLIENT_TLS_CLIENT_KEYFILE"
 	clientCertEnvVar     = "FABRIC_CA_CLIENT_TLS_CLIENT_CERTFILE"
 	moptionDir           = "moption-test"
@@ -479,13 +480,17 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
+	err = RunMain([]string{cmdName, "register", "--id.name", "test user"})
+	util.FatalError(t, err, "Failed to register user")
+
+	// Negative test cases
 	err = RunMain([]string{
 		cmdName, "identity", "list"})
-	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+	assert.NoError(t, err, "Failed to get all ids")
 
 	err = RunMain([]string{
-		cmdName, "identity", "list", "--id", "testuser"})
-	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+		cmdName, "identity", "list", "--id", "test user"})
+	assert.NoError(t, err, "Failed to get id 'test user'")
 
 	err = RunMain([]string{
 		cmdName, "identity", "add"})
@@ -508,19 +513,19 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{
 		cmdName, "identity", "add", "user1", "badinput"})
 	if assert.Error(t, err, "Should have failed, too many arguments") {
-		assert.Contains(t, err.Error(), "Too many arguments, only the identity name should be passed in as argument")
+		assert.Contains(t, err.Error(), "Unknown argument")
 	}
 
 	err = RunMain([]string{
 		cmdName, "identity", "modify", "user1", "badinput"})
 	if assert.Error(t, err, "Should have failed, too many arguments") {
-		assert.Contains(t, err.Error(), "Too many arguments, only the identity name should be passed in as argument")
+		assert.Contains(t, err.Error(), "Unknown argument")
 	}
 
 	err = RunMain([]string{
 		cmdName, "identity", "remove", "user1", "badinput"})
 	if assert.Error(t, err, "Should have failed, too many arguments") {
-		assert.Contains(t, err.Error(), "Too many arguments, only the identity name should be passed in as argument")
+		assert.Contains(t, err.Error(), "Unknown argument")
 	}
 
 	err = RunMain([]string{
@@ -1533,7 +1538,7 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	os.Setenv(rootCertEnvVar, rootCert)
+	os.Setenv(rootTLSCertEnvVar, rootTLSCert)
 	os.Setenv(clientKeyEnvVar, tlsClientKeyFile)
 	os.Setenv(clientCertEnvVar, tlsClientCertFile)
 
@@ -1548,7 +1553,7 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 		t.Errorf("Server stop failed: %s", err)
 	}
 
-	os.Unsetenv(rootCertEnvVar)
+	os.Unsetenv(rootTLSCertEnvVar)
 	os.Unsetenv(clientKeyEnvVar)
 	os.Unsetenv(clientCertEnvVar)
 }
@@ -1575,14 +1580,14 @@ func TestClientCommandsTLS(t *testing.T) {
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
-		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		rootTLSCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
 		tlsClientCertFile, "-u", tlsEnrollURL, "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
-		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		rootTLSCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
 		tlsClientCertExpired, "-u", tlsEnrollURL, "-d"})
 	if err == nil {
 		t.Errorf("Expired certificate used for TLS connection, should have failed")
@@ -1768,8 +1773,8 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 
 func testGetCACertEnvVar(t *testing.T) error {
 	t.Log("testGetCACertEnvVar - Entered")
-	os.Setenv(rootCertEnvVar, "../../testdata/root.pem")
-	defer os.Unsetenv(rootCertEnvVar)
+	os.Setenv(rootTLSCertEnvVar, "../../testdata/tls_server-cert.pem")
+	defer os.Unsetenv(rootTLSCertEnvVar)
 
 	defer os.RemoveAll("msp")
 	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", "fakeConfig.yaml", "-u", tlsServerURL,
@@ -1785,7 +1790,7 @@ func testGetCACertConfigFile(t *testing.T) error {
 	t.Log("testGetCACertConfigFile - Entered")
 	configFile := "../../testdata/fabric-ca-client-config.yaml"
 
-	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", configFile, "-u", tlsServerURL, "--tls.certfiles", rootCert})
+	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", configFile, "-u", tlsServerURL, "--tls.certfiles", rootTLSCert})
 	if err != nil {
 		return fmt.Errorf("getcainfo failed: %s", err)
 	}
