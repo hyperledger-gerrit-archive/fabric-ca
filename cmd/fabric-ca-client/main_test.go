@@ -493,16 +493,40 @@ func TestIdentityCmd(t *testing.T) {
 	assert.Error(t, err, "Should have failed, no arguments provided")
 
 	err = RunMain([]string{
-		cmdName, "identity", "add", "--json", `{"id": "testuser"}`})
+		cmdName, "identity", "add", "--json", `{"id": "testuser2"}`})
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
-		cmdName, "identity", "modify", "--name", "testuser", "--type", "peer"})
+		cmdName, "identity", "modify", "testuser", "--type", "peer"})
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
-		cmdName, "identity", "remove", "--name", "testuser"})
+		cmdName, "identity", "remove", "--id", "testuser"})
 	assert.Error(t, err, "Should have failed, not yet implemented")
+
+	err = RunMain([]string{
+		cmdName, "identity", "add", "--json", `{"id": "testuser"}`, "--id", "testuser"})
+	if assert.Error(t, err, "Should have failed") {
+		assert.Contains(t, err.Error(), "Can't use 'json' flag in conjunction with other flags")
+	}
+
+	err = RunMain([]string{
+		cmdName, "identity", "add", "--json", `{"id": "testuser"}`, "--attrs", "hf.Revoker=true"})
+	if assert.Error(t, err, "Should have failed") {
+		assert.Contains(t, err.Error(), "Can't use 'json' flag in conjunction with other flags")
+	}
+
+	err = RunMain([]string{
+		cmdName, "identity", "modify", "testuser", "--json", `{"type": "peer"}`, "--type", "peer"})
+	if assert.Error(t, err, "Should have failed") {
+		assert.Contains(t, err.Error(), "Can't use 'json' flag in conjunction with other flags")
+	}
+
+	err = RunMain([]string{
+		cmdName, "identity", "modify", "testuser", "--json", `{"type": "peer"}`, "--affiliation", "org1"})
+	if assert.Error(t, err, "Should have failed") {
+		assert.Contains(t, err.Error(), "Can't use 'json' flag in conjunction with other flags")
+	}
 }
 
 // Verify the certificate has attribute 'name' with a value of 'val'
