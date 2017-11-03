@@ -79,10 +79,10 @@ func (c *ClientCmd) newListIdentityCommand() *cobra.Command {
 
 func (c *ClientCmd) newAddIdentityCommand() *cobra.Command {
 	identityAddCmd := &cobra.Command{
-		Use:     "add",
+		Use:     "add [id]",
 		Short:   "Add identity",
 		Long:    "Add an identity on Fabric CA server",
-		Example: "fabric-ca-client identity add <id> [flags]\nfabric-ca-client identity add user1 --type peer",
+		Example: "fabric-ca-client identity add user1 --type peer",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			err := argsCheck(args)
 			if err != nil {
@@ -124,10 +124,10 @@ func (c *ClientCmd) newAddIdentityCommand() *cobra.Command {
 
 func (c *ClientCmd) newModifyIdentityCommand() *cobra.Command {
 	identityModifyCmd := &cobra.Command{
-		Use:     "modify",
+		Use:     "modify [id]",
 		Short:   "Modify identity",
 		Long:    "Modify an existing identity on Fabric CA server",
-		Example: "fabric-ca-client identity modify <id> [flags]\nfabric-ca-client identity modify user1 --type peer",
+		Example: "fabric-ca-client identity modify user1 --type peer",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			err := argsCheck(args)
 			if err != nil {
@@ -172,10 +172,10 @@ func (c *ClientCmd) newModifyIdentityCommand() *cobra.Command {
 
 func (c *ClientCmd) newRemoveIdentityCommand() *cobra.Command {
 	identityRemoveCmd := &cobra.Command{
-		Use:     "remove",
+		Use:     "remove [id]",
 		Short:   "Remove identity",
 		Long:    "Remove an identity from Fabric CA server",
-		Example: "fabric-ca-client identity remove <id> [flags]\nfabric-ca-client identity remove user1",
+		Example: "fabric-ca-client identity remove user1",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			err := argsCheck(args)
 			if err != nil {
