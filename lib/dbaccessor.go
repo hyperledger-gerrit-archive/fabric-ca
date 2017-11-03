@@ -164,9 +164,28 @@ func (d *Accessor) DeleteUser(id string) error {
 		return err
 	}
 
-	_, err = d.db.Exec(deleteUser, id)
+	tx := d.db.MustBegin()
+
+	err = deleteUserTx(id, 6, tx) // 6 (cessationofoperation) reason for certificate revocation
 	if err != nil {
-		return err
+		return txReturnFunc(tx, err)
+	}
+
+	return txReturnFunc(tx, err)
+}
+
+func deleteUserTx(id string, reason int, tx *sqlx.Tx) error {
+	_, err := tx.Exec(deleteUser, id)
+	if err != nil {
+		return errors.Wrap(err, "Error encountered while deleting identity")
+	}
+
+	var record = new(CertRecord)
+	record.ID = id
+	record.Reason = reason
+	_, err = tx.NamedExec(tx.Rebind(updateRevokeSQL), record)
+	if err != nil {
+		return errors.Wrap(err, "Error encountered while revoking certificates for deleted identities")
 	}
 
 	return nil
@@ -563,7 +582,22 @@ func dbGetError(err error, prefix string) error {
 
 func getUserError(err error) error {
 	if err.Error() == "not found" {
-		return newHTTPErr(400, ErrGettingUser, "Failed to get user: %s", err)
+		return newHTTPErr(404, ErrGettingUser, "Failed to get user: %s", err)
 	}
-	return newHTTPErr(500, ErrConnectingDB, "Failed to connect to database")
+	return newHTTPErr(500, ErrConnectingDB, "Failed to process database request: %s", err)
+}
+
+func txReturnFunc(tx *sqlx.Tx, err error) error {
+	if err != nil {
+		err = tx.Rollback()
+		if err != nil {
+			return err
+		}
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return errors.Wrap(err, "Error encountered while committing transaction")
+	}
+	return nil
 }
