@@ -507,15 +507,28 @@ func TestIdentityCmd(t *testing.T) {
 	assert.Error(t, err, "Should have failed, no arguments provided")
 
 	err = RunMain([]string{
-		cmdName, "identity", "add", "--json", `{"id": "testuser2"}`})
-	assert.Error(t, err, "Should have failed, not yet implemented")
+		cmdName, "identity", "add", "--json", `{"id": "testuser1", "secret": "user1pw", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name:": "hf.Revoker", "value": "true"}]}`})
+	assert.NoError(t, err, "Failed to add user 'testuser1'")
+
+	err = RunMain([]string{
+		cmdName, "identity", "add", "--name", "testuser2", "--secret", "user1pw", "--type", "user", "--affiliation", ".", "--maxenrollments", "1", "--attrs", "hf.Revoker=true"})
+	assert.NoError(t, err, "Failed to add user 'testuser2'")
+
+	server.CA.Config.Cfg.Identities.AllowRemove = true
+
+	registry := server.CA.DBAccessor()
+	_, err = registry.GetUser("testuser1", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser1'")
+
+	_, err = registry.GetUser("testuser2", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser2'")
+
+	err = RunMain([]string{
+		cmdName, "identity", "remove", "--name", "testuser1"})
+	assert.NoError(t, err, "Failed to remove user")
 
 	err = RunMain([]string{
 		cmdName, "identity", "modify", "--name", "test user", "--type", "peer"})
-	assert.Error(t, err, "Should have failed, not yet implemented")
-
-	err = RunMain([]string{
-		cmdName, "identity", "remove", "--name", "test user"})
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{

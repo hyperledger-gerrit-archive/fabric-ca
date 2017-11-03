@@ -288,7 +288,7 @@ func (i *Identity) AddIdentity(req *api.AddIdentityRequest) (*IdentityResponse, 
 		return nil, err
 	}
 
-	log.Debug("Successfully added new identity")
+	log.Debugf("Successfully added new identity '%s'", result.Name)
 	return result, nil
 }
 

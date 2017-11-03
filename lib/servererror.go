@@ -123,6 +123,16 @@ const (
 	ErrGettingType = 45
 	// Failed to get user from database
 	ErrGettingUser = 46
+	// Failed to add identity
+	ErrAddIdentity = 47
+	// Unauthorized to perform update action
+	ErrUpdateConfigAuth = 48
+	// Registrar not authorized to act on type
+	ErrRegistrarInvalidType = 49
+	// Registrar not authorized to act on affiliation
+	ErrRegistrarNotAffiliated = 50
+	// Failed to remove identity
+	ErrRemoveIdentity = 51
 )
 
 // Construct a new HTTP error.

@@ -165,7 +165,27 @@ func (d *Accessor) DeleteUser(id string) error {
 		return err
 	}
 
-	_, err = d.db.Exec(deleteUser, id)
+	tx := d.db.MustBegin()
+	defer txReturnFunc(tx, err)
+
+	err = deleteUserTx(id, 6, tx) // 6 (cessationofoperation) reason for certificate revocation
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func deleteUserTx(id string, reason int, tx *sqlx.Tx) error {
+	_, err := tx.Exec(deleteUser, id)
+	if err != nil {
+		return err
+	}
+
+	var record = new(CertRecord)
+	record.ID = id
+	record.Reason = reason
+	_, err = tx.NamedExec(tx.Rebind(updateRevokeSQL), record)
 	if err != nil {
 		return err
 	}
@@ -528,4 +548,16 @@ func dbGetError(err error, prefix string) error {
 		return errors.Errorf("%s not found", prefix)
 	}
 	return err
+}
+
+func txReturnFunc(tx *sqlx.Tx, err error) error {
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	return nil
 }

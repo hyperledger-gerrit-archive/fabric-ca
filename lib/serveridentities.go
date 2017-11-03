@@ -21,7 +21,9 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	gmux "github.com/gorilla/mux"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 )
 
@@ -175,17 +177,125 @@ func getID(ctx *serverRequestContext, caller spi.User, id, caname string) (*GetI
 
 func processDeleteRequest(ctx *serverRequestContext, caname string) (interface{}, error) {
 	log.Debug("Processing DELETE request")
-	return nil, errors.Errorf("Not Implemented")
+	if !ctx.ca.Config.Cfg.Identities.AllowRemove {
+		return "", newHTTPErr(400, ErrRemoveIdentity, "Identity removal is disabled")
+	}
+
+	vars := gmux.Vars(ctx.req)
+	removeID := vars["id"]
+
+	if removeID == "" {
+		return nil, errors.Errorf("No ID name specified to remove")
+	}
+
+	log.Debugf("Removing identity '%s'", removeID)
+
+	registry := ctx.ca.registry
+
+	userToRemove, err := registry.GetUser(removeID, nil)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrGettingUser, "Failed to get user: %s", err)
+	}
+
+	err = performIdentityAuthCheck(userToRemove, ctx)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Caller is not authorized to remove identity")
+	}
+
+	registry.DeleteUser(removeID)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrRemoveIdentity, "Failed to remove identity: ", err)
+	}
+
+	userInfo := userToRemove.(*DBUser).UserInfo
+	resp := &IdentityResponse{
+		CAName: caname,
+	}
+	resp.IdentityInfo = *getIDInfo(userInfo)
+
+	log.Debugf("Identity '%s' successfully removed", removeID)
+	return resp, nil
 }
 
 func processPostRequest(ctx *serverRequestContext, caname string) (interface{}, error) {
 	log.Debug("Processing POST request")
-	return nil, errors.Errorf("Not Implemented")
+
+	ctx.endpoint.successRC = 201
+	var req api.AddIdentityRequest
+	err := ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	addReq := req.RegistrationRequest
+	log.Debugf("Adding identity: %+v", util.StructToString(&addReq))
+	if req.Name == "" {
+		return nil, newHTTPErr(400, ErrAddIdentity, "Missing 'ID' in request to add a new intentity")
+	}
+
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return nil, newHTTPErr(400, ErrAddIdentity, "Failed to get caller identity: %s", err)
+	}
+	callerID := caller.GetName()
+
+	pass, err := registerUser(&addReq, callerID, ctx.ca, ctx)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrAddIdentity, "Failed to add identity: %s", err)
+
+	}
+
+	user, err := ctx.ca.registry.GetUser(req.Name, nil)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrGettingUser, "Failed to get user: %s", err)
+	}
+	userInfo := user.(*DBUser).UserInfo
+
+	resp := IdentityResponse{
+		Secret: pass,
+		CAName: caname,
+	}
+	resp.IdentityInfo = *getIDInfo(userInfo)
+
+	log.Debugf("Identity successfully added")
+
+	return resp, nil
 }
 
 func processPutRequest(ctx *serverRequestContext, caname string) (interface{}, error) {
 	log.Debug("Processing PUT request")
 	return nil, errors.Errorf("Not Implemented")
+}
+
+func performIdentityAuthCheck(user spi.User, ctx *serverRequestContext) error {
+	userRole := user.GetType()
+	userAff := strings.Join(user.GetAffiliationPath(), ".")
+
+	_, isRegistrar, err := ctx.IsRegistrar()
+	if err != nil {
+		return newAuthErr(ErrUpdateConfigAuth, "Caller is unable to edit identities: %s", err)
+	}
+	if !isRegistrar {
+		return newAuthErr(ErrUpdateConfigAuth, "Caller does not have the attribute '%s', unable to edit identities", registrarRole)
+	}
+
+	canActOnRole, err := ctx.CanActOnType(userRole)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to validate if registrar has proper authority to act on role")
+	}
+	if !canActOnRole {
+		return newAuthErr(ErrRegistrarInvalidType, "Registrar does not have authority to action on role '%s'", userRole)
+	}
+
+	validAffiliation, err := ctx.ContainsAffiliation(userAff)
+	if err != nil {
+		return newHTTPErr(400, ErrGettingAffiliation, "Failed to validate if caller has authority to remove identity affiliation: %s", err)
+	}
+	if !validAffiliation {
+		return newAuthErr(ErrRegistrarNotAffiliated, "Registrar does not have authority to action on affiliation '%s'", userAff)
+	}
+
+	return nil
 }
 
 func getIDInfo(user spi.UserInfo) *IdentityInfo {
