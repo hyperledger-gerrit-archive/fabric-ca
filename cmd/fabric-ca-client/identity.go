@@ -184,7 +184,7 @@ func (c *ClientCmd) newRemoveIdentityCommand() *cobra.Command {
 
 // The client side logic for executing identity command
 func (c *ClientCmd) runIdentity() error {
-	log.Debug("Entered runIdentity")
+	log.Debugf("Entered runIdentity: %+v", c.dynamicIdentity)
 
 	if c.dynamicIdentity.getAllIDs && c.dynamicIdentity.getID != "" {
 		return errors.Errorf("Both 'getallids' and 'getid' flags can't be set at the same time")
@@ -225,27 +225,98 @@ func (c *ClientCmd) runIdentity() error {
 
 // The client side logic for adding an identity
 func (c *ClientCmd) runAddIdentity() error {
-	log.Debug("Entered runAddIdentity")
+	log.Debugf("Entered runAddIdentity: %+v", c.dynamicIdentity)
 
-	// TODO
+	if c.dynamicIdentity.json != "" && c.dynamicIdentity.add.RegistrationRequest.Name != "" {
+		return errors.Errorf("Can't use 'json' flag in conjunction with other flags")
+	}
 
-	return errors.Errorf("Not Implemented")
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
+
+	req := &api.AddIdentityRequest{}
+
+	if c.dynamicIdentity.json != "" {
+		newIdentity := api.RegistrationRequest{}
+		err := util.Unmarshal([]byte(c.dynamicIdentity.json), &newIdentity, "addIdentity")
+		if err != nil {
+			return errors.Wrap(err, "Unmarshalling failed")
+		}
+		req.RegistrationRequest = newIdentity
+	} else {
+		req.RegistrationRequest = c.dynamicIdentity.add.RegistrationRequest
+		req.RegistrationRequest.Attributes = c.clientCfg.ID.Attributes
+	}
+
+	req.CAName = c.clientCfg.CAName
+	resp, err := id.AddIdentity(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully added identity: %+v", resp)
+
+	return nil
 }
 
 // The client side logic for modifying an identity
 func (c *ClientCmd) runModifyIdentity() error {
-	log.Debug("Entered runModifyIdentity")
+	log.Debugf("Entered runModifyIdentity: %+v", c.dynamicIdentity)
 
-	// TODO
+	if c.dynamicIdentity.json != "" && c.dynamicIdentity.modify.RegistrationRequest.Name != "" {
+		return errors.Errorf("Can't use 'json' flag in conjunction with other flags")
+	}
 
-	return errors.Errorf("Not Implemented")
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
+
+	req := &api.ModifyIdentityRequest{}
+
+	if c.dynamicIdentity.json != "" {
+		modifyIdentity := &api.RegistrationRequest{}
+		err := util.Unmarshal([]byte(c.dynamicIdentity.json), modifyIdentity, "modifyIdentity")
+		if err != nil {
+			return errors.Wrap(err, "Unmarshalling failed")
+		}
+		req.RegistrationRequest = *modifyIdentity
+	} else {
+		req.RegistrationRequest = c.dynamicIdentity.modify.RegistrationRequest
+		req.RegistrationRequest.Attributes = c.clientCfg.ID.Attributes
+	}
+
+	req.CAName = c.clientCfg.CAName
+	resp, err := id.ModifyIdentity(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully modified identity: %+v", resp)
+
+	return nil
 }
 
 // The client side logic for removing an identity
 func (c *ClientCmd) runRemoveIdentity() error {
-	log.Debug("Entered runRemoveIdentity")
+	log.Debugf("Entered runRemoveIdentity: %+v", c.dynamicIdentity)
 
-	// TODO
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
 
-	return errors.Errorf("Not Implemented")
+	req := &c.dynamicIdentity.remove
+
+	req.CAName = c.clientCfg.CAName
+	resp, err := id.RemoveIdentity(req)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Successfully removed identity: %+v", resp)
+
+	return nil
 }

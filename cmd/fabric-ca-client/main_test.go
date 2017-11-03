@@ -472,6 +472,9 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
+	err = RunMain([]string{cmdName, "register", "--id.name", "testuser"})
+	util.FatalError(t, err, "Failed to register user")
+
 	// Negative test cases
 	err = RunMain([]string{
 		cmdName, "identity", "-d",
@@ -485,11 +488,11 @@ func TestIdentityCmd(t *testing.T) {
 
 	err = RunMain([]string{
 		cmdName, "identity", "--getallids"})
-	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
 		cmdName, "identity", "--getid", "testuser"})
-	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
 		cmdName, "identity", "add"})
@@ -504,7 +507,7 @@ func TestIdentityCmd(t *testing.T) {
 	assert.Error(t, err, "Should have failed, no arguments provided")
 
 	err = RunMain([]string{
-		cmdName, "identity", "add", "--json", `{"id": "testuser"}`})
+		cmdName, "identity", "add", "--json", `{"id": "testuser2"}`})
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
@@ -514,6 +517,18 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{
 		cmdName, "identity", "remove", "--name", "testuser"})
 	assert.Error(t, err, "Should have failed, not yet implemented")
+
+	err = RunMain([]string{
+		cmdName, "identity", "add", "--json", `{"id": "testuser"}`, "--name", "testuser"})
+	if assert.Error(t, err, "Should have failed") {
+		assert.Contains(t, err.Error(), "Can't use 'json' flag in conjunction with other flags")
+	}
+
+	err = RunMain([]string{
+		cmdName, "identity", "modify", "--json", `{"id": "testuser"}`, "--name", "testuser"})
+	if assert.Error(t, err, "Should have failed") {
+		assert.Contains(t, err.Error(), "Can't use 'json' flag in conjunction with other flags")
+	}
 }
 
 // Verify the certificate has attribute 'name' with a value of 'val'
