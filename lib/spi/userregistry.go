@@ -40,12 +40,14 @@ type UserInfo struct {
 type User interface {
 	// Returns the enrollment ID of the user
 	GetName() string
+	// Return the type of the user
+	GetType() string
 	// Login the user with a password
 	Login(password string, caMaxEnrollment int) error
 	// Get the complete path for the user's affiliation.
 	GetAffiliationPath() []string
 	// GetAttribute returns the value for an attribute name
-	GetAttribute(name string) string
+	GetAttribute(name string) (string, error)
 	// GetAttributes returns the requested attributes
 	GetAttributes(attrNames []string) []tcert.Attribute
 	// LoginComplete completes the login process by incrementing the state of the user
@@ -62,4 +64,5 @@ type UserRegistry interface {
 	GetAffiliation(name string) (Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
 	DeleteAffiliation(name string) error
+	GetUsersByAffiliation(affiliation string) ([]User, error)
 }
