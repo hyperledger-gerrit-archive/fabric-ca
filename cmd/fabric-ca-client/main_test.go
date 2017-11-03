@@ -472,7 +472,7 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
-	err = RunMain([]string{cmdName, "register", "--id.name", "testuser"})
+	err = RunMain([]string{cmdName, "register", "--id.name", "test user"})
 	util.FatalError(t, err, "Failed to register user")
 
 	// Negative test cases
@@ -488,11 +488,11 @@ func TestIdentityCmd(t *testing.T) {
 
 	err = RunMain([]string{
 		cmdName, "identity", "--getallids"})
-	assert.Error(t, err, "Should have failed, not yet implemented")
+	assert.NoError(t, err, "Failed to get all ids")
 
 	err = RunMain([]string{
-		cmdName, "identity", "--getid", "testuser"})
-	assert.Error(t, err, "Should have failed, not yet implemented")
+		cmdName, "identity", "--getid", "test user"})
+	assert.NoError(t, err, "Failed to get id 'test user'")
 
 	err = RunMain([]string{
 		cmdName, "identity", "add"})
@@ -511,11 +511,11 @@ func TestIdentityCmd(t *testing.T) {
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
-		cmdName, "identity", "modify", "--name", "testuser", "--type", "peer"})
+		cmdName, "identity", "modify", "--name", "test user", "--type", "peer"})
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{
-		cmdName, "identity", "remove", "--name", "testuser"})
+		cmdName, "identity", "remove", "--name", "test user"})
 	assert.Error(t, err, "Should have failed, not yet implemented")
 
 	err = RunMain([]string{

@@ -51,7 +51,12 @@ type serverRequestContext struct {
 		buf  []byte // the body itself
 		err  error  // any error from reading the body
 	}
+	callerRoles map[string]bool
 }
+
+const (
+	registrarRole = "hf.Registrar.Roles"
+)
 
 // newServerRequestContext is the constructor for a serverRequestContext
 func newServerRequestContext(r *http.Request, w http.ResponseWriter, se *serverEndpoint) *serverRequestContext {
@@ -341,6 +346,82 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 		return nil, errors.WithMessage(err, "Failed to get user")
 	}
 	return ctx.caller, nil
+}
+
+// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	callerAffiliationPath := strings.Join(caller.GetAffiliationPath(), ".")
+	log.Debugf("Checking to see if affiliation '%s' contains caller's affiliation '%s'", affiliation, callerAffiliationPath)
+
+	// If the caller has root affiliation return "true"
+	if callerAffiliationPath == "" {
+		return true, nil
+	}
+
+	if strings.HasPrefix(affiliation, callerAffiliationPath) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return "", false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' is a registrar", caller.GetName())
+
+	rolesStr, err := caller.GetAttribute(registrarRole)
+	if err != nil {
+		return "", false, errors.WithMessage(err, fmt.Sprintf("'%s' is not a registrar", caller.GetName()))
+	}
+
+	// Has some value for attribute 'hf.Registrar.Roles' then user is a registrar
+	if rolesStr != "" {
+		return rolesStr, true, nil
+	}
+
+	return "", false, nil
+}
+
+// CanActOnType returns true if the caller has the proper authority to take action on specific type
+func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' can act on type '%s'", caller.GetName(), typ)
+
+	typesStr, isRegistrar, err := ctx.IsRegistrar()
+	if err != nil {
+		return false, err
+	}
+	if !isRegistrar {
+		return false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar", caller.GetName())
+	}
+
+	var types []string
+	if typesStr != "" {
+		types = strings.Split(typesStr, ",")
+	} else {
+		types = make([]string, 0)
+	}
+
+	if !util.StrContained(typ, types) {
+		log.Debug("Caller with types '%s' is not authorized to act on '%s'", types, typ)
+		return false, nil
+	}
+
+	return true, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

@@ -24,46 +24,223 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDynamicIdentityConfig(t *testing.T) {
-	testDir := "dynIdentity"
-	os.RemoveAll(testDir)
-	defer os.RemoveAll(testDir)
+func TestGetAllIDs(t *testing.T) {
+	os.RemoveAll(rootDir)
+	defer os.RemoveAll(rootDir)
 
-	server := TestGetServer(7090, testDir, "", 1, t)
-	if server == nil {
-		t.Fatalf("Failed to get server")
-	}
+	var err error
 
-	err := server.Start()
+	srv := TestGetRootServer(t)
+	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
+	defer srv.Stop()
 
-	client := getTestClient(7090)
+	client := getTestClient(7075)
 	resp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
 	})
-	util.FatalError(t, err, "Failed to enroll 'admin' user")
+	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
-	id := resp.Identity
-	_, err = id.GetAllIdentities("")
-	assert.Error(t, err, "Should have failed, functionality not yet implemented")
+	// Register several users
+	admin := resp.Identity
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "admin2",
+		Secret:      "admin2pw",
+		Type:        "peer",
+		Affiliation: "org2",
+		Attributes: []api.Attribute{
+			api.Attribute{
+				Name:  "hf.Registrar.Roles",
+				Value: "peer",
+			},
+		},
+	})
+	util.FatalError(t, err, "Failed to register user 'admin2'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser",
+		Type:        "client",
+		Affiliation: "hyperledger",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser2",
+		Type:        "peer",
+		Affiliation: "org2",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser3",
+		Type:        "peer",
+		Affiliation: "org2.dept1",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser2'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser4",
+		Type:        "client",
+		Affiliation: "org2",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser3'")
 
-	_, err = id.GetIdentity("testuser", "")
-	assert.Error(t, err, "Should have failed, functionality not yet implemented")
+	// As bootstrap user that has all root permission, should get back all the users in the database
+	getAllResp, err := admin.GetAllIdentities("")
+	assert.NoError(t, err, "Failed to get all the appropriate identities")
+	if len(getAllResp.Identities) != 6 {
+		t.Error("Failed to get all the appropriate users")
+	}
+
+	resp, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin2",
+		Secret: "admin2pw",
+	})
+	util.FatalError(t, err, "Failed to enroll user 'admin2'")
+
+	admin2 := resp.Identity
+
+	getAllResp, err = admin2.GetAllIdentities("")
+	assert.NoError(t, err, "Failed to get all the appropriate identities")
+	if len(getAllResp.Identities) != 3 {
+		t.Error("Failed to get all the appropriate users")
+	}
+
+	// Check to make sure that right users got returned
+	expectedIDs := []string{"admin2", "testuser2", "testuser3"}
+	for _, resp := range getAllResp.Identities {
+		name := resp.Name
+		if !util.StrContained(name, expectedIDs) {
+			t.Error("Failed to get right user back")
+		}
+	}
+}
+
+func TestGetID(t *testing.T) {
+	os.RemoveAll(rootDir)
+	defer os.RemoveAll(rootDir)
+
+	var err error
+
+	srv := TestGetRootServer(t)
+	err = srv.Start()
+	util.FatalError(t, err, "Failed to start server")
+	defer srv.Stop()
+
+	client := getTestClient(7075)
+	resp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	util.FatalError(t, err, "Failed to enroll user 'admin'")
+
+	// Register several users
+	admin := resp.Identity
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "admin2",
+		Secret:      "admin2pw",
+		Type:        "peer",
+		Affiliation: "org2",
+		Attributes: []api.Attribute{
+			api.Attribute{
+				Name:  "hf.Registrar.Roles",
+				Value: "peer",
+			},
+		},
+	})
+	util.FatalError(t, err, "Failed to register user 'admin2'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser",
+		Type:        "client",
+		Affiliation: "hyperledger",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser2",
+		Type:        "peer",
+		Affiliation: "org2",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser3",
+		Type:        "peer",
+		Affiliation: "org2.dept1",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser2'")
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser4",
+		Type:        "client",
+		Affiliation: "org2",
+	})
+	util.FatalError(t, err, "Failed to register user 'testuser3'")
+
+	// admin has all root permissions and should be able to get any user
+	_, err = admin.GetIdentity("testuser", "")
+	assert.NoError(t, err, "Failed to get user")
+
+	_, err = admin.GetIdentity("testuser3", "")
+	assert.NoError(t, err, "Failed to get user")
+
+	resp, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin2",
+		Secret: "admin2pw",
+	})
+	util.FatalError(t, err, "Failed to enroll user 'admin2'")
+
+	admin2 := resp.Identity
+
+	_, err = admin2.GetIdentity("testuser3", "")
+	assert.NoError(t, err, "Failed to get user")
+
+	// 'admin2' with affiliation of 'org2' is not authorized to get 'testuser' with affiliation of 'hyperledger'
+	_, err = admin2.GetIdentity("testuser", "")
+	assert.Error(t, err, "'admin2' with affiliation of 'org2' is not authorized to get 'testuser' with affiliation of 'hyperledger'")
+
+	// 'admin2' of type 'peer' is not authorized to get 'testuser4' of type 'client'
+	_, err = admin2.GetIdentity("testuser4", "")
+	assert.Error(t, err, "'admin2' of type 'peer' is not authorized to get 'testuser4' of type 'client'")
+
+}
+
+func TestDynamicIdentity(t *testing.T) {
+	os.RemoveAll(rootDir)
+	defer os.RemoveAll(rootDir)
+
+	var err error
+
+	srv := TestGetRootServer(t)
+	err = srv.Start()
+	util.FatalError(t, err, "Failed to start server")
+	defer srv.Stop()
+
+	client := getTestClient(7075)
+	resp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	util.FatalError(t, err, "Failed to enroll user 'admin'")
+
+	admin := resp.Identity
 
 	addReq := &api.AddIdentityRequest{}
+	_, err = admin.AddIdentity(addReq)
+	assert.Error(t, err, "Should have failed, no name specified in request")
+
+	modReq := &api.ModifyIdentityRequest{}
+	_, err = admin.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, no name specified in request")
+
+	remReq := &api.RemoveIdentityRequest{}
+	_, err = admin.RemoveIdentity(remReq)
+	assert.Error(t, err, "Should have failed, no name specified in request")
+
 	addReq.Name = "testuser"
-	_, err = id.AddIdentity(addReq)
-	assert.Error(t, err, "Should have failed, functionality not yet implemented")
+	_, err = admin.AddIdentity(addReq)
+	assert.Error(t, err, "Not yet implemented")
 
-	modifyReq := &api.ModifyIdentityRequest{}
-	modifyReq.Name = "testuser"
-	_, err = id.ModifyIdentity(modifyReq)
-	assert.Error(t, err, "Should have failed, functionality not yet implemented")
+	modReq.Name = "testuser"
+	modReq.Type = "peer"
+	_, err = admin.ModifyIdentity(modReq)
+	assert.Error(t, err, "Not yet implemented")
 
-	_, err = id.RemoveIdentity(&api.RemoveIdentityRequest{
-		Name: "testuser",
-	})
-	assert.Error(t, err, "Should have failed, functionality not yet implemented")
-
+	remReq.Name = "testuser"
+	_, err = admin.RemoveIdentity(remReq)
+	assert.Error(t, err, "Not yet implemented")
 }

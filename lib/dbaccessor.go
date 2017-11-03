@@ -337,6 +337,50 @@ func (d *Accessor) GetAffiliation(name string) (spi.Affiliation, error) {
 	return &affiliation, nil
 }
 
+// GetAllIDsPerAffiliation returns all identities that fall under the affiliation
+func (d *Accessor) GetAllIDsPerAffiliation(affiliation string) ([]spi.User, error) {
+	log.Debugf("DB: Get all identities per affiliation '%s'", affiliation)
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var ids, subAffIds []string
+
+	if affiliation == "" {
+		query := "SELECT id FROM users"
+		err = d.db.Select(&ids, d.db.Rebind(query), affiliation)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		query := "SELECT id FROM users WHERE (affiliation LIKE ?)"
+		err = d.db.Select(&ids, d.db.Rebind(query), affiliation)
+		if err != nil {
+			return nil, err
+		}
+		err = d.db.Select(&subAffIds, d.db.Rebind(query), affiliation+".%")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	log.Debug("IDs with appropriate affiliations: ", ids)
+
+	ids = append(ids, subAffIds...)
+	allIds := []spi.User{}
+
+	for _, id := range ids {
+		user, err := d.GetUser(id, nil)
+		if err != nil {
+			return nil, dbGetError(err, "User")
+		}
+		allIds = append(allIds, user)
+	}
+
+	return allIds, nil
+}
+
 // Creates a DBUser object from the DB user record
 func (d *Accessor) newDBUser(userRec *UserRecord) *DBUser {
 	var user = new(DBUser)
@@ -371,6 +415,11 @@ type DBUser struct {
 // GetName returns the enrollment ID of the user
 func (u *DBUser) GetName() string {
 	return u.Name
+}
+
+// GetType returns type of the user
+func (u *DBUser) GetType() string {
+	return u.Type
 }
 
 // Login the user with a password
@@ -456,8 +505,12 @@ func (u *DBUser) GetAffiliationPath() []string {
 }
 
 // GetAttribute returns the value for an attribute name
-func (u *DBUser) GetAttribute(name string) string {
-	return u.attrs[name]
+func (u *DBUser) GetAttribute(name string) (string, error) {
+	value, hasAttr := u.attrs[name]
+	if !hasAttr {
+		return "", errors.Errorf("User does not have attribute '%s'", name)
+	}
+	return value, nil
 }
 
 // GetAttributes returns the requested attributes
