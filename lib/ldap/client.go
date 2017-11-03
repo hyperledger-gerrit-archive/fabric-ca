@@ -261,6 +261,11 @@ func (lc *Client) GetUserLessThanLevel(version int) ([]spi.User, error) {
 	return nil, errNotSupported
 }
 
+// GetFilteredUsers returns all identities that fall under the affiliation and types
+func (lc *Client) GetFilteredUsers(affiliation, types string) ([]spi.User, error) {
+	return nil, errNotSupported
+}
+
 // Connect to the LDAP server and bind as user as admin user as specified in LDAP URL
 func (lc *Client) newConnection() (conn *ldap.Conn, err error) {
 	address := fmt.Sprintf("%s:%d", lc.Host, lc.Port)
