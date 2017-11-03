@@ -887,7 +887,7 @@ func (ca *CA) getUserAttrValue(username, attrname string) (string, error) {
 	}
 	attrval, err := user.GetAttribute(attrname)
 	if err != nil {
-		return "", errors.Errorf("Failed to get attribute '%s': %s", attrname, err)
+		return "", errors.WithMessage(err, fmt.Sprintf("Failed to get attribute for user '%s'", user.GetName()))
 	}
 	log.Debugf("getUserAttrValue identity=%s, name=%s, value=%s", username, attrname, attrval)
 	return attrval.Value, nil

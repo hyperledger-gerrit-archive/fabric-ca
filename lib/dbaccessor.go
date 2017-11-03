@@ -306,6 +306,65 @@ func (d *Accessor) GetAffiliation(name string) (spi.Affiliation, error) {
 	return &affiliation, nil
 }
 
+// GetFilteredUsers returns all identities that fall under the affiliation and types
+func (d *Accessor) GetFilteredUsers(affiliation, types string) ([]spi.User, error) {
+	log.Debugf("DB: Get all identities per affiliation '%s' and types '%s'", affiliation, types)
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	typesArray := strings.Split(types, ",")
+	for i := range typesArray {
+		typesArray[i] = strings.TrimSpace(typesArray[i])
+	}
+
+	var ids, subAffIds []UserRecord
+
+	if affiliation == "" {
+		query := "SELECT * FROM users WHERE (type IN (?))"
+		query, args, err := sqlx.In(query, typesArray)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to construct query '%s' for affiliation '%s' and types '%s'", query, affiliation, types)
+		}
+		err = d.db.Select(&ids, d.db.Rebind(query), args...)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to execute query '%s' for affiliation '%s' and types '%s'", query, affiliation, types)
+		}
+	} else {
+		query := "SELECT * FROM users WHERE (affiliation LIKE ?) AND (type IN (?))"
+		inQuery, args, err := sqlx.In(query, affiliation, typesArray)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to construct query '%s' for affiliation '%s' and types '%s'", query, affiliation, types)
+		}
+		err = d.db.Select(&ids, d.db.Rebind(inQuery), args...)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to execute query '%s' for affiliation '%s' and types '%s'", query, affiliation, types)
+		}
+		affiliation := affiliation + ".%"
+		inQuery, args, err = sqlx.In(query, affiliation, typesArray)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to construct query '%s' for affiliation '%s' and types '%s'", query, affiliation, types)
+		}
+		err = d.db.Select(&subAffIds, d.db.Rebind(inQuery), args...)
+		if err != nil {
+			return nil, errors.Wrapf(err, "Failed to execute query '%s' for affiliation '%s' and types '%s'", query, affiliation, types)
+		}
+	}
+
+	log.Debug("IDs of appropriate affiliations and type: ", ids)
+
+	ids = append(ids, subAffIds...)
+	allIds := []spi.User{}
+
+	for _, id := range ids {
+		dbUser := d.newDBUser(&id)
+		allIds = append(allIds, dbUser)
+	}
+
+	return allIds, nil
+}
+
 // Creates a DBUser object from the DB user record
 func (d *Accessor) newDBUser(userRec *UserRecord) *DBUser {
 	var user = new(DBUser)
@@ -500,4 +559,11 @@ func dbGetError(err error, prefix string) error {
 		return errors.Errorf("%s not found", prefix)
 	}
 	return err
+}
+
+func getUserError(err error) error {
+	if err.Error() == "not found" {
+		return newHTTPErr(400, ErrGettingUser, "Failed to get user: %s", err)
+	}
+	return newHTTPErr(500, ErrConnectingDB, "Failed to connect to database")
 }
