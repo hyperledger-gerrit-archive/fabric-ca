@@ -23,6 +23,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/pkg/errors"
 
@@ -179,4 +180,10 @@ func getMaxEnrollments(userMaxEnrollments int, caMaxEnrollments int) (int, error
 			return userMaxEnrollments, nil
 		}
 	}
+}
+
+func addQueryParm(req *http.Request, name, value string) {
+	url := req.URL.Query()
+	url.Add(name, value)
+	req.URL.RawQuery = url.Encode()
 }
