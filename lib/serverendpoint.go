@@ -17,6 +17,7 @@ limitations under the License.
 package lib
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/cloudflare/cfssl/api"
@@ -33,6 +34,8 @@ type serverEndpoint struct {
 	Handler func(ctx *serverRequestContext) (interface{}, error)
 	// Server which hosts this endpoint
 	Server *Server
+	// Indicates if endpoint will be streaming data to client
+	Streaming bool
 }
 
 // ServeHTTP encapsulates the call to underlying Handlers to handle the request
@@ -43,6 +46,12 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	err := se.validateMethod(r)
 	var resp interface{}
 	if err == nil {
+		if r.Method == "GET" && se.Streaming {
+			w.Header().Set("Connection", "Keep-Alive")
+			w.Header().Set("Transfer-Encoding", "chunked")
+			// Write the beginning of the JSON object
+			w.Write([]byte("{\"result\":{"))
+		}
 		resp, err = se.Handler(newServerRequestContext(r, w, se))
 	}
 	if r.Method == "HEAD" {
@@ -57,14 +66,26 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if err == nil {
 		w.WriteHeader(se.getSuccessRC())
-		err = api.SendResponse(w, resp)
-		if err != nil {
-			log.Warning("Failed to send response for %s: %+v", url, err)
+		if se.Streaming {
+			msg := ", \"errors\":[], \"messages\":[],\"success\":\"true\"}"
+			w.Write([]byte(msg))
+			w.(http.Flusher).Flush()
+		} else {
+			err = api.SendResponse(w, resp)
+			if err != nil {
+				log.Warning("Failed to send response for %s: %+v", url, err)
+			}
 		}
 		log.Infof(`%s %s %s %d 0 "OK"`, r.RemoteAddr, r.Method, r.URL, se.getSuccessRC())
 	} else {
 		he := getHTTPErr(err)
-		he.writeResponse(w)
+		if se.Streaming {
+			msg := fmt.Sprintf("]}, \"errors\":[{\"code\":%d,\"message\":\"%s\"}], \"messages\":[], \"success\":\"false\"}", he.rcode, he.rmsg)
+			w.Write([]byte(msg))
+			w.(http.Flusher).Flush()
+		} else {
+			he.writeResponse(w)
+		}
 		log.Debugf("Sent error for %s: %+v", url, err)
 		log.Infof(`%s %s %s %d %d "%s"`, r.RemoteAddr, r.Method, r.URL, he.scode, he.lcode, he.lmsg)
 	}
