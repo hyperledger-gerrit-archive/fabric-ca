@@ -29,6 +29,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
 	"github.com/cloudflare/cfssl/signer"
+	gmux "github.com/gorilla/mux"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
@@ -51,7 +52,12 @@ type serverRequestContext struct {
 		buf  []byte // the body itself
 		err  error  // any error from reading the body
 	}
+	callerRoles map[string]bool
 }
+
+const (
+	registrarRole = "hf.Registrar.Roles"
+)
 
 // newServerRequestContext is the constructor for a serverRequestContext
 func newServerRequestContext(r *http.Request, w http.ResponseWriter, se *serverEndpoint) *serverRequestContext {
@@ -320,6 +326,28 @@ func (ctx *serverRequestContext) ReadBodyBytes() ([]byte, error) {
 	return ctx.body.buf, nil
 }
 
+// CanManageUser determines if the caller has the right type and affiliation to act on on a user
+func (ctx *serverRequestContext) CanManageUser(user spi.User) error {
+	userAff := strings.Join(user.GetAffiliationPath(), ".")
+	validAffiliation, err := ctx.ContainsAffiliation(userAff)
+	if err != nil {
+		return newHTTPErr(500, ErrGettingAffiliation, "Failed to validate if caller has authority to get ID: %s", err)
+	}
+	if !validAffiliation {
+		return newAuthErr(ErrCallerNotAffiliated, "Caller does not have authority to act on affiliation '%s'", userAff)
+	}
+
+	userType := user.GetType()
+	canAct, err := ctx.CanActOnType(userType)
+	if err != nil {
+		return newHTTPErr(500, ErrGettingType, "Failed to verify if user can act on type '%s': %s", userType, err)
+	}
+	if !canAct {
+		return newAuthErr(ErrCallerNotAffiliated, "Registrar does not have authority to act on type '%s'", userType)
+	}
+	return nil
+}
+
 // GetCaller gets the user who is making this server request
 func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 	if ctx.caller != nil {
@@ -341,6 +369,92 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 		return nil, errors.WithMessage(err, "Failed to get user")
 	}
 	return ctx.caller, nil
+}
+
+// ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
+func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	callerAffiliationPath := GetUserAffiliation(caller)
+	log.Debugf("Checking to see if affiliation '%s' contains caller's affiliation '%s'", affiliation, callerAffiliationPath)
+
+	// If the caller has root affiliation return "true"
+	if callerAffiliationPath == "" {
+		return true, nil
+	}
+
+	if strings.HasPrefix(affiliation, callerAffiliationPath) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// IsRegistrar returns back true if the caller is a registrar along with the types the registrar is allowed to register
+func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return "", false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' is a registrar", caller.GetName())
+
+	rolesStr, err := caller.GetAttribute(registrarRole)
+	if err != nil {
+		return "", false, errors.WithMessage(err, fmt.Sprintf("'%s' is not a registrar", caller.GetName()))
+	}
+
+	// Has some value for attribute 'hf.Registrar.Roles' then user is a registrar
+	if rolesStr != "" {
+		return rolesStr, true, nil
+	}
+
+	return "", false, nil
+}
+
+// CanActOnType returns true if the caller has the proper authority to take action on specific type
+func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return false, err
+	}
+
+	log.Debugf("Checking to see if caller '%s' can act on type '%s'", caller.GetName(), typ)
+
+	typesStr, isRegistrar, err := ctx.IsRegistrar()
+	if err != nil {
+		return false, err
+	}
+	if !isRegistrar {
+		return false, newAuthErr(ErrRegAttrAuth, "'%s' is not a registrar", caller.GetName())
+	}
+
+	var types []string
+	if typesStr != "" {
+		types = strings.Split(typesStr, ",")
+	} else {
+		types = make([]string, 0)
+	}
+
+	if !util.StrContained(typ, types) {
+		log.Debug("Caller with types '%s' is not authorized to act on '%s'", types, typ)
+		return false, nil
+	}
+
+	return true, nil
+}
+
+// CanActOnType returns true if the caller has the proper authority to take action on specific type
+func (ctx *serverRequestContext) GetVar(name string) (string, error) {
+	vars := gmux.Vars(ctx.req)
+	if vars == nil {
+		return "", newHTTPErr(500, ErrHTTPRequest, "Failed to correctly handle HTTP request")
+	}
+	value := vars[name]
+	return value, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

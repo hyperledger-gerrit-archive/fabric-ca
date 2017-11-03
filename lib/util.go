@@ -24,11 +24,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/viper"
 )
@@ -186,4 +188,9 @@ func addQueryParm(req *http.Request, name, value string) {
 	url := req.URL.Query()
 	url.Add(name, value)
 	req.URL.RawQuery = url.Encode()
+}
+
+// GetUserAffiliation return a joined version version of the affiliation path with '.' as the seperator
+func GetUserAffiliation(user spi.User) string {
+	return strings.Join(user.GetAffiliationPath(), ".")
 }

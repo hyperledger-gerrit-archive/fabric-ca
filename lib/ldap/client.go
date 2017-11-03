@@ -257,6 +257,11 @@ func (lc *Client) DeleteAffiliation(name string) error {
 	return errNotSupported
 }
 
+// GetFilteredUsers returns all identities that fall under the affiliation and types
+func (lc *Client) GetFilteredUsers(affiliation, types string) ([]spi.User, error) {
+	return nil, errNotSupported
+}
+
 // Connect to the LDAP server and bind as user as admin user as specified in LDAP URL
 func (lc *Client) newConnection() (conn *ldap.Conn, err error) {
 	address := fmt.Sprintf("%s:%d", lc.Host, lc.Port)
@@ -304,6 +309,11 @@ func (u *User) GetName() string {
 	return u.dn
 }
 
+// GetType returns type of the user
+func (u *User) GetType() string {
+	return ""
+}
+
 // Login logs a user in using password
 func (u *User) Login(password string, caMaxEnrollment int) error {
 
@@ -335,8 +345,12 @@ func (u *User) GetAffiliationPath() []string {
 }
 
 // GetAttribute returns the value of an attribute, or "" if not found
-func (u *User) GetAttribute(name string) string {
-	return u.attrs[name]
+func (u *User) GetAttribute(name string) (string, error) {
+	value, hasAttr := u.attrs[name]
+	if !hasAttr {
+		return "", errors.Errorf("User does not have attribute '%s'", name)
+	}
+	return value, nil
 }
 
 // GetAttributes returns the requested attributes
