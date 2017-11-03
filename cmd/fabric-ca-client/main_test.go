@@ -479,13 +479,17 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
+	err = RunMain([]string{cmdName, "register", "--id.name", "test user"})
+	util.FatalError(t, err, "Failed to register user")
+
+	// Negative test cases
 	err = RunMain([]string{
 		cmdName, "identity", "list"})
-	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+	assert.NoError(t, err, "Failed to get all ids")
 
 	err = RunMain([]string{
-		cmdName, "identity", "list", "--id", "testuser"})
-	assert.Error(t, err, "Server endpoint does not exist yet, should fail")
+		cmdName, "identity", "list", "--id", "test user"})
+	assert.NoError(t, err, "Failed to get id 'test user'")
 
 	err = RunMain([]string{
 		cmdName, "identity", "add"})
