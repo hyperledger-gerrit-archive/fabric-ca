@@ -129,6 +129,16 @@ const (
 	ErrHTTPRequest = 48
 	// Error connecting to database
 	ErrConnectingDB = 49
+	// Failed to add identity
+	ErrAddIdentity = 50
+	// Unauthorized to perform update action
+	ErrUpdateConfigAuth = 51
+	// Registrar not authorized to act on type
+	ErrRegistrarInvalidType = 52
+	// Registrar not authorized to act on affiliation
+	ErrRegistrarNotAffiliated = 53
+	// Failed to remove identity
+	ErrRemoveIdentity = 54
 )
 
 // Construct a new HTTP error.
