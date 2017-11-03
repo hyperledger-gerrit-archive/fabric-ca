@@ -358,7 +358,7 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 	var err error
 	id := ctx.enrollmentID
 	if id == "" {
-		return nil, newHTTPErr(500, ErrCallerIsNotAuthenticated, "Caller is not authenticated")
+		return nil, newAuthErr(ErrCallerIsNotAuthenticated, "Caller is not authenticated")
 	}
 	ca, err := ctx.GetCA()
 	if err != nil {
@@ -367,7 +367,7 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 	// Get the user info object for this user
 	ctx.caller, err = ca.registry.GetUser(id, nil)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to get user")
+		return nil, newAuthErr(ErrGettingUser, "Failed to get user")
 	}
 	return ctx.caller, nil
 }
