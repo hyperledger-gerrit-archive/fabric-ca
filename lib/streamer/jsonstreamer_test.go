@@ -42,11 +42,21 @@ func TestJSONStreamer(t *testing.T) {
 		return nil
 	}
 
-	const jsonStream = `{"a": "aval", "b": {"foo": [{"foo1":"bar1"}]}, "identities": [{"name": "id1", "type": "type1"}, {"name": "id2"}], "c": "cval", "d": "dval", "e": 1.234}`
+	const jsonStream = `{"a": "aval", "b": {"foo": [{"foo1":"bar1"}]}, "result": {"identities": [{"name": "id1", "type": "type1"}, {"name": "id2"}]}, "errors": [], "c": "cval", "d": "dval", "e": 1.234}`
 	dec := json.NewDecoder(strings.NewReader(jsonStream))
-	err := StreamJSONArray(dec, "identities", testCB)
+	err := StreamJSONArray(dec, "result.identities", testCB)
 	assert.NoError(t, err, "Failed to correctly stream JSON")
 	assert.True(t, cbFuncCalled, "Callback function was not successfully called")
+
+	const jsonStream_err = `{"a": "aval", "b": {"foo": [{"foo1":"bar1"}]}, "result": {"identities": [{"name": "id1", "type": "type1"}, {"name": "id2"}]}, "errors": [{"code":20,"message":"Authorization failure"}], "c": "cval", "d": "dval", "e": 1.234}`
+	dec = json.NewDecoder(strings.NewReader(jsonStream_err))
+	err = StreamJSONArray(dec, "result.identities", testCB)
+	assert.Error(t, err, "Should have returned the error in the JSON stream")
+
+	const jsonStream_baderr = `{"a": "aval", "b": {"foo": [{"foo1":"bar1"}]}, "result": {"identities": [{"name": "id1", "type": "type1"}, {"name": "id2"}]}, "errors": {"code":20,"message":"Authorization failure"}, "c": "cval", "d": "dval", "e": 1.234}`
+	dec = json.NewDecoder(strings.NewReader(jsonStream_baderr))
+	err = StreamJSONArray(dec, "result.identities", testCB)
+	assert.Error(t, err, "Should have failed, errors is not array type")
 
 	dec = json.NewDecoder(strings.NewReader(jsonStream))
 	err = StreamJSONArray(dec, "a", nil)
@@ -79,5 +89,10 @@ func TestJSONStreamer(t *testing.T) {
 	const jsonStream6 = `{"a": "aval", "identities": []{"name": "id1", "type": "type1"}, {"name": "id2"}], "c": "cval"}`
 	dec = json.NewDecoder(strings.NewReader(jsonStream6))
 	err = StreamJSONArray(dec, "c", testCB)
-	assert.Error(t, err, "Should have failed, incorrect formate of 'identities'")
+	assert.Error(t, err, "Should have failed, incorrect format of 'identities'")
+
+	const jsonStream7 = `{"a"/ "aval", "identities": {"name": "id1", "type": "type1"}, {"name": "id2"}], "c": "cval"}`
+	dec = json.NewDecoder(strings.NewReader(jsonStream7))
+	err = StreamJSONArray(dec, "c", testCB)
+	assert.Error(t, err, "Should have failed, incorrect JSON syntax")
 }

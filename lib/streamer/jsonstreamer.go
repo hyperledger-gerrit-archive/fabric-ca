@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"strings"
 
+	cfsslapi "github.com/cloudflare/cfssl/api"
 	"github.com/pkg/errors"
 )
 
@@ -49,6 +50,10 @@ func StreamJSONArray(decoder *json.Decoder, pathToArray string, cb func(decoder 
 		if err != nil {
 			return err
 		}
+	}
+	err = js.getError()
+	if err != nil {
+		return err
 	}
 	return nil
 }
@@ -184,4 +189,58 @@ func (js *jsonStream) getToken() (interface{}, error) {
 	// Commenting out following debug because is too verbose normally
 	//log.Debugf("read token %s", token)
 	return token, err
+}
+
+func (js *jsonStream) getError() error {
+	// Find path to errors
+	_, err := js.getToken() // get token will get the closing square bracket ']'
+	if err != nil {
+		return err
+	}
+
+	// Get to the end of the result JSON Object
+	err = js.skipToDelim("}")
+	if err != nil {
+		return err
+	}
+
+	for {
+		str, err := js.getString()
+		if err != nil {
+			return err
+		}
+		if str == "errors" {
+			break
+		}
+		err = js.skip()
+		if err != nil {
+			return err
+		}
+	}
+
+	err = js.assertDelim("[")
+	if err != nil {
+		return errors.New("Expecting array value at 'errors'")
+	}
+	// While the array contains values
+	for js.decoder.More() {
+		err = js.decodeError()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// decodes errors that might be returned as part of CFSSL NewErrorResponse API
+func (js *jsonStream) decodeError() error {
+	var cferr cfsslapi.ResponseMessage
+	err := js.decoder.Decode(&cferr)
+	if err != nil {
+		return err
+	}
+	if cferr.Message != "" {
+		return errors.Errorf("Response from server: Error Code: %d - %s\n", cferr.Code, cferr.Message)
+	}
+	return nil
 }
