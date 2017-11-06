@@ -191,7 +191,7 @@ func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 		return "", errors.Errorf("Identity '%s' is already registered", req.Name)
 	}
 
-	err = registry.InsertUser(insert)
+	err = registry.InsertUser(&insert)
 	if err != nil {
 		return "", err
 	}
@@ -311,7 +311,7 @@ func validateRequestedAttributes(reqAttrs []api.Attribute, registrar spi.User) e
 }
 
 // Add an attribute to the registration request if not already found.
-func addAttributeToRequest(name, value string, req *api.RegistrationRequestNet) {
+func addAttributeToRequest(name, value string, req *api.RegistrationRequest) {
 	for _, attr := range req.Attributes {
 		if attr.Name == name {
 			return

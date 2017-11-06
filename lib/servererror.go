@@ -139,6 +139,8 @@ const (
 	ErrRemoveIdentity = 53
 	// Failed to get instance of CA
 	ErrGetCA = 54
+	// Failed to modify identity
+	ErrModifyingIdentity = 55
 )
 
 // Construct a new HTTP error.
