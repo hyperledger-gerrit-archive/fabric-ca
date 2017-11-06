@@ -424,6 +424,74 @@ func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
 	return true, nil
 }
 
+// Validate that the caller can register the requested attributes
+func (ctx *serverRequestContext) canRegisterRequestedAttributes(reqAttrs []api.Attribute) error {
+	if len(reqAttrs) == 0 {
+		return nil
+	}
+	registrar, err := ctx.GetCaller()
+	if err != nil {
+		return err
+	}
+	registrarAttrs, err := registrar.GetAttribute(attrRegistrarAttr)
+	if err != nil {
+		return newHTTPErr(401, ErrMissingRegAttr, "Failed to get attribute '%s': %s", attrRegistrarAttr, err)
+	}
+	if registrarAttrs == "" {
+		return newAuthErr(ErrMissingRegAttr, "Registrar does not have any values for '%s' thus can't register any attributes", attrRegistrarAttr)
+	}
+	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%s' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs, reqAttrs)
+
+	hfRegistrarAttrsSlice := strings.Split(strings.Replace(registrarAttrs, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+
+	// Function will iterate through the values of registrar's 'hf.Registrar.Attributes' attribute to check if registrar can register the requested attributes
+	registrarCanRegisterAttr := func(requestedAttr string) error {
+		for _, regAttr := range hfRegistrarAttrsSlice {
+			if strings.HasSuffix(regAttr, "*") { // Wildcard matching
+				if strings.HasPrefix(requestedAttr, strings.TrimRight(regAttr, "*")) {
+					return nil // Requested attribute found, break out of loop
+				}
+			} else {
+				if requestedAttr == regAttr { // Exact name matching
+					return nil // Requested attribute found, break out of loop
+				}
+			}
+		}
+		return errors.Errorf("Attribute is not part of '%s' attribute", attrRegistrarAttr)
+	}
+
+	for _, reqAttr := range reqAttrs {
+		reqAttrName := reqAttr.Name // Name of the requested attribute
+
+		// Requesting 'hf.Registrar.Attributes' attribute
+		if reqAttrName == attrRegistrarAttr {
+			// Check if registrar is allowed to register 'hf.Registrar.Attribute' by examining it's value for 'hf.Registrar.Attribute'
+			err := registrarCanRegisterAttr(attrRegistrarAttr)
+			if err != nil {
+				return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+			}
+
+			reqRegistrarAttrsSlice := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+			// Loop through the requested values for 'hf.Registrar.Attributes' to see if they can be registered
+			for _, reqRegistrarAttr := range reqRegistrarAttrsSlice {
+				err := registrarCanRegisterAttr(reqRegistrarAttr)
+				if err != nil {
+					return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+				}
+			}
+			continue // Continue to next requested attribute
+		}
+
+		// Iterate through the registrar's value for 'hf.Registrar.Attributes' to check if it can register the requested attribute
+		err := registrarCanRegisterAttr(reqAttrName)
+		if err != nil {
+			return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+		}
+	}
+
+	return nil
+}
+
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
 	rtn := make([]attrmgr.AttributeRequest, len(attrReqs))
 	for i := range attrReqs {

@@ -311,7 +311,7 @@ func (i *Identity) ModifyIdentity(req *api.ModifyIdentityRequest) (*IdentityResp
 		return nil, err
 	}
 
-	log.Debug("Successfully modified identity")
+	log.Debugf("Successfully modified identity '%s'", result.Name)
 	return result, nil
 }
 

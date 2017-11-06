@@ -228,7 +228,7 @@ func (lc *Client) InsertUser(user spi.UserInfo) error {
 }
 
 // UpdateUser updates a user
-func (lc *Client) UpdateUser(user spi.UserInfo) error {
+func (lc *Client) UpdateUser(user spi.UserInfo, updatePass bool) error {
 	return errNotSupported
 }
 

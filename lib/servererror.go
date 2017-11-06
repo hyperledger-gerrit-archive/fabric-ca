@@ -133,6 +133,8 @@ const (
 	ErrRegistrarNotAffiliated = 50
 	// Failed to remove identity
 	ErrRemoveIdentity = 51
+	// Failed to modify identity
+	ErrModifyingIdentity = 52
 )
 
 // Construct a new HTTP error.

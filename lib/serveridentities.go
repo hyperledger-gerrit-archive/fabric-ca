@@ -48,6 +48,7 @@ func identitiesHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	caller, err := ctx.GetCaller()
 	if err != nil {
 		return nil, err
@@ -258,13 +259,93 @@ func processPostRequest(ctx *serverRequestContext, caname string) (interface{}, 
 	resp.IdentityInfo = *getIDInfo(userInfo)
 
 	log.Debugf("Identity successfully added")
-
 	return resp, nil
 }
 
 func processPutRequest(ctx *serverRequestContext, caname string) (interface{}, error) {
 	log.Debug("Processing PUT request")
-	return nil, errors.Errorf("Not Implemented")
+
+	vars := gmux.Vars(ctx.req)
+	modifyID := vars["id"]
+
+	if modifyID == "" {
+		return nil, errors.Errorf("No ID name specified to remove")
+	}
+
+	log.Debugf("Modifying identity '%s'", modifyID)
+
+	registry := ctx.ca.registry
+
+	userToModify, err := registry.GetUser(modifyID, nil)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrGettingUser, "Failed to get user: %s", err)
+	}
+
+	err = performIdentityAuthCheck(userToModify, ctx)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Caller is not authorized to remove identity")
+	}
+
+	var req api.ModifyIdentityRequest
+	err = ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Affiliation != "" {
+		newAff := req.Affiliation
+		log.Debugf("Checking if caller is authorized to change affiliation to '%s'")
+		validAffiliation, err := ctx.ContainsAffiliation(newAff)
+		if err != nil {
+			return "", err
+		}
+		if !validAffiliation {
+			return "", newAuthErr(ErrModifyingIdentity, "Registrar does not have authority to modify identity to use '%s' affiliation", newAff)
+		}
+		if newAff != "." { // Only need to check if not requesting root affiliation
+			aff, _ := registry.GetAffiliation(newAff)
+			if aff == nil {
+				return "", newHTTPErr(400, ErrModifyingIdentity, "Affiliation '%s' is not supported", newAff)
+			}
+		}
+	}
+
+	if req.Type != "" {
+		newType := req.Type
+		log.Debugf("Checking if caller is authorized to change type to '%s'", newType)
+		canRegister, err := ctx.CanActOnType(newType)
+		if err != nil {
+			return "", err
+		}
+		if !canRegister {
+			return "", newAuthErr(ErrModifyingIdentity, "Caller '%s' may not register type '%s'", ctx.caller.GetName(), newType)
+		}
+	}
+
+	if len(req.Attributes) != 0 {
+		newAttrs := req.Attributes
+		log.Debugf("Checking if caller is authorized to change attributes to '%s'", newAttrs)
+		err := ctx.canRegisterRequestedAttributes(newAttrs)
+		if err != nil {
+			return "", err
+		}
+	}
+	modReq, setPass := getModifyReq(userToModify, req)
+	log.Debugf("Modify Request: %+v", util.StructToString(modReq))
+
+	err = registry.UpdateUser(*modReq, setPass)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := IdentityResponse{
+		Secret: modReq.Pass,
+		CAName: caname,
+	}
+	resp.IdentityInfo = *getIDInfo(*modReq)
+
+	log.Debugf("Identity successfully modified")
+	return resp, nil
 }
 
 func performIdentityAuthCheck(user spi.User, ctx *serverRequestContext) error {
@@ -296,6 +377,60 @@ func performIdentityAuthCheck(user spi.User, ctx *serverRequestContext) error {
 	}
 
 	return nil
+}
+
+// Function takes the modification request and fills in missing information with the current user information
+// and parses the modification request to generate the correct input to be stored in the database
+func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, bool) {
+	modifyReq := req.RegistrationRequest
+	modifyUserInfo := user.(*DBUser).UserInfo
+	userPass := user.(*DBUser).pass
+	setPass := false
+
+	if modifyReq.Secret != "" {
+		setPass = true
+		modifyUserInfo.Pass = modifyReq.Secret
+	} else {
+		modifyUserInfo.Pass = string(userPass)
+	}
+
+	if len(modifyReq.Attributes) != 0 {
+		allAttributes := modifyUserInfo.Attributes
+		newAttributes := modifyReq.Attributes
+		var newAttr api.Attribute
+		for _, newAttr = range newAttributes {
+			foundAttr := false
+			for i := range allAttributes {
+				if allAttributes[i].Name == newAttr.Name {
+					allAttributes[i].Value = newAttr.Value
+					foundAttr = true
+					break
+				}
+			}
+			if !foundAttr {
+				allAttributes = append(allAttributes, newAttr)
+			}
+		}
+		modifyUserInfo.Attributes = allAttributes
+	}
+
+	if modifyReq.MaxEnrollments == -2 {
+		modifyUserInfo.MaxEnrollments = 0
+	} else if modifyReq.MaxEnrollments != 0 {
+		modifyUserInfo.MaxEnrollments = modifyReq.MaxEnrollments
+	}
+
+	if modifyReq.Affiliation == "." {
+		modifyUserInfo.Affiliation = ""
+	} else if modifyReq.Affiliation != "" {
+		modifyUserInfo.Affiliation = modifyReq.Affiliation
+	}
+
+	if modifyReq.Type != "" {
+		modifyUserInfo.Type = modifyReq.Type
+	}
+
+	return &modifyUserInfo, setPass
 }
 
 func getIDInfo(user spi.UserInfo) *IdentityInfo {

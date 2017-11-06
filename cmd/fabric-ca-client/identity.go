@@ -256,7 +256,7 @@ func (c *ClientCmd) runAddIdentity() error {
 		return err
 	}
 
-	fmt.Printf("Successfully added identity: %+v", resp)
+	fmt.Printf("Successfully added identity: %+v\n", resp)
 
 	return nil
 }
@@ -294,7 +294,7 @@ func (c *ClientCmd) runModifyIdentity() error {
 		return err
 	}
 
-	fmt.Printf("Successfully modified identity: %+v", resp)
+	fmt.Printf("Successfully modified identity: %+v\n", resp)
 
 	return nil
 }
@@ -316,7 +316,7 @@ func (c *ClientCmd) runRemoveIdentity() error {
 		return err
 	}
 
-	fmt.Printf("Successfully removed identity: %+v", resp)
+	fmt.Printf("Successfully removed identity: %+v\n", resp)
 
 	return nil
 }

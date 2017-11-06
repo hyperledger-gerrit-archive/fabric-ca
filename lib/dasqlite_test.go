@@ -299,7 +299,7 @@ func testUpdateUser(ta TestAccessor, t *testing.T) {
 
 	insert.Pass = "654321"
 
-	ta.Accessor.UpdateUser(insert)
+	ta.Accessor.UpdateUser(insert, true)
 	if err != nil {
 		t.Errorf("Error occured during update query of ID: %s, error: %s", insert.Name, err)
 	}

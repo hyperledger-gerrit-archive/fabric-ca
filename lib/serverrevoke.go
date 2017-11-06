@@ -114,7 +114,7 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 
 			userInfo.State = -1
 
-			err = registry.UpdateUser(userInfo)
+			err = registry.UpdateUser(userInfo, false)
 			if err != nil {
 				return nil, newHTTPErr(500, ErrRevokeUpdateUser, "Failed to update identity info: %s", err)
 			}
