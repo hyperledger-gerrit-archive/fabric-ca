@@ -557,8 +557,6 @@ func TestIdentityCmd(t *testing.T) {
 		cmdName, "identity", "add", "testuser2", "--secret", "user1pw", "--type", "user", "--affiliation", ".", "--maxenrollments", "1", "--attrs", "hf.Revoker=true"})
 	assert.NoError(t, err, "Failed to add user 'testuser2'")
 
-	server.CA.Config.Cfg.Identities.AllowRemove = true
-
 	registry := server.CA.DBAccessor()
 	_, err = registry.GetUser("testuser1", nil)
 	assert.NoError(t, err, "Failed to get user 'testuser1'")
@@ -567,12 +565,21 @@ func TestIdentityCmd(t *testing.T) {
 	assert.NoError(t, err, "Failed to get user 'testuser2'")
 
 	err = RunMain([]string{
-		cmdName, "identity", "remove", "testuser1"})
-	assert.NoError(t, err, "Failed to remove user")
+		cmdName, "identity", "modify", "testuser1", "--type", "peer"})
+	assert.NoError(t, err, "Failed to modify user 'testuser1'")
+
+	user, err := registry.GetUser("testuser1", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser1'")
+
+	if user.GetType() != "peer" {
+		t.Error("Failed to correctly modify user 'testuser1'")
+	}
+
+	server.CA.Config.Cfg.Identities.AllowRemove = true
 
 	err = RunMain([]string{
-		cmdName, "identity", "modify", "testuser", "--type", "peer"})
-	assert.Error(t, err, "Should have failed, not yet implemented")
+		cmdName, "identity", "remove", "testuser1"})
+	assert.NoError(t, err, "Failed to remove user")
 }
 
 // Verify the certificate has attribute 'name' with a value of 'val'
