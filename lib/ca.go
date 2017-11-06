@@ -777,7 +777,7 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 		Attributes:     ca.convertAttrs(id.Attrs),
 		MaxEnrollments: id.MaxEnrollments,
 	}
-	err = ca.registry.InsertUser(rec)
+	err = ca.registry.InsertUser(&rec)
 	if err != nil {
 		return errors.WithMessage(err, fmt.Sprintf("Failed to insert identity '%s'", id.Name))
 	}

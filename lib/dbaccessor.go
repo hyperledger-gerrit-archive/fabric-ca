@@ -49,7 +49,7 @@ DELETE FROM users
 
 	updateUser = `
 UPDATE users
-	SET token = :token, type = :type, affiliation = :affiliation, attributes = :attributes, state = :state
+	SET token = :token, type = :type, affiliation = :affiliation, attributes = :attributes, state = :state, max_enrollments = :max_enrollments
 	WHERE (id = :id);`
 
 	getUser = `
@@ -103,7 +103,7 @@ func (d *Accessor) SetDB(db *sqlx.DB) {
 }
 
 // InsertUser inserts user into database
-func (d *Accessor) InsertUser(user spi.UserInfo) error {
+func (d *Accessor) InsertUser(user *spi.UserInfo) error {
 	log.Debugf("DB: Add identity %s", user.Name)
 
 	err := d.checkDB()
@@ -193,7 +193,7 @@ func deleteUserTx(id string, reason int, tx *sqlx.Tx) error {
 }
 
 // UpdateUser updates user in database
-func (d *Accessor) UpdateUser(user spi.UserInfo) error {
+func (d *Accessor) UpdateUser(user *spi.UserInfo, updatePass bool) error {
 	log.Debugf("DB: Update identity %s", user.Name)
 	err := d.checkDB()
 	if err != nil {
@@ -207,9 +207,11 @@ func (d *Accessor) UpdateUser(user spi.UserInfo) error {
 
 	// Hash the password before storing it
 	pwd := []byte(user.Pass)
-	pwd, err = bcrypt.GenerateFromPassword(pwd, bcrypt.DefaultCost)
-	if err != nil {
-		return errors.Wrap(err, "Failed to hash password")
+	if updatePass {
+		pwd, err = bcrypt.GenerateFromPassword(pwd, bcrypt.DefaultCost)
+		if err != nil {
+			return errors.Wrap(err, "Failed to hash password")
+		}
 	}
 
 	// Store the updated user entry

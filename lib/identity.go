@@ -266,7 +266,7 @@ func (i *Identity) ModifyIdentity(req *api.ModifyIdentityRequest) (*api.Identity
 		return nil, err
 	}
 
-	log.Debug("Successfully modified identity")
+	log.Debugf("Successfully modified identity '%s'", result.ID)
 	return result, nil
 }
 

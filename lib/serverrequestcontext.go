@@ -326,24 +326,67 @@ func (ctx *serverRequestContext) ReadBodyBytes() ([]byte, error) {
 	return ctx.body.buf, nil
 }
 
+func (ctx *serverRequestContext) GetUser(userName string) (spi.User, error) {
+	ca, err := ctx.getCA()
+	if err != nil {
+		return nil, err
+	}
+	registry := ca.registry
+
+	user, err := registry.GetUser(userName, nil)
+	if err != nil {
+		return nil, getUserError(err)
+	}
+
+	err = ctx.CanManageUser(user)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
+}
+
 // CanManageUser determines if the caller has the right type and affiliation to act on on a user
 func (ctx *serverRequestContext) CanManageUser(user spi.User) error {
 	userAff := strings.Join(user.GetAffiliationPath(), ".")
-	validAffiliation, err := ctx.ContainsAffiliation(userAff)
+	err := ctx.ContainsAffiliation(userAff)
 	if err != nil {
-		return newHTTPErr(500, ErrGettingAffiliation, "Failed to validate if caller has authority to get ID: %s", err)
-	}
-	if !validAffiliation {
-		return newAuthErr(ErrCallerNotAffiliated, "Caller does not have authority to act on affiliation '%s'", userAff)
+		return err
 	}
 
 	userType := user.GetType()
-	canAct, err := ctx.CanActOnType(userType)
+	err = ctx.CanActOnType(userType)
 	if err != nil {
-		return newHTTPErr(500, ErrGettingType, "Failed to verify if user can act on type '%s': %s", userType, err)
+		return err
 	}
-	if !canAct {
-		return newAuthErr(ErrCallerNotAffiliated, "Registrar does not have authority to act on type '%s'", userType)
+
+	return nil
+}
+
+// CanModifyUser determines if the modifications to the user are allowed
+func (ctx *serverRequestContext) CanModifyUser(userAff string, checkAff bool, userType string, checkType bool, userAttrs []api.Attribute, checkAttrs bool) error {
+	if checkAff {
+		log.Debugf("Checking if caller is authorized to change affiliation to '%s'", userAff)
+		err := ctx.ContainsAffiliation(userAff)
+		if err != nil {
+			return err
+		}
+	}
+
+	if checkType {
+		log.Debugf("Checking if caller is authorized to change type to '%s'", userType)
+		err := ctx.CanActOnType(userType)
+		if err != nil {
+			return err
+		}
+	}
+
+	if checkAttrs {
+		log.Debugf("Checking if caller is authorized to change attributes to '%s'", userAttrs)
+		err := ctx.canRegisterRequestedAttributes(userAttrs)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -372,7 +415,18 @@ func (ctx *serverRequestContext) GetCaller() (spi.User, error) {
 }
 
 // ContainsAffiliation returns true if the caller the requested affiliation contains the caller's affiliation
-func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) (bool, error) {
+func (ctx *serverRequestContext) ContainsAffiliation(affiliation string) error {
+	validAffiliation, err := ctx.containsAffiliation(affiliation)
+	if err != nil {
+		return newHTTPErr(500, ErrGettingAffiliation, "Failed to validate if caller has authority to get ID: %s", err)
+	}
+	if !validAffiliation {
+		return newAuthErr(ErrCallerNotAffiliated, "Caller does not have authority to act on affiliation '%s'", affiliation)
+	}
+	return nil
+}
+
+func (ctx *serverRequestContext) containsAffiliation(affiliation string) (bool, error) {
 	caller, err := ctx.GetCaller()
 	if err != nil {
 		return false, err
@@ -416,7 +470,18 @@ func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
 }
 
 // CanActOnType returns true if the caller has the proper authority to take action on specific type
-func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
+func (ctx *serverRequestContext) CanActOnType(userType string) error {
+	canAct, err := ctx.canActOnType(userType)
+	if err != nil {
+		return newHTTPErr(500, ErrGettingType, "Failed to verify if user can act on type '%s': %s", userType, err)
+	}
+	if !canAct {
+		return newAuthErr(ErrCallerNotAffiliated, "Registrar does not have authority to act on type '%s'", userType)
+	}
+	return nil
+}
+
+func (ctx *serverRequestContext) canActOnType(typ string) (bool, error) {
 	caller, err := ctx.GetCaller()
 	if err != nil {
 		return false, err
@@ -455,6 +520,74 @@ func (ctx *serverRequestContext) GetVar(name string) (string, error) {
 	}
 	value := vars[name]
 	return value, nil
+}
+
+// Validate that the caller can register the requested attributes
+func (ctx *serverRequestContext) canRegisterRequestedAttributes(reqAttrs []api.Attribute) error {
+	if len(reqAttrs) == 0 {
+		return nil
+	}
+	registrar, err := ctx.GetCaller()
+	if err != nil {
+		return err
+	}
+	registrarAttrs, err := registrar.GetAttribute(attrRegistrarAttr)
+	if err != nil {
+		return newHTTPErr(401, ErrMissingRegAttr, "Failed to get attribute '%s': %s", attrRegistrarAttr, err)
+	}
+	if registrarAttrs == "" {
+		return newAuthErr(ErrMissingRegAttr, "Registrar does not have any values for '%s' thus can't register any attributes", attrRegistrarAttr)
+	}
+	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%s' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs, reqAttrs)
+
+	hfRegistrarAttrsSlice := strings.Split(strings.Replace(registrarAttrs, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+
+	// Function will iterate through the values of registrar's 'hf.Registrar.Attributes' attribute to check if registrar can register the requested attributes
+	registrarCanRegisterAttr := func(requestedAttr string) error {
+		for _, regAttr := range hfRegistrarAttrsSlice {
+			if strings.HasSuffix(regAttr, "*") { // Wildcard matching
+				if strings.HasPrefix(requestedAttr, strings.TrimRight(regAttr, "*")) {
+					return nil // Requested attribute found, break out of loop
+				}
+			} else {
+				if requestedAttr == regAttr { // Exact name matching
+					return nil // Requested attribute found, break out of loop
+				}
+			}
+		}
+		return errors.Errorf("Attribute is not part of '%s' attribute", attrRegistrarAttr)
+	}
+
+	for _, reqAttr := range reqAttrs {
+		reqAttrName := reqAttr.Name // Name of the requested attribute
+
+		// Requesting 'hf.Registrar.Attributes' attribute
+		if reqAttrName == attrRegistrarAttr {
+			// Check if registrar is allowed to register 'hf.Registrar.Attribute' by examining it's value for 'hf.Registrar.Attribute'
+			err := registrarCanRegisterAttr(attrRegistrarAttr)
+			if err != nil {
+				return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+			}
+
+			reqRegistrarAttrsSlice := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+			// Loop through the requested values for 'hf.Registrar.Attributes' to see if they can be registered
+			for _, reqRegistrarAttr := range reqRegistrarAttrsSlice {
+				err := registrarCanRegisterAttr(reqRegistrarAttr)
+				if err != nil {
+					return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+				}
+			}
+			continue // Continue to next requested attribute
+		}
+
+		// Iterate through the registrar's value for 'hf.Registrar.Attributes' to check if it can register the requested attribute
+		err := registrarCanRegisterAttr(reqAttrName)
+		if err != nil {
+			return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+		}
+	}
+
+	return nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
