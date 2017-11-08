@@ -38,8 +38,8 @@ type identityArgs struct {
 func (c *ClientCmd) newIdentityCommand() *cobra.Command {
 	identityCmd := &cobra.Command{
 		Use:   "identity",
-		Short: "Update an identity",
-		Long:  "Dynamically update an identity on Fabric CA server",
+		Short: "Manage identities",
+		Long:  "Manage identities",
 	}
 	identityCmd.AddCommand(c.newListIdentityCommand())
 	identityCmd.AddCommand(c.newAddIdentityCommand())
@@ -51,8 +51,8 @@ func (c *ClientCmd) newIdentityCommand() *cobra.Command {
 func (c *ClientCmd) newListIdentityCommand() *cobra.Command {
 	identityListCmd := &cobra.Command{
 		Use:   "list",
-		Short: "List identity information",
-		Long:  "List identity information",
+		Short: "List identities",
+		Long:  "List identities visible to caller",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
 			log.Level = log.LevelWarning
 			err := c.configInit()
@@ -85,21 +85,7 @@ func (c *ClientCmd) newAddIdentityCommand() *cobra.Command {
 		Short:   "Add identity",
 		Long:    "Add an identity",
 		Example: "fabric-ca-client identity add user1 --type peer",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := argsCheck(args)
-			if err != nil {
-				return err
-			}
-
-			err = c.configInit()
-			if err != nil {
-				return err
-			}
-
-			log.Debugf("Client configuration settings: %+v", c.clientCfg)
-
-			return nil
-		},
+		PreRunE: c.identityPreRunE,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if c.dynamicIdentity.json != "" && checkOtherFlags(cmd) {
 				return errors.Errorf("Can't use 'json' flag in conjunction with other flags")
@@ -130,21 +116,7 @@ func (c *ClientCmd) newModifyIdentityCommand() *cobra.Command {
 		Short:   "Modify identity",
 		Long:    "Modify an existing identity",
 		Example: "fabric-ca-client identity modify user1 --type peer",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := argsCheck(args)
-			if err != nil {
-				return err
-			}
-
-			err = c.configInit()
-			if err != nil {
-				return err
-			}
-
-			log.Debugf("Client configuration settings: %+v", c.clientCfg)
-
-			return nil
-		},
+		PreRunE: c.identityPreRunE,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if c.dynamicIdentity.json != "" && checkOtherFlags(cmd) {
 				return errors.Errorf("Can't use 'json' flag in conjunction with other flags")
@@ -178,21 +150,7 @@ func (c *ClientCmd) newRemoveIdentityCommand() *cobra.Command {
 		Short:   "Remove identity",
 		Long:    "Remove an identity",
 		Example: "fabric-ca-client identity remove user1",
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := argsCheck(args)
-			if err != nil {
-				return err
-			}
-
-			err = c.configInit()
-			if err != nil {
-				return err
-			}
-
-			log.Debugf("Client configuration settings: %+v", c.clientCfg)
-
-			return nil
-		},
+		PreRunE: c.identityPreRunE,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			err := c.runRemoveIdentity(args)
 			if err != nil {
@@ -220,7 +178,7 @@ func (c *ClientCmd) runListIdentity() error {
 			return err
 		}
 
-		fmt.Printf("Identity: %+v\n", resp.IdentityInfo)
+		fmt.Printf("%+v\n", resp.IdentityInfo)
 		return nil
 	}
 
@@ -325,6 +283,22 @@ func (c *ClientCmd) runRemoveIdentity(args []string) error {
 	return nil
 }
 
+func (c *ClientCmd) identityPreRunE(cmd *cobra.Command, args []string) error {
+	err := argsCheck(args, "identity")
+	if err != nil {
+		return err
+	}
+
+	err = c.configInit()
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Client configuration settings: %+v", c.clientCfg)
+
+	return nil
+}
+
 // checkOtherFlags returs true if other flags besides '--json' are set
 // Viper.IsSet does not work correctly if there are defaults defined for
 // flags. This is a workaround until this bug is addressed in Viper.
@@ -344,9 +318,9 @@ func checkOtherFlags(cmd *cobra.Command) bool {
 	return false
 }
 
-func argsCheck(args []string) error {
+func argsCheck(args []string, field string) error {
 	if len(args) == 0 {
-		return errors.New("Identity name is required")
+		return errors.Errorf("%s name is required", field)
 	}
 	if len(args) > 1 {
 		return errors.Errorf("Unknown argument '%s', only the identity name should be passed in as non-flag argument", args[1])
