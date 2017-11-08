@@ -145,7 +145,7 @@ func (c *ClientCmd) runListIdentity(cmd *cobra.Command, args []string) error {
 			return err
 		}
 
-		fmt.Printf("Identity: %+v\n", resp.IdentityInfo)
+		fmt.Printf("%+v\n", resp.IdentityInfo)
 		return nil
 	}
 
@@ -259,6 +259,22 @@ func (c *ClientCmd) runRemoveIdentity(cmd *cobra.Command, args []string) error {
 
 func (c *ClientCmd) IdentityPreRunE(cmd *cobra.Command, args []string) error {
 	err := argsCheck(args, "Identity")
+	if err != nil {
+		return err
+	}
+
+	err = c.configInit()
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Client configuration settings: %+v", c.clientCfg)
+
+	return nil
+}
+
+func (c *ClientCmd) identityPreRunE(cmd *cobra.Command, args []string) error {
+	err := argsCheck(args, "identity")
 	if err != nil {
 		return err
 	}
