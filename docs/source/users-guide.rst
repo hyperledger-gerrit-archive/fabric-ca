@@ -1579,6 +1579,87 @@ The following removes identity 'user1' and also revokes any certificates associa
 Note: Removal of identities is disabled in the fabric-ca-server by default, but may be enabled
 by starting the fabric-ca-server with the `--cfg.identities.allowremove` option.
 
+Dynamically updating affiliations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section describes how to use fabric-ca-client to dynamically update affiliations.
+
+An authorization failure will occur if the client identity does not satisfy all of the following:
+
+  - The client identity must possess the attribute 'hf.AffiliationMgr' with a value of 'true'.
+  - To add/remove an affiliation, the affiliation of the client identity must be hierarchically above the affiliation being updated.
+    For example, if the client's affiliation is "a.b", the client may update affiliation "a.b.c" but not
+    "a" or "a.b".
+  - To modify an affiliation, the affiliation of the client identity must equal to or be hierarchically above the
+    affiliation being updated. For example, if the client's affiliation is "a.b", the client may update affiliation "a.b" or "a.b.c" but not
+    "a" or "a.c".
+
+The following shows how to add, modify, and remove an affiliation.
+
+Getting Affiliation Information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+A caller may retrieve information on a affiliation from the fabric-ca server as long as the caller meets
+the authorization requirements highlighted in the section above. The following command shows how to get an
+affiliation.
+
+.. code:: bash
+
+    fabric-ca-client affiliation list --affiliation org2.dept1
+
+A caller may also request to retrieve information on all affiliations that it is authorized to see by
+issuing the following command.
+
+.. code:: bash
+
+    fabric-ca-client affiliation list
+
+Adding an affiliation
+"""""""""""""""""""""""
+
+The following adds a new affiliation named ‘org1.dept1’.
+
+.. code:: bash
+
+    fabric-ca-client affiliation add org1.dept1
+
+Modifying an affiliation
+"""""""""""""""""""""""""
+
+The following renames the 'org1' affiliation to 'org2'. It will also update any
+subaffiliations of 'org1' to use 'org2' as well. For example, if 'org1.dept1' is an
+affiliation below 'org1', it will be renamed to 'org2.dept1'.
+
+.. code:: bash
+
+    fabric-ca-client affiliation modify org1 --name org2
+
+If there are identities that are affected by the renaming of an affiliation, it will result in
+an error unless the '--force' option is used. Using the '--force' option will update the affiliation
+of identities that are affected to use the new affiliation name. 
+
+.. code:: bash
+
+    fabric-ca-client affiliation modify org1 --name org2 --force
+
+Removing an affiliation
+"""""""""""""""""""""""""
+
+The following removes affiliation 'org2' and also any sub affiliations.
+For example, if 'org2.dept1' is an affiliation below 'org2', it is also removed.
+
+.. code:: bash
+
+    fabric-ca-client affiliation remove org2
+
+If there are identities that are affected by the removing of an affiliation, it will result
+in an error unless the '--force' option is used. Using the '--force' option will also remove
+all identities that are associated with that affiliation, and the certificates associated with
+any of these identities.
+
+Note: Removal of affiliations is disabled in the fabric-ca-server by default, but may be enabled
+by starting the fabric-ca-server with the `--cfg.affiliations.allowremove` option.
+
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

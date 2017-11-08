@@ -9,11 +9,12 @@ Fabric-CA Client's CLI
       fabric-ca-client [command]
     
     Available Commands:
+      affiliation Create affiliation
       enroll      Enroll an identity
       gencrl      Generate a CRL
       gencsr      Generate a CSR
       getcacert   Get CA certificate chain
-      identity    Update an identity
+      identity    Create identity
       reenroll    Reenroll an identity
       register    Register an identity
       revoke      Revoke an identity
