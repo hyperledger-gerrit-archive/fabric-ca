@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jim Zhang <jim_the_matrix@hotmail.com>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Submitted-by: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Submitted-at: Wed, 08 Nov 2017 20:27:52 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/15233
+Project: fabric-ca
+Branch: refs/heads/master
