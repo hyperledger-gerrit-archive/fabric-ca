@@ -84,7 +84,7 @@ func (c *ClientCmd) newAddIdentityCommand() *cobra.Command {
 		Long:    "Add an identity",
 		Example: "fabric-ca-client identity add user1 --type peer",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := argsCheck(args)
+			err := argsCheck(args, "identity")
 			if err != nil {
 				return err
 			}
@@ -129,7 +129,7 @@ func (c *ClientCmd) newModifyIdentityCommand() *cobra.Command {
 		Long:    "Modify an existing identity",
 		Example: "fabric-ca-client identity modify user1 --type peer",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := argsCheck(args)
+			err := argsCheck(args, "identity")
 			if err != nil {
 				return err
 			}
@@ -177,7 +177,7 @@ func (c *ClientCmd) newRemoveIdentityCommand() *cobra.Command {
 		Long:    "Remove an identity",
 		Example: "fabric-ca-client identity remove user1",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			err := argsCheck(args)
+			err := argsCheck(args, "identity")
 			if err != nil {
 				return err
 			}
@@ -346,12 +346,12 @@ func checkOtherFlags(cmd *cobra.Command) bool {
 	return false
 }
 
-func argsCheck(args []string) error {
+func argsCheck(args []string, field string) error {
 	if len(args) == 0 {
-		return errors.Errorf("Identity name is required")
+		return errors.Errorf("%s name is required", field)
 	}
 	if len(args) > 1 {
-		return errors.Errorf("Too many arguments, only the identity name should be passed in as argument")
+		return errors.Errorf("Too many arguments, only the %s name should be passed in as argument", field)
 	}
 	return nil
 }

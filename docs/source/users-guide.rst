@@ -1579,6 +1579,56 @@ The following removes identity 'user1' and also revokes any certificates associa
 Note: Removal of identities is disabled in the fabric-ca-server by default, but may be enabled
 by starting the fabric-ca-server with the `--cfg.identities.allowremove` option.
 
+Dynamically updating affiliations
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+This section describes how to use fabric-ca-client to dynamically update affiliations.
+
+An authorization failure will occur if the client identity does not satisfy all of the following:
+
+  - The client identity must possess the attribute 'hf.AffiliationMgr' with a value of 'true'.
+  - The affiliation of the client identity must be hierarchically above the affiliation being updated.
+    For example, if the client's affiliation is "a.b", the client may update affiliation "a.b.c" but not
+    "a" or "a.b".
+
+The following shows how to add, modify, and remove an affiliation.
+
+Adding an affiliation
+"""""""""""""""""""""""
+
+The following adds a new affiliation named ‘org1.dept1’.
+Note that 'affiliations.org1.dept1' is the path to the element being added in the
+fabric-ca-server-config.yaml file.
+
+.. code:: bash
+
+    fabric-ca-client affiliation add org1.dept1
+
+Modifying an affiliation
+"""""""""""""""""""""""""
+
+The following renames the 'org1' affiliation to 'org2'.
+
+.. code:: bash
+
+    fabric-ca-client affiliation modify org1 --rename org2 
+
+Removing an affiliation
+"""""""""""""""""""""""""
+
+The following removes affiliation 'org2' and also any sub affiliations.
+For example, if 'org2.dept1' is an affiliation below 'org2', it is also removed.
+
+Warning: Removing an affiliation also removes all identities that are associated with that affiliation,
+and also revokes all certificates associated with any of these identities.
+
+.. code:: bash
+
+    fabric-ca-client affiliation remove org2
+
+Note: Removal of affiliations is disabled in the fabric-ca-server by default, but may be enabled
+by starting the fabric-ca-server with the `--allowremove.affiliations` option.
+
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
