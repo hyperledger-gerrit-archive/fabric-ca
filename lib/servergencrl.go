@@ -76,7 +76,7 @@ func genCRLHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Successfully generated CRL: %s\n", crl)
+	log.Debugf("Successfully generated CRL: %v\n", crl)
 
 	resp := &genCRLResponseNet{CRL: crl}
 	return resp, nil
