@@ -1,0 +1,9 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jim Zhang <jim_the_matrix@hotmail.com>
+Code-Review+1: Ramesh Babu <rameshbabu.thoomu@gmail.com>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Submitted-by: Gari Singh <gari.r.singh@gmail.com>
+Submitted-at: Fri, 10 Nov 2017 10:14:23 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/15349
+Project: fabric-ca
+Branch: refs/heads/master
