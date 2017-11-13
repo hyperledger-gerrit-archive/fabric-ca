@@ -390,7 +390,7 @@ func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
 		return false, err
 	}
 
-	log.Debugf("Checking to see if caller '%s' with type '%s' can act on type '%s'", caller.GetName(), typ)
+	log.Debugf("Checking to see if caller '%s' with type '%s' can act on type '%s'", caller.GetName(), caller.GetType(), typ)
 
 	typesStr, isRegistrar, err := ctx.IsRegistrar()
 	if err != nil {
