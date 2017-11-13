@@ -37,14 +37,14 @@ for u in ${users2[*]}; do
 done
 
 # User 'revoker' revokes user the ecert of user 'testUser'
-echo "User 'revoker' is revoking the ecert of user 'testUser' ..."
-certFile=$UDIR/testUser/msp/signcerts/cert.pem
-AKI=$(openssl x509 -noout -text -in $certFile |awk '/keyid/ {gsub(/ *keyid:|:/,"",$1);print toupper($0)}')
-SN=$(openssl x509 -noout -serial -in $certFile | awk -F'=' '{print toupper($2)}')
-URI=$PROTO${CA_HOST_ADDRESS}:$PROXY_PORT
-export FABRIC_CA_CLIENT_HOME=$UDIR/revoker
-$FABRIC_CA_CLIENTEXEC revoke -u $URI -a $AKI -s $SN $TLSOPT
-test "$?" -eq 0 || ErrorMsg "User 'revoker' failed to revoke user 'testUser'"
+#echo "User 'revoker' is revoking the ecert of user 'testUser' ..."
+#certFile=$UDIR/testUser/msp/signcerts/cert.pem
+#AKI=$(openssl x509 -noout -text -in $certFile |awk '/keyid/ {gsub(/ *keyid:|:/,"",$1);print toupper($0)}')
+#SN=$(openssl x509 -noout -serial -in $certFile | awk -F'=' '{print toupper($2)}')
+#URI=$PROTO${CA_HOST_ADDRESS}:$PROXY_PORT
+#export FABRIC_CA_CLIENT_HOME=$UDIR/revoker
+#$FABRIC_CA_CLIENTEXEC revoke -u $URI -a $AKI -s $SN $TLSOPT
+#test "$?" -eq 0 || ErrorMsg "User 'revoker' failed to revoke user 'testUser'"
 
 CleanUp $RC
 exit $RC
