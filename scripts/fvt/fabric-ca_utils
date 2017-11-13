@@ -36,9 +36,102 @@ export DEFAULT_MSG_TIMEOUT="30"
 export DEFAULT_DB_TIMEOUT="30"
 export INTERMEDIATE_PROXY_PORT="8054"
 export INTERMEDIATE_CA_DEFAULT_PORT="1${INTERMEDIATE_PROXY_PORT}"
+export LDAPHOST="-h localhost"
+export LDAPAUTH="-D "cn=$LDAPUSER,dc=example,dc=com" -w $LDAPPASWD"
+export LDAPBASE="-b "dc=example,dc=com""
 
 DATE='date +%Y-%m-%d'
 TIME='date +%I:%M:%S%p'
+
+stripBlank() {
+   # delete comments and blanks lines
+   egrep -v "^ *#|^$"
+}
+
+listUser(){
+   local user="$1"
+   : ${user:="$LDAPUSER"}
+   shift
+   ldapsearch $LDAPHOST $LDAPAUTH $LDAPBASE \
+              -s sub "(&(objectclass=*) (uid=$user))" $@ | stripBlank
+}
+
+listUsers() {
+   ldapsearch $LDAPHOST $LDAPAUTH $LDAPBASE \
+             -s sub "(objectclass=hyperledgerFabricEntity)" dn | stripBlank
+}
+
+listGroups() {
+   ldapsearch $LDAPHOST $LDAPAUTH $LDAPBASE \
+             -s sub "(objectclass=posixGroup)" dn | stripBlank
+}
+
+changeAttr() {
+   local entry="$1"
+   local attr="$2"
+   local val="$3"
+   if test $# -ne 3; then
+      echo "Usage: changeAttr <entry> <attr> <value>"
+      return
+   fi
+   ldapmodify $LDAPHOST $LDAPAUTH -f <(printf "dn: $entry\nchangetype: modify\nreplace: $attr\n$attr: $val\n")
+}
+
+delUser() {
+   local user="$1"
+   if test $# -ne 1; then
+      echo "Usage: delUser <userName>"
+      return
+   fi
+   ldapdelete -h localhost -p $LDAPPORT \
+              -D cn=$LDAPUSER,dc=example,dc=com -w $LDAPPASWD \
+               "uid=$user,ou=users,ou=fabric,dc=hyperledeger,dc=example,dc=com"
+}
+
+addUser () {
+   # Add the eqivalent of a top-level fabric-ca administrator
+   local user="$1"
+   if test $# -ne 1; then
+      echo "Usage: delUser <userName>"
+      return
+   fi
+   # Get the next sequential UID
+   uidN=$(ldapsearch -h localhost -D cn=admin,dc=example,dc=com \
+             -w adminpw -b dc=example,dc=com -s sub '(objectclass=hyperledgerFabricEntity)' |
+          awk '/uidNumber:/ {print $2}' | sort -n | tail -n1)
+   ldapadd -h localhost -p $LDAPPORT \
+           -D cn=$LDAPUSER,dc=example,dc=com -w $LDAPPASWD <<EOF
+# User account
+dn: uid=$user,ou=users,ou=fabric,dc=hyperledeger,dc=example,dc=com
+objectClass: posixAccount
+objectClass: shadowAccount
+objectClass: hyperledgerFabricEntity
+uid: $user
+cn: $user
+sn: Hyperledeger
+givenName: $user
+o: Hyperledger
+ou: Fabric
+st: North Carolina
+uidNumber: $((uidN+1))
+gidNumber: $((uidN+1))
+mail: $user@hyperledeger.example.com
+loginShell: /bin/bash
+homeDirectory: /home/$user
+userPassword: ${user}pw
+hfAffiliation: ""
+hfType: client
+hfEnrollmentID: $user
+hfRegistrarAttributes: *
+hfRegistrarRoles: *
+hfRegistrarDelegateRoles: *
+hfAffiliationMgr: TRUE
+hfGenCRL: TRUE
+hfIntermediateCA: TRUE
+hfRegistrar: TRUE
+hfRevoker: TRUE
+EOF
+}
 
 TimeStamp() {
    printf "TIMESTAMP--%s %s\n" $($DATE) $($TIME)
@@ -793,6 +886,60 @@ $registry
 ldap:
   enabled: $LDAP_ENABLE
   url: ${LDAP_PROTO}CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com
+  userfilter: "(hfEnrollmentID=%s)"
+  attribute:
+    names: [
+             "cn",
+             "gidNumber",
+             "givenName",
+             "hfAffiliation",
+             "hfAffiliationMgr",
+             "hfEnrollmentID",
+             "hfGenCRL",
+             "hfIntermediateCA",
+             "hfRegistrar",
+             "hfRegistrarAttributes",
+             "hfRegistrarDelegateRoles",
+             "hfRegistrarRoles",
+             "hfRevoker",
+             "hfType",
+             "homeDirectory",
+             "loginShell",
+             "mail",
+             "o",
+             "objectClass",
+             "ou",
+             "result",
+             "search",
+             "sn",
+             "st",
+             "uid",
+             "uidNumber",
+             "userPassword"
+           ]
+    converters:
+      - name: hf.GenCRL
+        expr: attr("hfGenCRL") == "TRUE"
+      - name: hf.IntermediateCA
+        expr: attr("hfIntermediateCA")
+      - name: hf.Registrar
+        expr: attr("hfRegistrar")
+      - name: hf.Revoker
+        expr: attr("hfRevoker") || attr("uid") =~ "revoker*"
+      - name: hf.Affiliation
+        expr: attr("hfAffiliation")
+      - name: hf.AffiliationMgr
+        expr: attr("hfAffiliationMgr")
+      - name: hf.Type
+        expr: attr("hfAffiliationMgr")
+      - name: hf.EnrollmentID
+        expr: attr("hfEnrollmentID")
+      - name: hf.Registrar.Attributes
+        expr: attr("hfRegistrarAttributes")
+      - name: hf.Registrar.Roles
+        expr: attr("hfRegistrarRoles")
+      - name: hf.Registrar.DelegateRoles
+        expr: attr("hf.RegistrarDelegateRoles")
   tls:
     certfiles:
       - $TLS_ROOTCERT
