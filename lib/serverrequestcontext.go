@@ -390,7 +390,7 @@ func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
 		return false, err
 	}
 
-	log.Debugf("Checking to see if caller '%s' with type '%s' can act on type '%s'", caller.GetName(), typ)
+	log.Debugf("Checking to see if caller '%s' with type '%s' can act on type '%s'", caller.GetName(), caller.GetType(), typ)
 
 	typesStr, isRegistrar, err := ctx.IsRegistrar()
 	if err != nil {
@@ -408,7 +408,7 @@ func (ctx *serverRequestContext) CanActOnType(typ string) (bool, error) {
 	}
 
 	if !util.StrContained(typ, types) {
-		log.Debug("Caller with types '%s' is not authorized to act on '%s'", types, typ)
+		log.Debugf("Caller with types '%s' is not authorized to act on '%s'", types, typ)
 		return false, nil
 	}
 
