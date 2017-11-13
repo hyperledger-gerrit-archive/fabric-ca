@@ -35,6 +35,7 @@ i=0;while ! nc -znvt $HOSTADDR $LDAPPORT; do
     fi
 done
 
+ldapadd -Y EXTERNAL -H ldapi:///  -f /etc/ldap/fabricUser.ldif
 ldapadd -h localhost -p $LDAPPORT -D cn=$LDAPUSER,dc=example,dc=com -w $LDAPPASWD -f /etc/ldap/base.ldif || let RC+=1
 ldapadd -h localhost -p $LDAPPORT -D cn=$LDAPUSER,dc=example,dc=com -w $LDAPPASWD -f /etc/ldap/add-users.ldif || let RC+=1
 ldapmodify -Y EXTERNAL -H ldapi:/// -f /etc/ldap/certinfo.ldif || let RC+=1
