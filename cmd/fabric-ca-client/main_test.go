@@ -816,8 +816,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
-	db := lib.NewDBAccessor()
-	db.SetDB(sqliteDB)
+	db := lib.NewDBAccessor(sqliteDB)
 	user, err := db.GetUser("testRegister3", nil)
 	assert.NoError(t, err)
 
@@ -852,9 +851,9 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", userName,
 		"--id.affiliation", "hyperledger.org1"})
 	assert.NoError(t, err, "Failed to register identity "+userName)
-	user, err = db.GetUserInfo(userName)
+	user, err = db.GetUser(userName, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, "user", user.Type, "Identity type for '%s' should have been 'user'", userName)
+	assert.Equal(t, "user", user.GetType(), "Identity type for '%s' should have been 'user'", userName)
 
 	os.Remove(defYaml) // Delete default config file
 
@@ -1043,8 +1042,7 @@ func testAffiliation(t *testing.T) {
 	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
-	db := lib.NewDBAccessor()
-	db.SetDB(sqliteDB)
+	db := lib.NewDBAccessor(sqliteDB)
 	user, err := db.GetUser("testRegister6", nil)
 	assert.NoError(t, err)
 
@@ -1501,7 +1499,7 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	acc := lib.NewCertDBAccessor(testdb)
+	acc := lib.NewCertDBAccessor(testdb, 0)
 
 	certs, err := acc.GetCertificatesByID(id)
 	if err != nil {

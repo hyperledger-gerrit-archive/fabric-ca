@@ -97,6 +97,7 @@ type CAConfig struct {
 	Client       *ClientConfig
 	Intermediate IntermediateCA
 	CRL          CRLConfig
+	Levels       dbutil.Levels `skip:"true"`
 }
 
 // CAInfo is the CA information on a fabric-ca-server

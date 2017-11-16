@@ -99,8 +99,6 @@ type CA struct {
 	server *Server
 	// Indicates if database was successfully initialized
 	dbInitialized bool
-	// Indicates if errors encountered during db initialization
-	dbError bool
 	// CA mutex
 	mutex sync.Mutex
 }
@@ -441,7 +439,10 @@ func (ca *CA) initConfig() (err error) {
 		defaultIssuedCertificateExpiration,
 		false)
 	cs.Profiles["tls"] = tlsProfile
-
+	err = ca.checkConfigLevels()
+	if err != nil {
+		return err
+	}
 	// Set log level if debug is true
 	if ca.server != nil && ca.server.Config != nil && ca.server.Config.Debug {
 		log.Level = log.LevelDebug
@@ -502,15 +503,6 @@ func (ca *CA) getVerifyOptions() (*x509.VerifyOptions, error) {
 func (ca *CA) initDB() error {
 	log.Debug("Initializing DB")
 
-	initFunc := func(fn func() error) error {
-		initErr := fn()
-		if initErr != nil {
-			ca.dbError = true
-			log.Error(initErr)
-		}
-		return initErr
-	}
-
 	// If DB is initialized, don't need to proceed further
 	if ca.dbInitialized {
 		return nil
@@ -525,7 +517,7 @@ func (ca *CA) initDB() error {
 	}
 
 	db := &ca.Config.DB
-	ca.dbError = false
+	dbError := false
 	var err error
 
 	if db.Type == "" || db.Type == defaultDatabaseType {
@@ -575,7 +567,7 @@ func (ca *CA) initDB() error {
 	}
 
 	// Set the certificate DB accessor
-	ca.certDBAccessor = NewCertDBAccessor(ca.db)
+	ca.certDBAccessor = NewCertDBAccessor(ca.db, ca.Config.Levels.Certificate)
 
 	// If DB initialization fails and we need to reinitialize DB, need to make sure to set the DB accessor for the signer
 	if ca.enrollSigner != nil {
@@ -583,19 +575,41 @@ func (ca *CA) initDB() error {
 	}
 
 	// Initialize user registry to either use DB or LDAP
-	err = initFunc(ca.initUserRegistry)
+	err = ca.initUserRegistry()
 	if err != nil {
 		return err
 	}
-	// If not using LDAP, load the affiliations table
+
+	// If not using LDAP, migrate database if needed to latest version and load the users and affiliations table
 	if !ca.Config.LDAP.Enabled {
-		err = initFunc(ca.loadAffiliationsTable)
+		err = ca.checkDBLevels()
 		if err != nil {
 			return err
 		}
+
+		err = ca.loadUsersTable()
+		if err != nil {
+			log.Error(err)
+			dbError = true
+			if isFatalError(err) {
+				return err
+			}
+		}
+
+		err = ca.loadAffiliationsTable()
+		if err != nil {
+			log.Error(err)
+			dbError = true
+		}
+
+		err = ca.performMigration()
+		if err != nil {
+			log.Error(err)
+			dbError = true
+		}
 	}
 
-	if ca.dbError {
+	if dbError {
 		return errors.Errorf("Failed to initialize %s database at %s ", db.Type, ds)
 	}
 
@@ -639,10 +653,6 @@ func (ca *CA) initUserRegistry() error {
 	dbAccessor := new(Accessor)
 	dbAccessor.SetDB(ca.db)
 	ca.registry = dbAccessor
-	err = ca.loadUsersTable()
-	if err != nil {
-		return err
-	}
 	log.Debug("Initialized DB identity registry")
 	return nil
 }
@@ -776,6 +786,7 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 		Affiliation:    id.Affiliation,
 		Attributes:     ca.convertAttrs(id.Attrs),
 		MaxEnrollments: id.MaxEnrollments,
+		Level:          ca.Config.Levels.Identity,
 	}
 	err = ca.registry.InsertUser(rec)
 	if err != nil {
@@ -786,7 +797,7 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 }
 
 func (ca *CA) addAffiliation(path, parentPath string) error {
-	return ca.registry.InsertAffiliation(path, parentPath)
+	return ca.registry.InsertAffiliation(path, parentPath, ca.Config.Levels.Affiliation)
 }
 
 // CertDBAccessor returns the certificate DB accessor for CA
@@ -1070,6 +1081,53 @@ func (ca *CA) loadCNFromEnrollmentInfo(certFile string) (string, error) {
 	return name, nil
 }
 
+func (ca *CA) performMigration() error {
+	log.Debug("Checking and performing migration, if needed")
+
+	// TODO: Migration Logic Goes Here
+
+	err := dbutil.UpdateDBLevel(ca.db, ca.server.levels)
+	if err != nil {
+		return errors.Wrap(err, "Failed to correctly update level of tables in the database")
+	}
+
+	return nil
+}
+
+func (ca *CA) checkConfigLevels() error {
+	if ca.server.levels == nil {
+		ca.server.loadLevels()
+	}
+	log.Debugf("Checking configuration file levels '%+v' against server levels: '%+v'", ca.Config.Levels, ca.server.levels)
+
+	// Check configuration file level against server level to make sure that newer configuration file is not being used with server
+	if (ca.Config.Levels.Identity > ca.server.levels.Identity) || (ca.Config.Levels.Affiliation > ca.server.levels.Affiliation) || (ca.Config.Levels.Certificate > ca.server.levels.Certificate) {
+		return newFatalError(ErrConfigFileLevel, "Using a configuration file level that is not compatabile with the current server level")
+	}
+
+	return nil
+}
+
+func (ca *CA) checkDBLevels() error {
+	// Check database table levels against server levels to make sure that a database levels are comptabile with server
+	levels, err := ca.registry.GetProperties([]string{"identity", "affiliation", "certificate"})
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Checking database levels '%+v' against server levels '%+v'", levels, ca.server.levels)
+
+	idVer := getIntLevel(levels, "identity")
+	affVer := getIntLevel(levels, "affiliation")
+	certVer := getIntLevel(levels, "certificate")
+
+	if (idVer > ca.server.levels.Identity) || (affVer > ca.server.levels.Affiliation) || (certVer > ca.server.levels.Certificate) {
+		return newFatalError(ErrDBLevel, "Using database/tables levels that are not compatabile with the current server levels")
+	}
+
+	return nil
+}
+
 func writeFile(file string, buf []byte, perm os.FileMode) error {
 	err := os.MkdirAll(filepath.Dir(file), 0755)
 	if err != nil {
@@ -1110,4 +1168,16 @@ func initSigningProfile(spp **config.SigningProfile, expiry time.Duration, isCA 
 	}
 	// This is set so that all profiles permit an attribute extension in CFSSL
 	sp.ExtensionWhitelist[attrmgr.AttrOIDString] = true
+}
+
+func getIntLevel(properties map[string]string, version string) int {
+	strVersion := properties[version]
+	if strVersion == "" {
+		strVersion = "0"
+	}
+	intVersion, err := strconv.Atoi(strVersion)
+	if err != nil {
+		panic(err)
+	}
+	return intVersion
 }

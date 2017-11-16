@@ -63,6 +63,12 @@ const (
 	attrGenCRL         = "hf.GenCRL"
 	attrRegistrarAttr  = "hf.Registrar.Attributes"
 	apiPathPrefix      = "/api/v1/"
+	// IdentityLevel is the current level of identities
+	IdentityLevel = 1
+	// AffiliationLevel is the current level of affiliations
+	AffiliationLevel = 0
+	// CertificateLevel is the current level of certificates
+	CertificateLevel = 0
 )
 
 // Server is the fabric-ca server
@@ -90,6 +96,8 @@ type Server struct {
 	wait chan bool
 	// Server mutex
 	mutex sync.Mutex
+	// Server's version
+	levels *dbutil.Levels
 }
 
 // Init initializes a fabric-ca server
@@ -104,6 +112,8 @@ func (s *Server) Init(renew bool) (err error) {
 
 // init initializses the server leaving the DB open
 func (s *Server) init(renew bool) (err error) {
+	s.loadLevels()
+	log.Debugf("Server levels: %+v", s.levels)
 	// Initialize the config
 	err = s.initConfig()
 	if err != nil {
@@ -799,6 +809,14 @@ func (s *Server) getDNFromCert(namespace pkix.Name, sep string) (string, error) 
 		}
 	}
 	return sep + strings.Join(subject, sep), nil
+}
+
+func (s *Server) loadLevels() {
+	s.levels = &dbutil.Levels{
+		Identity:    IdentityLevel,
+		Affiliation: AffiliationLevel,
+		Certificate: CertificateLevel,
+	}
 }
 
 var oid = map[string]string{
