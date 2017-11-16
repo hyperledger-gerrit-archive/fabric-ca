@@ -35,3 +35,12 @@ func TestGetPrekey(t *testing.T) {
 		t.Error("Prekey does not match, expected '1234'")
 	}
 }
+
+func TestGetLevel(t *testing.T) {
+	aff := &AffiliationImpl{Name: "Bank_a", Prekey: "1234", Level: 2}
+	level := aff.GetLevel()
+
+	if level != 2 {
+		t.Error("Level does not match, expected '2'")
+	}
+}

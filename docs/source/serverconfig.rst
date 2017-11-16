@@ -347,3 +347,13 @@ Fabric-CA Server's Configuration File
         client:
           certfile:
           keyfile:
+    
+    #############################################################################
+    #
+    # Current level of identities, affiliations, and certificates
+    #
+    #############################################################################
+    versions:
+      identity: 1
+      affiliation: 0
+      certificate: 0

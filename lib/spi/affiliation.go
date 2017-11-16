@@ -20,12 +20,14 @@ package spi
 type AffiliationImpl struct {
 	Name   string `db:"name"`
 	Prekey string `db:"prekey"`
+	Level  int    `db:"level"`
 }
 
 // Affiliation is the API for a user's affiliation
 type Affiliation interface {
 	GetName() string
 	GetPrekey() string
+	GetLevel() int
 }
 
 // GetName returns the name of the affiliation
@@ -36,4 +38,9 @@ func (g *AffiliationImpl) GetName() string {
 // GetPrekey returns the prekey of the affiliation
 func (g *AffiliationImpl) GetPrekey() string {
 	return g.Prekey
+}
+
+// GetLevel returns the level of the affiliation
+func (g *AffiliationImpl) GetLevel() int {
+	return g.Level
 }

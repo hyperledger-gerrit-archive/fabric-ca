@@ -816,8 +816,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
-	db := lib.NewDBAccessor()
-	db.SetDB(sqliteDB)
+	db := lib.NewDBAccessor(sqliteDB)
 	user, err := db.GetUser("testRegister3", nil)
 	assert.NoError(t, err)
 
@@ -1043,8 +1042,7 @@ func testAffiliation(t *testing.T) {
 	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
-	db := lib.NewDBAccessor()
-	db.SetDB(sqliteDB)
+	db := lib.NewDBAccessor(sqliteDB)
 	user, err := db.GetUser("testRegister6", nil)
 	assert.NoError(t, err)
 
@@ -1501,7 +1499,7 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	if err != nil {
 		return "", "", err
 	}
-	acc := lib.NewCertDBAccessor(testdb)
+	acc := lib.NewCertDBAccessor(testdb, 0)
 
 	certs, err := acc.GetCertificatesByID(id)
 	if err != nil {
