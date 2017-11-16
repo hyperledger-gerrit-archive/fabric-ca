@@ -20,6 +20,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -383,6 +384,16 @@ intermediate:
     client:
       certfile:
       keyfile:
+
+#############################################################################
+#
+# Current level of identities, affiliations, and certificates
+#
+#############################################################################
+levels:
+  identity: <<<IDLEVEL>>>
+  affiliation: <<<AFFLEVEL>>>
+  certificate: <<<CERTLEVEL>>>
 `
 )
 
@@ -484,6 +495,9 @@ func (s *ServerCmd) createDefaultConfigFile() error {
 	cfg := strings.Replace(defaultCfgTemplate, "<<<ADMIN>>>", user, 1)
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
+	cfg = strings.Replace(cfg, "<<<IDLEVEL>>>", strconv.Itoa(lib.IdentityLevel), 1)
+	cfg = strings.Replace(cfg, "<<<AFFLEVEL>>>", strconv.Itoa(lib.AffiliationLevel), 1)
+	cfg = strings.Replace(cfg, "<<<CERTLEVEL>>>", strconv.Itoa(lib.CertificateLevel), 1)
 	purl := s.myViper.GetString("intermediate.parentserver.url")
 	log.Debugf("parent server URL: '%s'", purl)
 	if purl == "" {

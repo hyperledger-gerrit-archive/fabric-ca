@@ -120,7 +120,11 @@ const (
 	// Failed to get caller's affiliation
 	ErrCallerNotAffiliated = 44
 	// Failed to verify if caller has appropriate
-	ErrGettingType = 33
+	ErrGettingType = 45
+	// Incorrect level of database
+	ErrDBLevel = 46
+	// Incorrect level of configuration file
+	ErrConfigFileLevel = 47
 )
 
 // Construct a new HTTP error.

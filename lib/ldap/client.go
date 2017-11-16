@@ -242,13 +242,18 @@ func (lc *Client) GetRootAffiliation() (spi.Affiliation, error) {
 }
 
 // InsertAffiliation adds an affiliation group
-func (lc *Client) InsertAffiliation(name string, prekey string) error {
+func (lc *Client) InsertAffiliation(name string, prekey string, version int) error {
 	return errNotSupported
 }
 
 // DeleteAffiliation deletes an affiliation group
 func (lc *Client) DeleteAffiliation(name string) error {
 	return errNotSupported
+}
+
+// GetProperties returns the properties from the database
+func (lc *Client) GetProperties(name []string) (map[string]string, error) {
+	return nil, errNotSupported
 }
 
 // Connect to the LDAP server and bind as user as admin user as specified in LDAP URL
@@ -305,6 +310,11 @@ func (u *User) GetType() string {
 
 // GetMaxEnrollments returns the max enrollments of the user
 func (u *User) GetMaxEnrollments() int {
+	return 0
+}
+
+// GetLevel returns the level of the user
+func (u *User) GetLevel() int {
 	return 0
 }
 
