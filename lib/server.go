@@ -52,6 +52,7 @@ const (
 	defaultClientAuth         = "noclientcert"
 	fabricCAServerProfilePort = "FABRIC_CA_SERVER_PROFILE_PORT"
 	allRoles                  = "user,app,peer,orderer,client,validator,auditor"
+	apiPathPrefix             = "/api/v1/"
 )
 
 // Attribute names
@@ -62,7 +63,6 @@ const (
 	attrIntermediateCA = "hf.IntermediateCA"
 	attrGenCRL         = "hf.GenCRL"
 	attrRegistrarAttr  = "hf.Registrar.Attributes"
-	apiPathPrefix      = "/api/v1/"
 )
 
 // Server is the fabric-ca server
@@ -90,6 +90,8 @@ type Server struct {
 	wait chan bool
 	// Server mutex
 	mutex sync.Mutex
+	// The server's current levels
+	levels *dbutil.Levels
 }
 
 // Init initializes a fabric-ca server
@@ -231,16 +233,13 @@ func (s *Server) initConfig() (err error) {
 		if err != nil {
 			return errors.Wrap(err, "Failed to get server's home directory")
 		}
-
 	}
-
 	// Make home directory absolute, if not already
 	absoluteHomeDir, err := filepath.Abs(s.HomeDir)
 	if err != nil {
 		return fmt.Errorf("Failed to make server's home directory path absolute: %s", err)
 	}
 	s.HomeDir = absoluteHomeDir
-
 	// Create config if not set
 	if s.Config == nil {
 		s.Config = new(ServerConfig)
@@ -799,6 +798,18 @@ func (s *Server) getDNFromCert(namespace pkix.Name, sep string) (string, error) 
 		}
 	}
 	return sep + strings.Join(subject, sep), nil
+}
+
+func (s *Server) getLevels() *dbutil.Levels {
+	if s.levels == nil {
+		s.levels = &dbutil.Levels{
+			Identity:    IdentityLevel,
+			Affiliation: AffiliationLevel,
+			Certificate: CertificateLevel,
+		}
+		log.Debugf("Server levels: %+v", s.levels)
+	}
+	return s.levels
 }
 
 var oid = map[string]string{
