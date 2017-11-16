@@ -33,6 +33,7 @@ type UserInfo struct {
 	Attributes     []api.Attribute
 	State          int
 	MaxEnrollments int
+	Level          int
 }
 
 // User is the SPI for a user
@@ -55,6 +56,8 @@ type User interface {
 	LoginComplete() error
 	// Revoke will revoke the user, setting the state of the user to be -1
 	Revoke() error
+	// GetLevel returns the level of the user
+	GetLevel() int
 }
 
 // UserRegistry is the API for retreiving users and groups
@@ -64,6 +67,7 @@ type UserRegistry interface {
 	UpdateUser(user UserInfo) error
 	DeleteUser(id string) error
 	GetAffiliation(name string) (Affiliation, error)
-	InsertAffiliation(name string, prekey string) error
+	InsertAffiliation(name string, prekey string, version int) error
 	DeleteAffiliation(name string) error
+	GetProperties(name []string) (map[string]string, error)
 }
