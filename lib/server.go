@@ -38,6 +38,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
 	"github.com/cloudflare/cfssl/signer"
+	mycmd "github.com/hyperledger/fabric-ca/cmd"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
@@ -52,6 +53,7 @@ const (
 	defaultClientAuth         = "noclientcert"
 	fabricCAServerProfilePort = "FABRIC_CA_SERVER_PROFILE_PORT"
 	allRoles                  = "user,app,peer,orderer,client,validator,auditor"
+	apiPathPrefix             = "/api/v1/"
 )
 
 // Attribute names
@@ -62,7 +64,6 @@ const (
 	attrIntermediateCA = "hf.IntermediateCA"
 	attrGenCRL         = "hf.GenCRL"
 	attrRegistrarAttr  = "hf.Registrar.Attributes"
-	apiPathPrefix      = "/api/v1/"
 )
 
 // Server is the fabric-ca server
@@ -90,6 +91,10 @@ type Server struct {
 	wait chan bool
 	// Server mutex
 	mutex sync.Mutex
+	// The server's current levels
+	levels *dbutil.Levels
+	// Server's version
+	version string
 }
 
 // Init initializes a fabric-ca server
@@ -104,6 +109,7 @@ func (s *Server) Init(renew bool) (err error) {
 
 // init initializses the server leaving the DB open
 func (s *Server) init(renew bool) (err error) {
+	s.version = getVersion()
 	// Initialize the config
 	err = s.initConfig()
 	if err != nil {
@@ -231,16 +237,13 @@ func (s *Server) initConfig() (err error) {
 		if err != nil {
 			return errors.Wrap(err, "Failed to get server's home directory")
 		}
-
 	}
-
 	// Make home directory absolute, if not already
 	absoluteHomeDir, err := filepath.Abs(s.HomeDir)
 	if err != nil {
 		return fmt.Errorf("Failed to make server's home directory path absolute: %s", err)
 	}
 	s.HomeDir = absoluteHomeDir
-
 	// Create config if not set
 	if s.Config == nil {
 		s.Config = new(ServerConfig)
@@ -252,10 +255,6 @@ func (s *Server) initConfig() (err error) {
 	}
 	s.CA.server = s
 	s.CA.HomeDir = s.HomeDir
-	err = s.CA.initConfig()
-	if err != nil {
-		return err
-	}
 	err = s.initMultiCAConfig()
 	if err != nil {
 		return err
@@ -799,6 +798,26 @@ func (s *Server) getDNFromCert(namespace pkix.Name, sep string) (string, error) 
 		}
 	}
 	return sep + strings.Join(subject, sep), nil
+}
+
+func (s *Server) getLevels() *dbutil.Levels {
+	if s.levels == nil {
+		s.levels = &dbutil.Levels{
+			Identity:    IdentityLevel,
+			Affiliation: AffiliationLevel,
+			Certificate: CertificateLevel,
+		}
+		log.Debugf("Server levels: %+v", s.levels)
+	}
+	return s.levels
+}
+
+func getVersion() string {
+	version := mycmd.Version
+	if version == "" {
+		version = "1.1.0"
+	}
+	return version
 }
 
 var oid = map[string]string{
