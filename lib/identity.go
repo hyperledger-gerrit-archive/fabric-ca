@@ -291,9 +291,9 @@ func (i *Identity) RemoveIdentity(req *api.RemoveIdentityRequest) (*api.Identity
 }
 
 // GetAffiliation returns information about the requested affiliation
-func (i *Identity) GetAffiliation(affiliation, caname string) (*api.GetAffiliationResponse, error) {
+func (i *Identity) GetAffiliation(affiliation, caname string) (*api.AffiliationResponse, error) {
 	log.Debugf("Entering identity.GetAffiliation %+v", affiliation)
-	result := &api.GetAffiliationResponse{}
+	result := &api.AffiliationResponse{}
 	err := i.Get(fmt.Sprintf("affiliations/%s", affiliation), caname, result)
 	if err != nil {
 		return nil, err
