@@ -63,9 +63,13 @@ INSERT INTO affiliations (name, prekey)
 DELETE FROM affiliations
 	WHERE (name = ?)`
 
-	getAffiliation = `
+	getAffiliationQuery = `
 SELECT name, prekey FROM affiliations
 	WHERE (name = ?)`
+
+	getAllAffiliationsQuery = `
+SELECT * FROM affiliations
+		WHERE (name like ?)`
 )
 
 // UserRecord defines the properties of a user
@@ -248,7 +252,7 @@ func (d *Accessor) GetUser(id string, attrs []string) (spi.User, error) {
 	var userRec UserRecord
 	err = d.db.Get(&userRec, d.db.Rebind(getUser), id)
 	if err != nil {
-		return nil, getUserError(dbGetError(err, "User"))
+		return nil, getError(err, "User")
 	}
 
 	return d.newDBUser(&userRec), nil
@@ -313,12 +317,51 @@ func (d *Accessor) GetAffiliation(name string) (spi.Affiliation, error) {
 
 	var affiliation spi.AffiliationImpl
 
-	err = d.db.Get(&affiliation, d.db.Rebind(getAffiliation), name)
+	err = d.db.Get(&affiliation, d.db.Rebind(getAffiliationQuery), name)
 	if err != nil {
-		return nil, dbGetError(err, "Affiliation")
+		return nil, getError(err, "Affiliation")
 	}
 
 	return &affiliation, nil
+}
+
+// GetAllAffiliations gets the requested affiliation and any sub affiliations from the database
+func (d *Accessor) GetAllAffiliations(name string) ([]spi.Affiliation, error) {
+	log.Debugf("DB: Get affiliation %s", name)
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var baseAffiliation spi.AffiliationImpl
+	var affiliations []spi.AffiliationImpl
+	var allAffiliations []spi.Affiliation
+
+	if name == "" { // Requesting all affiliations
+		err = d.db.Select(&affiliations, d.db.Rebind("SELECT * FROM affiliations"))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = d.db.Get(&baseAffiliation, d.db.Rebind(getAffiliationQuery), name)
+		if err != nil {
+			return nil, getError(err, "Affiliation")
+		}
+		err = d.db.Select(&affiliations, d.db.Rebind(getAllAffiliationsQuery), name+".%")
+		if err != nil {
+			return nil, err
+		}
+		allAffiliations = append(allAffiliations, &baseAffiliation)
+	}
+
+	for _, aff := range affiliations {
+		allAffiliations = append(allAffiliations, &spi.AffiliationImpl{
+			Name:   aff.Name,
+			Prekey: aff.Prekey,
+		})
+	}
+
+	return allAffiliations, nil
 }
 
 // GetFilteredUsers returns all identities that fall under the affiliation and types
@@ -592,16 +635,9 @@ func (u *DBUser) Revoke() error {
 	return nil
 }
 
-func dbGetError(err error, prefix string) error {
+func getError(err error, getType string) error {
 	if err.Error() == "sql: no rows in result set" {
-		return errors.Errorf("%s not found", prefix)
-	}
-	return err
-}
-
-func getUserError(err error) error {
-	if err.Error() == "not found" {
-		return newHTTPErr(404, ErrGettingUser, "Failed to get user: %s", err)
+		return newHTTPErr(404, ErrGettingUser, "Failed to get %s: %s", getType, err)
 	}
 	return newHTTPErr(500, ErrConnectingDB, "Failed to process database request: %s", err)
 }
