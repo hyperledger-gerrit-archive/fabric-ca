@@ -291,9 +291,9 @@ func (i *Identity) RemoveIdentity(req *api.RemoveIdentityRequest) (*api.Identity
 }
 
 // GetAffiliation returns information about the requested affiliation
-func (i *Identity) GetAffiliation(affiliation, caname string) (*api.GetAffiliationResponse, error) {
+func (i *Identity) GetAffiliation(affiliation, caname string) (*api.AffiliationResponse, error) {
 	log.Debugf("Entering identity.GetAffiliation %+v", affiliation)
-	result := &api.GetAffiliationResponse{}
+	result := &api.AffiliationResponse{}
 	err := i.Get(fmt.Sprintf("affiliations/%s", affiliation), caname, result)
 	if err != nil {
 		return nil, err
@@ -303,15 +303,14 @@ func (i *Identity) GetAffiliation(affiliation, caname string) (*api.GetAffiliati
 }
 
 // GetAllAffiliations returns all affiliations that the caller is authorized to see
-func (i *Identity) GetAllAffiliations(caname string) (*api.GetAllAffiliationsResponse, error) {
+func (i *Identity) GetAllAffiliations(caname string, cb func(*json.Decoder) error) error {
 	log.Debugf("Entering identity.GetAllAffiliations")
-	result := &api.GetAllAffiliationsResponse{}
-	err := i.Get("affiliations", caname, result)
+	err := i.GetStreamResponse("affiliations", caname, "result.affiliations", cb)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	log.Debugf("Successfully retrieved affiliations: %+v", result)
-	return result, nil
+	log.Debug("Successfully retrieved affiliations")
+	return nil
 }
 
 // AddAffiliation adds a new affiliation to the server
