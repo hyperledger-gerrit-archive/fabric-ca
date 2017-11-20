@@ -21,6 +21,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
@@ -125,13 +126,9 @@ func (c *ClientCmd) runListAffiliation(cmd *cobra.Command, args []string) error 
 		return nil
 	}
 
-	resp, err := id.GetAllAffiliations(c.clientCfg.CAName)
+	err = id.GetAllAffiliations(c.clientCfg.CAName, lib.AffiliationDecoder)
 	if err != nil {
 		return err
-	}
-
-	for _, aff := range resp.Affiliations {
-		fmt.Printf("%+v\n", aff)
 	}
 
 	return nil

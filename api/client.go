@@ -251,12 +251,6 @@ type IdentityInfo struct {
 	MaxEnrollments int         `mapstructure:"max_enrollments" json:"max_enrollments" def:"-1" help:"The maximum number of times the secret can be reused to enroll."`
 }
 
-// GetAffiliationResponse is the response from the GetAffiliation call
-type GetAffiliationResponse struct {
-	AffiliationInfo
-	CAName string `json:"caname,omitempty"`
-}
-
 // GetAllAffiliationsResponse is the response from the GetAllAffiliations call
 type GetAllAffiliationsResponse struct {
 	Affiliations []AffiliationInfo `json:"affiliations"`
