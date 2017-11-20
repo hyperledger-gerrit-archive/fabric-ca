@@ -478,6 +478,8 @@ func (s *Server) registerHandlers() {
 	s.registerHandler("gencrl", newGenCRLEndpoint(s))
 	s.registerHandler("identities", newIdentitiesEndpoint(s))
 	s.registerHandler("identities/{id}", newIdentitiesEndpoint(s))
+	s.registerHandler("affiliations", newAffiliationsEndpoint(s))
+	s.registerHandler("affiliations/{affiliation}", newAffiliationsEndpoint(s))
 }
 
 // Register a handler

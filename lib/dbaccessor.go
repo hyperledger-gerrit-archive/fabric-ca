@@ -63,9 +63,13 @@ INSERT INTO affiliations (name, prekey)
 DELETE FROM affiliations
 	WHERE (name = ?)`
 
-	getAffiliation = `
+	getAffiliationQuery = `
 SELECT name, prekey FROM affiliations
 	WHERE (name = ?)`
+
+	getAllAffiliationsQuery = `
+SELECT * FROM affiliations
+		WHERE (name like ?)`
 )
 
 // UserRecord defines the properties of a user
@@ -313,12 +317,51 @@ func (d *Accessor) GetAffiliation(name string) (spi.Affiliation, error) {
 
 	var affiliation spi.AffiliationImpl
 
-	err = d.db.Get(&affiliation, d.db.Rebind(getAffiliation), name)
+	err = d.db.Get(&affiliation, d.db.Rebind(getAffiliationQuery), name)
 	if err != nil {
 		return nil, dbGetError(err, "Affiliation")
 	}
 
 	return &affiliation, nil
+}
+
+// GetAllAffiliations gets the requested affiliation and any sub affiliations from the database
+func (d *Accessor) GetAllAffiliations(name string) ([]spi.Affiliation, error) {
+	log.Debugf("DB: Get affiliation %s", name)
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var baseAffiliation spi.AffiliationImpl
+	var affiliations []spi.AffiliationImpl
+	var allAffiliations []spi.Affiliation
+
+	if name == "" { // Requesting all affiliations
+		err = d.db.Select(&affiliations, d.db.Rebind("SELECT * FROM affiliations"))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		err = d.db.Get(&baseAffiliation, d.db.Rebind(getAffiliationQuery), name)
+		if err != nil {
+			return nil, dbGetError(err, "Affiliation")
+		}
+		err = d.db.Select(&affiliations, d.db.Rebind(getAllAffiliationsQuery), name+".%")
+		if err != nil {
+			return nil, err
+		}
+		allAffiliations = append(allAffiliations, &baseAffiliation)
+	}
+
+	for _, aff := range affiliations {
+		allAffiliations = append(allAffiliations, &spi.AffiliationImpl{
+			Name:   aff.Name,
+			Prekey: aff.Prekey,
+		})
+	}
+
+	return allAffiliations, nil
 }
 
 // GetFilteredUsers returns all identities that fall under the affiliation and types
