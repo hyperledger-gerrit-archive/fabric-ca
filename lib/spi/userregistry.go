@@ -71,6 +71,7 @@ type UserRegistry interface {
 	UpdateUser(user *UserInfo, updatePass bool) error
 	DeleteUser(id string) error
 	GetAffiliation(name string) (Affiliation, error)
+	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string, level int) error
 	DeleteAffiliation(name string) error
 	// GetProperties returns the properties by name from the database
