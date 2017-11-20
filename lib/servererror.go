@@ -141,6 +141,8 @@ const (
 	ErrRemoveIdentity = 54
 	// Failed to modify identity
 	ErrModifyingIdentity = 55
+	// Caller does not have the appropriate role
+	ErrMissingRole = 56
 )
 
 // Construct a new HTTP error.

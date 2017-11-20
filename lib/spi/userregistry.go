@@ -64,6 +64,7 @@ type UserRegistry interface {
 	UpdateUser(user *UserInfo, updatePass bool) error
 	DeleteUser(id string) error
 	GetAffiliation(name string) (Affiliation, error)
+	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
 	DeleteAffiliation(name string) error
 	GetFilteredUsers(affiliation, types string) ([]User, error)

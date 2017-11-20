@@ -121,7 +121,7 @@ func (c *ClientCmd) runListAffiliation(cmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		fmt.Printf("Affiliation: %+v\n", resp.AffiliationInfo)
+		fmt.Printf("Affiliation: %+v\n", resp.AffiliationInfo.Name)
 		return nil
 	}
 
@@ -132,7 +132,7 @@ func (c *ClientCmd) runListAffiliation(cmd *cobra.Command, args []string) error 
 
 	fmt.Println("Affiliations:")
 	for _, aff := range resp.Affiliations {
-		fmt.Printf("%+v\n", aff)
+		fmt.Printf("%+v\n", aff.Name)
 	}
 
 	return nil

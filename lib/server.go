@@ -63,6 +63,7 @@ const (
 	attrIntermediateCA = "hf.IntermediateCA"
 	attrGenCRL         = "hf.GenCRL"
 	attrRegistrarAttr  = "hf.Registrar.Attributes"
+	attrAffiliationMgr = "hf.AffiliationMgr"
 	apiPathPrefix      = "/api/v1/"
 )
 
@@ -214,6 +215,7 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 			attrIntermediateCA: "true",
 			attrGenCRL:         "true",
 			attrRegistrarAttr:  "*",
+			attrAffiliationMgr: "true",
 		},
 	}
 
@@ -478,6 +480,8 @@ func (s *Server) registerHandlers() {
 	s.registerHandler("gencrl", newGenCRLEndpoint(s))
 	s.registerHandler("identities", newIdentitiesEndpoint(s))
 	s.registerHandler("identities/{id}", newIdentitiesEndpoint(s))
+	s.registerHandler("affiliations", newAffiliationsEndpoint(s))
+	s.registerHandler("affiliations/{affiliation}", newAffiliationsEndpoint(s))
 }
 
 // Register a handler

@@ -596,16 +596,13 @@ func TestAffiliationCmd(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
-	err = RunMain([]string{cmdName, "register", "--id.name", "testuser"})
-	util.FatalError(t, err, "Failed to register user")
-
 	err = RunMain([]string{
 		cmdName, "affiliation", "list"})
-	assert.Error(t, err, "Should fail, affiliation endpoint not yet created")
+	assert.NoError(t, err, "Failed to return all affiliations")
 
 	err = RunMain([]string{
 		cmdName, "affiliation", "list", "--affiliation", "org2"})
-	assert.Error(t, err, "Should fail, affiliation endpoint not yet created")
+	assert.Error(t, err, "Failed to get the requested affiliation")
 
 	err = RunMain([]string{
 		cmdName, "affiliation", "add"})
