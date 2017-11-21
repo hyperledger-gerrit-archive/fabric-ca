@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/pkg/errors"
 
@@ -71,7 +72,7 @@ func (i *Identity) GetTCertBatch(req *api.GetTCertBatchRequest) ([]*Signer, erro
 	if err != nil {
 		return nil, err
 	}
-	err = i.Post("tcert", reqBody, nil)
+	err = i.Post("tcert", reqBody, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +97,7 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 
 	// Send a post to the "register" endpoint with req as body
 	resp := &api.RegistrationResponse{}
-	err = i.Post("register", reqBody, resp)
+	err = i.Post("register", reqBody, resp, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -152,7 +153,7 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 		return nil, err
 	}
 	var result enrollmentResponseNet
-	err = i.Post("reenroll", body, &result)
+	err = i.Post("reenroll", body, &result, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +168,7 @@ func (i *Identity) Revoke(req *api.RevocationRequest) (*api.RevocationResponse, 
 		return nil, err
 	}
 	var result revocationResponseNet
-	err = i.Post("revoke", reqBody, &result)
+	err = i.Post("revoke", reqBody, &result, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -197,7 +198,7 @@ func (i *Identity) GenCRL(req *api.GenCRLRequest) (*api.GenCRLResponse, error) {
 		return nil, err
 	}
 	var result genCRLResponseNet
-	err = i.Post("gencrl", reqBody, &result)
+	err = i.Post("gencrl", reqBody, &result, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -247,7 +248,7 @@ func (i *Identity) AddIdentity(req *api.AddIdentityRequest) (*api.IdentityRespon
 
 	// Send a post to the "identities" endpoint with req as body
 	result := &api.IdentityResponse{}
-	err = i.Post("identities", reqBody, result)
+	err = i.Post("identities", reqBody, result, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -289,7 +290,9 @@ func (i *Identity) RemoveIdentity(req *api.RemoveIdentityRequest) (*api.Identity
 
 	// Send a delete to the "identities" endpoint id as a path parameter
 	result := &api.IdentityResponse{}
-	err := i.Delete(fmt.Sprintf("identities/%s", id), req.CAName, result)
+	queryParam := make(map[string]string)
+	queryParam["ca"] = req.CAName
+	err := i.Delete(fmt.Sprintf("identities/%s", id), result, queryParam)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +327,7 @@ func (i *Identity) GetAllAffiliations(caname string, cb func(*json.Decoder) erro
 // AddAffiliation adds a new affiliation to the server
 func (i *Identity) AddAffiliation(req *api.AddAffiliationRequest) (*api.AffiliationResponse, error) {
 	log.Debugf("Entering identity.AddAffiliation with request: %+v", req)
-	if req.Name == "" {
+	if req.Info.Name == "" {
 		return nil, errors.New("Affiliation to add was not specified")
 	}
 
@@ -335,7 +338,9 @@ func (i *Identity) AddAffiliation(req *api.AddAffiliationRequest) (*api.Affiliat
 
 	// Send a post to the "affiliations" endpoint with req as body
 	result := &api.AffiliationResponse{}
-	err = i.Post("affiliations", reqBody, result)
+	queryParam := make(map[string]string)
+	queryParam["force"] = strconv.FormatBool(req.Force)
+	err = i.Post("affiliations", reqBody, result, queryParam)
 	if err != nil {
 		return nil, err
 	}
@@ -380,9 +385,11 @@ func (i *Identity) RemoveAffiliation(req *api.RemoveAffiliationRequest) (*api.Re
 		return nil, errors.New("Affiliation to remove was not specified")
 	}
 
-	// Send a delete to the "identities" endpoint id as a path parameter
+	// Send a delete to the "affiliations" endpoint with the affiliation as a path parameter
 	result := &api.RemoveAffiliationResponse{}
-	err := i.Delete(fmt.Sprintf("affiliations/%s", removeAff), req.CAName, result)
+	queryParam := make(map[string]string)
+	queryParam["force"] = strconv.FormatBool(req.Force)
+	err := i.Delete(fmt.Sprintf("affiliations/%s", removeAff), result, queryParam)
 	if err != nil {
 		return nil, err
 	}
@@ -445,13 +452,15 @@ func (i *Identity) Put(endpoint string, reqBody []byte, result interface{}) erro
 }
 
 // Delete sends a delete request to an endpoint
-func (i *Identity) Delete(endpoint, caname string, result interface{}) error {
+func (i *Identity) Delete(endpoint string, result interface{}, queryParam map[string]string) error {
 	req, err := i.client.newDelete(endpoint)
 	if err != nil {
 		return err
 	}
-	if caname != "" {
-		addQueryParm(req, "ca", caname)
+	if queryParam != nil {
+		for key, value := range queryParam {
+			addQueryParm(req, key, value)
+		}
 	}
 	err = i.addTokenAuthHdr(req, nil)
 	if err != nil {
@@ -464,10 +473,15 @@ func (i *Identity) Delete(endpoint, caname string, result interface{}) error {
 // This adds an authorization header which contains the signature
 // of this identity over the body and non-signature part of the authorization header.
 // The return value is the body of the response.
-func (i *Identity) Post(endpoint string, reqBody []byte, result interface{}) error {
+func (i *Identity) Post(endpoint string, reqBody []byte, result interface{}, queryParam map[string]string) error {
 	req, err := i.client.newPost(endpoint, reqBody)
 	if err != nil {
 		return err
+	}
+	if queryParam != nil {
+		for key, value := range queryParam {
+			addQueryParm(req, key, value)
+		}
 	}
 	err = i.addTokenAuthHdr(req, reqBody)
 	if err != nil {
