@@ -17,6 +17,9 @@ limitations under the License.
 package lib
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
@@ -156,17 +159,138 @@ func getAffiliation(ctx *serverRequestContext, caller spi.User, requestedAffilia
 func processAffiliationDeleteRequest(ctx *serverRequestContext, caname string) (*api.RemoveAffiliationResponse, error) {
 	log.Debug("Processing DELETE request")
 
-	// TODO
+	if !ctx.ca.Config.Cfg.Affiliations.AllowRemove {
+		return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Affiliation removal is disabled")
+	}
 
-	return nil, errors.New("Not Implemented")
+	removeAffiliation, err := ctx.GetVar("affiliation")
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("Request to remove affiliation '%s'", removeAffiliation)
+
+	callerAff := GetUserAffiliation(ctx.caller)
+	if callerAff == removeAffiliation {
+		return nil, newHTTPErr(400, ErrUpdateConfigRemoveAff, "Can't remove affiliation '%s' that the caller is also a part of because it is the caller's affiliation", removeAffiliation)
+	}
+
+	err = ctx.ContainsAffiliation(removeAffiliation)
+	if err != nil {
+		return nil, err
+	}
+
+	force := false
+	forceStr := ctx.req.URL.Query().Get("force")
+	if forceStr != "" {
+		force, err = strconv.ParseBool(forceStr)
+		if err != nil {
+			return nil, newHTTPErr(500, ErrUpdateConfigRemoveAff, "Failed to correctly parse value of 'force' query parameter: %s", err)
+		}
+	}
+
+	identityRemoval := ctx.ca.Config.Cfg.Identities.AllowRemove
+	result, err := ctx.ca.registry.DeleteAffiliation(removeAffiliation, force, identityRemoval)
+	if err != nil {
+		return nil, err
+	}
+
+	deletedInfo := result.(deleteAffiliationResult)
+	affInfo := []api.AffiliationInfo{}
+	for _, affRemoved := range deletedInfo.deletedAffiliations {
+		affInfo = append(affInfo, api.AffiliationInfo{
+			Name: affRemoved,
+		})
+	}
+	idInfo := []api.IdentityInfo{}
+	for _, idRemoved := range deletedInfo.deletedIdentities {
+		id := getIDInfo(idRemoved)
+		idInfo = append(idInfo, *id)
+	}
+	resp := &api.RemoveAffiliationResponse{
+		Affiliations: affInfo,
+		Identities:   idInfo,
+		CAName:       caname,
+	}
+
+	return resp, nil
 }
 
 func processAffiliationPostRequest(ctx *serverRequestContext, caname string) (*api.AffiliationResponse, error) {
 	log.Debug("Processing POST request")
 
-	// TODO
+	ctx.endpoint.successRC = 201
+	var req api.AddAffiliationRequestNet
+	err := ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, errors.New("Not Implemented")
+	addAffiliation := req.Info.Name
+	log.Debugf("Request to add affiliation '%s'", addAffiliation)
+
+	registry := ctx.ca.registry
+	_, err = registry.GetAffiliation(addAffiliation)
+	if err == nil {
+		return nil, newHTTPErr(400, ErrUpdateConfigAddAff, "Affiliation already exists")
+	}
+
+	err = ctx.ContainsAffiliation(addAffiliation)
+	if err != nil {
+		return nil, err
+	}
+
+	force := false
+	forceStr := ctx.req.URL.Query().Get("force")
+	if forceStr != "" {
+		force, err = strconv.ParseBool(forceStr)
+		if err != nil {
+			return nil, newHTTPErr(500, ErrUpdateConfigAddAff, "Failed to correctly parse value of 'force' query parameter: %s", err)
+		}
+
+	}
+
+	addAffiliationSlice := strings.Split(addAffiliation, ".")
+	var parentAffiliationPath string
+
+	if force {
+		// With force option, add any parent affiliations that don't exist
+		var affiliationPath string
+		for _, addAff := range addAffiliationSlice {
+			affiliationPath = affiliationPath + addAff
+			err := registry.InsertAffiliation(affiliationPath, parentAffiliationPath)
+			if err != nil {
+				return nil, newHTTPErr(500, ErrUpdateConfigAddAff, "Failed to add affiliations '%s': %s", addAffiliation, err)
+			}
+			parentAffiliationPath = affiliationPath
+			affiliationPath = affiliationPath + "."
+		}
+	} else {
+		// If the affiliation being added has a parent affiliation, check to make sure that parent affiliation exists
+		if len(addAffiliationSlice) > 1 {
+			parentAffiliationPath = strings.Join(addAffiliationSlice[:len(addAffiliationSlice)-1], ".") // Get the path up until the last affiliation
+			_, err = registry.GetAffiliation(parentAffiliationPath)
+			if err != nil {
+				return nil, newHTTPErr(400, ErrUpdateConfigAddAff, "Parent affiliation does not exist, 'force' option required on request to add affiliation")
+			}
+			err := registry.InsertAffiliation(addAffiliation, parentAffiliationPath)
+			if err != nil {
+				return nil, newHTTPErr(500, ErrUpdateConfigAddAff, "Failed to add affiliation '%s': %s", addAffiliation, err)
+			}
+		} else {
+			err := registry.InsertAffiliation(addAffiliation, "")
+			if err != nil {
+				return nil, newHTTPErr(500, ErrUpdateConfigAddAff, "Failed to add affiliation '%s': %s", addAffiliation, err)
+			}
+		}
+
+	}
+
+	resp := &api.AffiliationResponse{
+		CAName: caname,
+	}
+	resp.Name = addAffiliation
+
+	return resp, nil
 }
 
 func processAffiliationPutRequest(ctx *serverRequestContext, caname string) (*api.AffiliationResponse, error) {

@@ -21,7 +21,6 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
 
@@ -76,6 +75,9 @@ func (c *ClientCmd) newAddAffiliationCommand() *cobra.Command {
 		PreRunE: c.affiliationPreRunE,
 		RunE:    c.runAddAffiliation,
 	}
+	flags := affiliationAddCmd.Flags()
+	flags.BoolVarP(
+		&c.dynamicAffiliation.add.Force, "force", "", false, "Creates parent affiliations if they do not exist")
 	return affiliationAddCmd
 }
 
@@ -90,6 +92,8 @@ func (c *ClientCmd) newModifyAffiliationCommand() *cobra.Command {
 	flags := affiliationModifyCmd.Flags()
 	flags.StringVarP(
 		&c.dynamicAffiliation.modify.Info.Name, "name", "", "", "Rename the affiliation")
+	flags.BoolVarP(
+		&c.dynamicAffiliation.modify.Force, "force", "", false, "Forces identities using old affiliation to use new affiliation")
 	return affiliationModifyCmd
 }
 
@@ -102,7 +106,8 @@ func (c *ClientCmd) newRemoveAffiliationCommand() *cobra.Command {
 		RunE:    c.runRemoveAffiliation,
 	}
 	flags := affiliationRemoveCmd.Flags()
-	util.RegisterFlags(c.myViper, flags, &c.dynamicAffiliation.remove, nil)
+	flags.BoolVarP(
+		&c.dynamicAffiliation.remove.Force, "force", "", false, "Forces removal of any child affiliations and any identities associated with removed affiliations")
 	return affiliationRemoveCmd
 }
 
@@ -148,8 +153,9 @@ func (c *ClientCmd) runAddAffiliation(cmd *cobra.Command, args []string) error {
 	}
 
 	req := &api.AddAffiliationRequest{}
-	req.Name = args[0]
+	req.Info.Name = args[0]
 	req.CAName = c.clientCfg.CAName
+	req.Force = c.dynamicAffiliation.add.Force
 
 	resp, err := id.AddAffiliation(req)
 	if err != nil {
@@ -196,13 +202,14 @@ func (c *ClientCmd) runRemoveAffiliation(cmd *cobra.Command, args []string) erro
 	req := &api.RemoveAffiliationRequest{}
 	req.Name = args[0]
 	req.CAName = c.clientCfg.CAName
+	req.Force = c.dynamicAffiliation.remove.Force
 
 	resp, err := id.RemoveAffiliation(req)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Successfully modified affiliation: %+v\n", resp)
+	fmt.Printf("Successfully removed affiliation: %+v\n", resp)
 
 	return nil
 }
