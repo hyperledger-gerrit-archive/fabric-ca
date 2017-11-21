@@ -259,8 +259,9 @@ type GetAllAffiliationsResponse struct {
 // AddAffiliationRequest represents the request to add a new affiliation to the
 // fabric-ca-server
 type AddAffiliationRequest struct {
-	AffiliationInfo
-	CAName string `json:"caname,omitempty"`
+	Info   AffiliationInfo `json:"info"`
+	Force  bool            `json:"force"`
+	CAName string          `json:"caname,omitempty"`
 }
 
 // ModifyAffiliationRequest represents the request to modify an existing affiliation on the
@@ -268,6 +269,7 @@ type AddAffiliationRequest struct {
 type ModifyAffiliationRequest struct {
 	Name   string          `json:"name"`
 	Info   AffiliationInfo `json:"info"`
+	Force  bool            `json:"force"`
 	CAName string          `json:"caname,omitempty"`
 }
 
@@ -275,6 +277,7 @@ type ModifyAffiliationRequest struct {
 // fabric-ca-server
 type RemoveAffiliationRequest struct {
 	Name   string `json:"name"`
+	Force  bool   `json:"force"`
 	CAName string `json:"caname,omitempty"`
 }
 
