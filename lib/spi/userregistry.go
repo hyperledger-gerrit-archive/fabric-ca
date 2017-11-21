@@ -35,6 +35,13 @@ type UserInfo struct {
 	MaxEnrollments int
 }
 
+// DbTxResult returns information on any affiliations and/or identities affected
+// during a database transaction
+type DbTxResult struct {
+	Affiliations []Affiliation
+	Identities   []User
+}
+
 // User is the SPI for a user
 type User interface {
 	// Returns the enrollment ID of the user
@@ -62,10 +69,10 @@ type UserRegistry interface {
 	GetUser(id string, attrs []string) (User, error)
 	InsertUser(user *UserInfo) error
 	UpdateUser(user *UserInfo, updatePass bool) error
-	DeleteUser(id string) error
+	DeleteUser(id string) (*DbTxResult, error)
 	GetAffiliation(name string) (Affiliation, error)
 	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
-	DeleteAffiliation(name string) error
+	DeleteAffiliation(name string, force, identityRemoval bool) (*DbTxResult, error)
 	GetFilteredUsers(affiliation, types string) ([]User, error)
 }
