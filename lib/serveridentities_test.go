@@ -21,6 +21,8 @@ import (
 	"strings"
 	"testing"
 
+	"golang.org/x/crypto/ocsp"
+
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
@@ -113,6 +115,24 @@ func TestGetAllIDs(t *testing.T) {
 			t.Error("Failed to get right user back")
 		}
 	}
+
+	regResp, err := admin.Register(&api.RegistrationRequest{
+		Name: "notregistrar",
+		Type: "client",
+	})
+
+	resp, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "notregistrar",
+		Secret: regResp.Secret,
+	})
+	util.FatalError(t, err, "Failed to enroll user 'notregistrar'")
+
+	notregistrar := resp.Identity
+
+	_, err = notregistrar.GetAllIdentities("")
+	if assert.Error(t, err, "Should have failed, caller is not a registrar") {
+		assert.Contains(t, err.Error(), "Authorization failure")
+	}
 }
 
 func TestGetID(t *testing.T) {
@@ -199,6 +219,24 @@ func TestGetID(t *testing.T) {
 	_, err = admin2.GetIdentity("testuser4", "")
 	assert.Error(t, err, "'admin2' of type 'peer' is not authorized to get 'testuser4' of type 'client'")
 
+	regResp, err := admin.Register(&api.RegistrationRequest{
+		Name: "notregistrar",
+		Type: "client",
+	})
+
+	resp, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "notregistrar",
+		Secret: regResp.Secret,
+	})
+	util.FatalError(t, err, "Failed to enroll user 'notregistrar'")
+
+	notregistrar := resp.Identity
+
+	_, err = notregistrar.GetIdentity("testuser", "")
+	if assert.Error(t, err, "Should have failed, caller is not a registrar") {
+		assert.Contains(t, err.Error(), "Authorization failure")
+	}
+
 }
 
 func TestDynamicAddIdentity(t *testing.T) {
@@ -222,9 +260,8 @@ func TestDynamicAddIdentity(t *testing.T) {
 	admin := resp.Identity
 
 	regResp, err := admin.Register(&api.RegistrationRequest{
-		Name:        "notregistrar",
-		Type:        "client",
-		Affiliation: "org2",
+		Name: "notregistrar",
+		Type: "client",
 	})
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
@@ -247,7 +284,9 @@ func TestDynamicAddIdentity(t *testing.T) {
 	addReq.Type = "client"
 	addReq.Affiliation = "org2"
 	_, err = notregistrar.AddIdentity(addReq)
-	assert.Error(t, err, "Should have failed to add identity, caller is not a registrar")
+	if assert.Error(t, err, "Should have failed, caller is not a registrar") {
+		assert.Contains(t, err.Error(), "Authorization failure")
+	}
 
 	_, err = admin.AddIdentity(addReq)
 	assert.NoError(t, err, "Failed to add identity")
@@ -275,9 +314,8 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 
 	// Register and enroll a user that is not a registrar
 	regResp, err := admin.Register(&api.RegistrationRequest{
-		Name:        "notregistrar",
-		Type:        "client",
-		Affiliation: "org2",
+		Name: "notregistrar",
+		Type: "client",
 	})
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
@@ -347,7 +385,9 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 	assert.Error(t, err, "Should have failed to remove identity; caller does not have the right affiliation")
 
 	_, err = notregistrar.RemoveIdentity(remReq)
-	assert.Error(t, err, "Should have failed to remove identity; caller is not a registrar")
+	if assert.Error(t, err, "Should have failed, caller is not a registrar") {
+		assert.Contains(t, err.Error(), "Authorization failure")
+	}
 
 	_, err = admin.RemoveIdentity(remReq)
 	assert.NoError(t, err, "Failed to remove user")
@@ -357,8 +397,8 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 	assert.Error(t, err, "User should not exist")
 
 	certs, err := srv.CA.certDBAccessor.GetCertificatesByID(remReq.ID)
-	if len(certs) != 0 {
-		t.Errorf("Failed to delete certificates for a removed identity '%s'", remReq.ID)
+	if certs[0].Status != "revoked" || certs[0].Reason != ocsp.CessationOfOperation {
+		t.Error("Failed to correctly revoke certificate for an identity whose affiliation was removed")
 	}
 }
 
@@ -548,6 +588,23 @@ func TestDynamicModifyIdentity(t *testing.T) {
 		t.Errorf("Failed to correctly modify affiliation to root affiliation for user 'testuser2'")
 	}
 
+	regResp, err := admin.Register(&api.RegistrationRequest{
+		Name: "notregistrar",
+		Type: "client",
+	})
+
+	resp, err = client.Enroll(&api.EnrollmentRequest{
+		Name:   "notregistrar",
+		Secret: regResp.Secret,
+	})
+	util.FatalError(t, err, "Failed to enroll user 'notregistrar'")
+
+	notregistrar := resp.Identity
+
+	_, err = notregistrar.ModifyIdentity(modReq)
+	if assert.Error(t, err, "Should have failed, caller is not a registrar") {
+		assert.Contains(t, err.Error(), "Authorization failure")
+	}
 }
 
 func TestDynamicWithMultCA(t *testing.T) {
