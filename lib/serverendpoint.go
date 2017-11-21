@@ -74,6 +74,7 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		he := getHTTPErr(err)
 		if se.Streaming {
+			fmt.Printf("]}, \"errors\":[{\"code\":%d,\"message\":\"%s\"}], \"messages\":[], \"success\":\"false\"}\n", he.rcode, he.rmsg)
 			msg := fmt.Sprintf("]}, \"errors\":[{\"code\":%d,\"message\":\"%s\"}], \"messages\":[], \"success\":\"false\"}", he.rcode, he.rmsg)
 			w.Write([]byte(msg))
 			w.(http.Flusher).Flush()
