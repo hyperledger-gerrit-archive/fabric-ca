@@ -121,8 +121,7 @@ func getIDs(ctx *serverRequestContext, caller spi.User, caname string) (*api.Get
 
 	// Get identity information
 	for _, user := range ids {
-		userInfo := user.(*DBUser).UserInfo
-		idsInfo = append(idsInfo, *getIDInfo(&userInfo))
+		idsInfo = append(idsInfo, *getIDInfo(user))
 	}
 
 	resp := &api.GetAllIDsResponse{
@@ -147,11 +146,10 @@ func getID(ctx *serverRequestContext, caller spi.User, id, caname string) (*api.
 		return nil, err
 	}
 
-	userInfo := user.(*DBUser).UserInfo
 	resp := &api.GetIDResponse{
 		CAName: caname,
 	}
-	resp.IdentityInfo = *getIDInfo(&userInfo)
+	resp.IdentityInfo = *getIDInfo(user)
 
 	return resp, nil
 }
@@ -183,11 +181,10 @@ func processDeleteRequest(ctx *serverRequestContext, caname string) (*api.Identi
 		return nil, newHTTPErr(500, ErrRemoveIdentity, "Failed to remove identity: ", err)
 	}
 
-	userInfo := userToRemove.(*DBUser).UserInfo
 	resp := &api.IdentityResponse{
 		CAName: caname,
 	}
-	resp.IdentityInfo = *getIDInfo(&userInfo)
+	resp.IdentityInfo = *getIDInfo(userToRemove)
 
 	log.Debugf("Identity '%s' successfully removed", removeID)
 	return resp, nil
@@ -232,13 +229,12 @@ func processPostRequest(ctx *serverRequestContext, caname string) (*api.Identity
 	if err != nil {
 		return nil, err
 	}
-	userInfo := user.(*DBUser).UserInfo
 
 	resp := &api.IdentityResponse{
 		Secret: pass,
 		CAName: caname,
 	}
-	resp.IdentityInfo = *getIDInfo(&userInfo)
+	resp.IdentityInfo = *getIDInfo(user)
 
 	log.Debugf("Identity successfully added")
 	return resp, nil
@@ -307,7 +303,7 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 		Secret: modReq.Pass,
 		CAName: caname,
 	}
-	resp.IdentityInfo = *getIDInfo(modReq)
+	resp.IdentityInfo = *getIDInfo(userToModify)
 
 	log.Debugf("Identity successfully modified")
 	return resp, nil
@@ -367,12 +363,13 @@ func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, 
 	return &modifyUserInfo, setPass
 }
 
-func getIDInfo(user *spi.UserInfo) *api.IdentityInfo {
+func getIDInfo(user spi.User) *api.IdentityInfo {
+	allAttributes, _ := user.GetAttributes(nil)
 	return &api.IdentityInfo{
-		ID:             user.Name,
-		Type:           user.Type,
-		Affiliation:    user.Affiliation,
-		Attributes:     user.Attributes,
-		MaxEnrollments: user.MaxEnrollments,
+		ID:             user.GetName(),
+		Type:           user.GetType(),
+		Affiliation:    GetUserAffiliation(user),
+		Attributes:     allAttributes,
+		MaxEnrollments: user.GetMaxEnrollments(),
 	}
 }

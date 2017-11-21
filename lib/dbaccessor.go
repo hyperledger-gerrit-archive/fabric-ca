@@ -83,6 +83,11 @@ type UserRecord struct {
 	MaxEnrollments int    `db:"max_enrollments"`
 }
 
+type deleteAffiliationResult struct {
+	deletedAffiliations []string
+	deletedIdentities   []spi.User
+}
+
 // Accessor implements db.Accessor interface.
 type Accessor struct {
 	db *sqlx.DB
@@ -164,25 +169,25 @@ func (d *Accessor) InsertUser(user *spi.UserInfo) error {
 }
 
 // DeleteUser deletes user from database
-func (d *Accessor) DeleteUser(id string) error {
+func (d *Accessor) DeleteUser(id string) (interface{}, error) {
 	log.Debugf("DB: Delete identity %s", id)
 
 	return d.doTransaction(deleteUserTx, id)
 }
 
-func deleteUserTx(tx *sqlx.Tx, args ...interface{}) error {
+func deleteUserTx(tx *sqlx.Tx, args ...interface{}) (interface{}, error) {
 	id := args[0].(string)
 	_, err := tx.Exec(tx.Rebind(deleteUser), id)
 	if err != nil {
-		return errors.Wrapf(err, "Error deleting identity '%s'", id)
+		return nil, errors.Wrapf(err, "Error deleting identity '%s'", id)
 	}
 
 	_, err = tx.Exec(tx.Rebind(deleteCertificatebyID), id)
 	if err != nil {
-		return errors.Wrapf(err, "Error deleting certificates for '%s'", id)
+		return nil, errors.Wrapf(err, "Error deleting certificates for '%s'", id)
 	}
 
-	return nil
+	return nil, nil
 }
 
 // UpdateUser updates user in database
@@ -291,20 +296,117 @@ func (d *Accessor) InsertAffiliation(name string, prekey string) error {
 	return nil
 }
 
-// DeleteAffiliation deletes affiliation from database
-func (d *Accessor) DeleteAffiliation(name string) error {
+// DeleteAffiliation deletes affiliation from database. Using the force option with identity removal allowed
+// this will also delete the identities associated with removed affiliations, and also delete the certificates
+// for the identities removed
+func (d *Accessor) DeleteAffiliation(name string, force, identityRemoval bool) (interface{}, error) {
 	log.Debugf("DB: Delete affiliation %s", name)
-	err := d.checkDB()
+
+	_, err := d.GetAffiliation(name)
 	if err != nil {
-		return err
+		return nil, newHTTPErr(400, ErrRemoveAffDB, "Affiliation requested to be removed does not exist: %s", err)
 	}
 
-	_, err = d.db.Exec(deleteAffiliation, name)
+	return d.doTransaction(deleteAffiliationTx, name, force, identityRemoval, d)
+}
+
+func deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interface{}, error) {
+	var err error
+
+	name := args[0].(string)
+	force := args[1].(bool)
+	identityRemoval := args[2].(bool)
+	d := args[3].(*Accessor)
+
+	query := "SELECT * FROM users WHERE (affiliation = ?)"
+	ids := []UserRecord{}
+	err = tx.Select(&ids, tx.Rebind(query), name)
 	if err != nil {
-		return err
+		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with affiliation '%s': %s", name, err)
 	}
 
-	return nil
+	subAffName := name + ".%"
+	query = "SELECT * FROM users WHERE (affiliation LIKE ?)"
+	subAffIds := []UserRecord{}
+	err = tx.Select(&subAffIds, tx.Rebind(query), subAffName)
+	if err != nil {
+		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with sub-affiliation of '%s': %s", name, err)
+	}
+
+	ids = append(ids, subAffIds...)
+	if len(ids) > 0 {
+		// Force enabled, delete any associated identities and certificates
+		if force {
+			log.Debugf("IDs '%s' to removed based on affiliation '%s' removal", ids, name)
+
+			if !identityRemoval {
+				return nil, newHTTPErr(500, ErrUpdateConfigRemoveAff, "Identity removal is not allowed on server")
+			}
+
+			idNames := []string{}
+			for _, id := range ids {
+				idNames = append(idNames, id.Name)
+			}
+
+			// Delete all the identities in one database request
+			query := "DELETE FROM users WHERE (id IN (?))"
+			inQuery, args, err := sqlx.In(query, idNames)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to construct query '%s'", query)
+			}
+			_, err = tx.Exec(tx.Rebind(inQuery), args...)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to execute query '%s' for multiple identity removal", query)
+			}
+
+			// Delete all the certificates associated with the removed identities above
+			query = "DELETE FROM certificates WHERE (id IN (?))"
+			inQuery, args, err = sqlx.In(query, idNames)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to construct query '%s'", query)
+			}
+			_, err = tx.Exec(tx.Rebind(inQuery), args...)
+			if err != nil {
+				return nil, errors.Wrapf(err, "Failed to execute query '%s' for multiple certificate removal", query)
+			}
+		} else {
+			// If force option is not specified, only delete affiliation if there are no identities that have that affiliation
+			return nil, newHTTPErr(400, ErrUpdateConfigRemoveAff, "There are identities associated with affiliation to be remove. Need to use 'force' to remove identities and affiliation")
+		}
+	}
+
+	_, err = tx.Exec(tx.Rebind(deleteAffiliation), name)
+	if err != nil {
+		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to delete affiliation '%s': %s", name, err)
+	}
+
+	// Getting all the sub-affiliations that are going to be deleted
+	affs := []string{}
+	err = tx.Select(&affs, tx.Rebind("Select name FROM affiliations where (name LIKE ?)"), subAffName)
+	if err != nil {
+		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select sub-affiliations of '%s': %s", subAffName, err)
+	}
+	affs = append(affs, name)
+
+	// Delete all the sub-affiliations
+	_, err = tx.Exec(tx.Rebind("DELETE FROM affiliations where (name LIKE ?)"), subAffName)
+	if err != nil {
+		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to delete affiliations: %s", err)
+	}
+
+	// Collect all the users that were deleted
+	dbUser := []spi.User{}
+	for _, id := range ids {
+		dbUser = append(dbUser, d.newDBUser(&id))
+	}
+
+	// Return the identities and affiliations that were deleted
+	result := deleteAffiliationResult{
+		deletedAffiliations: affs,
+		deletedIdentities:   dbUser,
+	}
+
+	return result, nil
 }
 
 // GetAffiliation gets affiliation from database
@@ -423,27 +525,28 @@ func (d *Accessor) GetFilteredUsers(affiliation, types string) ([]spi.User, erro
 	return allIds, nil
 }
 
-func (d *Accessor) doTransaction(doit func(tx *sqlx.Tx, args ...interface{}) error, args ...interface{}) error {
+func (d *Accessor) doTransaction(doit func(tx *sqlx.Tx, args ...interface{}) (interface{}, error), args ...interface{}) (interface{}, error) {
 	err := d.checkDB()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx := d.db.MustBegin()
-	err = doit(tx, args...)
+	result, err := doit(tx, args...)
 	if err != nil {
 		err2 := tx.Rollback()
 		if err2 != nil {
 			log.Errorf("Error encounted while rolling back transaction: %s", err2)
-			return err
+			return nil, err
 		}
-		return err
+		return nil, err
 	}
 
 	err = tx.Commit()
 	if err != nil {
-		return errors.Wrap(err, "Error encountered while committing transaction")
+		return nil, errors.Wrap(err, "Error encountered while committing transaction")
 	}
-	return nil
+
+	return result, nil
 }
 
 // Creates a DBUser object from the DB user record

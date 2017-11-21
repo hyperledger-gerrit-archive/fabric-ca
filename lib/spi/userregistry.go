@@ -62,10 +62,10 @@ type UserRegistry interface {
 	GetUser(id string, attrs []string) (User, error)
 	InsertUser(user *UserInfo) error
 	UpdateUser(user *UserInfo, updatePass bool) error
-	DeleteUser(id string) error
+	DeleteUser(id string) (interface{}, error)
 	GetAffiliation(name string) (Affiliation, error)
 	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
-	DeleteAffiliation(name string) error
+	DeleteAffiliation(name string, force, identityRemoval bool) (interface{}, error)
 	GetFilteredUsers(affiliation, types string) ([]User, error)
 }
