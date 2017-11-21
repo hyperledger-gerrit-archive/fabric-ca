@@ -171,8 +171,6 @@ func getIDs(ctx *serverRequestContext, caller spi.User, caname string) error {
 	flusher, _ := w.(http.Flusher)
 	ctx.endpoint.Streaming = true
 
-	// Write the beginning of the JSON object
-
 	callerTypes, isRegistrar, err := ctx.IsRegistrar()
 	if err != nil {
 		return err
