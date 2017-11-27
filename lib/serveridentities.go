@@ -132,13 +132,14 @@ func getIDs(ctx *serverRequestContext, caller spi.User, caname string) error {
 	fmt.Println("{\"result\":{\"identities\":[")
 	flusher.Flush() // Trigger "chunked" encoding and send a chunk...
 
-	callerTypes, isRegistrar, err := ctx.IsRegistrar()
+	callerTypes, isRegistrar, err := ctx.isRegistrar()
 	if err != nil {
 		return err
 	}
 	if !isRegistrar {
 		return newAuthErr(ErrGettingUser, "Caller is not a registrar")
 	}
+
 	// Getting all identities of appropriate affiliation and type
 	callerAff := GetUserAffiliation(caller)
 	registry := ctx.ca.registry
@@ -245,14 +246,19 @@ func processDeleteRequest(ctx *serverRequestContext, caname string) (*api.Identi
 		return nil, newHTTPErr(400, ErrRemoveIdentity, "No ID name specified in remove request")
 	}
 
-	log.Debugf("Removing identity '%s'", removeID)
 	userToRemove, err := ctx.GetUser(removeID)
 	if err != nil {
 		return nil, err
 	}
 
+	err = ctx.CanManageUser(userToRemove)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("Removing identity '%s'", removeID)
 	registry := ctx.ca.registry
-	registry.DeleteUser(removeID)
+	userRemoved, err := registry.DeleteUser(removeID)
 	if err != nil {
 		return nil, newHTTPErr(500, ErrRemoveIdentity, "Failed to remove identity: ", err)
 	}
@@ -260,7 +266,7 @@ func processDeleteRequest(ctx *serverRequestContext, caname string) (*api.Identi
 	resp := &api.IdentityResponse{
 		CAName: caname,
 	}
-	resp.IdentityInfo = *getIDInfo(userToRemove)
+	resp.IdentityInfo = *getIDInfo(userRemoved)
 
 	log.Debugf("Identity '%s' successfully removed", removeID)
 	return resp, nil
