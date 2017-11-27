@@ -184,7 +184,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 	admin2 := resp.Identity
 
 	addAffReq := &api.AddAffiliationRequest{}
-	addAffReq.Info.Name = "org3"
+	addAffReq.AffiliationInfo.Name = "org3"
 
 	addAffResp, err := notAffMgr.AddAffiliation(addAffReq)
 	assert.Error(t, err, "Should have failed, caller does not have 'hf.AffiliationMgr' attribute")
@@ -202,7 +202,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	assert.Error(t, err, "Should have failed affiliation 'org3' already exists")
 
-	addAffReq.Info.Name = "org3.dept1"
+	addAffReq.AffiliationInfo.Name = "org3.dept1"
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	assert.NoError(t, err, "Failed to affiliation")
 
@@ -210,7 +210,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 	_, err = registry.GetAffiliation("org3.dept1")
 	assert.NoError(t, err, "Failed to add affiliation correctly")
 
-	addAffReq.Info.Name = "org4.dept1.team2"
+	addAffReq.AffiliationInfo.Name = "org4.dept1.team2"
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	assert.Error(t, err, "Should have failed, parent affiliation does not exist. Force option is required")
 
@@ -223,6 +223,10 @@ func TestDynamicAddAffiliation(t *testing.T) {
 
 	_, err = registry.GetAffiliation("org4.dept1")
 	assert.NoError(t, err, "Failed to add affiliation correctly")
+
+	if addAffResp.Name != "org4.dept1.team2" {
+		t.Error("Incorrect information contained in response")
+	}
 }
 
 func TestDynamicRemoveAffiliation(t *testing.T) {
@@ -291,7 +295,7 @@ func TestDynamicRemoveAffiliation(t *testing.T) {
 
 	srv.CA.Config.Cfg.Identities.AllowRemove = true
 
-	_, err = admin.RemoveAffiliation(removeAffReq)
+	removeResp, err := admin.RemoveAffiliation(removeAffReq)
 	assert.NoError(t, err, "Failed to remove affiliation")
 
 	_, err = registry.GetUser("testuser1", nil)
@@ -303,6 +307,16 @@ func TestDynamicRemoveAffiliation(t *testing.T) {
 	}
 	_, err = admin.RemoveAffiliation(removeAffReq)
 	assert.Error(t, err, "Should have failed, trying to remove an affiliation that does not exist")
+
+	if removeResp.Affiliations[0].Name != "org2.dept1" {
+		t.Error("Incorrect affiliation information contained in modify respose")
+	}
+	if removeResp.Affiliations[1].Name != "org2" {
+		t.Error("Incorrect affiliation information contained in modify respose")
+	}
+	if removeResp.Identities[0].ID != "admin2" {
+		t.Error("Incorrect identity information contained in modify respose")
+	}
 }
 
 func TestDynamicModifyAffiliation(t *testing.T) {
@@ -326,10 +340,42 @@ func TestDynamicModifyAffiliation(t *testing.T) {
 
 	admin := resp.Identity
 
+	_, err = admin.Register(&api.RegistrationRequest{
+		Name:        "testuser1",
+		Affiliation: "org2",
+	})
+
 	modifyAffReq := &api.ModifyAffiliationRequest{
-		Name: "org3",
+		Name: "org2",
 	}
-	modifyAffReq.Info.Name = "org2"
+	modifyAffReq.AffiliationInfo.Name = "org3"
+
 	_, err = admin.ModifyAffiliation(modifyAffReq)
-	assert.Error(t, err, "Should have failed, not yet implemented")
+	assert.Error(t, err, "Should have failed, there is an identity associated with affiliation. Need to use force option")
+
+	modifyAffReq.Force = true
+	modifyResp, err := admin.ModifyAffiliation(modifyAffReq)
+	assert.NoError(t, err, "Failed to modify affiliation")
+
+	registry := srv.registry
+	_, err = registry.GetAffiliation("org3")
+	assert.NoError(t, err, "Failed to modify affiliation to 'org3'")
+
+	user, err := registry.GetUser("testuser1", nil)
+	util.FatalError(t, err, "Failed to get user")
+
+	userAff := GetUserAffiliation(user)
+	if userAff != "org3" {
+		t.Error("Failed to modify identity to use new affiliation")
+	}
+
+	if modifyResp.Affiliations[0].Name != "org2.dept1" {
+		t.Error("Incorrect affiliation information contained in modify respose")
+	}
+	if modifyResp.Affiliations[1].Name != "org2" {
+		t.Error("Incorrect affiliation information contained in modify respose")
+	}
+	if modifyResp.Identities[0].ID != "testuser1" {
+		t.Error("Incorrect identity information contained in modify respose")
+	}
 }

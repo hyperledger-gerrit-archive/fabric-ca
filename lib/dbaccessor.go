@@ -83,9 +83,15 @@ type UserRecord struct {
 	MaxEnrollments int    `db:"max_enrollments"`
 }
 
-type deleteAffiliationResult struct {
-	deletedAffiliations []string
-	deletedIdentities   []spi.User
+// AffiliationRecord an affiliation entry in the database
+type AffiliationRecord struct {
+	Name   string `db:"name"`
+	Parent string `db:"prekey"`
+}
+
+type affiliationResult struct {
+	affiliations []string
+	identities   []spi.User
 }
 
 // Accessor implements db.Accessor interface.
@@ -401,9 +407,9 @@ func deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interface{}, error) 
 	}
 
 	// Return the identities and affiliations that were deleted
-	result := deleteAffiliationResult{
-		deletedAffiliations: affs,
-		deletedIdentities:   dbUser,
+	result := affiliationResult{
+		affiliations: affs,
+		identities:   dbUser,
 	}
 
 	return result, nil
@@ -523,6 +529,130 @@ func (d *Accessor) GetFilteredUsers(affiliation, types string) ([]spi.User, erro
 	}
 
 	return allIds, nil
+}
+
+// ModifyAffiliation renames the affiliation and updates all identities to use the new affiliation depending on
+// the value of the "force" parameter
+func (d *Accessor) ModifyAffiliation(oldAffiliation, newAffiliation string, force bool) (interface{}, error) {
+	log.Debugf("DB: Modify affiliation from '%s' to '%s'", oldAffiliation, newAffiliation)
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	// Check to see if the affiliation being modifies exists in the affiliation table
+	_, err = d.GetAffiliation(oldAffiliation)
+	if err != nil {
+		return nil, errors.Errorf("Affiliation '%s' requesting to be modified does not exist", oldAffiliation)
+	}
+
+	// Check to see if the new affiliation being requested exists in the affiliation table
+	_, err = d.GetAffiliation(newAffiliation)
+	if err == nil {
+		return nil, errors.Errorf("Affiliation requested '%s' already exists", newAffiliation)
+	}
+
+	return d.doTransaction(modifyAffiliationTx, oldAffiliation, newAffiliation, force, d)
+}
+
+func modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interface{}, error) {
+	oldAffiliation := args[0].(string)
+	newAffiliation := args[1].(string)
+	force := args[2].(bool)
+	d := args[3].(*Accessor)
+
+	// Get the affiliation record
+	query := "SELECT name, prekey FROM affiliations WHERE (name = ?)"
+	var oldAffiliationRecord AffiliationRecord
+	err := tx.Get(&oldAffiliationRecord, tx.Rebind(query), oldAffiliation)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get the affiliation records for all sub affiliations
+	query = "SELECT name, prekey FROM affiliations WHERE (name LIKE ?)"
+	var allOldAffiliations []AffiliationRecord
+	err = tx.Select(&allOldAffiliations, tx.Rebind(query), oldAffiliation+".%")
+	if err != nil {
+		return nil, err
+	}
+
+	allOldAffiliations = append(allOldAffiliations, oldAffiliationRecord)
+
+	log.Debugf("Affiliations to be modified %+v", allOldAffiliations)
+	var idsWithOldAff []UserRecord
+
+	// Iterate through all the affiliations found and update to use new affiliation path
+	for _, affiliation := range allOldAffiliations {
+		oldPath := affiliation.Name
+		oldParentPath := affiliation.Parent
+		newPath := strings.Replace(oldPath, oldAffiliation, newAffiliation, 1)
+		newParentPath := strings.Replace(oldParentPath, oldAffiliation, newAffiliation, 1)
+		log.Debugf("oldPath: %s, newPath: %s, oldParentPath: %s, newParentPath: %s", oldPath, newPath, oldParentPath, newParentPath)
+
+		// Select all users that are using the old affiliation
+		query = "SELECT * FROM users WHERE (affiliation = ?)"
+		err = tx.Select(&idsWithOldAff, tx.Rebind(query), oldPath)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(idsWithOldAff) > 0 {
+			// Get the list of names of the identities that need to be updated to use new affiliation
+			ids := []string{}
+			for _, id := range idsWithOldAff {
+				ids = append(ids, id.Name)
+			}
+
+			if force {
+				log.Debugf("Identities %s to be updated to use new affiliation of '%s' from '%s'", ids, newPath, oldPath)
+
+				query := "Update users SET affiliation = ? WHERE (id IN (?))"
+				inQuery, args, err := sqlx.In(query, newPath, ids)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Failed to construct query '%s'", query)
+				}
+				_, err = tx.Exec(tx.Rebind(inQuery), args...)
+				if err != nil {
+					return nil, errors.Wrapf(err, "Failed to execute query '%s' for multiple certificate removal", query)
+				}
+			} else {
+				// If force option is not specified, can only delete affiliation if there are no identities that have that affiliation
+				return nil, newHTTPErr(400, ErrUpdateConfigRemoveAff, "There are identities associated with affiliation to be remove. Need to use 'force' to remove identities and affiliation")
+			}
+		}
+
+		// Update the affiliation record in the database to use new affiliation path
+		query = "Update affiliations SET name = ?, prekey = ? WHERE (name = ?)"
+		res := tx.MustExec(tx.Rebind(query), newPath, newParentPath, oldPath)
+		numRowsAffected, err := res.RowsAffected()
+		if err != nil {
+			return nil, errors.Errorf("Failed to get number of rows affected")
+		}
+		if numRowsAffected == 0 {
+			return nil, errors.Errorf("Failed to update any affiliation records for '%s'", oldPath)
+		}
+	}
+
+	// Collect all the users that were modified
+	dbUser := []spi.User{}
+	for _, id := range idsWithOldAff {
+		dbUser = append(dbUser, d.newDBUser(&id))
+	}
+
+	// Collect the name of all affiliations that were modified
+	affs := []string{}
+	for _, oldAff := range allOldAffiliations {
+		affs = append(affs, oldAff.Name)
+	}
+
+	// Return the identities and affiliations that were modified
+	result := affiliationResult{
+		affiliations: affs,
+		identities:   dbUser,
+	}
+
+	return result, nil
 }
 
 func (d *Accessor) doTransaction(doit func(tx *sqlx.Tx, args ...interface{}) (interface{}, error), args ...interface{}) (interface{}, error) {

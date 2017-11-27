@@ -91,7 +91,7 @@ func (c *ClientCmd) newModifyAffiliationCommand() *cobra.Command {
 	}
 	flags := affiliationModifyCmd.Flags()
 	flags.StringVarP(
-		&c.dynamicAffiliation.modify.Info.Name, "name", "", "", "Rename the affiliation")
+		&c.dynamicAffiliation.modify.AffiliationInfo.Name, "name", "", "", "Rename the affiliation")
 	flags.BoolVarP(
 		&c.dynamicAffiliation.modify.Force, "force", "", false, "Forces identities using old affiliation to use new affiliation")
 	return affiliationModifyCmd
@@ -153,7 +153,7 @@ func (c *ClientCmd) runAddAffiliation(cmd *cobra.Command, args []string) error {
 	}
 
 	req := &api.AddAffiliationRequest{}
-	req.Info.Name = args[0]
+	req.AffiliationInfo.Name = args[0]
 	req.CAName = c.clientCfg.CAName
 	req.Force = c.dynamicAffiliation.add.Force
 

@@ -256,6 +256,11 @@ func (lc *Client) DeleteAffiliation(name string, force, identityRemoval bool) (i
 	return nil, errNotSupported
 }
 
+// ModifyAffiliation renames the affiliation and updates all identities to use the new affiliation
+func (lc *Client) ModifyAffiliation(oldAffiliation, newAffiliation string, force bool) (interface{}, error) {
+	return nil, errNotSupported
+}
+
 // GetFilteredUsers returns all identities that fall under the affiliation and types
 func (lc *Client) GetFilteredUsers(affiliation, types string) ([]spi.User, error) {
 	return nil, errNotSupported

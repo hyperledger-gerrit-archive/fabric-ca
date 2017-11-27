@@ -67,5 +67,6 @@ type UserRegistry interface {
 	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
 	DeleteAffiliation(name string, force, identityRemoval bool) (interface{}, error)
+	ModifyAffiliation(oldAffiliation, newAffiliation string, force bool) (interface{}, error)
 	GetFilteredUsers(affiliation, types string) ([]User, error)
 }

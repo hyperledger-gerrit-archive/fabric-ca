@@ -129,14 +129,14 @@ Fabric-CA Server's Configuration File
            pass: <<<adminPassword>>>
            type: client
            affiliation: ""
-           maxenrollments: -1
            attrs:
-              hf.Registrar.Roles: "client,user,peer,validator,auditor"
-              hf.Registrar.DelegateRoles: "client,user,validator,auditor"
+              hf.Registrar.Roles: "peer,orderer,client,user"
+              hf.Registrar.DelegateRoles: "peer,orderer,client,user"
               hf.Revoker: true
               hf.IntermediateCA: true
               hf.GenCRL: true
               hf.Registrar.Attributes: "*"
+              hf.AffiliationMgr: true
     
     #############################################################################
     #  Database section
@@ -214,6 +214,7 @@ Fabric-CA Server's Configuration File
           ca:
              usage:
                - cert sign
+               - crl sign
              expiry: 43800h
              caconstraint:
                isca: true
