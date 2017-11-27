@@ -73,6 +73,7 @@ type UserRegistry interface {
 	GetAffiliation(name string) (Affiliation, error)
 	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
-	DeleteAffiliation(name string, force, identityRemoval bool) (*DbTxResult, error)
+	DeleteAffiliation(name string, force, identityRemoval, isRegistrar bool) (*DbTxResult, error)
+	ModifyAffiliation(oldAffiliation, newAffiliation string, force, isRegistrar bool) (*DbTxResult, error)
 	GetFilteredUsers(affiliation, types string) ([]User, error)
 }

@@ -252,7 +252,12 @@ func (lc *Client) InsertAffiliation(name string, prekey string) error {
 }
 
 // DeleteAffiliation deletes an affiliation group
-func (lc *Client) DeleteAffiliation(name string, force, identityRemoval bool) (*spi.DbTxResult, error) {
+func (lc *Client) DeleteAffiliation(name string, force, identityRemoval, isRegistrar bool) (*spi.DbTxResult, error) {
+	return nil, errNotSupported
+}
+
+// ModifyAffiliation renames the affiliation and updates all identities to use the new affiliation
+func (lc *Client) ModifyAffiliation(oldAffiliation, newAffiliation string, force, isRegistrar bool) (*spi.DbTxResult, error) {
 	return nil, errNotSupported
 }
 

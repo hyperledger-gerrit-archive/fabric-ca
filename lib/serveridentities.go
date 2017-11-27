@@ -49,12 +49,9 @@ func identitiesHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, isRegistrar, err := ctx.IsRegistrar()
+	err = ctx.IsRegistrar()
 	if err != nil {
 		return nil, err
-	}
-	if !isRegistrar {
-		return nil, newAuthErr(ErrMissingRegAttr, "Caller is not a registrar")
 	}
 	// Process Request
 	resp, err := processRequest(ctx, caname, caller)

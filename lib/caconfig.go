@@ -113,7 +113,7 @@ type identitiesOptions struct {
 
 // affiliationsOptions are options that are related to affiliations
 type affiliationsOptions struct {
-	AllowRemove bool `help:"Enables removing of affiliations dynamically"`
+	AllowRemove bool `help:"Enables removal of affiliations dynamically"`
 }
 
 // CAInfo is the CA information on a fabric-ca-server

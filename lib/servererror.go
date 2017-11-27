@@ -151,6 +151,8 @@ const (
 	ErrRemoveAffDB = 59
 	// Error occured when making a Get request to database
 	ErrDBGet = 60
+	// Failed to modify affiliation
+	ErrUpdateConfigModifyAff = 61
 )
 
 // Construct a new HTTP error.

@@ -225,7 +225,7 @@ func canRegister(registrar string, req *api.RegistrationRequest, user spi.User, 
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
 	var roles []string
-	rolesStr, isRegistrar, err := ctx.IsRegistrar()
+	rolesStr, isRegistrar, err := ctx.isRegistrar()
 	if err != nil {
 		return err
 	}
