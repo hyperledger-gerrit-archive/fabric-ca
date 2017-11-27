@@ -69,10 +69,11 @@ type UserRegistry interface {
 	GetUser(id string, attrs []string) (User, error)
 	InsertUser(user *UserInfo) error
 	UpdateUser(user *UserInfo, updatePass bool) error
-	DeleteUser(id string) (*DbTxResult, error)
+	DeleteUser(id string) (User, error)
 	GetAffiliation(name string) (Affiliation, error)
 	GetAllAffiliations(name string) ([]Affiliation, error)
 	InsertAffiliation(name string, prekey string) error
-	DeleteAffiliation(name string, force, identityRemoval bool) (*DbTxResult, error)
+	DeleteAffiliation(name string, force, identityRemoval, isRegistrar bool) (*DbTxResult, error)
+	ModifyAffiliation(oldAffiliation, newAffiliation string, force, isRegistrar bool) (*DbTxResult, error)
 	GetFilteredUsers(affiliation, types string) ([]User, error)
 }

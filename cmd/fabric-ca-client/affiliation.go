@@ -126,7 +126,7 @@ func (c *ClientCmd) runListAffiliation(cmd *cobra.Command, args []string) error 
 			return err
 		}
 
-		fmt.Printf("%+v\n", resp.AffiliationInfo)
+		fmt.Printf("%+v\n", resp.Info)
 		return nil
 	}
 
@@ -177,7 +177,9 @@ func (c *ClientCmd) runModifyAffiliation(cmd *cobra.Command, args []string) erro
 
 	req := &api.ModifyAffiliationRequest{}
 	req.Name = args[0]
+	req.Info.Name = c.dynamicAffiliation.modify.Info.Name
 	req.CAName = c.clientCfg.CAName
+	req.Force = c.dynamicAffiliation.modify.Force
 
 	resp, err := id.ModifyAffiliation(req)
 	if err != nil {

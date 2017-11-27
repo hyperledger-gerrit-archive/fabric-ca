@@ -17,6 +17,8 @@ limitations under the License.
 package lib
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
@@ -150,12 +152,12 @@ func getAffiliation(ctx *serverRequestContext, caller spi.User, requestedAffilia
 	resp := &api.AffiliationResponse{
 		CAName: caname,
 	}
-	resp.Name = affiliation.GetName()
+	resp.Info.Name = affiliation.GetName()
 
 	return resp, nil
 }
 
-func processAffiliationDeleteRequest(ctx *serverRequestContext, caname string) (*api.RemoveAffiliationResponse, error) {
+func processAffiliationDeleteRequest(ctx *serverRequestContext, caname string) (*api.AffiliationWithIdentityResponse, error) {
 	log.Debug("Processing DELETE request")
 
 	if !ctx.ca.Config.Cfg.Affiliations.AllowRemove {
@@ -183,29 +185,21 @@ func processAffiliationDeleteRequest(ctx *serverRequestContext, caname string) (
 		return nil, err
 	}
 
+	_, isRegistrar, err := ctx.isRegistrar()
+	if err != nil {
+		httpErr := getHTTPErr(err)
+		if httpErr.lcode != 20 {
+			return nil, err
+		}
+	}
+
 	identityRemoval := ctx.ca.Config.Cfg.Identities.AllowRemove
-	result, err := ctx.ca.registry.DeleteAffiliation(removeAffiliation, force, identityRemoval)
+	result, err := ctx.ca.registry.DeleteAffiliation(removeAffiliation, force, identityRemoval, isRegistrar)
 	if err != nil {
 		return nil, err
 	}
 
-	affInfo := []api.AffiliationInfo{}
-	for _, affRemoved := range result.Affiliations {
-		affInfo = append(affInfo, api.AffiliationInfo{
-			Name: affRemoved.GetName(),
-		})
-	}
-	idInfo := []api.IdentityInfo{}
-	for _, idRemoved := range result.Identities {
-		id := getIDInfo(idRemoved)
-		idInfo = append(idInfo, *id)
-	}
-
-	resp := &api.RemoveAffiliationResponse{
-		Affiliations: affInfo,
-		Identities:   idInfo,
-		CAName:       caname,
-	}
+	resp := getResponse(result, caname)
 
 	return resp, nil
 }
@@ -287,15 +281,83 @@ func processAffiliationPostRequest(ctx *serverRequestContext, caname string) (*a
 	resp := &api.AffiliationResponse{
 		CAName: caname,
 	}
-	resp.Name = addAffiliation
+	resp.Info.Name = addAffiliation
 
 	return resp, nil
 }
 
-func processAffiliationPutRequest(ctx *serverRequestContext, caname string) (*api.AffiliationResponse, error) {
+func processAffiliationPutRequest(ctx *serverRequestContext, caname string) (*api.AffiliationWithIdentityResponse, error) {
 	log.Debug("Processing PUT request")
 
-	// TODO
+	modifyAffiliation, err := ctx.GetVar("affiliation")
+	if err != nil {
+		return nil, err
+	}
 
-	return nil, errors.New("Not Implemented")
+	var req api.ModifyAffiliationRequestNet
+	err = ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
+	}
+	newAffiliation := req.Info.Name
+	log.Debugf("Request to modify affiliation '%s' to '%s'", modifyAffiliation, newAffiliation)
+
+	err = ctx.ContainsAffiliation(modifyAffiliation)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ctx.ContainsAffiliation(newAffiliation)
+	if err != nil {
+		return nil, err
+	}
+
+	force := false
+	forceStr := ctx.req.URL.Query().Get("force")
+	if forceStr != "" {
+		force, err = strconv.ParseBool(forceStr)
+		if err != nil {
+			return nil, newHTTPErr(500, ErrUpdateConfigAddAff, "Failed to correctly parse value of 'force' query parameter: %s", err)
+		}
+
+	}
+
+	_, isRegistrar, err := ctx.isRegistrar()
+	if err != nil {
+		httpErr := getHTTPErr(err)
+		if httpErr.lcode != 20 {
+			return nil, err
+		}
+	}
+
+	registry := ctx.ca.registry
+	result, err := registry.ModifyAffiliation(modifyAffiliation, newAffiliation, force, isRegistrar)
+	if err != nil {
+		return nil, errors.WithMessage(err, fmt.Sprintf("Failed to modify affiliation from '%s' to '%s'", modifyAffiliation, newAffiliation))
+	}
+
+	resp := getResponse(result, caname)
+
+	return resp, nil
+}
+
+func getResponse(result *spi.DbTxResult, caname string) *api.AffiliationWithIdentityResponse {
+	affInfo := []api.AffiliationInfo{}
+	for _, aff := range result.Affiliations {
+		fmt.Println("getResponse - aff: ", aff.GetName())
+		info := &api.AffiliationInfo{
+			Name: aff.GetName(),
+		}
+		affInfo = append(affInfo, *info)
+	}
+	idInfo := []api.IdentityInfo{}
+	for _, identity := range result.Identities {
+		id := getIDInfo(identity)
+		idInfo = append(idInfo, *id)
+	}
+	return &api.AffiliationWithIdentityResponse{
+		Affiliations: affInfo,
+		Identities:   idInfo,
+		CAName:       caname,
+	}
 }
