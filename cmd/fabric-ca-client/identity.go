@@ -53,6 +53,7 @@ func (c *ClientCmd) newListIdentityCommand() *cobra.Command {
 		Short: "List identities",
 		Long:  "List identities visible to caller",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			log.Level = log.LevelWarning
 			err := c.configInit()
 			if err != nil {
 				return err

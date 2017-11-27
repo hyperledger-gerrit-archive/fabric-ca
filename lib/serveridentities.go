@@ -49,12 +49,9 @@ func identitiesHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, isRegistrar, err := ctx.IsRegistrar()
+	err = ctx.IsRegistrar()
 	if err != nil {
 		return nil, err
-	}
-	if !isRegistrar {
-		return nil, newAuthErr(ErrMissingRegAttr, "Caller is not a registrar")
 	}
 	// Process Request
 	resp, err := processRequest(ctx, caname, caller)
@@ -176,14 +173,19 @@ func processDeleteRequest(ctx *serverRequestContext, caname string) (*api.Identi
 		return nil, newHTTPErr(400, ErrRemoveIdentity, "No ID name specified in remove request")
 	}
 
-	log.Debugf("Removing identity '%s'", removeID)
 	userToRemove, err := ctx.GetUser(removeID)
 	if err != nil {
 		return nil, err
 	}
 
+	err = ctx.CanManageUser(userToRemove)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("Removing identity '%s'", removeID)
 	registry := ctx.ca.registry
-	registry.DeleteUser(removeID)
+	userRemoved, err := registry.DeleteUser(removeID)
 	if err != nil {
 		return nil, newHTTPErr(500, ErrRemoveIdentity, "Failed to remove identity: ", err)
 	}
@@ -191,7 +193,7 @@ func processDeleteRequest(ctx *serverRequestContext, caname string) (*api.Identi
 	resp := &api.IdentityResponse{
 		CAName: caname,
 	}
-	resp.IdentityInfo = *getIDInfo(userToRemove)
+	resp.IdentityInfo = *getIDInfo(userRemoved)
 
 	log.Debugf("Identity '%s' successfully removed", removeID)
 	return resp, nil

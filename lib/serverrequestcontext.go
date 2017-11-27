@@ -451,8 +451,21 @@ func (ctx *serverRequestContext) containsAffiliation(affiliation string) (bool, 
 	return false, nil
 }
 
-// IsRegistrar returns back true if the caller is a registrar along with the types the registrar is allowed to register
-func (ctx *serverRequestContext) IsRegistrar() (string, bool, error) {
+// IsRegistrar returns an error if the caller is not a registrar
+func (ctx *serverRequestContext) IsRegistrar() error {
+	_, isRegistrar, err := ctx.isRegistrar()
+	if err != nil {
+		return err
+	}
+	if !isRegistrar {
+		return newAuthErr(ErrMissingRegAttr, "Caller is not a registrar")
+	}
+
+	return nil
+}
+
+// isRegistrar returns back true if the caller is a registrar along with the types the registrar is allowed to register
+func (ctx *serverRequestContext) isRegistrar() (string, bool, error) {
 	caller, err := ctx.GetCaller()
 	if err != nil {
 		return "", false, err
@@ -493,7 +506,7 @@ func (ctx *serverRequestContext) canActOnType(typ string) (bool, error) {
 
 	log.Debugf("Checking to see if caller '%s' with type '%s' can act on type '%s'", caller.GetName(), typ)
 
-	typesStr, isRegistrar, err := ctx.IsRegistrar()
+	typesStr, isRegistrar, err := ctx.isRegistrar()
 	if err != nil {
 		return false, err
 	}
