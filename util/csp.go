@@ -193,10 +193,10 @@ func getBCCSPKeyOpts(kr csr.KeyRequest, ephemeral bool) (opts bccsp.KeyGenOpts, 
 			return &bccsp.ECDSAP256KeyGenOpts{Temporary: ephemeral}, nil
 		case 384:
 			return &bccsp.ECDSAP384KeyGenOpts{Temporary: ephemeral}, nil
-		case 521:
-			// Need to add curve P521 to bccsp
+		case 512:
+			// Need to add curve P512 to bccsp
 			// return &bccsp.ECDSAP512KeyGenOpts{Temporary: false}, nil
-			return nil, errors.New("Unsupported ECDSA key size: 521")
+			return nil, errors.New("Unsupported ECDSA key size: 512")
 		default:
 			return nil, errors.Errorf("Invalid ECDSA key size: %d", kr.Size())
 		}
