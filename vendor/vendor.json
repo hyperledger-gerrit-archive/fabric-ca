@@ -27,10 +27,10 @@
 			"revisionTime": "2016-08-11T09:34:08Z"
 		},
 		{
-			"checksumSHA1": "PvZ2cPJJQ18o0bdbfrOC5mJX+Y4=",
+			"checksumSHA1": "uqCR4lf+0OS5MGwQXw7RHKg5Cf0=",
 			"path": "github.com/cloudflare/cfssl",
-			"revision": "3d15118774e5c893ded05ce1b7193215116dba48",
-			"revisionTime": "2017-07-17T15:33:53Z",
+			"revision": "d2393674072314fda47d2c7c16cb7fd4cdc16821",
+			"revisionTime": "2017-12-06T23:37:34Z",
 			"tree": true
 		},
 		{
