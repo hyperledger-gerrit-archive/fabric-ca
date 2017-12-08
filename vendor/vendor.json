@@ -27,10 +27,10 @@
 			"revisionTime": "2016-08-11T09:34:08Z"
 		},
 		{
-			"checksumSHA1": "PvZ2cPJJQ18o0bdbfrOC5mJX+Y4=",
+			"checksumSHA1": "WYzWldROBs9UqiCUqB9vxyol3Jg=",
 			"path": "github.com/cloudflare/cfssl",
-			"revision": "3d15118774e5c893ded05ce1b7193215116dba48",
-			"revisionTime": "2017-07-17T15:33:53Z",
+			"revision": "d2393674072314fda47d2c7c16cb7fd4cdc16821",
+			"revisionTime": "2017-12-06T23:37:34Z",
 			"tree": true
 		},
 		{
@@ -153,6 +153,12 @@
 			"path": "github.com/jmoiron/sqlx/reflectx",
 			"revision": "05b81a7d5d38058e42148dc01f17daf4acba4640",
 			"revisionTime": "2016-09-14T23:45:33Z"
+		},
+		{
+			"checksumSHA1": "dqtKfXGotqkiYaS328PpWeusig8=",
+			"path": "github.com/juju/ratelimit",
+			"revision": "59fac5042749a5afb9af70e813da1dd5474f0167",
+			"revisionTime": "2017-10-26T09:04:26Z"
 		},
 		{
 			"checksumSHA1": "g+afVQQVopBLiLB5pFZp/8s6aBs=",
