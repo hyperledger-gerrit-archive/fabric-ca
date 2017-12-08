@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+
+	"github.com/cloudflare/cfssl/cli/version"
 )
 
 func readFile(filespec string) ([]byte, error) {
@@ -51,7 +53,13 @@ func main() {
 	bare := flag.Bool("bare", false, "the response from CFSSL is not wrapped in the API standard response")
 	inFile := flag.String("f", "-", "JSON input")
 	output := flag.Bool("stdout", false, "output the response instead of saving to a file")
+	printVersion := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
+
+	if *printVersion {
+		fmt.Printf("%s", version.FormatVersion())
+		return
+	}
 
 	var baseName string
 	if flag.NArg() == 0 {
@@ -146,12 +154,27 @@ func main() {
 		})
 	}
 
-	if contents, ok := input["bundle"]; ok {
-		outs = append(outs, outputFile{
-			Filename: baseName + "-bundle.pem",
-			Contents: contents.(string),
-			Perms:    0644,
-		})
+	if contents, ok := input["bundle"].(map[string]interface{}); ok {
+		if certificateBundle, ok := contents["bundle"].(string); ok {
+			if rootCertificate, ok := contents["root"].(string); ok {
+				outs = append(outs, outputFile{
+					Filename: baseName + "-bundle.pem",
+					Contents: certificateBundle + "\n" + rootCertificate,
+					Perms:    0644,
+				})
+				outs = append(outs, outputFile{
+					Filename: baseName + "-root.pem",
+					Contents: rootCertificate,
+					Perms:    0644,
+				})
+			} else {
+				fmt.Printf("root parsing failed!")
+				os.Exit(200)
+			}
+		} else {
+			fmt.Printf("inner bundle parsing failed!")
+			os.Exit(200)
+		}
 	}
 
 	if contents, ok := input["ocspResponse"]; ok {

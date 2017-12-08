@@ -13,16 +13,17 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/cloudflare/cfssl/certdb"
+	"github.com/cloudflare/cfssl/certdb/dbconf"
+	"github.com/cloudflare/cfssl/certdb/sql"
+	"github.com/cloudflare/cfssl/log"
+	"github.com/jmhodges/clock"
+	"golang.org/x/crypto/ocsp"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"regexp"
 	"time"
-
-	"github.com/cloudflare/cfssl/certdb"
-	"github.com/cloudflare/cfssl/log"
-	"github.com/jmhodges/clock"
-	"golang.org/x/crypto/ocsp"
 )
 
 var (
@@ -158,6 +159,22 @@ func NewSourceFromFile(responseFile string) (Source, error) {
 	return src, nil
 }
 
+// NewSourceFromDB reads the given database configuration file
+// and creates a database data source for use with the OCSP responder
+func NewSourceFromDB(DBConfigFile string) (Source, error) {
+	// Load DB from cofiguration file
+	db, err := dbconf.DBFromConfig(DBConfigFile)
+
+	if err != nil {
+		return nil, err
+	}
+	// Create accesor
+	accessor := sql.NewAccessor(db)
+	src := NewDBSource(accessor)
+
+	return src, nil
+}
+
 // A Responder object provides the HTTP logic to expose a
 // Source of OCSP responses.
 type Responder struct {
@@ -280,6 +297,7 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 			ocspRequest.SerialNumber, b64Body, err)
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write(internalErrorErrorResponse)
+		return
 	}
 
 	parsedResponse, err := ocsp.ParseResponse(ocspResponse, nil)
