@@ -13,6 +13,7 @@ limitations under the License.
 package main
 
 import (
+	"encoding/pem"
 	"fmt"
 	"os"
 	"path"
@@ -135,6 +136,8 @@ func (c *ClientCmd) runGenCRL() error {
 
 // Store the CRL
 func storeCRL(config *lib.ClientConfig, crl string) error {
+	blk, _ := pem.Decode([]byte(fmt.Sprintf("%s%s%s", crlPemHeader, crl, crlPemFooter)))
+
 	dirName := path.Join(config.MSPDir, crlsFolder)
 	if _, err := os.Stat(dirName); os.IsNotExist(err) {
 		mkdirErr := os.MkdirAll(dirName, os.ModeDir|0755)
@@ -143,7 +146,7 @@ func storeCRL(config *lib.ClientConfig, crl string) error {
 		}
 	}
 	fileName := path.Join(dirName, crlFile)
-	err := util.WriteFile(fileName, []byte(fmt.Sprintf("%s%s%s", crlPemHeader, crl, crlPemFooter)), 0644)
+	err := util.WriteFile(fileName, pem.EncodeToMemory(blk), 0644)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to write CRL to the file %s", fileName)
 	}
