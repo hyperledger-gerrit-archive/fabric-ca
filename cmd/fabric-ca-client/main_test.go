@@ -54,13 +54,14 @@ const (
 	tlsCertFile          = "tls_server-cert.pem"
 	tlsKeyFile           = "tls_server-key.pem"
 	rootCert             = "root.pem"
+	rootTLSCert          = "tls_server-cert.pem"
 	tlsClientCertFile    = "tls_client-cert.pem"
 	tlsClientCertExpired = "expiredcert.pem"
 	tlsClientKeyFile     = "tls_client-key.pem"
 	tdDir                = "../../testdata"
 	db                   = "fabric-ca-server.db"
 	serverPort           = 7090
-	rootCertEnvVar       = "FABRIC_CA_CLIENT_TLS_CERTFILES"
+	rootTLSCertEnvVar    = "FABRIC_CA_CLIENT_TLS_CERTFILES"
 	clientKeyEnvVar      = "FABRIC_CA_CLIENT_TLS_CLIENT_KEYFILE"
 	clientCertEnvVar     = "FABRIC_CA_CLIENT_TLS_CLIENT_CERTFILE"
 	moptionDir           = "moption-test"
@@ -1533,7 +1534,7 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 		t.Errorf("Server start failed: %s", err)
 	}
 
-	os.Setenv(rootCertEnvVar, rootCert)
+	os.Setenv(rootTLSCertEnvVar, rootTLSCert)
 	os.Setenv(clientKeyEnvVar, tlsClientKeyFile)
 	os.Setenv(clientCertEnvVar, tlsClientCertFile)
 
@@ -1548,7 +1549,7 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 		t.Errorf("Server stop failed: %s", err)
 	}
 
-	os.Unsetenv(rootCertEnvVar)
+	os.Unsetenv(rootTLSCertEnvVar)
 	os.Unsetenv(clientKeyEnvVar)
 	os.Unsetenv(clientCertEnvVar)
 }
@@ -1575,14 +1576,14 @@ func TestClientCommandsTLS(t *testing.T) {
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
-		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		rootTLSCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
 		tlsClientCertFile, "-u", tlsEnrollURL, "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
-		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
+		rootTLSCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
 		tlsClientCertExpired, "-u", tlsEnrollURL, "-d"})
 	if err == nil {
 		t.Errorf("Expired certificate used for TLS connection, should have failed")
@@ -1768,8 +1769,8 @@ func TestRegisterWithoutEnroll(t *testing.T) {
 
 func testGetCACertEnvVar(t *testing.T) error {
 	t.Log("testGetCACertEnvVar - Entered")
-	os.Setenv(rootCertEnvVar, "../../testdata/root.pem")
-	defer os.Unsetenv(rootCertEnvVar)
+	os.Setenv(rootTLSCertEnvVar, "../../testdata/tls_server-cert.pem")
+	defer os.Unsetenv(rootTLSCertEnvVar)
 
 	defer os.RemoveAll("msp")
 	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", "fakeConfig.yaml", "-u", tlsServerURL,
@@ -1785,7 +1786,7 @@ func testGetCACertConfigFile(t *testing.T) error {
 	t.Log("testGetCACertConfigFile - Entered")
 	configFile := "../../testdata/fabric-ca-client-config.yaml"
 
-	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", configFile, "-u", tlsServerURL, "--tls.certfiles", rootCert})
+	err := RunMain([]string{cmdName, "getcacert", "-d", "-c", configFile, "-u", tlsServerURL, "--tls.certfiles", rootTLSCert})
 	if err != nil {
 		return fmt.Errorf("getcainfo failed: %s", err)
 	}

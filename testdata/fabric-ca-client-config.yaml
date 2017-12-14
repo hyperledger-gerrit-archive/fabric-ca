@@ -47,7 +47,7 @@ URL: http://localhost:7090
 #############################################################################
 tls:
   # TLS section for secure socket connection
-  certfiles: root.pem   # Comma Separated list of root certificate files (e.g. root.pem, root2.pem)
+  certfiles: tls_server-cert.pem   # Comma Separated list of root certificate files (e.g. root.pem, root2.pem)
   client:
     certfile: tls_client-cert.pem
     keyfile: tls_client-key.pem

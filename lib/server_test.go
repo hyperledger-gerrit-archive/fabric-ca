@@ -532,7 +532,7 @@ func TestSRVIntermediateServerWithTLS(t *testing.T) {
 	rootServer.Config.TLS.CertFile = "../../testdata/tls_server-cert.pem"
 	rootServer.Config.TLS.KeyFile = "../../testdata/tls_server-key.pem"
 	rootServer.Config.TLS.ClientAuth.Type = "RequireAndVerifyClientCert"
-	rootServer.Config.TLS.ClientAuth.CertFiles = []string{"../../testdata/root.pem"}
+	rootServer.Config.TLS.ClientAuth.CertFiles = []string{"../../testdata/tls_client-cert.pem"}
 
 	//Invalid Authtype
 	rootServer.Config.TLS.ClientAuth.Type = "Token"
@@ -592,7 +592,7 @@ func TestSRVIntermediateServerWithTLS(t *testing.T) {
 	}
 
 	// Success case
-	intermediateServer.CA.Config.Intermediate.TLS.CertFiles = []string{"../../testdata/root.pem"}
+	intermediateServer.CA.Config.Intermediate.TLS.CertFiles = []string{"../../testdata/tls_server-cert.pem"}
 	err = intermediateServer.Start()
 	if err != nil {
 		t.Errorf("Intermediate server start failed: %s", err)
@@ -638,7 +638,7 @@ func TestSRVRunningTLSServer(t *testing.T) {
 	clientConfig := &ClientConfig{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
-			CertFiles: []string{"../testdata/root.pem"},
+			CertFiles: []string{"../testdata/tls_server-cert.pem"},
 			Client: libtls.KeyCertFiles{
 				KeyFile:  "../testdata/tls_client-key.pem",
 				CertFile: "../testdata/tls_client-cert.pem",
@@ -655,7 +655,7 @@ func TestSRVRunningTLSServer(t *testing.T) {
 
 	// make sure only TLS 1.2 is supported
 	rootPool := x509.NewCertPool()
-	rootBytes, _ := ioutil.ReadFile("../testdata/root.pem")
+	rootBytes, _ := ioutil.ReadFile("../testdata/tls_server-cert.pem")
 	rootPool.AppendCertsFromPEM(rootBytes)
 	_, err = tls.Dial("tcp", fmt.Sprintf("localhost:%d", rootPort), &tls.Config{
 		RootCAs:    rootPool,
@@ -1633,7 +1633,7 @@ func testNoClientCert(t *testing.T) {
 	clientConfig := &ClientConfig{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
-			CertFiles: []string{"../testdata/root.pem"},
+			CertFiles: []string{"../testdata/tls_server-cert.pem"},
 		},
 	}
 
@@ -1686,7 +1686,7 @@ func testInvalidRootCertWithClientAuth(t *testing.T) {
 // Configure server to start with client authentication required
 func testClientAuth(t *testing.T) {
 	srv := TestGetServer(rootPort, testdataDir, "", -1, t)
-	srv = getTLSConfig(srv, "RequireAndVerifyClientCert", []string{"../testdata/root.pem"})
+	srv = getTLSConfig(srv, "RequireAndVerifyClientCert", []string{"../testdata/tls_client-cert.pem"})
 
 	err := srv.Start()
 	if err != nil {
@@ -1712,7 +1712,7 @@ func testClientAuth(t *testing.T) {
 	clientConfig = &ClientConfig{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
-			CertFiles: []string{"../testdata/root.pem"},
+			CertFiles: []string{"../testdata/tls_server-cert.pem"},
 			Client: libtls.KeyCertFiles{
 				KeyFile:  "../testdata/tls_client-key.pem",
 				CertFile: "../testdata/tls_client-cert.pem",
