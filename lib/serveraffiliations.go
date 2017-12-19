@@ -460,7 +460,6 @@ func processAffiliationPutRequest(ctx *serverRequestContext, caname string) (*ap
 func getResponse(result *spi.DbTxResult, caname string) (*api.AffiliationWithIdentityResponse, error) {
 	affInfo := []api.AffiliationInfo{}
 	for _, aff := range result.Affiliations {
-		fmt.Println("getResponse - aff: ", aff.GetName())
 		info := &api.AffiliationInfo{
 			Name: aff.GetName(),
 		}

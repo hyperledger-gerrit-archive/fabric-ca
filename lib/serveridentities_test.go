@@ -24,6 +24,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/hyperledger/fabric-ca/lib/spi"
+
 	"golang.org/x/crypto/ocsp"
 
 	"github.com/hyperledger/fabric-ca/api"
@@ -443,12 +445,20 @@ func TestDynamicModifyIdentity(t *testing.T) {
 		MaxEnrollments: 10,
 		Attributes: []api.Attribute{
 			api.Attribute{
-				Name:  "hf.Registrar.Roles",
-				Value: "client",
+				Name:  attrRoles,
+				Value: "client,orderer,peer",
 			},
 			api.Attribute{
-				Name:  "hf.Registrar.Attributes",
-				Value: "hf.Revoker, foo",
+				Name:  attrDelegateRoles,
+				Value: "client,orderer,peer",
+			},
+			api.Attribute{
+				Name:  attrRevoker,
+				Value: "true",
+			},
+			api.Attribute{
+				Name:  attrRegistrarAttr,
+				Value: "foo, custom.*, hf.Registrar.Roles, hf.Registrar.DelegateRoles, hf.Revoker, hf.Registrar.Attributes",
 			},
 		},
 	})
@@ -488,146 +498,21 @@ func TestDynamicModifyIdentity(t *testing.T) {
 				Name:  "foo",
 				Value: "bar",
 			},
+			api.Attribute{
+				Name:  attrRoles,
+				Value: "client,peer",
+			},
 		},
 	})
 	util.FatalError(t, err, "Failed to register user 'testuser2'")
 
+	registry := srv.CA.registry
+
 	modReq := &api.ModifyIdentityRequest{}
 
-	modReq.ID = "testuser"
-	modReq.Type = "client"
-	// Should error, caller is not part of the right affiliation
-	_, err = admin2.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, caller is not part of the right affiliation")
-
-	// Should error, caller is not allowed to act on type
-	_, err = admin3.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, caller is not allowed to act on type")
-
-	// Should error, caller is not allowed to change to the requested affiliation.
-	// Caller is part of the 'hyperledger' affiliation
-	modReq.ID = "testuser2"
-	modReq.Affiliation = "org2"
-	_, err = admin2.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, caller is not to change to the requested affiliation")
-
-	modReq.Affiliation = "hyperledger.fake"
-	_, err = admin2.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, affiliation does not exist")
-
-	// Should error, caller is not allowed to change to the requested type.
-	// Caller can only issue type 'client'
-	modReq.ID = "testuser2"
-	modReq.Type = "peer"
-	modReq.Affiliation = "org2"
-	_, err = admin3.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, caller is not allowed to change to the requested type")
-
-	// Should error, caller is not allowed to register this attribute
-	modReq.Type = "client"
-	modReq.Attributes = []api.Attribute{api.Attribute{
-		Name:  "hf.IntermediateCA",
-		Value: "true",
-	}}
-	_, err = admin3.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, caller is not allowed to register this attribute")
-
-	// Should not error, caller is allowed to register this attribute
-	modReq.Attributes = []api.Attribute{
-		api.Attribute{
-			Name:  "hf.Type",
-			Value: "client",
-		},
-	}
-	_, err = admin.ModifyIdentity(modReq)
-	assert.Error(t, err, "Should have failed, can't modify a reserved attribute")
-
-	// Should not error, caller is allowed to register this attribute
-	modReq.Attributes = []api.Attribute{
-		api.Attribute{
-			Name:  "hf.Revoker",
-			Value: "true",
-		},
-		api.Attribute{
-			Name:  "foo",
-			Value: "bar2",
-		},
-	}
-	_, err = admin3.ModifyIdentity(modReq)
-	assert.NoError(t, err, "Failed to register these attribute")
-
-	modReq.MaxEnrollments = -2
-	modReq.Secret = "password"
-	_, err = admin.ModifyIdentity(modReq)
-	assert.NoError(t, err, "Failed to modify identity")
-
-	user, err := srv.CA.registry.GetUser("testuser2", nil)
-	assert.NoError(t, err, "Failed to get user 'testuser2'")
-
-	maxEnroll := user.(*DBUser).UserInfo.MaxEnrollments
-	if maxEnroll != 0 {
-		t.Error("Failed to correctly modify max enrollments for user 'testuser2'")
-	}
-
-	userAff := strings.Join(user.GetAffiliationPath(), ".")
-	if userAff != "org2" {
-		t.Errorf("Failed to correctly modify affiliation for user 'testuser2'")
-	}
-
-	attr, err := user.GetAttribute("foo")
-	assert.NoError(t, err, "Failed to get attribute 'foo'")
-	if attr.Value != "bar2" {
-		t.Errorf("Failed to correctly modify existing attribute for user 'testuser2'")
-	}
-	attr, err = user.GetAttribute("hf.Revoker")
-	assert.NoError(t, err, "Failed to get attribute 'foo'")
-	if attr.Value != "true" {
-		t.Errorf("Failed to correctly add a new attribute for user 'testuser2'")
-	}
-	attr, err = user.GetAttribute("hf.Type")
-	assert.NoError(t, err, "Failed to get attribute 'foo'")
-	if attr.Value != "client" {
-		t.Errorf("Failed to correctly update 'hf.Type' when type of identity was modified to 'client'")
-	}
-	attr, err = user.GetAttribute("hf.Affiliation")
-	assert.NoError(t, err, "Failed to get attribute 'foo'")
-	if attr.Value != "org2" {
-		t.Errorf("Failed to correctly update 'hf.Affiliation' when affiliation of identity was modified to 'org2'")
-	}
-
-	// Delete attribute 'foo'
-	modReq.Attributes = []api.Attribute{
-		api.Attribute{
-			Name:  "foo",
-			Value: "",
-		},
-	}
-	_, err = admin.ModifyIdentity(modReq)
-	assert.NoError(t, err, "Failed to modify identity")
-
-	user, err = srv.CA.registry.GetUser("testuser2", nil)
-	assert.NoError(t, err, "Failed to get user 'testuser2'")
-
-	_, err = user.GetAttribute("foo")
-	assert.Error(t, err, "Should have failed to get attribute 'foo', should have been deleted")
-
-	modReq.MaxEnrollments = 5
-	modReq.Affiliation = "."
-	_, err = admin.ModifyIdentity(modReq)
-	assert.NoError(t, err, "Failed to modify identity")
-
-	user, err = srv.CA.registry.GetUser("testuser2", nil)
-	assert.NoError(t, err, "Failed to get user 'testuser2'")
-
-	maxEnroll = user.(*DBUser).UserInfo.MaxEnrollments
-	if maxEnroll != 5 {
-		t.Error("Failed to correctly modify max enrollments for user 'testuser2'")
-	}
-
-	userAff = strings.Join(user.GetAffiliationPath(), ".")
-	if userAff != "" {
-		t.Errorf("Failed to correctly modify affiliation to root affiliation for user 'testuser2'")
-	}
+	modifyTypeAndAffiliation(t, admin2, admin3, modReq)
+	modifyAttributes(t, registry, admin, admin3, modReq)
+	modifySecretAndMaxEnroll(t, registry, admin, modReq)
 
 	regResp, err := admin.Register(&api.RegistrationRequest{
 		Name: "notregistrar",
@@ -645,6 +530,231 @@ func TestDynamicModifyIdentity(t *testing.T) {
 	_, err = notregistrar.ModifyIdentity(modReq)
 	if assert.Error(t, err, "Should have failed, caller is not a registrar") {
 		assert.Contains(t, err.Error(), "Authorization failure")
+	}
+}
+
+func modifyTypeAndAffiliation(t *testing.T, admin2, admin3 *Identity, modReq *api.ModifyIdentityRequest) {
+	modReq.ID = "testuser"
+	modReq.Type = "user"
+	// Should error, caller is not part of the right affiliation
+	_, err := admin2.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not part of the right affiliation")
+
+	// Should error, caller is not allowed to act on type
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not allowed to act on type")
+
+	// Should error, caller is not allowed to change to the requested affiliation.
+	// Caller is part of the 'hyperledger' affiliation
+	modReq.ID = "testuser2"
+	modReq.Affiliation = "org2"
+	_, err = admin2.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not allowed to change to the requested affiliation")
+
+	modReq.Affiliation = "hyperledger.fake"
+	_, err = admin2.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, affiliation does not exist")
+
+	// Should error, caller is not allowed to change to the requested type.
+	// Caller can only issue type 'client'
+	modReq.ID = "testuser2"
+	modReq.Type = "user"
+	modReq.Affiliation = "org2"
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not allowed to change to the requested type")
+}
+
+func modifyAttributes(t *testing.T, registry spi.UserRegistry, admin, admin3 *Identity, modReq *api.ModifyIdentityRequest) {
+	// Should error, caller is not allowed to register this attribute. Caller does not posses hf.IntermediateCA.
+	modReq.Type = "client"
+	modReq.Attributes = []api.Attribute{api.Attribute{
+		Name:  "hf.IntermediateCA",
+		Value: "true",
+	}}
+	_, err := admin3.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not allowed to register this attribute")
+
+	// Should not error, caller is allowed to modify this attribute but only its 'ecert' value.
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  "hf.Type",
+			Value: "orderer",
+			ECert: true,
+		},
+	}
+	_, err = admin.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Failed to update existing attribute")
+
+	user, err := registry.GetUser("testuser2", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser2'")
+
+	userTypeAttr, err := user.GetAttribute("hf.Type")
+	assert.NoError(t, err, "Failed to get attribute")
+
+	if userTypeAttr.GetValue() == "orderer" {
+		t.Error("Should not have been able to directly modify 'hf.Type', should only be updated if identity type is updated")
+	}
+
+	if userTypeAttr.ECert == false {
+		t.Error("Failed to update 'ecert' boolean value to 'true'")
+	}
+
+	// Should error, caller is not allowed to register attribute 'hf.Registrar.DeletegateRoles' with a value that
+	// is not equal to or a subset of 'hf.Registrar.Roles'. In this case: client,peer
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  attrDelegateRoles,
+			Value: "client,peer,orderer",
+		},
+	}
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not allowed to register attribute 'hf.Registrar.DeletegateRoles' with a value that is not equal to or a subset of 'hf.Registrar.Roles'")
+
+	// Caller is allowed to register attribute 'hf.Registrar.DeletegateRoles' with a value that
+	// equal to or a subset of 'hf.Registrar.Roles'. In this case: client,peer,orderer
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  attrRoles,
+			Value: "client,peer,orderer",
+		},
+		api.Attribute{
+			Name:  attrDelegateRoles,
+			Value: "client,peer,orderer",
+		},
+	}
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Failed to register attribute 'hf.Registrar.DeletegateRoles' with a value that is equal to or a subset of 'hf.Registrar.Roles'")
+
+	// Should error, caller is not allowed to register attribute 'hf.Registrar.Attribute' with a value of 'hf.Revoker'. Identity being modified does not posses
+	// the attribute 'hf.Revoker'
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  attrRegistrarAttr,
+			Value: "hf.Revoker",
+		},
+	}
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is not allowed to register attribute 'hf.Registrar.Attribute' with a value of 'hf.Revoker'")
+
+	// Should not error, caller is  allowed to register attribute 'hf.Registrar.Attribute' with a value of 'hf.Revoker'. Identity being modified does posses
+	// the attribute 'hf.Revoker'
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  attrRevoker,
+			Value: "true",
+		},
+		api.Attribute{
+			Name:  attrRegistrarAttr,
+			Value: "hf.Revoker",
+		},
+	}
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Should not have failed, caller is allowed to register attribute 'hf.Registrar.Attribute' with a value of 'hf.Revoker'")
+
+	// Should error, caller is not allowed to register attribute 'hf.Registrar.Attribute' with greater
+	// registering abilities than caller
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  "foo",
+			Value: "bar2",
+		},
+		api.Attribute{
+			Name:  attrRegistrarAttr,
+			Value: "foo,custom",
+		},
+	}
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.Error(t, err, "Should have failed, caller is allowed to register attribute 'hf.Registrar.Attribute' with greater registering abilities than caller")
+
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  "foo",
+			Value: "bar2",
+		},
+		api.Attribute{
+			Name:  attrRegistrarAttr,
+			Value: "foo,custom.attr",
+		},
+	}
+	_, err = admin3.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Failed to modify identity, unable to register attributes")
+
+	user, err = registry.GetUser("testuser2", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser2'")
+
+	attr, err := user.GetAttribute("foo")
+	assert.NoError(t, err, "Failed to get attribute 'foo'")
+	if attr.Value != "bar2" {
+		t.Errorf("Failed to correctly modify existing attribute for user 'testuser2'")
+	}
+	attr, err = user.GetAttribute("hf.Revoker")
+	assert.NoError(t, err, "Failed to get attribute 'hf.Revoker'")
+	if attr.Value != "true" {
+		t.Errorf("Failed to correctly add a new attribute for user 'testuser2'")
+	}
+	attr, err = user.GetAttribute("hf.Type")
+	assert.NoError(t, err, "Failed to get attribute 'hf.Type'")
+	if attr.Value != "client" {
+		t.Errorf("Failed to correctly update 'hf.Type' when type of identity was modified to 'client'")
+	}
+	attr, err = user.GetAttribute("hf.Affiliation")
+	assert.NoError(t, err, "Failed to get attribute 'hf.Affiliation'")
+	if attr.Value != "org2" {
+		t.Errorf("Failed to correctly update 'hf.Affiliation' when affiliation of identity was modified to 'org2'")
+	}
+
+	// Delete attribute 'foo'
+	modReq.Attributes = []api.Attribute{
+		api.Attribute{
+			Name:  "foo",
+			Value: "",
+		},
+	}
+	_, err = admin.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Failed to modify identity")
+
+	user, err = registry.GetUser("testuser2", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser2'")
+
+	_, err = user.GetAttribute("foo")
+	assert.Error(t, err, "Should have failed to get attribute 'foo', should have been deleted")
+}
+
+func modifySecretAndMaxEnroll(t *testing.T, registry spi.UserRegistry, admin *Identity, modReq *api.ModifyIdentityRequest) {
+	modReq.MaxEnrollments = -2
+	modReq.Secret = "password"
+	_, err := admin.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Failed to modify identity")
+
+	user, err := registry.GetUser("testuser2", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser2'")
+
+	maxEnroll := user.(*DBUser).UserInfo.MaxEnrollments
+	if maxEnroll != 0 {
+		t.Error("Failed to correctly modify max enrollments for user 'testuser2'")
+	}
+
+	userAff := GetUserAffiliation(user)
+	if userAff != "org2" {
+		t.Errorf("Failed to correctly modify affiliation for user 'testuser2'")
+	}
+
+	modReq.MaxEnrollments = 5
+	modReq.Affiliation = "."
+	_, err = admin.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Failed to modify identity")
+
+	user, err = registry.GetUser("testuser2", nil)
+	assert.NoError(t, err, "Failed to get user 'testuser2'")
+
+	maxEnroll = user.(*DBUser).UserInfo.MaxEnrollments
+	if maxEnroll != 5 {
+		t.Error("Failed to correctly modify max enrollments for user 'testuser2'")
+	}
+
+	userAff = strings.Join(user.GetAffiliationPath(), ".")
+	if userAff != "" {
+		t.Errorf("Failed to correctly modify affiliation to root affiliation for user 'testuser2'")
 	}
 }
 

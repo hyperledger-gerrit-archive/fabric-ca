@@ -434,7 +434,7 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 		checkAttrs = true
 	}
 
-	err = ctx.CanModifyUser(req.Affiliation, checkAff, req.Type, checkType, req.Attributes, checkAttrs)
+	err = ctx.CanModifyUser(req.Affiliation, checkAff, req.Type, checkType, req.Attributes, checkAttrs, userToModify)
 	if err != nil {
 		return nil, err
 	}
@@ -485,21 +485,20 @@ func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, 
 
 	if req.Affiliation == "." {
 		modifyUserInfo.Affiliation = ""
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Affiliation", Value: ""})
+		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, []api.Attribute{api.Attribute{Name: attrAffiliation, Value: ""}}, true)
 	} else if req.Affiliation != "" {
 		modifyUserInfo.Affiliation = req.Affiliation
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Affiliation", Value: req.Affiliation})
+		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, []api.Attribute{api.Attribute{Name: attrAffiliation, Value: req.Affiliation}}, true)
 	}
 
 	if req.Type != "" {
 		modifyUserInfo.Type = req.Type
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Type", Value: req.Type})
+		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, []api.Attribute{api.Attribute{Name: attrType, Value: req.Type}}, true)
 	}
 
 	// Update existing attribute, or add attribute if it does not already exist
 	if len(req.Attributes) != 0 {
-		userAttrs := getNewAttributes(modifyUserInfo.Attributes, req.Attributes)
-		modifyUserInfo.Attributes = userAttrs
+		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, req.Attributes, false)
 	}
 
 	return &modifyUserInfo, setPass
@@ -520,7 +519,7 @@ func getIDInfo(user spi.User) (*api.IdentityInfo, error) {
 }
 
 // Update existing attribute, or add attribute if it does not already exist
-func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
+func getNewAttributes(modifyAttrs, newAttrs []api.Attribute, updateFixedAttrValue bool) []api.Attribute {
 	var attr api.Attribute
 	for _, attr = range newAttrs {
 		log.Debugf("Attribute request: %+v", attr)
@@ -535,9 +534,14 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 						modifyAttrs = append(modifyAttrs[:i], modifyAttrs[i+1:]...)
 					}
 				} else {
-					log.Debugf("Updating existing attribute from '%+v' to '%+v'", modifyAttrs[i], attr)
-					modifyAttrs[i].Value = attr.Value
-					modifyAttrs[i].ECert = attr.ECert
+					if isFixedValueAttribute(attr.Name) && !updateFixedAttrValue {
+						log.Debug("Updating fixed value attribute, only 'ecert' boolean value will be updated")
+						modifyAttrs[i].ECert = attr.ECert
+					} else {
+						log.Debugf("Updating existing attribute from '%+v' to '%+v'", modifyAttrs[i], attr)
+						modifyAttrs[i].Value = attr.Value
+						modifyAttrs[i].ECert = attr.ECert
+					}
 				}
 				found = true
 				break
@@ -549,4 +553,16 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 		}
 	}
 	return modifyAttrs
+}
+
+func isFixedValueAttribute(attributeName string) bool {
+	attrControlMap := getAttributeControl()
+	attr := attrControlMap[attributeName]
+	if attr != nil {
+		if attr.attrType == FIXED {
+			return true
+		}
+		return false
+	}
+	return false
 }

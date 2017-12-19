@@ -125,6 +125,17 @@ func GetAttrValue(attrs []api.Attribute, name string) string {
 	return ""
 }
 
+// AttrPresent searches 'attrs' for the attribute with name 'name' and returns
+// true if found
+func AttrPresent(attrs []api.Attribute, name string) bool {
+	for _, attr := range attrs {
+		if attr.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
 func getMaxEnrollments(userMaxEnrollments int, caMaxEnrollments int) (int, error) {
 	log.Debugf("Max enrollment value verification - User specified max enrollment: %d, CA max enrollment: %d", userMaxEnrollments, caMaxEnrollments)
 	if userMaxEnrollments < -1 {

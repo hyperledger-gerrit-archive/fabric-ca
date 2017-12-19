@@ -978,10 +978,10 @@ func (u *DBUser) Revoke() error {
 }
 
 // ModifyAttributes adds a new attribute, modifies existing attribute, or delete attribute
-func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute) error {
+func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute, updateFixedAttrValue bool) error {
 	log.Debugf("Modify Attributes: %+v", newAttrs)
 	currentAttrs, _ := u.GetAttributes(nil)
-	userAttrs := getNewAttributes(currentAttrs, newAttrs)
+	userAttrs := getNewAttributes(currentAttrs, newAttrs, updateFixedAttrValue)
 
 	attrBytes, err := json.Marshal(userAttrs)
 	if err != nil {

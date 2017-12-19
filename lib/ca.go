@@ -108,6 +108,8 @@ type CA struct {
 	levels *dbutil.Levels
 	// CA mutex
 	mutex sync.Mutex
+	// Contains the attribute control definition
+	attributeControl map[string]*attributeControl
 }
 
 const (
@@ -149,6 +151,7 @@ func (ca *CA) init(renew bool) (err error) {
 	log.Debugf("Init CA with home %s and config %+v", ca.HomeDir, *ca.Config)
 	// Initialize the config, setting defaults, etc
 	ca.dbInitialized = false
+	ca.attributeControl = getAttributeControl()
 
 	err = ca.initConfig()
 	if err != nil {
@@ -1223,7 +1226,7 @@ func (ca *CA) migrateUserToLevel1(user spi.User) error {
 		_, err := user.GetAttribute("hf.Registrar.Attributes") // Check if user already has "hf.Registrar.Attributes" attribute
 		if err != nil {
 			addAttr := []api.Attribute{api.Attribute{Name: "hf.Registrar.Attributes", Value: "*"}}
-			err := user.ModifyAttributes(addAttr)
+			err := user.ModifyAttributes(addAttr, false)
 			if err != nil {
 				return errors.WithMessage(err, "Failed to set attribute")
 			}

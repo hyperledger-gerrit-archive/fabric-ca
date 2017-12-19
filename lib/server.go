@@ -57,17 +57,6 @@ const (
 	apiPathPrefix             = "/api/v1/"
 )
 
-// Attribute names
-const (
-	attrRoles          = "hf.Registrar.Roles"
-	attrDelegateRoles  = "hf.Registrar.DelegateRoles"
-	attrRevoker        = "hf.Revoker"
-	attrIntermediateCA = "hf.IntermediateCA"
-	attrGenCRL         = "hf.GenCRL"
-	attrRegistrarAttr  = "hf.Registrar.Attributes"
-	attrAffiliationMgr = "hf.AffiliationMgr"
-)
-
 // Server is the fabric-ca server
 type Server struct {
 	// The home directory for the server
