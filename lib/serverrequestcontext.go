@@ -218,6 +218,11 @@ func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeReque
 	if err != nil {
 		return nil, err
 	}
+	if ca.Config.LDAP.Enabled {
+		// Attributes in ECerts when LDAP is enabled is not supported initially
+		log.Debug("No attributes will be added to certificate with LDAP enabled")
+		return nil, nil
+	}
 	ui, err := ca.registry.GetUser(ctx.enrollmentID, nil)
 	if err != nil {
 		return nil, err
@@ -361,7 +366,7 @@ func (ctx *serverRequestContext) CanManageUser(user spi.User) error {
 }
 
 // CanModifyUser determines if the modifications to the user are allowed
-func (ctx *serverRequestContext) CanModifyUser(userAff string, checkAff bool, userType string, checkType bool, userAttrs []api.Attribute, checkAttrs bool) error {
+func (ctx *serverRequestContext) CanModifyUser(userAff string, checkAff bool, userType string, checkType bool, userAttrs []api.Attribute, checkAttrs bool, userToModify spi.User) error {
 	if checkAff {
 		log.Debugf("Checking if caller is authorized to change affiliation to '%s'", userAff)
 		err := ctx.ContainsAffiliation(userAff)
@@ -379,12 +384,13 @@ func (ctx *serverRequestContext) CanModifyUser(userAff string, checkAff bool, us
 	}
 
 	if checkAttrs {
-		log.Debugf("Checking if caller is authorized to change attributes to '%s'", userAttrs)
-		err := ctx.canRegisterRequestedAttributes(userAttrs)
+		log.Debugf("Checking if caller is authorized to change attributes to %+v", userAttrs)
+		err := ctx.canRegisterRequestedAttributes(userAttrs, userToModify)
 		if err != nil {
 			return err
 		}
 	}
+
 	return nil
 }
 
@@ -597,71 +603,141 @@ func (ctx *serverRequestContext) GetBoolQueryParm(name string) (bool, error) {
 }
 
 // Validate that the caller can register the requested attributes
-func (ctx *serverRequestContext) canRegisterRequestedAttributes(reqAttrs []api.Attribute) error {
+func (ctx *serverRequestContext) canRegisterRequestedAttributes(reqAttrs []api.Attribute, user spi.User) error {
 	if len(reqAttrs) == 0 {
 		return nil
 	}
+
+	log.Debugf("Checking to see if registrar can register the requested attributes: %+v", reqAttrs)
+
 	registrar, err := ctx.GetCaller()
 	if err != nil {
 		return err
 	}
+
 	registrarAttrs, err := registrar.GetAttribute(attrRegistrarAttr)
 	if err != nil {
-		return newHTTPErr(401, ErrMissingRegAttr, "Failed to get attribute '%s': %s", attrRegistrarAttr, err)
+		return newHTTPErr(404, ErrMissingRegAttr, "Failed to get attribute '%s': %s", attrRegistrarAttr, err)
 	}
 	if registrarAttrs.Value == "" {
 		return newAuthErr(ErrMissingRegAttr, "Registrar does not have any values for '%s' thus can't register any attributes", attrRegistrarAttr)
 	}
-	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%+v' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs, reqAttrs)
+	log.Debugf("Validating that registrar '%s' with the following value for hf.Registrar.Attributes '%+v' is authorized to register the requested attributes '%+v'", registrar.GetName(), registrarAttrs.GetValue(), reqAttrs)
 
-	hfRegistrarAttrsSlice := strings.Split(strings.Replace(registrarAttrs.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+	attrsRegistrarCanRegister := strings.Split(strings.Replace(registrarAttrs.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
 
 	for _, reqAttr := range reqAttrs {
-		reqAttrName := reqAttr.Name // Name of the requested attribute
-
-		// Iterate through the registrar's value for 'hf.Registrar.Attributes' to check if it can register the requested attribute
-		err := registrarCanRegisterAttr(reqAttrName, hfRegistrarAttrsSlice)
+		// Check if registrar is allowed to register requested attributes
+		err := ctx.validateAttrRequest(&reqAttr, attrsRegistrarCanRegister)
 		if err != nil {
-			return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
+			return err
 		}
 
-		// Requesting 'hf.Registrar.Attributes' attribute
-		if reqAttrName == attrRegistrarAttr {
-			reqRegistrarAttrsSlice := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
-			// Loop through the requested values for 'hf.Registrar.Attributes' to see if they can be registered
-			for _, reqRegistrarAttr := range reqRegistrarAttrsSlice {
-				err := registrarCanRegisterAttr(reqRegistrarAttr, hfRegistrarAttrsSlice)
-				if err != nil {
-					return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s': %s", reqAttrName, err)
-				}
-			}
+		err = checkHfRegistrarAttrValues(&reqAttr, reqAttrs, user)
+		if err != nil {
+			return err
 		}
 
+	}
+
+	err = checkDelegateRoleValues(reqAttrs, user)
+	if err != nil {
+		return err
 	}
 
 	return nil
 }
 
 // Function will iterate through the values of registrar's 'hf.Registrar.Attributes' attribute to check if registrar can register the requested attributes
-func registrarCanRegisterAttr(requestedAttr string, hfRegistrarAttrsSlice []string) error {
-	reserveredAttributes := []string{"hf.Type", "hf.EnrollmentID", "hf.Affiliation"}
-	for _, reservedAttr := range reserveredAttributes {
-		if requestedAttr == reservedAttr {
-			return errors.Errorf("Attribute '%s' is a reserved attribute", reservedAttr)
-		}
-	}
-	for _, regAttr := range hfRegistrarAttrsSlice {
+func (ctx *serverRequestContext) validateAttrRequest(requestedAttr *api.Attribute, attrsRegistrarCanRegister []string) error {
+	requestedAttrName := requestedAttr.GetName()
+
+	for _, regAttr := range attrsRegistrarCanRegister {
 		if strings.HasSuffix(regAttr, "*") { // Wildcard matching
-			if strings.HasPrefix(requestedAttr, strings.TrimRight(regAttr, "*")) {
-				return nil // Requested attribute found, break out of loop
+			if strings.HasPrefix(requestedAttrName, strings.TrimRight(regAttr, "*")) {
+				return ctx.checkReservedAttrOwnershipAndValue(requestedAttr)
 			}
-		} else {
-			if requestedAttr == regAttr { // Exact name matching
-				return nil // Requested attribute found, break out of loop
+		} else if requestedAttrName == regAttr { // Exact name matching
+			return ctx.checkReservedAttrOwnershipAndValue(requestedAttr)
+		}
+	}
+
+	return newHTTPErr(401, ErrRegAttrAuth, "Registrar is not allowed to register attribute '%s'", requestedAttrName)
+}
+
+// Check if registrar has proper authority to register attributes starting with 'hf.'
+func (ctx *serverRequestContext) checkReservedAttrOwnershipAndValue(requestedAttr *api.Attribute) error {
+	log.Debugf("Checking ownership and value of requested reserved attribute: %+v", requestedAttr)
+	requestedAttrName := requestedAttr.GetName()
+
+	if !strings.HasPrefix(requestedAttr.GetName(), "hf.") {
+		return nil // Not a reserved attribute
+	}
+
+	attrControl, found := ctx.ca.attributeControl[requestedAttrName]
+	if found {
+		if attrControl.isOwnershipRequired() {
+			callersAttribute, err := ctx.caller.GetAttribute(requestedAttrName)
+			if err != nil {
+				return newHTTPErr(403, ErrRegAttrAuth, "Attribute '%s' requires ownership but the caller does not own this attribute: %s", requestedAttrName, err)
+			}
+
+			err = attrControl.isRegistrarAuthorized(callersAttribute, requestedAttr)
+			if err != nil {
+				return newHTTPErr(403, ErrRegAttrAuth, "Registrar not authorized to register attribute: %s", err)
+			}
+		}
+	} else {
+		return newHTTPErr(403, ErrRegAttrAuth, "Registering attribute '%s' using a reserved prefix 'hf.', however this not a supported reserved attribute", requestedAttrName)
+	}
+
+	return nil
+}
+
+// Check if registrar has the proper authority to register the values for 'hf.Registrar.Attributes'.
+// Registering 'hf.Registrar.Attributes' with a value that has a 'hf.' prefix requires that the user
+// being registered to possess that hf. attribute. For example, if attribute is 'hf.Registrar.Attributes=hf.Revoker'.
+// Then user being registered must possess 'hf.Revoker' for this to be a valid request.
+func checkHfRegistrarAttrValues(reqAttr *api.Attribute, reqAttrs []api.Attribute, user spi.User) error {
+	if reqAttr.GetName() == attrRegistrarAttr {
+		valuesRequestedForHfRegistrarAttr := strings.Split(strings.Replace(reqAttr.Value, " ", "", -1), ",") // Remove any whitespace between the values and split on comma
+		for _, requestedAttrValue := range valuesRequestedForHfRegistrarAttr {
+			if strings.HasPrefix(requestedAttrValue, "hf.") {
+				if !AttrPresent(reqAttrs, requestedAttrValue) {
+					// Attribute not present in the list of attributes being requested along side 'hf.Registrar.Attributes'
+					// if user equals nil, this is a new user registeration request
+					if user == nil {
+						return newHTTPErr(403, ErrRegAttrAuth, "Requesting value of '%s' for 'hf.Registrar.Attributes', but the identity being registered is not being registered with this attribute", requestedAttrValue)
+					}
+					// If user not equal nil (modify user request), check to see if it possesses the attribute
+					_, err := user.GetAttribute(requestedAttrValue)
+					if err != nil {
+						return newHTTPErr(403, ErrRegAttrAuth, "Requesting value of '%s' for 'hf.Registrar.Attributes', but the identity does not possess this attribute nor is it being registered with this attribute", requestedAttrValue)
+					}
+				}
 			}
 		}
 	}
-	return errors.Errorf("Attribute is not part of '%s' attribute", attrRegistrarAttr)
+	return nil
+}
+
+// Make sure delegateRoles is not larger than roles
+func checkDelegateRoleValues(reqAttrs []api.Attribute, user spi.User) error {
+	roles := GetAttrValue(reqAttrs, attrRoles)
+	if roles == "" { // If roles is not being updated in this request, query to get the current value of roles of user
+		if user != nil { // If the is a user modify request, check to see if attribute already exists for user
+			currentRoles, err := user.GetAttribute(attrRoles)
+			if err == nil {
+				roles = currentRoles.GetValue()
+			}
+		}
+	}
+	delegateRoles := GetAttrValue(reqAttrs, attrDelegateRoles)
+	err := util.IsSubsetOf(delegateRoles, roles)
+	if err != nil {
+		return newHTTPErr(403, ErrRegAttrAuth, "The delegateRoles field is a superset of roles")
+	}
+	return nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

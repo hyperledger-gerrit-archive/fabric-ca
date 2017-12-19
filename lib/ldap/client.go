@@ -460,7 +460,7 @@ func (u *user) Revoke() error {
 }
 
 // ModifyAttributes adds a new attribute or modifies existing attribute
-func (u *user) ModifyAttributes(attrs []api.Attribute) error {
+func (u *user) ModifyAttributes(attrs []api.Attribute, updateFixedAttrValue bool) error {
 	return errNotSupported
 }
 

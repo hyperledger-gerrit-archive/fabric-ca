@@ -61,7 +61,7 @@ type User interface {
 	// GetAttributes returns the requested attributes
 	GetAttributes(attrNames []string) ([]api.Attribute, error)
 	// ModifyAttributes adds, removes, or deletes attribute
-	ModifyAttributes(attrs []api.Attribute) error
+	ModifyAttributes(attrs []api.Attribute, updateFixedAttrValue bool) error
 	// LoginComplete completes the login process by incrementing the state of the user
 	LoginComplete() error
 	// Revoke will revoke the user, setting the state of the user to be -1
