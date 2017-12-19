@@ -296,7 +296,7 @@ func testModifyAttribute(ta TestAccessor, t *testing.T) {
 			Name:  "hf.IntermediateCA",
 			Value: "true",
 		},
-	})
+	}, false)
 	assert.NoError(t, err, "Failed to modify user's attributes")
 
 	user, err = ta.Accessor.GetUser("testId", nil)

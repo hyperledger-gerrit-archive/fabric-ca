@@ -402,7 +402,11 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 	}
 
 	var checkAff, checkType, checkAttrs bool
-	modReq, setPass := getModifyReq(userToModify, req)
+	modReq, setPass, err := getModifyReq(userToModify, req)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrModifyingIdentity, "Invalid identity modify request: %s", err)
+	}
+
 	log.Debugf("Modify Request: %+v", util.StructToString(modReq))
 
 	if req.Affiliation != "" {
@@ -424,7 +428,7 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 		checkAttrs = true
 	}
 
-	err = ctx.CanModifyUser(req.Affiliation, checkAff, req.Type, checkType, req.Attributes, checkAttrs)
+	err = ctx.CanModifyUser(req.Affiliation, checkAff, req.Type, checkType, req.Attributes, checkAttrs, userToModify)
 	if err != nil {
 		return nil, err
 	}
@@ -455,10 +459,17 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 
 // Function takes the modification request and fills in missing information with the current user information
 // and parses the modification request to generate the correct input to be stored in the database
-func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, bool) {
+func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, bool, error) {
 	modifyUserInfo := user.(*DBUser).UserInfo
 	userPass := user.(*DBUser).pass
 	setPass := false
+
+	// Checks to make sure that if request updates 'hf.EnrollmentId' then only the
+	// ecert boolean value should be updated and the actual value of the attribute
+	err := addAttributeToRequest(attrEnrollmentID, req.ID, &req.Attributes)
+	if err != nil {
+		return nil, setPass, err
+	}
 
 	if req.Secret != "" {
 		setPass = true
@@ -475,24 +486,32 @@ func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, 
 
 	if req.Affiliation == "." {
 		modifyUserInfo.Affiliation = ""
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Affiliation", Value: ""})
+		err := addAttributeToRequest(attrAffiliation, "", &req.Attributes)
+		if err != nil {
+			return nil, setPass, err
+		}
 	} else if req.Affiliation != "" {
 		modifyUserInfo.Affiliation = req.Affiliation
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Affiliation", Value: req.Affiliation})
+		err := addAttributeToRequest(attrAffiliation, req.Affiliation, &req.Attributes)
+		if err != nil {
+			return nil, setPass, err
+		}
 	}
 
 	if req.Type != "" {
 		modifyUserInfo.Type = req.Type
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Type", Value: req.Type})
+		err := addAttributeToRequest(attrType, req.Type, &req.Attributes)
+		if err != nil {
+			return nil, setPass, err
+		}
 	}
 
 	// Update existing attribute, or add attribute if it does not already exist
 	if len(req.Attributes) != 0 {
-		userAttrs := getNewAttributes(modifyUserInfo.Attributes, req.Attributes)
-		modifyUserInfo.Attributes = userAttrs
+		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, req.Attributes, true)
 	}
 
-	return &modifyUserInfo, setPass
+	return &modifyUserInfo, setPass, nil
 }
 
 func getIDInfo(user spi.User) (*api.IdentityInfo, error) {
@@ -510,7 +529,7 @@ func getIDInfo(user spi.User) (*api.IdentityInfo, error) {
 }
 
 // Update existing attribute, or add attribute if it does not already exist
-func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
+func getNewAttributes(modifyAttrs, newAttrs []api.Attribute, updateFixedAttrValue bool) []api.Attribute {
 	var attr api.Attribute
 	for _, attr = range newAttrs {
 		log.Debugf("Attribute request: %+v", attr)
@@ -525,9 +544,14 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 						modifyAttrs = append(modifyAttrs[:i], modifyAttrs[i+1:]...)
 					}
 				} else {
-					log.Debugf("Updating existing attribute from '%+v' to '%+v'", modifyAttrs[i], attr)
-					modifyAttrs[i].Value = attr.Value
-					modifyAttrs[i].ECert = attr.ECert
+					if isFixedValueAttribute(attr.Name) && !updateFixedAttrValue {
+						log.Debug("Updating fixed value attribute, only 'ecert' boolean value will be updated")
+						modifyAttrs[i].ECert = attr.ECert
+					} else {
+						log.Debugf("Updating existing attribute from '%+v' to '%+v'", modifyAttrs[i], attr)
+						modifyAttrs[i].Value = attr.Value
+						modifyAttrs[i].ECert = attr.ECert
+					}
 				}
 				found = true
 				break
@@ -539,4 +563,16 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 		}
 	}
 	return modifyAttrs
+}
+
+func isFixedValueAttribute(attributeName string) bool {
+	attrControlMap := getAttributeControl()
+	attr := attrControlMap[attributeName]
+	if attr != nil {
+		if attr.attrType == FIXED {
+			return true
+		}
+		return false
+	}
+	return false
 }

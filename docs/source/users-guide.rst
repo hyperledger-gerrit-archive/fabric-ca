@@ -1094,9 +1094,17 @@ during registration as follows:
 
  3. The registrar can register a user with attributes if the following conditions
     are satisfied:
-      - Registrar has 'hf.Registar.Attributes' attribute with the value of the
-        attribute or pattern being registered. The only supported pattern is a
-        string with a "*" at the end. For example, "a.b.*" is a pattern which
+      - Registrar can register fabric-ca reserved attributes that have the prefix
+        'hf.' only if the registrar possesses the attribute and it is part of the value
+        of the 'hf.Registrar.Attributes' attribute. Furthermore, if the attribute
+        is of type list then the value of attribute being register must be equal to or a subset
+        of the value that the registrar has. If the attribute is of type boolean, the
+        registrar can register the attribute with a value of 'true' if the registrar
+        has the attribute with a value of 'true' otherwise, the registrar can only register
+        a value of 'false'.
+      - Registering custom attributes requires that the Registrar has 'hf.Registar.Attributes'
+        attribute with the value of the attribute or pattern being registered. The only supported
+        pattern is a string with a "*" at the end. For example, "a.b.*" is a pattern which
         matches all attribute names beginning with "a.b.".
       - If the requested attribute name is 'hf.Registrar.Attributes', an additional
         check is performed to see if the requested values for this attribute
@@ -1120,6 +1128,10 @@ during registration as follows:
         the requested attribute value is 'a.b.c, x.y.z', it is valid because 'a.b.c' matches
         'a.b.*' and 'x.y.z' matches the registrar's 'x.y.z' value.
 
+        4. If the Registrar has the attribute 'hf.Registrar.Roles = peer,client' and
+        the requested attribute value is 'peer' or 'peer,client', it is valid because
+        requested value is equal to or a subset of the registrar's value.
+
       Invalid Scenarios:
         1. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
         is registering attribute 'hf.Registar.Attributes = a.b.c, x.y.*', it is invalid
@@ -1136,6 +1148,14 @@ during registration as follows:
 
         4. If the Registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
         is registering attribute 'x.y', it is invalid because 'x.y' is not contained by 'x.y.z'.
+
+        5. If the Registrar has the attribute 'hf.Registrar.Roles = peer,client' and
+        the requested attribute value is 'peer,client,orderer', it is invalid because
+        requested value is not equal to or a subset of the registrar's value.
+
+        6. If the Registrar has the attribute 'hf.Revoker = false' and
+        the requested attribute value is 'true', it is invalid because
+        requested value cannot be 'true' if registrar has a value of 'false'.
 
 The following command uses the **admin** identity's credentials to register a new
 user with an enrollment id of "admin2", an affiliation of
