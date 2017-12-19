@@ -25,6 +25,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
@@ -402,7 +403,11 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 	}
 
 	var checkAff, checkType, checkAttrs bool
-	modReq, setPass := getModifyReq(userToModify, req)
+	modReq, setPass, err := getModifyReq(userToModify, &req)
+	if err != nil {
+		return nil, newHTTPErr(400, ErrModifyingIdentity, "Invalid identity modify request: %s", err)
+	}
+
 	log.Debugf("Modify Request: %+v", util.StructToString(modReq))
 
 	if req.Affiliation != "" {
@@ -424,7 +429,7 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 		checkAttrs = true
 	}
 
-	err = ctx.CanModifyUser(req.Affiliation, checkAff, req.Type, checkType, req.Attributes, checkAttrs)
+	err = ctx.CanModifyUser(req.Affiliation, checkAff, req.Type, checkType, req.Attributes, checkAttrs, userToModify)
 	if err != nil {
 		return nil, err
 	}
@@ -434,7 +439,7 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 		return nil, err
 	}
 
-	userToModify, err = ctx.GetUser(modifyID)
+	userToModify, err = registry.GetUser(modifyID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -455,7 +460,7 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 
 // Function takes the modification request and fills in missing information with the current user information
 // and parses the modification request to generate the correct input to be stored in the database
-func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, bool) {
+func getModifyReq(user spi.User, req *api.ModifyIdentityRequest) (*spi.UserInfo, bool, error) {
 	modifyUserInfo := user.(*DBUser).UserInfo
 	userPass := user.(*DBUser).pass
 	setPass := false
@@ -475,24 +480,23 @@ func getModifyReq(user spi.User, req api.ModifyIdentityRequest) (*spi.UserInfo, 
 
 	if req.Affiliation == "." {
 		modifyUserInfo.Affiliation = ""
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Affiliation", Value: ""})
+		addAttributeToRequest(attr.Affiliation, "", &modifyUserInfo.Attributes)
 	} else if req.Affiliation != "" {
 		modifyUserInfo.Affiliation = req.Affiliation
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Affiliation", Value: req.Affiliation})
+		addAttributeToRequest(attr.Affiliation, req.Affiliation, &modifyUserInfo.Attributes)
 	}
 
 	if req.Type != "" {
 		modifyUserInfo.Type = req.Type
-		req.Attributes = append(req.Attributes, api.Attribute{Name: "hf.Type", Value: req.Type})
+		addAttributeToRequest(attr.Type, req.Type, &modifyUserInfo.Attributes)
 	}
 
 	// Update existing attribute, or add attribute if it does not already exist
 	if len(req.Attributes) != 0 {
-		userAttrs := getNewAttributes(modifyUserInfo.Attributes, req.Attributes)
-		modifyUserInfo.Attributes = userAttrs
+		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, req.Attributes)
 	}
 
-	return &modifyUserInfo, setPass
+	return &modifyUserInfo, setPass, nil
 }
 
 func getIDInfo(user spi.User) (*api.IdentityInfo, error) {
@@ -539,4 +543,14 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 		}
 	}
 	return modifyAttrs
+}
+
+func isFixedValueAttribute(attributeName string) bool {
+	fixedValueAttributes := []string{attr.EnrollmentID, attr.Type, attr.Affiliation}
+	for _, attr := range fixedValueAttributes {
+		if attributeName == attr {
+			return true
+		}
+	}
+	return false
 }
