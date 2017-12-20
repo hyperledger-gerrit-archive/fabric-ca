@@ -216,9 +216,15 @@ func GetSignerFromCert(cert *x509.Certificate, csp bccsp.BCCSP) (bccsp.Key, cryp
 		return nil, nil, errors.WithMessage(err, "Failed to import certificate's public key")
 	}
 	// Get the key given the SKI value
-	privateKey, err := csp.GetKey(certPubK.SKI())
+	ski := certPubK.SKI()
+	privateKey, err := csp.GetKey(ski)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "Could not find matching private key for SKI")
+	}
+	// BCCSP returns a public key if the private key for the SKI wasn't found, so
+	// we need to return an error in that case.
+	if !privateKey.Private() {
+		return nil, nil, errors.Errorf("The private key associated with the certificate with SKI '%s' was not found", ski)
 	}
 	// Construct and initialize the signer
 	signer, err := cspsigner.New(csp, privateKey)
@@ -257,7 +263,6 @@ func BCCSPKeyRequestGenerate(req *csr.CertificateRequest, myCSP bccsp.BCCSP) (bc
 	if err != nil {
 		return nil, nil, err
 	}
-
 	cspSigner, err := cspsigner.New(myCSP, key)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "Failed initializing CryptoSigner")
