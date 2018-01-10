@@ -1358,8 +1358,14 @@ it in the **<msp folder>/crls/crl.pem** file.
 
     fabric-ca-client revoke -e peer1 --gencrl
 
+`RevokedBefore` attribute of the `GenCRLRequest` is set to one hour from now to avoid missing on revoked certificates
+due to any timing issues. This adjustment can be changed to some other duration by setting server environment variable
+`FABRIC_CA_SERVER_CRL_REVOKED_BEFORE_ADJUSTMENT`. The value must be in duration format. For example, to add 30 minutes
+instead of one hour, set `FABRIC_CA_SERVER_CRL_REVOKED_BEFORE_ADJUSTMENT` to '30m'. For more information on the duration
+format, refer to https://golang.org/pkg/time/#ParseDuration
+
 A CRL can also be generated using the `gencrl` command. Refer to the `Generating a CRL (Certificate Revocation List)`_
-section for more information on the `gencrl` command.
+section for more information on the `gencrl` command. 
 
 Generating a CRL (Certificate Revocation List)
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

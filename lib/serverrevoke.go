@@ -18,13 +18,22 @@ package lib
 
 import (
 	"encoding/hex"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cfssl/log"
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 )
+
+// CRLRevokedBeforeAdjEnvVar is the name of the environment variable that should
+// be set to change the duration that is added to the current time. The resulting
+// time is set to the RevokedBefore attribute of the CRL request for generating
+// CRL when user selects to generate CRL as part of the revoke request. Default
+// value is 1 hour.
+const CRLRevokedBeforeAdjEnvVar = "FABRIC_CA_SERVER_CRL_REVOKED_BEFORE_ADJUSTMENT"
 
 type revocationResponseNet struct {
 	RevokedCerts []api.RevokedCert
@@ -154,7 +163,14 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 
 	if req.GenCRL && len(result.RevokedCerts) > 0 {
 		log.Debugf("Generating CRL")
-		crl, err := genCRL(ca, api.GenCRLRequest{CAName: ca.Config.CA.Name})
+		revokedBeforeAdj := os.Getenv(CRLRevokedBeforeAdjEnvVar)
+		revokedBeforeAdjDur, err := time.ParseDuration(revokedBeforeAdj)
+		if err != nil {
+			log.Errorf("Error while parsing environment variable '%s'. It needs to be in duration string format", CRLRevokedBeforeAdjEnvVar)
+			revokedBeforeAdjDur = time.Hour
+		}
+		// Set RevokedBefore to an hour from now to avoid missing any revoked certs due to timing issues
+		crl, err := genCRL(ca, api.GenCRLRequest{CAName: ca.Config.CA.Name, RevokedBefore: time.Now().Add(revokedBeforeAdjDur).UTC()})
 		if err != nil {
 			return nil, err
 		}
