@@ -19,6 +19,7 @@ package lib
 import (
 	"encoding/hex"
 	"strings"
+	"time"
 
 	"github.com/cloudflare/cfssl/log"
 
@@ -154,7 +155,8 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 
 	if req.GenCRL && len(result.RevokedCerts) > 0 {
 		log.Debugf("Generating CRL")
-		crl, err := genCRL(ca, api.GenCRLRequest{CAName: ca.Config.CA.Name})
+		// Set RevokedBefore to an hour from now to avoid missing any revoked certs due to timing issues
+		crl, err := genCRL(ca, api.GenCRLRequest{CAName: ca.Config.CA.Name, RevokedBefore: time.Now().Add(time.Hour).UTC()})
 		if err != nil {
 			return nil, err
 		}
