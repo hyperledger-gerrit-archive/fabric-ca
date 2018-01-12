@@ -36,6 +36,8 @@ const (
 	crlPemType = "X509 CRL"
 )
 
+var maxTime = time.Unix(1<<63-62135596801, 999999999).UTC()
+
 // The response to the POST /gencrl request
 type genCRLResponseNet struct {
 	// Base64 encoding of PEM-encoded CRL
@@ -95,7 +97,7 @@ func genCRL(ca *CA, req api.GenCRLRequest) ([]byte, error) {
 	var err error
 	revokedBefore := req.RevokedBefore
 	if revokedBefore.IsZero() {
-		revokedBefore = time.Now().UTC()
+		revokedBefore = maxTime
 	}
 	if req.RevokedAfter.After(revokedBefore) {
 		return nil, newHTTPErr(400, ErrInvalidRevokedAfter,
