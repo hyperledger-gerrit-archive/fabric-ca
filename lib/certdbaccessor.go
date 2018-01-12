@@ -53,9 +53,17 @@ WHERE (id = :id AND status != 'revoked');`
 
 	selectRevokedSQL = `
 SELECT %s FROM certificates
-	WHERE (expiry > ? AND status='revoked' AND revoked_at > ? AND revoked_at < ?);`
+	WHERE (expiry > ? AND status='revoked' AND revoked_at > ?);`
 
 	selectRevokedSQL1 = `
+SELECT %s FROM certificates
+	WHERE (expiry > ? AND status='revoked' AND revoked_at > ? AND revoked_at < ?);`
+
+	selectRevokedSQL2 = `
+SELECT %s FROM certificates
+	WHERE (expiry > ? AND expiry < ? AND status='revoked' AND revoked_at > ?);`
+
+	selectRevokedSQL3 = `
 SELECT %s FROM certificates
 	WHERE (expiry > ? AND expiry < ? AND status='revoked' AND revoked_at > ? AND revoked_at < ?);`
 
@@ -215,17 +223,26 @@ func (d *CertDBAccessor) GetRevokedCertificates(expiredAfter, expiredBefore, rev
 	}
 	var crs []certdb.CertificateRecord
 	if expiredBefore.IsZero() {
-		err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedSQL),
-			sqlstruct.Columns(certdb.CertificateRecord{})), expiredAfter, revokedAfter, revokedBefore)
-		if err != nil {
-			return crs, getError(err, "Certificate")
+		if revokedBefore.IsZero() {
+			err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedSQL),
+				sqlstruct.Columns(certdb.CertificateRecord{})), expiredAfter, revokedAfter)
+		} else {
+			err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedSQL1),
+				sqlstruct.Columns(certdb.CertificateRecord{})), expiredAfter, revokedAfter, revokedBefore)
 		}
 	} else {
-		err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedSQL1),
-			sqlstruct.Columns(certdb.CertificateRecord{})), expiredAfter, expiredBefore, revokedAfter, revokedBefore)
-		if err != nil {
-			return crs, getError(err, "Certificate")
+		if revokedBefore.IsZero() {
+			err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedSQL2),
+				sqlstruct.Columns(certdb.CertificateRecord{})), expiredAfter, expiredBefore, revokedAfter)
+		} else {
+			err = d.db.Select(&crs, fmt.Sprintf(d.db.Rebind(selectRevokedSQL3),
+				sqlstruct.Columns(certdb.CertificateRecord{})), expiredAfter, expiredBefore, revokedAfter, revokedBefore)
+
 		}
+	}
+
+	if err != nil {
+		return crs, getError(err, "Certificate")
 	}
 
 	return crs, nil
