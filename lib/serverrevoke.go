@@ -82,6 +82,11 @@ func revokeHandler(ctx *serverRequestContext) (interface{}, error) {
 				req.Serial, req.AKI, err)
 		}
 
+		if certificate.Status == "revoked" {
+			return nil, newHTTPErr(404, ErrCertAlreadyRevoked, "Certificate with serial %s and AKI %s was already revoked",
+				req.Serial, req.AKI)
+		}
+
 		if req.Name != "" && req.Name != certificate.ID {
 			return nil, newHTTPErr(400, ErrCertWrongOwner, "Certificate with serial %s and AKI %s is not owned by %s",
 				req.Serial, req.AKI, req.Name)
