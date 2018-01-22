@@ -439,7 +439,7 @@ func testRegister(c *Client, t *testing.T) {
 }
 
 func checkAttrResult(t *testing.T, name, val string, attrs *attrmgr.Attributes) {
-	v, ok, err := attrs.Value(name)
+	v, ok, err := attrs.Value(strings.ToLower(name))
 	if assert.NoError(t, err) {
 		if val == "" {
 			assert.False(t, ok, "attribute '%s' was found", name)

@@ -64,7 +64,7 @@ func testLDAP(proto string, port int, t *testing.T) {
 	if err == nil {
 		t.Errorf("ldap.User.Login passed but should have failed")
 	}
-	email, err := user.GetAttribute("mail")
+	email, err := user.GetAttribute("Mail")
 	assert.NoError(t, err, "failed getting mail attribute")
 	if email.GetValue() == "" {
 		t.Errorf("ldap.User.GetAttribute failed: no mail found")
