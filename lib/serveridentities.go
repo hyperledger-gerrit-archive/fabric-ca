@@ -517,7 +517,7 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 		log.Debugf("Attribute request: %+v", attr)
 		found := false
 		for i := range modifyAttrs {
-			if modifyAttrs[i].Name == attr.Name {
+			if modifyAttrs[i].GetName() == attr.GetName() {
 				if attr.Value == "" {
 					log.Debugf("Deleting attribute: %+v", modifyAttrs[i])
 					if i == len(modifyAttrs)-1 {

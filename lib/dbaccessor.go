@@ -776,7 +776,7 @@ func (d *Accessor) newDBUser(userRec *UserRecord) *DBUser {
 
 	user.attrs = make(map[string]api.Attribute)
 	for _, attr := range attrs {
-		user.attrs[attr.Name] = api.Attribute{
+		user.attrs[strings.ToLower(attr.Name)] = api.Attribute{
 			Name:  attr.Name,
 			Value: attr.Value,
 			ECert: attr.ECert,
@@ -922,7 +922,7 @@ func (u *DBUser) GetAffiliationPath() []string {
 
 // GetAttribute returns the value for an attribute name
 func (u *DBUser) GetAttribute(name string) (*api.Attribute, error) {
-	value, hasAttr := u.attrs[name]
+	value, hasAttr := u.attrs[strings.ToLower(name)]
 	if !hasAttr {
 		return nil, errors.Errorf("User does not have attribute '%s'", name)
 	}
@@ -941,11 +941,11 @@ func (u *DBUser) GetAttributes(attrNames []string) ([]api.Attribute, error) {
 	}
 
 	for _, name := range attrNames {
-		value, hasAttr := u.attrs[name]
-		if !hasAttr {
-			return nil, errors.Errorf("User does not have attribute '%s'", name)
+		value, err := u.GetAttribute(name)
+		if err != nil {
+			return nil, err
 		}
-		attrs = append(attrs, value)
+		attrs = append(attrs, *value)
 	}
 	return attrs, nil
 }

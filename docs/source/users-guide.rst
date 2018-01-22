@@ -1159,7 +1159,8 @@ during registration as follows:
         value is 'true', it is invalid because the hf.Revoker attribute is a boolean attribute
         and the registrar's value for the attribute is not 'true'.
 
-The table below lists all the attributes that can be registered for an identity.
+The table below lists all the attributes that can be registered for an identity. Attribute names
+are case insensitive.
 
 +-----------------------------+------------+------------------------------------------------------------------------------------------------------------+
 | Name                        | Type       | Description                                                                                                |
