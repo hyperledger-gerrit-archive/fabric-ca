@@ -18,6 +18,7 @@ package api
 
 import (
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
@@ -326,12 +327,17 @@ type Attribute struct {
 
 // GetName returns the name of the attribute
 func (a *Attribute) GetName() string {
-	return a.Name
+	return strings.ToLower(a.Name)
 }
 
 // GetValue returns the value of the attribute
 func (a *Attribute) GetValue() string {
 	return a.Value
+}
+
+// NameEquals returns true if attribute names are the same
+func (a *Attribute) NameEquals(compareName string) bool {
+	return strings.ToLower(a.Name) == strings.ToLower(compareName)
 }
 
 // AttributeRequest is a request for an attribute.
@@ -343,7 +349,7 @@ type AttributeRequest struct {
 
 // GetName returns the name of an attribute being requested
 func (ar *AttributeRequest) GetName() string {
-	return ar.Name
+	return strings.ToLower(ar.Name)
 }
 
 // IsRequired returns true if the attribute being requested is required

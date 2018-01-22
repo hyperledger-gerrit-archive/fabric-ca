@@ -414,6 +414,7 @@ func (u *user) GetAffiliationPath() []string {
 
 // GetAttribute returns the value of an attribute, or "" if not found
 func (u *user) GetAttribute(name string) (*api.Attribute, error) {
+	name = strings.ToLower(name)
 	expr := u.client.attrExprs[name]
 	if expr == nil {
 		log.Debugf("Getting attribute '%s' from LDAP user '%s'", name, u.name)

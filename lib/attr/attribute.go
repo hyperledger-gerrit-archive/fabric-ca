@@ -121,7 +121,7 @@ func initAttrs() map[string]*attributeControl {
 	booleanAttributes := []string{Revoker, IntermediateCA, GenCRL, AffiliationMgr}
 
 	for _, attr := range booleanAttributes {
-		attributeMap[attr] = &attributeControl{
+		attributeMap[strings.ToLower(attr)] = &attributeControl{
 			name:              attr,
 			requiresOwnership: true,
 			attrType:          BOOLEAN,
@@ -131,7 +131,7 @@ func initAttrs() map[string]*attributeControl {
 	listAttributes := []string{Roles, DelegateRoles, RegistrarAttr}
 
 	for _, attr := range listAttributes {
-		attributeMap[attr] = &attributeControl{
+		attributeMap[strings.ToLower(attr)] = &attributeControl{
 			name:              attr,
 			requiresOwnership: true,
 			attrType:          LIST,
@@ -141,7 +141,7 @@ func initAttrs() map[string]*attributeControl {
 	fixedValueAttributes := []string{EnrollmentID, Type, Affiliation}
 
 	for _, attr := range fixedValueAttributes {
-		attributeMap[attr] = &attributeControl{
+		attributeMap[strings.ToLower(attr)] = &attributeControl{
 			name:              attr,
 			requiresOwnership: false,
 			attrType:          FIXED,
@@ -177,7 +177,7 @@ func (ac *attributeControl) isRegistrarAuthorized(requestedAttr *api.Attribute, 
 		}
 		callersAttrValue = callersAttribute.GetValue()
 
-		log.Debugf("Checking if caller is authorized to register attribute '%s' with the requested value of '%s'", requestedAttrName, requestedAttr.GetValue)
+		log.Debugf("Checking if caller is authorized to register attribute '%s' with the requested value of '%s'", requestedAttrName, requestedAttr.GetValue())
 	}
 
 	switch ac.attrType {
@@ -285,9 +285,11 @@ func checkHfRegistrarAttrValues(reqAttr *api.Attribute, reqAttrs []api.Attribute
 }
 
 func canRegisterAttr(requestedAttrName string, callerRegisterAttrSlice []string) error {
-	log.Debug("Checking if registrar can register attribute: %s", requestedAttrName)
+	log.Debugf("Checking if registrar can register attribute: %s", requestedAttrName)
 
+	requestedAttrName = strings.ToLower(requestedAttrName)
 	for _, regAttr := range callerRegisterAttrSlice {
+		regAttr = strings.ToLower(regAttr)
 		if strings.HasSuffix(regAttr, "*") { // Wildcard matching
 			if strings.HasPrefix(requestedAttrName, strings.TrimRight(regAttr, "*")) {
 				return nil
@@ -322,7 +324,7 @@ func checkDelegateRoleValues(reqAttrs []api.Attribute, user AttributeControl) er
 }
 
 func getAttributeControl(attrName string) (*attributeControl, error) {
-	attrControl, found := attributeMap[attrName]
+	attrControl, found := attributeMap[strings.ToLower(attrName)]
 	if found {
 		return attrControl, nil
 	}
@@ -342,7 +344,7 @@ func getAttributeControl(attrName string) (*attributeControl, error) {
 // true if found
 func Exists(attrs []api.Attribute, name string) bool {
 	for _, attr := range attrs {
-		if attr.Name == name {
+		if attr.NameEquals(name) {
 			return true
 		}
 	}
@@ -353,7 +355,7 @@ func Exists(attrs []api.Attribute, name string) bool {
 // its value, or "" if not found.
 func GetAttrValue(attrs []api.Attribute, name string) string {
 	for _, attr := range attrs {
-		if attr.Name == name {
+		if attr.NameEquals(name) {
 			return attr.Value
 		}
 	}
