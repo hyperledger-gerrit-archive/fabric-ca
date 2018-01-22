@@ -17,6 +17,7 @@ limitations under the License.
 package attr
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/api"
@@ -39,13 +40,13 @@ func getUser(name string, attrs []api.Attribute) AttributeControl {
 func (tu *testUser) GetAttribute(name string) (*api.Attribute, error) {
 	attrs := make(map[string]api.Attribute)
 	for _, attr := range tu.attributes {
-		attrs[attr.Name] = api.Attribute{
+		attrs[strings.ToLower(attr.Name)] = api.Attribute{
 			Name:  attr.Name,
 			Value: attr.Value,
 			ECert: attr.ECert,
 		}
 	}
-	value, hasAttr := attrs[name]
+	value, hasAttr := attrs[strings.ToLower(name)]
 	if !hasAttr {
 		return nil, errors.Errorf("User does not have attribute '%s'", name)
 	}
@@ -525,4 +526,18 @@ func positiveTests(t *testing.T) {
 	user = nil
 	err = CanRegisterRequestedAttributes(requestedAttrs, user, registrar)
 	assert.NoError(t, err, "Should not fail, user being registered with 'hf.Revoker', must possess attribute to have as value for 'hf.Registrar.Attribute'")
+}
+
+func TestCaseInsensitiveAttr(t *testing.T) {
+	_, err := getAttributeControl("hf.Registrar.Roles")
+	assert.NoError(t, err, "Should not result in error, if using mix of uppercase and lowercase")
+
+	_, err = getAttributeControl("hf.registrar.roles")
+	assert.NoError(t, err, "Should not result in error, if using all lowercase")
+
+	_, err = getAttributeControl("hf.Revoker")
+	assert.NoError(t, err, "Should not result in error, if using mix of uppercase and lowercase")
+
+	_, err = getAttributeControl("hf.revoker")
+	assert.NoError(t, err, "Should not result in error, if using all lowercase")
 }

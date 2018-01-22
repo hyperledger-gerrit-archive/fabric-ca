@@ -855,7 +855,7 @@ signing:
 csr:
   keyrequest:
     algo: $KEYTYPE
-    size: $KEYLEN 
+    size: $KEYLEN
   names:
     - C: US
       ST: "North Carolina"

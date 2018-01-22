@@ -534,3 +534,72 @@ func TestAffiliationAndTypeCheck(t *testing.T) {
 	err = srv.Stop()
 	assert.NoError(t, err, "Failed to start server")
 }
+
+func TestCaseInsensitiveAttr(t *testing.T) {
+	os.RemoveAll(rootDir)
+	os.RemoveAll("../testdata/msp")
+	defer os.RemoveAll(rootDir)
+	defer os.RemoveAll("../testdata/msp")
+
+	var err error
+
+	srv := TestGetRootServer(t)
+	registry := &srv.CA.Config.Registry
+
+	// admin4 has 'hf.Registrar.Attributes' attribute but can only register 'hf.' attributes
+	id := CAConfigIdentity{
+		Name:           "admin2",
+		Pass:           "admin2pw",
+		Type:           "user",
+		Affiliation:    "org2",
+		MaxEnrollments: -1,
+		Attrs: map[string]string{
+			attr.Roles:          "user,peer,client",
+			attr.Revoker:        "true",
+			attr.IntermediateCA: "true",
+			attr.RegistrarAttr:  "hf.*",
+		},
+	}
+	registry.Identities = append(registry.Identities, id)
+
+	err = srv.Start()
+	util.FatalError(t, err, "Failed to start server")
+	defer srv.Stop()
+
+	client := getTestClient(rootPort)
+
+	enrollResp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin2",
+		Secret: "admin2pw",
+	})
+	util.FatalError(t, err, "Failed to enroll 'admin2' user")
+	registrar := enrollResp.Identity
+
+	_, err = registrar.Register(registerTestUser("user1",
+		[]api.Attribute{
+			api.Attribute{
+				Name:  "hf.revoker",
+				Value: "true",
+			},
+			api.Attribute{
+				Name:  "hf.intermediateca",
+				Value: "true",
+			},
+			api.Attribute{
+				Name:  "hf.registrar.roles",
+				Value: "peer,client",
+			},
+		}),
+	)
+	assert.NoError(t, err, "Should be able to register all lowercase 'hf.revoker'")
+
+	db := srv.CA.registry
+	user, err := db.GetUser("user1", nil)
+	assert.NoError(t, err, "Should not error, user should exist")
+
+	_, err = user.GetAttribute("hf.Revoker")
+	assert.NoError(t, err, "Should not error, should be able to get attribute regardless of casing")
+
+	_, err = user.GetAttribute("hf.revoker")
+	assert.NoError(t, err, "Should not error, should be able to get attribute if all lower case")
+}
