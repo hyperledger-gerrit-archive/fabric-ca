@@ -328,7 +328,7 @@ func (i *Identity) GetAllAffiliations(caname string, cb func(*json.Decoder) erro
 // AddAffiliation adds a new affiliation to the server
 func (i *Identity) AddAffiliation(req *api.AddAffiliationRequest) (*api.AffiliationResponse, error) {
 	log.Debugf("Entering identity.AddAffiliation with request: %+v", req)
-	if req.Info.Name == "" {
+	if req.Name == "" {
 		return nil, errors.New("Affiliation to add was not specified")
 	}
 
@@ -358,7 +358,7 @@ func (i *Identity) ModifyAffiliation(req *api.ModifyAffiliationRequest) (*api.Af
 		return nil, errors.New("Affiliation to modify was not specified")
 	}
 
-	if req.Info.Name == "" {
+	if req.NewName == "" {
 		return nil, errors.New("New affiliation not specified")
 	}
 

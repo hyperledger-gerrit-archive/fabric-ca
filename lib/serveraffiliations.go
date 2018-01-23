@@ -250,7 +250,7 @@ func getAffiliation(ctx *serverRequestContext, caller spi.User, requestedAffilia
 	resp := &api.AffiliationResponse{
 		CAName: caname,
 	}
-	resp.Info.Name = affiliation.GetName()
+	resp.Name = affiliation.GetName()
 
 	return resp, nil
 }
@@ -326,7 +326,7 @@ func processAffiliationPostRequest(ctx *serverRequestContext, caname string) (*a
 		return nil, err
 	}
 
-	addAffiliation := req.Info.Name
+	addAffiliation := req.Name
 	log.Debugf("Request to add affiliation '%s'", addAffiliation)
 
 	registry := ctx.ca.registry
@@ -387,9 +387,9 @@ func processAffiliationPostRequest(ctx *serverRequestContext, caname string) (*a
 	}
 
 	resp := &api.AffiliationResponse{
+		Name:   addAffiliation,
 		CAName: caname,
 	}
-	resp.Info.Name = addAffiliation
 
 	return resp, nil
 }
@@ -407,7 +407,7 @@ func processAffiliationPutRequest(ctx *serverRequestContext, caname string) (*ap
 	if err != nil {
 		return nil, err
 	}
-	newAffiliation := req.Info.Name
+	newAffiliation := req.NewName
 	log.Debugf("Request to modify affiliation '%s' to '%s'", modifyAffiliation, newAffiliation)
 
 	err = ctx.ContainsAffiliation(modifyAffiliation)
@@ -472,5 +472,19 @@ func getResponse(result *spi.DbTxResult, caname string) (*api.AffiliationWithIde
 		Affiliations: affInfo,
 		Identities:   idInfo,
 		CAName:       caname,
+	}, nil
+}
+
+func getIDInfo(user spi.User) (*api.IdentityInfo, error) {
+	allAttributes, err := user.GetAttributes(nil)
+	if err != nil {
+		return nil, err
+	}
+	return &api.IdentityInfo{
+		ID:             user.GetName(),
+		Type:           user.GetType(),
+		Affiliation:    GetUserAffiliation(user),
+		Attributes:     allAttributes,
+		MaxEnrollments: user.GetMaxEnrollments(),
 	}, nil
 }
