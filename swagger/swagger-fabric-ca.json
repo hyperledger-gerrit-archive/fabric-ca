@@ -1819,7 +1819,7 @@
                   ],
                   "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                 },
-                "name": {
+                "affiliation": {
                   "type": "string",
                   "description": "The affiliation path of the new identity.\n"
                 },
@@ -1858,7 +1858,7 @@
               },
               "required": [
                 "id",
-                "name",
+                "affiliation",
                 "attrs"
               ]
             }
@@ -1899,7 +1899,7 @@
                       ],
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
-                    "name": {
+                    "affiliation": {
                       "type": "string",
                       "description": "The affiliation path of the new identity.\n"
                     },
@@ -2044,7 +2044,7 @@
                       ],
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
-                    "name": {
+                    "affiliation": {
                       "type": "string",
                       "description": "The affiliation path of the new identity.\n"
                     },
@@ -2184,7 +2184,7 @@
                   ],
                   "description": "The new maximum number of times that the secret can be used to enroll.   \nIf -1, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                 },
-                "name": {
+                "affiliation": {
                   "type": "string",
                   "description": "The affiliation path of the identity.\n"
                 },
@@ -2261,9 +2261,9 @@
                       ],
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
-                    "name": {
+                    "affiliation": {
                       "type": "string",
-                      "description": "The affiliation path of the new identity.\n"
+                      "description": "The affiliation path of the identity.\n"
                     },
                     "attrs": {
                       "type": "array",
@@ -2389,6 +2389,10 @@
               "type": "object",
               "properties": {
                 "Success": {
+                  "type": "boolean",
+                  "description": "Boolean indicating if the request was successful."
+                },
+                "Result": {
                   "description": "The identity that was deleted.",
                   "type": "object",
                   "properties": {
@@ -2400,13 +2404,6 @@
                       "type": "string",
                       "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                     },
-                    "secret": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
-                      "description": "The enrollment secret.  If not provided, a random secret is generated."
-                    },
                     "max_enrollments": {
                       "type": [
                         "integer",
@@ -2414,9 +2411,9 @@
                       ],
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
-                    "name": {
+                    "affiliation": {
                       "type": "string",
-                      "description": "The affiliation path of the new identity.\n"
+                      "description": "The affiliation path of the identity.\n"
                     },
                     "attrs": {
                       "type": "array",
@@ -2450,7 +2447,7 @@
                   },
                   "required": [
                     "id",
-                    "name",
+                    "affiliation",
                     "attrs"
                   ]
                 },

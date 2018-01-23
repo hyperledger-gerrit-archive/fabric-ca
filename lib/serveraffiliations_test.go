@@ -120,7 +120,7 @@ func TestGetAffiliation(t *testing.T) {
 
 	getAffResp, err := admin.GetAffiliation("org2.dept1", "")
 	assert.NoError(t, err, "Failed to get requested affiliations")
-	assert.Equal(t, "org2.dept1", getAffResp.Info.Name)
+	assert.Equal(t, "org2.dept1", getAffResp.Name)
 
 	getAffResp, err = admin2.GetAffiliation("org1", "")
 	assert.Error(t, err, "Should have failed, caller not authorized to get affiliation")
@@ -180,8 +180,9 @@ func TestDynamicAddAffiliation(t *testing.T) {
 
 	admin2 := resp.Identity
 
-	addAffReq := &api.AddAffiliationRequest{}
-	addAffReq.Info.Name = "org3"
+	addAffReq := &api.AddAffiliationRequest{
+		Name: "org3",
+	}
 
 	addAffResp, err := notAffMgr.AddAffiliation(addAffReq)
 	assert.Error(t, err, "Should have failed, caller does not have 'hf.AffiliationMgr' attribute")
@@ -191,12 +192,12 @@ func TestDynamicAddAffiliation(t *testing.T) {
 
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	util.FatalError(t, err, "Failed to add affiliation 'org3'")
-	assert.Equal(t, "org3", addAffResp.Info.Name)
+	assert.Equal(t, "org3", addAffResp.Name)
 
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	assert.Error(t, err, "Should have failed affiliation 'org3' already exists")
 
-	addAffReq.Info.Name = "org3.dept1"
+	addAffReq.Name = "org3.dept1"
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	assert.NoError(t, err, "Failed to affiliation")
 
@@ -204,7 +205,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 	_, err = registry.GetAffiliation("org3.dept1")
 	assert.NoError(t, err, "Failed to add affiliation correctly")
 
-	addAffReq.Info.Name = "org4.dept1.team2"
+	addAffReq.Name = "org4.dept1.team2"
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	assert.Error(t, err, "Should have failed, parent affiliation does not exist. Force option is required")
 
@@ -217,7 +218,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 
 	_, err = registry.GetAffiliation("org4.dept1")
 	assert.NoError(t, err, "Failed to add affiliation correctly")
-	assert.Equal(t, "org4.dept1.team2", addAffResp.Info.Name)
+	assert.Equal(t, "org4.dept1.team2", addAffResp.Name)
 }
 
 func TestDynamicRemoveAffiliation(t *testing.T) {
@@ -376,9 +377,9 @@ func TestDynamicModifyAffiliation(t *testing.T) {
 	})
 
 	modifyAffReq := &api.ModifyAffiliationRequest{
-		Name: "org2",
+		Name:    "org2",
+		NewName: "org3",
 	}
-	modifyAffReq.Info.Name = "org3"
 
 	_, err = admin.ModifyAffiliation(modifyAffReq)
 	assert.Error(t, err, "Should have failed, there is an identity associated with affiliation. Need to use force option")

@@ -698,6 +698,20 @@ func TestIdentityCmd(t *testing.T) {
 	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
+	// modify user secret using flags
+	err = RunMain([]string{
+		cmdName, "identity", "modify", "testuser2", "--secret", "user2pw2"})
+	assert.NoError(t, err, "Failed to add user 'testuser2'")
+
+	// Check that the secret got correctly configured
+	err = RunMain([]string{
+		cmdName, "enroll", "-u", "http://testuser2:user2pw2@localhost:7090", "-d"})
+	assert.NoError(t, err, "Failed to enroll user 'testuser2'")
+
+	// Enroll admin back to use it credentials for next commands
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	util.FatalError(t, err, "Failed to enroll user")
+
 	registry := server.CA.DBAccessor()
 	user, err := registry.GetUser("testuser1", nil)
 	assert.NoError(t, err, "Failed to get user 'testuser1'")
