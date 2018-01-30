@@ -853,6 +853,16 @@ func TestAffiliationCmd(t *testing.T) {
 	_, err = registry.GetAffiliation("org3")
 	assert.NoError(t, err, "Failed to rename 'org1' to 'org3' successfully")
 
+	err = RunMain([]string{
+		cmdName, "affiliation", "remove", "org4"})
+	assert.Error(t, err, "Should have failed, no force argument provided and deleted org had sub-affiliations")
+
+	// if previous test failed, don't bother with the next one
+	if err != nil {
+		err = RunMain([]string{
+			cmdName, "affiliation", "remove", "org4", "--force"})
+		assert.NoError(t, err, "Failed to remove org with force argument")
+	}
 }
 
 // Verify the certificate has attribute 'name' with a value of 'val'
