@@ -116,7 +116,7 @@ func createAllSQLiteTables(tx *sqlx.Tx, args ...interface{}) error {
 
 func createSQLiteIdentityTable(tx *sqlx.Tx) error {
 	log.Debug("Creating users table if it does not exist")
-	if _, err := tx.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(255), token bytea, type VARCHAR(256), affiliation VARCHAR(1024), attributes TEXT, state INTEGER,  max_enrollments INTEGER, level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := tx.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(255), token bytea, type VARCHAR(256), affiliation VARCHAR(1024), attributes TEXT, state INTEGER,  max_enrollments INTEGER, level INTEGER DEFAULT 0, PRIMARY KEY(id))"); err != nil {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	return nil
@@ -124,7 +124,7 @@ func createSQLiteIdentityTable(tx *sqlx.Tx) error {
 
 func createSQLiteAffiliationTable(tx *sqlx.Tx) error {
 	log.Debug("Creating affiliations table if it does not exist")
-	if _, err := tx.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL UNIQUE, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := tx.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0, PRIMARY KEY(name))	"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
 	return nil
@@ -220,11 +220,11 @@ func createPostgresDatabase(dbName string, db *sqlx.DB) error {
 // createPostgresDB creates postgres database
 func createPostgresTables(dbName string, db *sqlx.DB) error {
 	log.Debug("Creating users table if it does not exist")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(255), token bytea, type VARCHAR(256), affiliation VARCHAR(1024), attributes TEXT, state INTEGER,  max_enrollments INTEGER, level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(255), token bytea, type VARCHAR(256), affiliation VARCHAR(1024), attributes TEXT, state INTEGER,  max_enrollments INTEGER, level INTEGER DEFAULT 0, PRIMARY KEY(id))"); err != nil {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Creating affiliations table if it does not exist")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL UNIQUE, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0, PRIMARY KEY(name))"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
 	log.Debug("Creating certificates table if it does not exist")
@@ -310,7 +310,7 @@ func createMySQLTables(dbName string, db *sqlx.DB) error {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Creating affiliations table if it doesn't exist")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0, PRIMARY KEY (name))"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
 	log.Debug("Creating index on 'name' in the affiliations table")
