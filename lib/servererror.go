@@ -163,6 +163,8 @@ const (
 	ErrDBDeleteUser = 65
 	// Certificate that is being revoked has already been revoked
 	ErrCertAlreadyRevoked = 66
+	// Attribute with same name requested twice
+	ErrDuplicateAttrReq = 67
 )
 
 // Construct a new HTTP error.
