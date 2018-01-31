@@ -310,7 +310,7 @@ func createMySQLTables(dbName string, db *sqlx.DB) error {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Creating affiliations table if it doesn't exist")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL UNIQUE, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
 	log.Debug("Creating index on 'name' in the affiliations table")
