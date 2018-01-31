@@ -18,9 +18,11 @@ package lib
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -836,7 +838,83 @@ func TestDynamicWithMultCA(t *testing.T) {
 	if resp2.CAName != "rootca2" {
 		t.Error("Failed to get response back from the right ca")
 	}
+}
 
+func TestDuplicateAttr(t *testing.T) {
+	os.RemoveAll(rootDir)
+	os.RemoveAll("../testdata/msp")
+	defer os.RemoveAll(rootDir)
+	defer os.RemoveAll("../testdata/msp")
+
+	var err error
+
+	srv := TestGetRootServer(t)
+
+	err = srv.Start()
+	util.FatalError(t, err, "Failed to start server")
+	defer srv.Stop()
+
+	client := getTestClient(rootPort)
+
+	enrollResp, err := client.Enroll(&api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+	})
+	util.FatalError(t, err, "Failed to enroll 'admin2' user")
+	registrar := enrollResp.Identity
+
+	_, err = registrar.AddIdentity(&api.AddIdentityRequest{
+		ID: "user1",
+		Attributes: []api.Attribute{
+			api.Attribute{
+				Name:  "hf.Revoker",
+				Value: "true",
+			},
+			api.Attribute{
+				Name:  "hf.IntermediateCA",
+				Value: "true",
+			},
+			api.Attribute{
+				Name:  "hf.IntermediateCA",
+				Value: "false",
+			},
+		},
+	})
+	if assert.Error(t, err, "Should not be able to add user with attributes with duplicate attribute names") {
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrDuplicateAttrReq))
+	}
+
+	_, err = registrar.AddIdentity(&api.AddIdentityRequest{
+		ID: "user1",
+		Attributes: []api.Attribute{
+			api.Attribute{
+				Name:  "hf.IntermediateCA",
+				Value: "true",
+			},
+		},
+	})
+	assert.NoError(t, err, "Failed to add user")
+
+	_, err = registrar.ModifyIdentity(&api.ModifyIdentityRequest{
+		ID: "user1",
+		Attributes: []api.Attribute{
+			api.Attribute{
+				Name:  "hf.Revoker",
+				Value: "true",
+			},
+			api.Attribute{
+				Name:  "hf.Revoker",
+				Value: "false",
+			},
+			api.Attribute{
+				Name:  "hf.IntermediateCA",
+				Value: "false",
+			},
+		},
+	})
+	if assert.Error(t, err, "Should not be able to modify user with attributes with duplicate attribute names") {
+		assert.Contains(t, err.Error(), fmt.Sprintf("%d", ErrDuplicateAttrReq))
+	}
 }
 
 func cleanMultiCADir(t *testing.T) {

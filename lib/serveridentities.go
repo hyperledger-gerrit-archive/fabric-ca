@@ -397,7 +397,11 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 	}
 
 	var checkAff, checkType, checkAttrs bool
-	modReq, setPass := getModifyReq(userToModify, &req)
+	modReq, setPass, err := getModifyReq(userToModify, &req)
+	if err != nil {
+		return nil, err
+	}
+
 	log.Debugf("Modify Request: %+v", util.StructToString(modReq))
 
 	if req.Affiliation != "" {
@@ -445,7 +449,9 @@ func processPutRequest(ctx *serverRequestContext, caname string) (*api.IdentityR
 
 // Function takes the modification request and fills in missing information with the current user information
 // and parses the modification request to generate the correct input to be stored in the database
-func getModifyReq(user spi.User, req *api.ModifyIdentityRequest) (*spi.UserInfo, bool) {
+func getModifyReq(user spi.User, req *api.ModifyIdentityRequest) (*spi.UserInfo, bool, error) {
+	var err error
+
 	modifyUserInfo := user.(*DBUser).UserInfo
 	userPass := user.(*DBUser).pass
 	setPass := false
@@ -479,10 +485,13 @@ func getModifyReq(user spi.User, req *api.ModifyIdentityRequest) (*spi.UserInfo,
 
 	// Update existing attribute, or add attribute if it does not already exist
 	if len(reqAttrs) != 0 {
-		modifyUserInfo.Attributes = getNewAttributes(modifyUserInfo.Attributes, reqAttrs)
+		modifyUserInfo.Attributes, err = getNewAttributes(modifyUserInfo.Attributes, reqAttrs)
+		if err != nil {
+			return nil, false, err
+		}
 	}
 
-	return &modifyUserInfo, setPass
+	return &modifyUserInfo, setPass, nil
 }
 
 // Get the identity response
@@ -507,7 +516,12 @@ func getIDResp(user spi.User, secret, caname string) (*api.IdentityResponse, err
 }
 
 // Update existing attribute, or add attribute if it does not already exist
-func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
+func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) ([]api.Attribute, error) {
+	err := checksDupAttrNames(newAttrs)
+	if err != nil {
+		return nil, err
+	}
+
 	var attr api.Attribute
 	for _, attr = range newAttrs {
 		log.Debugf("Attribute request: %+v", attr)
@@ -535,5 +549,5 @@ func getNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 			modifyAttrs = append(modifyAttrs, attr)
 		}
 	}
-	return modifyAttrs
+	return modifyAttrs, nil
 }
