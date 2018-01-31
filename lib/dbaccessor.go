@@ -130,6 +130,11 @@ func (d *Accessor) InsertUser(user *spi.UserInfo) error {
 		return err
 	}
 
+	err = checksDupAttrNames(user.Attributes)
+	if err != nil {
+		return err
+	}
+
 	attrBytes, err := json.Marshal(user.Attributes)
 	if err != nil {
 		return err
@@ -740,15 +745,22 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 				// If user's affiliation is being updated, need to also update 'hf.Affiliation' attribute of user
 				for _, userRec := range idsWithOldAff {
 					user := d.newDBUser(&userRec)
-					currentAttrs, _ := user.GetAttributes(nil)                            // Get all current user attributes
+					currentAttrs, err := user.GetAttributes(nil) // Get all current user attributes
+					if err != nil {
+						return nil, err
+					}
 					userAff := GetUserAffiliation(user)                                   // Get the current affiliation
 					newAff := strings.Replace(userAff, oldAffiliation, newAffiliation, 1) // Replace old affiliation with new affiliation
-					userAttrs := getNewAttributes(currentAttrs, []api.Attribute{          // Generate the new set of attributes for user
+
+					userAttrs, err := getNewAttributes(currentAttrs, []api.Attribute{ // Generate the new set of attributes for user
 						api.Attribute{
 							Name:  attr.Affiliation,
 							Value: newAff,
 						},
 					})
+					if err != nil {
+						return nil, err
+					}
 
 					attrBytes, err := json.Marshal(userAttrs)
 					if err != nil {
@@ -1090,7 +1102,10 @@ func (u *DBUser) Revoke() error {
 func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute) error {
 	log.Debugf("Modify Attributes: %+v", newAttrs)
 	currentAttrs, _ := u.GetAttributes(nil)
-	userAttrs := getNewAttributes(currentAttrs, newAttrs)
+	userAttrs, err := getNewAttributes(currentAttrs, newAttrs)
+	if err != nil {
+		return err
+	}
 
 	attrBytes, err := json.Marshal(userAttrs)
 	if err != nil {
@@ -1124,4 +1139,27 @@ func getError(err error, getType string) error {
 		return newHTTPErr(404, ErrDBGet, "Failed to get %s: %s", getType, err)
 	}
 	return newHTTPErr(504, ErrConnectingDB, "Failed to process database request: %s", err)
+}
+
+func checksDupAttrNames(attrs []api.Attribute) error {
+	dupAttrsNames := make(map[string]string) // Map used to store only unique duplicate names
+	for _, attr := range attrs {
+		found := 0
+		for _, attr2 := range attrs {
+			if attr.Name == attr2.Name {
+				found++
+			}
+		}
+		if found > 1 { // If found more than once, this is a duplicate attribute
+			dupAttrsNames[attr.GetName()] = attr.GetName()
+		}
+	}
+	if len(dupAttrsNames) > 0 {
+		nameList := []string{}
+		for name := range dupAttrsNames {
+			nameList = append(nameList, name)
+		}
+		return newHTTPErr(400, ErrDuplicateAttrReq, "The attributes '%s' are present multiple times; can't request multiple attributes with same name", nameList)
+	}
+	return nil
 }
