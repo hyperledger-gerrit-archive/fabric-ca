@@ -753,15 +753,22 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 				// If user's affiliation is being updated, need to also update 'hf.Affiliation' attribute of user
 				for _, userRec := range idsWithOldAff {
 					user := d.newDBUser(&userRec)
-					currentAttrs, _ := user.GetAttributes(nil)                            // Get all current user attributes
+					currentAttrs, err := user.GetAttributes(nil) // Get all current user attributes
+					if err != nil {
+						return nil, err
+					}
 					userAff := GetUserAffiliation(user)                                   // Get the current affiliation
 					newAff := strings.Replace(userAff, oldAffiliation, newAffiliation, 1) // Replace old affiliation with new affiliation
-					userAttrs := getNewAttributes(currentAttrs, []api.Attribute{          // Generate the new set of attributes for user
+
+					userAttrs, err := getNewAttributes(currentAttrs, []api.Attribute{ // Generate the new set of attributes for user
 						api.Attribute{
 							Name:  attr.Affiliation,
 							Value: newAff,
 						},
 					})
+					if err != nil {
+						return nil, err
+					}
 
 					attrBytes, err := json.Marshal(userAttrs)
 					if err != nil {
@@ -1103,7 +1110,10 @@ func (u *DBUser) Revoke() error {
 func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute) error {
 	log.Debugf("Modify Attributes: %+v", newAttrs)
 	currentAttrs, _ := u.GetAttributes(nil)
-	userAttrs := getNewAttributes(currentAttrs, newAttrs)
+	userAttrs, err := getNewAttributes(currentAttrs, newAttrs)
+	if err != nil {
+		return err
+	}
 
 	attrBytes, err := json.Marshal(userAttrs)
 	if err != nil {

@@ -90,7 +90,7 @@ func registerUser(req *api.RegistrationRequest, registrar string, ca *CA, ctx *s
 		return "", err
 	}
 
-	secret, err := registerUserID(req, ca)
+	secret, err := registerUserID(req, ctx)
 
 	if err != nil {
 		return "", errors.WithMessage(err, fmt.Sprintf("Registration of '%s' failed", req.Name))
@@ -134,7 +134,7 @@ func validateID(req *api.RegistrationRequest, ca *CA) error {
 }
 
 // registerUserID registers a new user and its enrollmentID, role and state
-func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
+func registerUserID(req *api.RegistrationRequest, ctx *serverRequestContext) (string, error) {
 	log.Debugf("Registering user id: %s\n", req.Name)
 	var err error
 
@@ -142,7 +142,7 @@ func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 		req.Secret = util.RandomString(12)
 	}
 
-	req.MaxEnrollments, err = getMaxEnrollments(req.MaxEnrollments, ca.Config.Registry.MaxEnrollments)
+	req.MaxEnrollments, err = getMaxEnrollments(req.MaxEnrollments, ctx.ca.Config.Registry.MaxEnrollments)
 	if err != nil {
 		return "", err
 	}
@@ -160,17 +160,17 @@ func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 		Affiliation:    req.Affiliation,
 		Attributes:     req.Attributes,
 		MaxEnrollments: req.MaxEnrollments,
-		Level:          ca.server.levels.Identity,
+		Level:          ctx.ca.server.levels.Identity,
 	}
 
-	registry := ca.registry
+	registry := ctx.ca.registry
 
 	_, err = registry.GetUser(req.Name, nil)
 	if err == nil {
 		return "", errors.Errorf("Identity '%s' is already registered", req.Name)
 	}
 
-	err = registry.InsertUser(&insert)
+	err = ctx.InsertUser(&insert)
 	if err != nil {
 		return "", err
 	}

@@ -846,6 +846,10 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 		MaxEnrollments: id.MaxEnrollments,
 		Level:          ca.levels.Identity,
 	}
+	err = checkDupAttrNames(rec.Attributes)
+	if err != nil {
+		return err
+	}
 	err = ca.registry.InsertUser(&rec)
 	if err != nil {
 		return errors.WithMessage(err, fmt.Sprintf("Failed to insert identity '%s'", id.Name))

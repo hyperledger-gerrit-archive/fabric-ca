@@ -601,6 +601,23 @@ func (ctx *serverRequestContext) GetBoolQueryParm(name string) (bool, error) {
 	return value, nil
 }
 
+// InsertUser checks for duplicate attribute names, if no duplicates found, inserts user
+func (ctx *serverRequestContext) InsertUser(user *spi.UserInfo) error {
+	var err error
+
+	err = checkDupAttrNames(user.Attributes)
+	if err != nil {
+		return err
+	}
+
+	err = ctx.ca.registry.InsertUser(user)
+	if err != nil {
+		return errors.WithMessage(err, fmt.Sprintf("Failed to insert identity '%s'", user.Name))
+	}
+
+	return nil
+}
+
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
 	rtn := make([]attrmgr.AttributeRequest, len(attrReqs))
 	for i := range attrReqs {
@@ -637,4 +654,26 @@ func getDefaultAttrReqs(attrs []api.Attribute) []*api.AttributeRequest {
 		}
 	}
 	return reqs
+}
+
+func checkDupAttrNames(attrs []api.Attribute) error {
+	dupAttrsNames := make(map[string]bool) // Map used to store only unique duplicate names
+	for _, attr := range attrs {
+		name := attr.GetName()
+		if _, seen := dupAttrsNames[name]; seen {
+			dupAttrsNames[name] = true
+			continue
+		}
+		dupAttrsNames[name] = false
+	}
+	dupNameList := []string{}
+	for name, dup := range dupAttrsNames {
+		if dup {
+			dupNameList = append(dupNameList, name)
+		}
+	}
+	if len(dupNameList) > 0 {
+		return newHTTPErr(400, ErrDuplicateAttrReq, "The attributes '%s' are present multiple times; can't request multiple attributes with same name", dupNameList)
+	}
+	return nil
 }
