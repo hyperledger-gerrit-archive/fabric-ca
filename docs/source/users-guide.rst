@@ -503,7 +503,7 @@ MySQL as described below. Fabric CA supports the following database
 versions in a cluster setup:
 
 - PostgreSQL: 9.5.5 or later
-- MySQL: 5.17.16 or later
+- MySQL: 5.7 or later
 
 PostgreSQL
 ^^^^^^^^^^
@@ -1983,6 +1983,17 @@ Troubleshooting
 
       Assuming that you can not recover the original CA signing key, the only way to recover from this scenario is to update the
       certificate in the `cacerts` (or `intermediatecerts`) of the appropriate MSPs to the new CA certificate.
+
+5. If you see the error ``"Error creating affiliations table: Error 1071: Specified key was too long; max key length is 767 bytes"``
+   in the Fabric CA server log, it is because the MySQL server tried to create primary index on the 'name' column,
+   which is a varchar(1024), but MySQL server has index key prefix limit of 767 bytes. To fix this error, increase the key prefix
+   limit to 3072 bytes, by setting the following properties in the MySQL configuration file:
+
+   | innodb_file_format=Barracuda
+   | innodb_large_prefix=1
+   | innodb_file_per_table=true
+
+   For more information on these properties refer to MySQL Reference Manual at https://dev.mysql.com/doc/refman/5.7/en/
 
 .. Licensed under Creative Commons Attribution 4.0 International License
    https://creativecommons.org/licenses/by/4.0/
