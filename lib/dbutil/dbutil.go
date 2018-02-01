@@ -310,7 +310,7 @@ func createMySQLTables(dbName string, db *sqlx.DB) error {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Creating affiliations table if it doesn't exist")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (id INT NOT NULL AUTO_INCREMENT, name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0, PRIMARY KEY (id))"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
 	log.Debug("Creating index on 'name' in the affiliations table")
@@ -618,10 +618,22 @@ func updateMySQLSchema(db *sqlx.DB) error {
 			return err
 		}
 	}
+	_, err = db.Exec("ALTER TABLE affiliations ADD COLUMN id INT NOT NULL PRIMARY KEY AUTO_INCREMENT FIRST")
+	if err != nil {
+		if !strings.Contains(err.Error(), "1060") { // Already using the latest schema
+			return err
+		}
+	}
 	_, err = db.Exec("ALTER TABLE affiliations MODIFY name VARCHAR(1024), MODIFY prekey VARCHAR(1024)")
 	if err != nil {
 		return err
 	}
+	// _, err = db.Exec("ALTER TABLE affiliations ADD PRIMARY KEY (id)")
+	// if err != nil {
+	// 	if !strings.Contains(err.Error(), "1068") { // Indicates that primary key is already defined
+	// 		return err
+	// 	}
+	// }
 	_, err = db.Exec("ALTER TABLE affiliations ADD INDEX name_index (name)")
 	if err != nil {
 		if !strings.Contains(err.Error(), "Error 1061") { // Error 1061: Duplicate key name, index already exists
