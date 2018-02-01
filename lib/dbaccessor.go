@@ -430,7 +430,7 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select sub-affiliations of '%s': %s", allAffs, err)
 	}
 	allAffs = append(allAffs, aff)
-	log.Debug("All affiliations to be removed: ", allAffs)
+	log.Debugf("All affiliations to be removed: %s", allAffs)
 
 	// Delete the requested affiliation
 	_, err = tx.Exec(tx.Rebind(deleteAffiliation), name)
