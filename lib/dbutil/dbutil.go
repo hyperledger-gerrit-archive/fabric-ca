@@ -310,7 +310,7 @@ func createMySQLTables(dbName string, db *sqlx.DB) error {
 		return errors.Wrap(err, "Error creating users table")
 	}
 	log.Debug("Creating affiliations table if it doesn't exist")
-	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0)"); err != nil {
+	if _, err := db.Exec("CREATE TABLE IF NOT EXISTS affiliations (name VARCHAR(1024) NOT NULL, prekey VARCHAR(1024), level INTEGER DEFAULT 0, PRIMARY KEY (name))"); err != nil {
 		return errors.Wrap(err, "Error creating affiliations table")
 	}
 	log.Debug("Creating index on 'name' in the affiliations table")
@@ -622,9 +622,9 @@ func updateMySQLSchema(db *sqlx.DB) error {
 	if err != nil {
 		return err
 	}
-	_, err = db.Exec("ALTER TABLE affiliations ADD INDEX name_index (name)")
+	_, err = db.Exec("ALTER TABLE affiliations ADD PRIMARY KEY (name)")
 	if err != nil {
-		if !strings.Contains(err.Error(), "Error 1061") { // Error 1061: Duplicate key name, index already exists
+		if !strings.Contains(err.Error(), "1068") { // Indicates that primary key is already defined
 			return err
 		}
 	}
