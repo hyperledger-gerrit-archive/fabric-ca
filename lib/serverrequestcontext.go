@@ -519,15 +519,21 @@ func (ctx *serverRequestContext) canActOnType(requestedType string) (bool, error
 		return false, newAuthErr(ErrRegAttrAuth, "'%s' is not allowed to manage users", caller.GetName())
 	}
 
+	if strings.Contains(typesStr, "*") {
+		return true, nil
+	}
+
 	var types []string
 	if typesStr != "" {
 		types = strings.Split(typesStr, ",")
 	} else {
 		types = make([]string, 0)
 	}
-
+	if requestedType == "" {
+		requestedType = "client"
+	}
 	if !util.StrContained(requestedType, types) {
-		log.Debug("Caller with types '%s' is not authorized to act on '%s'", types, requestedType)
+		log.Debugf("Caller with types '%s' is not authorized to act on '%s'", types, requestedType)
 		return false, nil
 	}
 
