@@ -36,6 +36,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	libtls "github.com/hyperledger/fabric-ca/lib/tls"
@@ -166,6 +167,26 @@ func TestSRVRootServer(t *testing.T) {
 	if server == nil {
 		return
 	}
+
+	id := CAConfigIdentity{
+		Name:           "admin2",
+		Pass:           "admin2pw",
+		Type:           "user",
+		Affiliation:    "",
+		MaxEnrollments: 0,
+		Attrs: map[string]string{
+			attr.Roles:          "peer,orderer,client,user",
+			attr.DelegateRoles:  "peer,orderer,client,user",
+			attr.Revoker:        "true",
+			attr.IntermediateCA: "true",
+			attr.GenCRL:         "true",
+			attr.RegistrarAttr:  "*",
+			attr.AffiliationMgr: "true",
+		},
+	}
+	registry := &server.CA.Config.Registry
+	registry.Identities = append(registry.Identities, id)
+
 	err = server.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
@@ -193,11 +214,11 @@ func TestSRVRootServer(t *testing.T) {
 	// Enroll request
 	client := getRootClient()
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
+		Name:   "admin2",
+		Secret: "admin2pw",
 	})
 	if err != nil {
-		t.Fatalf("Failed to enroll admin/adminpw: %s", err)
+		t.Fatalf("Failed to enroll admin2/admin2pw: %s", err)
 	}
 	admin = eresp.Identity
 	// test registration permissions wrt roles and affiliation
@@ -232,7 +253,7 @@ func TestSRVRootServer(t *testing.T) {
 	}
 	// The admin ID should have 1 cert in the DB now
 	dba := server.CA.CertDBAccessor()
-	recs, err = dba.GetCertificatesByID("admin")
+	recs, err = dba.GetCertificatesByID("admin2")
 	if err != nil {
 		t.Errorf("Could not get admin's certs from DB: %s", err)
 	}

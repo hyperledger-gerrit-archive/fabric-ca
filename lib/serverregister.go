@@ -19,7 +19,6 @@ package lib
 import (
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/pkg/errors"
 
@@ -197,26 +196,10 @@ func isValidAffiliation(affiliation string, ca *CA) error {
 func canRegister(registrar spi.User, req *api.RegistrationRequest, ctx *serverRequestContext) error {
 	log.Debugf("canRegister - Check to see if user '%s' can register", registrar.GetName())
 
-	var roles []string
-	rolesStr, isRegistrar, err := ctx.isRegistrar()
+	err := ctx.CanActOnType(req.Type)
 	if err != nil {
 		return err
 	}
-	if !isRegistrar {
-		return errors.Errorf("'%s' does not have authority to register identities", registrar)
-	}
-	if rolesStr != "" {
-		roles = strings.Split(rolesStr, ",")
-	} else {
-		roles = make([]string, 0)
-	}
-	if req.Type == "" {
-		req.Type = "client"
-	}
-	if !util.StrContained(req.Type, roles) {
-		return fmt.Errorf("Identity '%s' may not register type '%s'", registrar, req.Type)
-	}
-
 	// Check that the affiliation requested is of the appropriate level
 	err = validateAffiliation(req, ctx)
 	if err != nil {
