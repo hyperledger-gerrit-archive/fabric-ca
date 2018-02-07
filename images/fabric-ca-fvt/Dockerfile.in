@@ -46,6 +46,7 @@ RUN $FABRIC_CA_DATA/mysql_setup.sh
 # Install fabric-ca dependencies
 RUN go get github.com/go-sql-driver/mysql
 RUN go get github.com/lib/pq
+RUN go get github.com/stripe/safesql
 
 # Add docker-built execs for (potentially) alternative architecture
 COPY payload/fabric-ca-client payload/fabric-ca-server /usr/local/bin/
