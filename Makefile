@@ -29,7 +29,7 @@
 #   - bench-clean - Removes all benchmark related files
 #   - benchcmp - Compares benchmarks results of current and previous release
 #   - clean - cleans the build area
-
+# TEST CHANGE
 PROJECT_NAME   = fabric-ca
 BASE_VERSION = 1.1.0-beta
 PREV_VERSION = 1.1.0-alpha
