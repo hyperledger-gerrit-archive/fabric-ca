@@ -36,7 +36,7 @@ PREV_VERSION = 1.1.0-alpha
 IS_RELEASE = false
 
 ARCH=$(shell uname -m)
-
+MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 ifneq ($(IS_RELEASE),true)
 EXTRA_VERSION ?= snapshot-$(shell git rev-parse --short HEAD)
 PROJECT_VERSION=$(BASE_VERSION)-$(EXTRA_VERSION)
@@ -63,6 +63,9 @@ export GO_LDFLAGS
 
 IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-orderer $(PROJECT_NAME)-peer $(PROJECT_NAME)-tools
 FVTIMAGE = $(PROJECT_NAME)-fvt
+
+RELEASE_PLATFORMS = windows-amd64 darwin-amd64 linux-amd64 linux-ppc64le linux-s390x
+RELEASE_PKGS = fabric-ca-client fabric-ca-server
 
 path-map.fabric-ca-client := ./cmd/fabric-ca-client
 path-map.fabric-ca-server := ./cmd/fabric-ca-server
@@ -217,9 +220,76 @@ ci-tests: docker-clean docker-fvt unit-tests docs
 docker-clean: $(patsubst %,%-docker-clean, $(IMAGES) $(PROJECT_NAME)-fvt)
 	@rm -rf build/docker/bin/* ||:
 
-.PHONY: clean
+native: fabric-ca-client fabric-ca-server
 
-clean: docker-clean
+release: $(patsubst %,release/%, $(MARCH))
+release-all: $(patsubst %,release/%, $(RELEASE_PLATFORMS))
+
+release/windows-amd64: GOOS=windows
+release/windows-amd64: $(patsubst %,release/windows-amd64/bin/%, $(RELEASE_PKGS))
+
+release/darwin-amd64: GOOS=darwin
+release/darwin-amd64: $(patsubst %,release/darwin-amd64/bin/%, $(RELEASE_PKGS))
+
+release/linux-amd64: GOOS=linux
+release/linux-amd64: $(patsubst %,release/linux-amd64/bin/%, $(RELEASE_PKGS))
+
+release/%-amd64: DOCKER_ARCH=x86_64
+release/%-amd64: GOARCH=amd64
+release/linux-%: GOOS=linux
+
+release/linux-ppc64le: GOARCH=ppc64le
+release/linux-ppc64le: DOCKER_ARCH=ppc64le
+release/linux-ppc64le: $(patsubst %,release/linux-ppc64le/bin/%, $(RELEASE_PKGS))
+
+release/linux-s390x: GOARCH=s390x
+release/linux-s390x: DOCKER_ARCH=s390x
+release/linux-s390x: $(patsubst %,release/linux-s390x/bin/%, $(RELEASE_PKGS))
+
+release/%/bin/fabric-ca-client: $(GO_SOURCE)
+	@echo "Building $@ for $(GOOS)-$(GOARCH)"
+	mkdir -p $(@D)
+	$(CGO_FLAGS) GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(abspath $@) -ldflags "$(GO_LDFLAGS)" $(path-map.$(@F))
+
+release/%/bin/fabric-ca-server: $(GO_SOURCE)
+	@echo "Building $@ for $(GOOS)-$(GOARCH)"
+	mkdir -p $(@D)
+	$(CGO_FLAGS) GOOS=$(GOOS) GOARCH=$(GOARCH) go build -o $(abspath $@) -ldflags "$(GO_LDFLAGS)" $(path-map.$(@F))
+
+.PHONY: dist
+dist: dist-clean release
+	cd release/$(MARCH) && tar -czvf hyperledger-fabric-$(MARCH).$(PROJECT_VERSION).tar.gz *
+dist-all: dist-clean release-all $(patsubst %,dist/%, $(RELEASE_PLATFORMS))
+dist/windows-amd64:
+	cd release/windows-amd64 && tar -czvf hyperledger-fabric-windows-amd64.$(PROJECT_VERSION).tar.gz *
+dist/darwin-amd64:
+	cd release/darwin-amd64 && tar -czvf hyperledger-fabric-darwin-amd64.$(PROJECT_VERSION).tar.gz *
+dist/linux-amd64:
+	cd release/linux-amd64 && tar -czvf hyperledger-fabric-linux-amd64.$(PROJECT_VERSION).tar.gz *
+dist/linux-ppc64le:
+	cd release/linux-ppc64le && tar -czvf hyperledger-fabric-linux-ppc64le.$(PROJECT_VERSION).tar.gz *
+dist/linux-s390x:
+	cd release/linux-s390x && tar -czvf hyperledger-fabric-linux-s390x.$(PROJECT_VERSION).tar.gz *
+
+.PHONY: clean
+clean: docker-clean release-clean
 	-@rm -rf build bin ||:
+
+.PHONY: clean-all
+clean-all: clean dist-clean
+	-@rm -rf /var/hyperledger/* ||:
+
+%-release-clean:
+	$(eval TARGET = ${patsubst %-release-clean,%,${@}})
+	-@rm -rf release/$(TARGET)
+release-clean: $(patsubst %,%-release-clean, $(RELEASE_PLATFORMS))
+
+.PHONY: dist-clean
+dist-clean:
+	-@rm -rf release/windows-amd64/hyperledger-fabric-windows-amd64.$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/darwin-amd64/hyperledger-fabric-darwin-amd64.$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/linux-amd64/hyperledger-fabric-linux-amd64.$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/linux-ppc64le/hyperledger-fabric-linux-ppc64le.$(PROJECT_VERSION).tar.gz ||:
+	-@rm -rf release/linux-s390x/hyperledger-fabric-linux-s390x.$(PROJECT_VERSION).tar.gz ||:
 
 .FORCE:
