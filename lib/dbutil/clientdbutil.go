@@ -1,4 +1,4 @@
-// +build !caclient
+// +build caclient
 
 /*
 Copyright IBM Corp. 2016 All Rights Reserved.
@@ -28,12 +28,9 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/go-sql-driver/mysql"
-	_ "github.com/go-sql-driver/mysql" // import to support MySQL
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"           // import to support Postgres
-	_ "github.com/mattn/go-sqlite3" // import to support SQLite3
 )
 
 var (
