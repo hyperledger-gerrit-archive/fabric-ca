@@ -1,4 +1,4 @@
-// +build !nopkcs11
+// +build nopkcs11
 
 /*
 Copyright IBM Corp. 2017 All Rights Reserved.
@@ -106,9 +106,6 @@ func ConfigureBCCSP(optsPtr **factory.FactoryOpts, mspDir, homeDir string) error
 	log.Debugf("Initializing BCCSP: %+v", opts)
 	if opts.SwOpts != nil {
 		log.Debugf("Initializing BCCSP with software options %+v", opts.SwOpts)
-	}
-	if opts.Pkcs11Opts != nil {
-		log.Debugf("Initializing BCCSP with PKCS11 options %+v", opts.Pkcs11Opts)
 	}
 	// Init the BCCSP factories
 	err = factory.InitFactories(opts)
