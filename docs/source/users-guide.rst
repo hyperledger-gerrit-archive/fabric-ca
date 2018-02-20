@@ -56,8 +56,9 @@ Table of Contents
    5. `Revoking a certificate or identity`_
    6. `Generating a CRL (Certificate Revocation List)`_
    7. `Attribute-Based Access Control`_
-   8. `Enabling TLS`_
-   9. `Contact specific CA instance`_
+   8. `Dynamic Server Configuration Update`_
+   9. `Enabling TLS`_
+   10. `Contact specific CA instance`_
 
 6. `HSM`_
 
@@ -1957,6 +1958,211 @@ issuing the following command.
 .. code:: bash
 
     fabric-ca-client affiliation list
+
+Manage Certificates
+~~~~~~~~~~~~~~~~~~~~
+
+This section describes how to use fabric-ca-client to manage certificates. The
+following shows how to list and delete certificates.
+
+Listing certificates information
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The certificates that are visible to a caller include:
+
+  - Those certificates which belong to the caller
+  - If the caller possesses the 'hf.Registrar.Roles' attribute or the 'hf.Revoker' attribute with a value of 'true',
+    all certificates which belong to identities in and below the caller's affiliation. For example, if the client's
+    affiliation is "a.b", the client may get certificates for identities who's affiliation
+    is "a.b" or "a.b.c" but not "a" or "a.c".
+
+Note: Attribute and affiliation checks are not performed if listing certificates for one's own identity.
+
+If executing a list command that requests certificates of more than one identity, only certificates of identities
+with an affiliation that is equal to or heirachically below the caller's affilaition will be listed.
+
+The following command shows how to list certificates using various filters.
+
+List all certificates:
+
+.. code:: bash
+
+ fabric-ca-client certificate list
+
+List all certificates by id:
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin
+
+List certificate by serial and aki:
+
+.. code:: bash
+
+ fabric-ca-client certificate list --serial 1234 --aki 1234
+
+List certificate by id and serial/aki:
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --serial 1234 --aki 1234
+
+List certificates that are neither revoker nor expired by id:
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --notrevoked --notexpired
+
+List all certificates that have not been revoked for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --notrevoked
+
+List all certificates have not expired for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --notexpired
+
+List all certificates that were revoked between a time range for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --revocation 2018-01-01T01:30:00z::2018-01-30T05:00:00z
+
+List all certificates that were revoked between a time range but have not expired for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --revocation 2018-01-01::2018-01-30 --notexpired
+
+List all revoked certificates using duration (revoked between 30 days and 15 days ago) for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --revocation -30d::-15d
+
+List all revoked certificates before a time
+
+.. code:: bash
+
+ fabric-ca-client certificate list --revocation ::2018-01-30
+
+List all revoked certificates after a time
+
+.. code:: bash
+
+ fabric-ca-client certificate list --revocation 2018-01-30::
+
+List all revoked certificates before now and after a certain date (equivalent to command above)
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --revocation 2018-01-30::now
+
+List all certificate that expired between a time range but have not been revoked for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --expiration 2018-01-01::2018-01-30 --notrevoked
+
+List all expired certificates using duration (expired between 30 days and 15 days ago) for an id (admin):
+
+.. code:: bash
+
+ fabric-ca-client certificate list --expiration -30d::-15d
+
+List all certificates that have expired or will expire before a certain time
+
+.. code:: bash
+
+ fabric-ca-client certificate list --expiration ::2058-01-30
+
+List all certificates that have expired or will expire after a certain time
+
+.. code:: bash
+
+ fabric-ca-client certificate list --expiration 2018-01-30::
+
+List all expired certificates before now and after a certain date
+
+.. code:: bash
+
+ fabric-ca-client certificate list --expiration 2018-01-30::now
+
+List certificates expiring in the next 10 days:
+
+.. code:: bash
+
+ fabric-ca-client certificate list --id admin --expiration ::+10d --notrevoked
+
+Deleting a certificate
+"""""""""""""""""""""""""
+
+The expired certificates that a caller can delete:
+
+  - Those certificates which belong to the caller
+  - If the caller possesses the 'hf.Registrar.Roles' attribute or the 'hf.Revoker' attribute with a value of 'true',
+    all certificates which belong to identities in and below the caller's affiliation. For example, if the client's
+    affiliation is "a.b", the client may get certificates for identities who's affiliation
+    is "a.b" or "a.b.c" but not "a" or "a.c".
+
+Note: Attribute and affiliation checks are not peformed if deleting certificates for one's own identity.
+
+If executing a delete command that deletes certificates of more than one identity, only certificates of identities
+with an affiliation that is equal to heirachically below the caller's affilaition will be deleted.
+
+The following command shows how to delete certificates using various filters. If no expiration date
+is specified, by default certificates that expired more than 30 days ago will be deleted.
+
+Delete all expired certificates older than 30 days:
+
+.. code:: bash
+
+ fabric-ca-client certificate delete
+
+Delete all expired certificates that have expired 15 or more days ago:
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --expiration ::-15d
+
+Delete all expired certificates between this date range:
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --expiration 2018-01-01::2018-01-30
+
+Delete all expired certificates older than 30 days for a specific id (user1):
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --id user1
+
+Delete a specific expired certificate (30 day default does not apply):
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --serial 1234 --aki 1234
+
+Delete expired certificate for a specific id and a specific certificate (30 day default does not apply):
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --id user1 --serial 1234 --aki 1234
+
+Delete all expired certificates that have expired 15 or more days ago for an id:
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --id user1 --expiration ::-15d
+
+Delete all expired certificates before a specific date for an id:
+
+.. code:: bash
+
+ fabric-ca-client certificate delete --id user1 --expiration ::2018-01-01
 
 Contact specific CA instance
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
