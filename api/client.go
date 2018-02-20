@@ -313,6 +313,34 @@ type CSRInfo struct {
 	SerialNumber string           `json:"serial_number,omitempty"`
 }
 
+// GetCertificatesRequest represents the request to get certificates from the server
+// per the enrollment ID and/or AKI and Serial. If neither ID or AKI/Serial are
+// provided all certificates are returned. By default only active certificates are returned.
+// However, revoked and expired certificates can be requested by providing a time range.
+// By default, all active certificates will be always returned.
+type GetCertificatesRequest struct {
+	ID         string    `skip:"true"`                                    // Get certificates for this enrollment ID
+	AKI        string    `help:"Get certificates for this AKI"`           // Get certificate that matches this AKI
+	Serial     string    `help:"Get certificates for this serial number"` // Get certificate that matches this serial
+	Revoked    TimeRange `skip:"true"`                                    // Get revoked certificates between the specified time range
+	Expired    TimeRange `skip:"true"`                                    // Get expired certificates between the specified time range
+	NotExpired bool      `help:"Don't return expired certificates"`       // Don't return expired certificates
+	NotRevoked bool      `help:"Don't return revoked certificates"`       // Don't return revoked certificates
+	NotActive  bool      `help:"Don't return active certificates"`        // Don't return active certificates
+	CAName     string    `skip:"true"`                                    // Name of CA to send request to within the server
+}
+
+// CertificateResponse contains the response from Get or Delete certificate request.
+type CertificateResponse struct {
+	Certs []string `json:"certs"`
+}
+
+// TimeRange specifies a range of time
+type TimeRange struct {
+	StartTime string
+	EndTime   string
+}
+
 // BasicKeyRequest encapsulates size and algorithm for the key to be generated
 type BasicKeyRequest struct {
 	Algo string `json:"algo" yaml:"algo"`
