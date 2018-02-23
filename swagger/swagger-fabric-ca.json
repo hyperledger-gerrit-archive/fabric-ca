@@ -34,9 +34,7 @@
           "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
         },
         "max_enrollments": {
-          "type": [
-            "integer"
-          ],
+          "type": "integer",
           "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments; \nIf -1, infinite max enrollments. \nIf > configured max enrollments of the Fabric CA server, error."
         },
         "affiliation": {
@@ -117,7 +115,7 @@
         },
         "caname": {
           "type": "string",
-          "description": "The name of the root CA associated with this server."        
+          "description": "The name of the root CA associated with this server."
         }
       }
     }
@@ -247,24 +245,15 @@
                   "description": "A PEM-encoded string containing the CSR (Certificate Signing Request) based on PKCS #10."
                 },
                 "profile": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The name of the signing profile to use when issuing the certificate."
                 },
                 "label": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The label used in HSM operations"
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 },
                 "attr_reqs": {
@@ -400,24 +389,15 @@
                   "description": "A PEM-encoded string containing the CSR (Certificate Signing Request) based on PKCS #10."
                 },
                 "profile": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The name of the signing profile to use when issuing the certificate."
                 },
                 "label": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The label used in HSM operations"
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 },
                 "attr_reqs": {
@@ -557,17 +537,11 @@
                   "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                 },
                 "secret": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The enrollment secret.  If not provided, a random secret is generated."
                 },
                 "max_enrollments": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
+                  "type": "integer",
                   "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                 },
                 "affiliation": {
@@ -600,10 +574,7 @@
                   }
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 }
               },
@@ -719,45 +690,27 @@
               "type": "object",
               "properties": {
                 "id": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The enrollment ID of the identity whose certificates are to be revoked, including both enrollment certificates and transaction certificates. \nAll future enrollment attempts for this identity will be rejected.   \nIf this field is specified, the *serial* and *aki* fields are ignored."
                 },
                 "aki": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The Authority Key Identifier of the certificate which is to be revoked.   \nThe *serial* field must also be specified."
                 },
                 "serial": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The serial number of the certificate which is to be revoked.   \nThe *aki* (Authority Key Identifier) field must also be specified."
                 },
                 "reason": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The reason for revocation.   \nSee https://godoc.org/golang.org/x/crypto/ocsp for valid values.   \nThe default value is 0 (ocsp.Unspecified)."
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 },
                 "gencrl": {
-                  "type": [
-                    "boolean",
-                    "null"
-                  ],
+                  "type": "boolean",
                   "description": "When this request results in revoking one or more certificates, this boolean indicates whether to generate a CRL and return it in the response"
                 }
               }
@@ -884,38 +837,23 @@
               "type": "object",
               "properties": {
                 "revokedafter": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Include certificates that were revoked after this UTC timestamp (in RFC3339 format) in the CRL"
                 },
                 "revokedbefore": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Include certificates that were revoked before this UTC timestamp (in RFC3339 format) in the CRL"
                 },
                 "expireafter": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Include revoked certificates that expire after this UTC timestamp (in RFC3339 format) in the CRL"
                 },
                 "expirebefore": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Include revoked certificates that expire before this UTC timestamp (in RFC3339 format) in the CRL"
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to send the request to within the Fabric CA server."
                 }
               }
@@ -1123,10 +1061,7 @@
                   "description": "The affiliation path to create."
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to send the request to within the Fabric CA server."
                 }
               },
@@ -1158,7 +1093,10 @@
                       "description": "Name of the CA containing this affiliation."
                     }
                   },
-                  "required": [ "name", "caname" ]
+                  "required": [
+                    "name",
+                    "caname"
+                  ]
                 },
                 "Errors": {
                   "type": "array",
@@ -1353,14 +1291,13 @@
                   "description": "The new affiliation path."
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to send the request to within the Fabric CA server."
                 }
               },
-              "required": ["name"]
+              "required": [
+                "name"
+              ]
             }
           }
         ],
@@ -1579,10 +1516,7 @@
                             "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                           },
                           "max_enrollments": {
-                            "type": [
-                              "integer",
-                              "null"
-                            ],
+                            "type": "integer",
                             "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                           },
                           "name": {
@@ -1716,17 +1650,11 @@
                   "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                 },
                 "secret": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The enrollment secret.  If not provided, a random secret is generated."
                 },
                 "max_enrollments": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
+                  "type": "integer",
                   "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                 },
                 "affiliation": {
@@ -1759,10 +1687,7 @@
                   }
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 }
               },
@@ -1796,17 +1721,11 @@
                       "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                     },
                     "secret": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": "string",
                       "description": "The enrollment secret."
                     },
                     "max_enrollments": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ],
+                      "type": "integer",
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
                     "affiliation": {
@@ -1948,10 +1867,7 @@
                       "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                     },
                     "max_enrollments": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ],
+                      "type": "integer",
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
                     "affiliation": {
@@ -2081,17 +1997,11 @@
                   "description": "The new type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                 },
                 "secret": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "The new enrollment secret."
                 },
                 "max_enrollments": {
-                  "type": [
-                    "integer",
-                    "null"
-                  ],
+                  "type": "integer",
                   "description": "The new maximum number of times that the secret can be used to enroll.   \nIf -1, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                 },
                 "affiliation": {
@@ -2109,10 +2019,7 @@
                         "description": "Attribute name"
                       },
                       "value": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
+                        "type": "string",
                         "description": "Value of attribute"
                       },
                       "ecert": {
@@ -2126,10 +2033,7 @@
                   }
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 }
               }
@@ -2158,17 +2062,11 @@
                       "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                     },
                     "secret": {
-                      "type": [
-                        "string",
-                        "null"
-                      ],
+                      "type": "string",
                       "description": "The enrollment secret which is only present if the secret was updated in this request."
                     },
                     "max_enrollments": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ],
+                      "type": "integer",
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
                     "affiliation": {
@@ -2315,10 +2213,7 @@
                       "description": "The type of the identity (e.g. *user*, *app*, *peer*, *orderer*, etc)"
                     },
                     "max_enrollments": {
-                      "type": [
-                        "integer",
-                        "null"
-                      ],
+                      "type": "integer",
                       "description": "The maximum number of times that the secret can be used to enroll.   \nIf 0, use the configured max_enrollments of the fabric-ca-server; \nIf > 0 and <= configured max enrollments of the fabric-ca-server, use max_enrollments;   \nIf > configured max enrollments of the fabric-ca-server, error."
                     },
                     "affiliation": {
@@ -2463,10 +2358,7 @@
                   "description": "The number of nanoseconds each transaction certificate will be valid before expiration."
                 },
                 "caname": {
-                  "type": [
-                    "string",
-                    "null"
-                  ],
+                  "type": "string",
                   "description": "Name of the CA to direct traffic to within server."
                 }
               },
