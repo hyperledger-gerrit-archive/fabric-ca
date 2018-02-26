@@ -366,7 +366,7 @@ func testRegisterConfigFile(t *testing.T) {
 	t.Log("Testing Register CMD")
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 
-	err := RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin2:adminpw2@localhost:7054"})
+	err := RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin:adminpw@localhost:7054"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -411,7 +411,22 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	roleVal := "peer,user,client"
 	attributes := fmt.Sprintf("%s=%s,bar=c,\"%s=%s\"", fooName, fooVal, roleName, roleVal)
 
-	err := RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attrs", attributes})
+	err := RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin2:adminpw2@localhost:7054"})
+	if err != nil {
+		t.Errorf("client enroll -u failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attrs", attributes})
+	if err == nil {
+		t.Errorf("Should have failed, caller can't register affiliation 'hyperledger.org1'")
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin:adminpw@localhost:7054"})
+	if err != nil {
+		t.Errorf("client enroll -u failed: %s", err)
+	}
+
+	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister3", "--id.affiliation", "hyperledger.org1", "--id.type", "client", "--id.attrs", attributes})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
@@ -433,7 +448,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 		t.Errorf("Incorrect value returned for attribute '%s', expected '%s' got '%s'", roleName, roleVal, val)
 	}
 
-	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4", "--id.affiliation", "company2", "--id.type", "client"})
+	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4", "--id.affiliation", "hyperledger.org1", "--id.type", "client"})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
@@ -443,6 +458,11 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	err = RunMain([]string{cmdName, "register", "-u", "http://localhost:7055"})
 	if err == nil {
 		t.Error("Should have failed, client config file should have incorrect port (7055) for server")
+	}
+
+	err = RunMain([]string{cmdName, "enroll", "-d", "-c", "../../testdata/fabric-ca-client-config.yaml", "-u", "http://admin2:adminpw2@localhost:7054"})
+	if err != nil {
+		t.Errorf("client enroll -u failed: %s", err)
 	}
 
 	os.Remove(defYaml)
