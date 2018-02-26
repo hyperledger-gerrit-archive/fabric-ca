@@ -90,17 +90,11 @@ func (h *registerHandler) RegisterUser(req *api.RegistrationRequestNet, registra
 
 	if registrar != "" {
 		// Check the permissions of member named 'registrar' to perform this registration
-		err = h.canRegister(registrar, req.Type, caname)
+		err = h.canRegister(registrar, req, caname)
 		if err != nil {
 			log.Debugf("Registration of '%s' failed: %s", req.Name, err)
 			return "", err
 		}
-	}
-
-	err = h.validateID(req, caname)
-	if err != nil {
-		log.Debugf("Registration of '%s' failed: %s", req.Name, err)
-		return "", err
 	}
 
 	secret, err = h.registerUserID(req, caname)
@@ -111,19 +105,6 @@ func (h *registerHandler) RegisterUser(req *api.RegistrationRequestNet, registra
 	}
 
 	return secret, nil
-}
-
-func (h *registerHandler) validateID(req *api.RegistrationRequestNet, caname string) error {
-	log.Debug("Validate ID")
-	// Check whether the affiliation is required for the current user.
-	if h.requireAffiliation(req.Type) {
-		// If yes, is the affiliation valid
-		err := h.isValidAffiliation(req.Affiliation, caname)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // registerUserID registers a new user and its enrollmentID, role and state
@@ -174,33 +155,17 @@ func (h *registerHandler) registerUserID(req *api.RegistrationRequestNet, caname
 	return req.Secret, nil
 }
 
-func (h *registerHandler) isValidAffiliation(affiliation string, caname string) error {
-	log.Debug("Validating affiliation: " + affiliation)
-
-	_, err := h.server.caMap[caname].registry.GetAffiliation(affiliation)
-	if err != nil {
-		return fmt.Errorf("Failed getting affiliation '%s': %s", affiliation, err)
-	}
-
-	return nil
-}
-
-func (h *registerHandler) requireAffiliation(idType string) bool {
-	log.Debugf("An affiliation is required for identity type %s", idType)
-	// Require an affiliation for all identity types
-	return true
-}
-
-func (h *registerHandler) canRegister(registrar string, userType string, caname string) error {
+func (h *registerHandler) canRegister(registrar string, req *api.RegistrationRequestNet, caname string) error {
 	log.Debugf("canRegister - Check to see if user %s can register", registrar)
 
-	user, err := h.server.caMap[caname].registry.GetUser(registrar, nil)
+	caller, err := h.server.caMap[caname].registry.GetUser(registrar, nil)
 	if err != nil {
 		return fmt.Errorf("Registrar does not exist: %s", err)
 	}
 
+	userType := req.Type
 	var roles []string
-	rolesStr := user.GetAttribute("hf.Registrar.Roles")
+	rolesStr := caller.GetAttribute("hf.Registrar.Roles")
 	if rolesStr != "" {
 		roles = strings.Split(rolesStr, ",")
 	} else {
@@ -214,5 +179,40 @@ func (h *registerHandler) canRegister(registrar string, userType string, caname 
 		return errors.New("No identity type provided. Please provide identity type")
 	}
 
+	callerAffiliation := strings.Join(caller.GetAffiliationPath(), ".")
+	userAffiliation := req.Affiliation
+	err = h.isValidAffiliation(userAffiliation, callerAffiliation, caname)
+	if err != nil {
+		return fmt.Errorf("Registration of '%s' failed in affiliation validation: %s", req.Name, err.Error())
+	}
+
 	return nil
+}
+
+func (h *registerHandler) isValidAffiliation(affiliation, callerAffiliation string, caname string) error {
+	log.Debug("Validating affiliation: " + affiliation)
+
+	_, err := h.server.caMap[caname].registry.GetAffiliation(affiliation)
+	if err != nil {
+		return fmt.Errorf("Failed getting affiliation '%s': %s", affiliation, err)
+	}
+
+	log.Debugf("Checking to see if affiliation '%s' contains caller's affiliation '%s'", affiliation, callerAffiliation)
+
+	// If the caller has root affiliation return "true"
+	if callerAffiliation == "" {
+		log.Debug("Caller has root affiliation")
+		return nil
+	}
+
+	if affiliation == callerAffiliation {
+		return nil
+	}
+
+	callerAffiliation = callerAffiliation + "."
+	if strings.HasPrefix(affiliation, callerAffiliation) {
+		return nil
+	}
+
+	return fmt.Errorf("Caller does not have the authority to act on affiliation '%s'", affiliation)
 }
