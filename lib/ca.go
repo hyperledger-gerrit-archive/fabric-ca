@@ -29,6 +29,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -855,7 +856,7 @@ func (ca *CA) addIdentity(id *CAConfigIdentity, errIfFound bool) error {
 }
 
 func (ca *CA) addAffiliation(path, parentPath string) error {
-	return ca.registry.InsertAffiliation(path, parentPath, ca.levels.Affiliation)
+	return ca.registry.InsertAffiliation(strings.ToLower(path), strings.ToLower(parentPath), ca.levels.Affiliation)
 }
 
 // CertDBAccessor returns the certificate DB accessor for CA

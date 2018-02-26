@@ -186,7 +186,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 	admin2 := resp.Identity
 
 	addAffReq := &api.AddAffiliationRequest{
-		Name: "org3",
+		Name: "Org3",
 	}
 
 	addAffResp, err := notAffMgr.AddAffiliation(addAffReq)
@@ -197,10 +197,11 @@ func TestDynamicAddAffiliation(t *testing.T) {
 
 	addAffResp, err = admin.AddAffiliation(addAffReq)
 	util.FatalError(t, err, "Failed to add affiliation 'org3'")
+	// affiliations are case insensitive, so 'org3' and 'Org3' are considered same
 	assert.Equal(t, "org3", addAffResp.Name)
 
 	addAffResp, err = admin.AddAffiliation(addAffReq)
-	assert.Error(t, err, "Should have failed affiliation 'org3' already exists")
+	assert.Error(t, err, "Should have failed to add affiliation 'org3', it already exists")
 
 	addAffReq.Name = "org3.dept1"
 	addAffResp, err = admin.AddAffiliation(addAffReq)

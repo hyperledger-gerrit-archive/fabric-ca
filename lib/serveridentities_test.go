@@ -298,6 +298,21 @@ func TestDynamicAddIdentity(t *testing.T) {
 
 	_, err = admin.AddIdentity(addReq)
 	assert.NoError(t, err, "Failed to add identity")
+
+	// Add an identity associated with the affiliation 'ORG1'. It should succeed because 'org1' is
+	// a valid affiliation and affiliations are case insensitive, meaning, org1 and ORG1 are same.
+	addReq.ID = "testpeer"
+	addReq.Type = "peer"
+	addReq.Affiliation = "ORG1"
+	_, err = admin.AddIdentity(addReq)
+	assert.NoError(t, err, "Should not have failed to add an identity affiliated to 'ORG1'")
+
+	// Modify affiliation of the identity to 'ORG2'. It should succeed because 'org2' is a valid
+	// affiliation and affiliations are case insensitive, meaning, org2 and ORG2 are same.
+	modReq.Affiliation = "ORG2"
+	modReq.ID = "testpeer"
+	_, err = admin.ModifyIdentity(modReq)
+	assert.NoError(t, err, "Should not have failed to modify affiliation of the identity 'testpeer' to 'ORG2'")
 }
 
 func TestDynamicRemoveIdentity(t *testing.T) {

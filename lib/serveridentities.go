@@ -22,6 +22,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
@@ -468,6 +469,7 @@ func getModifyReq(user spi.User, req *api.ModifyIdentityRequest) (*spi.UserInfo,
 		modifyUserInfo.Affiliation = ""
 		addAttributeToRequest(attr.Affiliation, "", &reqAttrs)
 	} else if req.Affiliation != "" {
+		req.Affiliation = strings.ToLower(req.Affiliation)
 		modifyUserInfo.Affiliation = req.Affiliation
 		addAttributeToRequest(attr.Affiliation, req.Affiliation, &reqAttrs)
 	}

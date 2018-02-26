@@ -230,6 +230,7 @@ func processAffiliationDeleteRequest(ctx *serverRequestContext, caname string) (
 	if err != nil {
 		return nil, err
 	}
+	removeAffiliation = strings.ToLower(removeAffiliation)
 	log.Debugf("Request to remove affiliation '%s'", removeAffiliation)
 
 	callerAff := GetUserAffiliation(ctx.caller)
@@ -280,7 +281,7 @@ func processAffiliationPostRequest(ctx *serverRequestContext, caname string) (*a
 		return nil, err
 	}
 
-	addAffiliation := req.Name
+	addAffiliation := strings.ToLower(req.Name)
 	log.Debugf("Request to add affiliation '%s'", addAffiliation)
 
 	registry := ctx.ca.registry
@@ -353,13 +354,14 @@ func processAffiliationPutRequest(ctx *serverRequestContext, caname string) (*ap
 	if err != nil {
 		return nil, err
 	}
+	modifyAffiliation = strings.ToLower(modifyAffiliation)
 
 	var req api.ModifyAffiliationRequestNet
 	err = ctx.ReadBody(&req)
 	if err != nil {
 		return nil, err
 	}
-	newAffiliation := req.NewName
+	newAffiliation := strings.ToLower(req.NewName)
 	log.Debugf("Request to modify affiliation '%s' to '%s'", modifyAffiliation, newAffiliation)
 
 	err = ctx.ContainsAffiliation(modifyAffiliation)

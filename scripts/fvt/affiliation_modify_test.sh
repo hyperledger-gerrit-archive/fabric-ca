@@ -215,7 +215,7 @@ function testTreePruningFailCases() {
          ErrorMsg "Should be able to modify affiliation w/ --force"
    displayRunningTotal
    verifyTotals "403 403 0 202" || ErrorMsg "Wrong number of affiliations"
-   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetX | wc -l) -eq 25 ||
+   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetx | wc -l) -eq 25 ||
       ErrorMsg "Wrong number of users"
 }
 
@@ -225,22 +225,22 @@ function testTreePruningSuccessCases() {
       ErrorMsg "Should be able to delete lower affiliation"
    displayRunningTotal
    verifyTotals "403 403 0 186" || ErrorMsg "Wrong number of affiliations"
-   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetX | wc -l) -eq 13 ||
+   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetx | wc -l) -eq 13 ||
       ErrorMsg "Wrong number of users"
    $FABRIC_CA_CLIENTEXEC affiliation add planetX.landmass0.country1.province0.locale10 $URI -H $TESTDIR/affman ||
       ErrorMsg "Should be able to add lower affiliation"
    displayRunningTotal
    verifyTotals "403 403 0 187" || ErrorMsg "Wrong number of affiliations"
-   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetX | wc -l) -eq 13 ||
+   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetx | wc -l) -eq 13 ||
       ErrorMsg "Wrong number of users"
-   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetX | wc -l) -eq 13 ||
+   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetx | wc -l) -eq 13 ||
       ErrorMsg "Wrong number of users"
    $FABRIC_CA_CLIENTEXEC affiliation modify planetX.landmass0.country1.province0.locale10 \
       --name planetX.landmass0.country1.province0.locale11 $URI -H $TESTDIR/affman ||
          ErrorMsg "Should be able to modify lower affiliation"
    displayRunningTotal
    verifyTotals "403 403 0 187" || ErrorMsg "Wrong number of affiliations"
-   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetX | wc -l) -eq 13 ||
+   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetx | wc -l) -eq 13 ||
       ErrorMsg "Wrong number of users"
    # Ensure we accept alternate values
    $FABRIC_CA_CLIENTEXEC identity modify affman --attrs "hf.AffiliationMgr=T" $URI -H $TESTDIR/admin || ErrorMsg "Failed to update affman"
@@ -248,7 +248,7 @@ function testTreePruningSuccessCases() {
       ErrorMsg "Should be able to delete lower affiliation"
    displayRunningTotal
    verifyTotals "403 403 0 171" || ErrorMsg "Wrong number of affiliations"
-   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetX | wc -l) -eq 1 ||
+   test $($SCRIPTDIR/fabric-ca_setup.sh -L -d $dbDriver | grep planetx | wc -l) -eq 1 ||
       ErrorMsg "Wrong number of users"
    # ensure all children are gone
    expected=$((dbEntries - 31))
