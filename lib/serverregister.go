@@ -110,6 +110,9 @@ func normalizeRegistrationRequest(req *api.RegistrationRequest, registrar spi.Us
 		req.Affiliation = ""
 	}
 
+	// affiliations are stored in lower case and are case insensitive
+	req.Affiliation = strings.ToLower(req.Affiliation)
+
 	if req.Type == "" {
 		req.Type = registrar.GetType()
 	}
