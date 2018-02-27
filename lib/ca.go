@@ -249,6 +249,7 @@ func (ca *CA) initKeyMaterial(renew bool) error {
 			}
 			return nil
 		}
+		log.Infof("Failed to get certificate file in '%s'", certFile)
 	}
 
 	// Get the CA cert
