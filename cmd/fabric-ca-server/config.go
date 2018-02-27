@@ -259,14 +259,25 @@ ldap:
               value:
 
 #############################################################################
-#  Affiliation section
+# Affiliations section. Fabric CA server can be bootstrapped with the
+# affiliations specified in this section. Affiliations are specified as maps.
+# For example:
+#   org1:
+#     dept1:
+#       - unit1
+#   org2:
+#     - dept2
+#     - dept3
+#
+# Affiliations are hierarchichal in nature. In the above example,
+# dept1 (used as org1.dept1) is the child of org1.
+# unit1 (used as org1.dept1.unit1) is the child of dept1.
+# dept2 (used as org2.dept2) and dept3 (org2.dept3) are children of org2.
+# Note: Affiliations are case sensitive except for the non leaf affiliations
+# (like org1, dept1, org2) that are specified in the configuration file,
+# which are always stored in lower case.
 #############################################################################
 affiliations:
-   org1:
-      - department1
-      - department2
-   org2:
-      - department1
 
 #############################################################################
 #  Signing section
