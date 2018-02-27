@@ -612,7 +612,7 @@ func TestCADBinit(t *testing.T) {
 
 	cfg = CAConfig{}
 	cfg.DB = CAConfigDB{Datasource: "root:mysql@" + util.RandomString(237)}
-	ca, err := newCA(serverCfgFile(confDir), &cfg, &srv, false)
+	ca, err := newCA(serverCfgFile(confDir), &cfg, &srv, true)
 	if ca.db != nil {
 		t.Error("Create DB should have failed")
 	}

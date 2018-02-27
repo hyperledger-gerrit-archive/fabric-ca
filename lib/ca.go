@@ -251,6 +251,7 @@ func (ca *CA) initKeyMaterial(renew bool) error {
 			}
 			return nil
 		}
+		return fmt.Errorf("Failed to get certificate file in '%s'", certFile)
 	}
 
 	// Get the CA cert
