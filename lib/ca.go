@@ -250,6 +250,8 @@ func (ca *CA) initKeyMaterial(renew bool) error {
 				return errors.WithMessage(err, fmt.Sprintf("Failed to get CN for certificate in '%s'", certFile))
 			}
 			return nil
+		} else {
+			return errors.New(fmt.Sprintf("Failed to get certificate file in '%s'", certFile))
 		}
 	}
 
