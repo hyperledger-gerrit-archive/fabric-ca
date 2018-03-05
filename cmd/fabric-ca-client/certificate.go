@@ -1,0 +1,89 @@
+/*
+Copyright IBM Corp. 2017, 2018 All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+                 http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package main
+
+import (
+	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/util"
+	"github.com/spf13/cobra"
+)
+
+type certificateArgs struct {
+	timeArgs certListTimeArgs
+	list     api.GetCertificatesRequest
+}
+
+type certListTimeArgs struct {
+	// Get revoked certificates between the UTC timestamp (RFC3339 format) or duration specified
+	Revocation string `help:"Get revoked certificates between the UTC timestamp (RFC3339 format) or duration specified (e.g. <begin_time>::<end_time>)"`
+	// Get expired certificates between the UTC timestamp (RFC3339 format) or duration specified
+	Expiration string `help:"Get expired certificates between the UTC timestamp (RFC3339 format) or duration specified (e.g. <begin_time>::<end_time>)"`
+}
+
+func (c *ClientCmd) newCertificateCommand() *cobra.Command {
+	certificateCmd := &cobra.Command{
+		Use:   "certificate",
+		Short: "Manage certificates",
+		Long:  "Manage certificates",
+	}
+	certificateCmd.AddCommand(c.newListCertificateCommand())
+	return certificateCmd
+}
+
+func (c *ClientCmd) newListCertificateCommand() *cobra.Command {
+	certificateListCmd := &cobra.Command{
+		Use:     "list",
+		Short:   "List certificates",
+		Long:    "List certificates visible to caller, to get all certificates pass in no flags",
+		Example: "fabric-ca-client certificate list --id admin --expiration 2018-01-01::2018-01-30\nfabric-ca-client certificate list --id admin --expiration 2018-01-01T01:30:00z::2018-01-30T11:30:00z\nfabric-ca-client certificate list --id admin --expiration -30d::-15d",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			log.Level = log.LevelWarning
+			err := c.configInit()
+			if err != nil {
+				return err
+			}
+
+			log.Debugf("Client configuration settings: %+v", c.clientCfg)
+
+			return nil
+		},
+		RunE: c.runListCertificate,
+	}
+	flags := certificateListCmd.Flags()
+	flags.StringVarP(&c.dynamicCertificate.list.ID, "id", "", "", "Get certificates for this enrollment ID")
+	util.RegisterFlags(c.myViper, flags, &c.dynamicCertificate.list, nil)
+	util.RegisterFlags(c.myViper, flags, &c.dynamicCertificate.timeArgs, nil)
+	return certificateListCmd
+}
+
+// The client side logic for executing list certificates command
+func (c *ClientCmd) runListCertificate(cmd *cobra.Command, args []string) error {
+	log.Debug("Entered runListCertificate")
+
+	id, err := c.loadMyIdentity()
+	if err != nil {
+		return err
+	}
+
+	err = id.GetCertificates(&c.dynamicCertificate.list, c.clientCfg.CAName, nil)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
