@@ -2144,6 +2144,29 @@ func TestDebugSetting(t *testing.T) {
 	assert.Equal(t, 0, log.Level) // With '-d' flag log level should be debug (0)
 }
 
+func TestListCertificateCmd(t *testing.T) {
+	os.RemoveAll(testdataDir)
+
+	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
+	err := srv.Start()
+	util.FatalError(t, err, "Failed to start server")
+	defer stopAndCleanupServer(t, srv)
+
+	// Remove default client home location to remove any existing enrollment information
+	os.RemoveAll(filepath.Dir(util.GetDefaultConfigFile("fabric-ca-client")))
+
+	// Command should fail if caller has not yet enrolled
+	err = RunMain([]string{cmdName, "certificate", "list", "-d"})
+	util.ErrorContains(t, err, "Enrollment information does not exist", "Should have failed to call command, if caller has not yet enrolled")
+
+	// Enroll a user that will be used for subsequent certificate commands
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d"})
+	util.FatalError(t, err, "Failed to enroll user")
+
+	err = RunMain([]string{cmdName, "certificate", "list", "-d"})
+	util.ErrorContains(t, err, "Not Implemented", "Should fail, not yet implemented")
+}
+
 func TestCleanUp(t *testing.T) {
 	os.Remove("../../testdata/ca-cert.pem")
 	os.Remove("../../testdata/ca-key.pem")

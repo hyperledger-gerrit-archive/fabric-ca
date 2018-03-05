@@ -103,6 +103,8 @@ type ClientCmd struct {
 	dynamicIdentity identityArgs
 	// Dynamically configuring affiliations
 	dynamicAffiliation affiliationArgs
+	// Dynamically configuring certificates
+	dynamicCertificate certificateArgs
 	// Enable debug level logging
 	debug bool
 }
@@ -153,7 +155,8 @@ func (c *ClientCmd) init() {
 		c.newGenCsrCommand(),
 		c.newGenCRLCommand(),
 		c.newIdentityCommand(),
-		c.newAffiliationCommand())
+		c.newAffiliationCommand(),
+		c.newCertificateCommand())
 	c.rootCmd.AddCommand(&cobra.Command{
 		Use:   "version",
 		Short: "Prints Fabric CA Client version",
