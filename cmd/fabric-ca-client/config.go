@@ -131,9 +131,14 @@ tls:
 #        "C": country
 #        "L": locality or municipality (such as city or town name)
 #        "O": organisation
+#        "OU": organisational unit, such as the department responsible for owning the key;
+#         it can also be used for a "Doing Business As" (DBS) name
 #        "ST": the state or province
+#
 #    Note that the "OU" or organizational units of an ECert are always set according
-#    to the values of the identities type and affiliation.
+#    to the values of the identities type and affiliation. OUs are calculated for an enroll
+#    as OU=<type>, OU=<affiliationRoot>, ..., OU=<affiliationLeaf>. For example, affiliation
+#    org1.dept2.team3 would be translated as OU=org1, OU=dept2, OU=team3
 #
 #  hosts - A list of host names for which the certificate should be valid
 #
