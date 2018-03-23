@@ -38,8 +38,8 @@
 #   - clean-all - cleans the build area and release packages
 
 PROJECT_NAME   = fabric-ca
-BASE_VERSION = 1.1.0
-PREV_VERSION = 1.1.0-rc1
+BASE_VERSION = 1.2.0
+PREV_VERSION = 1.1.0
 IS_RELEASE = false
 
 ARCH=$(shell uname -m)
