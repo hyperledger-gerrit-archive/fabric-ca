@@ -267,6 +267,12 @@ func TestEnroll(t *testing.T) {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
+	// // Enroll with -u parameter. Value of the -u parameter is used as server URL
+	// err = RunMain([]string{cmdName, "enroll", "--enrollment.idemix", "-d", "-u", enrollURL, "-H", adminHome})
+	// if err != nil {
+	// 	t.Errorf("client enroll -u failed: %s", err)
+	// }
+
 	// Enroll without -u parameter, should fail as the server URL is picked
 	// from the configuration file but userid and password are not part of the
 	// URL
@@ -2147,6 +2153,8 @@ func TestDebugSetting(t *testing.T) {
 func TestCleanUp(t *testing.T) {
 	os.Remove("../../testdata/ca-cert.pem")
 	os.Remove("../../testdata/ca-key.pem")
+	os.Remove("../../testdata/IssuerPublicKey")
+	os.Remove("../../testdata/IssuerSecretKey")
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
 	os.RemoveAll(mspDir)
@@ -2158,7 +2166,7 @@ func cleanMultiCADir() {
 	caFolder := "../../testdata/ca/rootca"
 	nestedFolders := []string{"ca1", "ca2"}
 	removeFiles := []string{"msp", "ca-cert.pem",
-		"fabric-ca-server.db", "fabric-ca2-server.db", "ca-chain.pem"}
+		"fabric-ca-server.db", "fabric-ca2-server.db", "ca-chain.pem", "IssuerPublicKey", "IssuerSecretKey"}
 
 	for _, nestedFolder := range nestedFolders {
 		path := filepath.Join(caFolder, nestedFolder)
