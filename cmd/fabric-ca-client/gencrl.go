@@ -33,84 +33,100 @@ const (
 	crlFile = "crl.pem"
 )
 
-func (c *ClientCmd) newGenCRLCommand() *cobra.Command {
-	var genCrlCmd = &cobra.Command{
-		Use:   "gencrl",
-		Short: "Generate a CRL",
-		Long:  "Generate a Certificate Revocation List",
-		// PreRunE block for this command will load client configuration
-		// before running the command
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return errors.Errorf(extraArgsError, args, cmd.UsageString())
-			}
-			err := c.ConfigInit()
-			if err != nil {
-				return err
-			}
-			log.Debugf("Client configuration settings: %+v", c.clientCfg)
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			err := c.runGenCRL()
-			if err != nil {
-				return err
-			}
-			return nil
-		},
-	}
-	util.RegisterFlags(c.myViper, genCrlCmd.Flags(), &c.crlParams, nil)
-	return genCrlCmd
+type crlArgs struct {
+	// Genenerate CRL with all the certificates that were revoked after this timestamp
+	RevokedAfter string `help:"Generate CRL with certificates that were revoked after this UTC timestamp (in RFC3339 format)"`
+	// Genenerate CRL with all the certificates that were revoked before this timestamp
+	RevokedBefore string `help:"Generate CRL with certificates that were revoked before this UTC timestamp (in RFC3339 format)"`
+	// Genenerate CRL with all the certificates that expire after this timestamp
+	ExpireAfter string `help:"Generate CRL with certificates that expire after this UTC timestamp (in RFC3339 format)"`
+	// Genenerate CRL with all the certificates that expire before this timestamp
+	ExpireBefore string `help:"Generate CRL with certificates that expire before this UTC timestamp (in RFC3339 format)"`
 }
 
-// The client register main logic
-func (c *ClientCmd) runGenCRL() error {
+type genCRLCmd struct {
+	Command
+	// gencrl command argument values
+	params crlArgs
+}
+
+func newGenCRLCmd(c *ClientCmd) *genCRLCmd {
+	cmd := &genCRLCmd{c, crlArgs{}}
+	return cmd
+}
+
+func (c *genCRLCmd) getCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "gencrl",
+		Short:   "Generate a CRL",
+		Long:    "Generate a Certificate Revocation List",
+		PreRunE: c.preRunGenCRL,
+		RunE:    c.runGenCRL,
+	}
+	util.RegisterFlags(c.GetViper(), cmd.Flags(), &c.params, nil)
+	return cmd
+}
+
+func (c *genCRLCmd) preRunGenCRL(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return errors.Errorf(extraArgsError, args, cmd.UsageString())
+	}
+	err := c.ConfigInit()
+	if err != nil {
+		return err
+	}
+	log.Debugf("Client configuration settings: %+v", c.GetClientCfg())
+	return nil
+}
+
+// The client genCRL main logic
+func (c *genCRLCmd) runGenCRL(cmd *cobra.Command, args []string) error {
 	log.Debug("Entered runGenCRL")
 	client := lib.Client{
-		HomeDir: filepath.Dir(c.cfgFileName),
-		Config:  c.clientCfg,
+		HomeDir: filepath.Dir(c.GetCfgFileName()),
+		Config:  c.GetClientCfg(),
 	}
 	id, err := client.LoadMyIdentity()
 	if err != nil {
 		return err
 	}
 	var revokedAfter, revokedBefore time.Time
-	if c.crlParams.RevokedAfter != "" {
-		revokedAfter, err = time.Parse(time.RFC3339, c.crlParams.RevokedAfter)
+	if c.params.RevokedAfter != "" {
+		revokedAfter, err = time.Parse(time.RFC3339, c.params.RevokedAfter)
 		if err != nil {
 			return errors.Wrap(err, "Invalid 'revokedafter' value")
 		}
 	}
-	if c.crlParams.RevokedBefore != "" {
-		revokedBefore, err = time.Parse(time.RFC3339, c.crlParams.RevokedBefore)
+	if c.params.RevokedBefore != "" {
+		revokedBefore, err = time.Parse(time.RFC3339, c.params.RevokedBefore)
 		if err != nil {
 			return errors.Wrap(err, "Invalid 'revokedbefore' value")
 		}
 	}
 	if !revokedBefore.IsZero() && revokedAfter.After(revokedBefore) {
 		return errors.Errorf("Invalid revokedafter value '%s'. It must not be a timestamp greater than revokedbefore value '%s'",
-			c.crlParams.RevokedAfter, c.crlParams.RevokedBefore)
+			c.params.RevokedAfter, c.params.RevokedBefore)
 	}
 
 	var expireAfter, expireBefore time.Time
-	if c.crlParams.ExpireAfter != "" {
-		expireAfter, err = time.Parse(time.RFC3339, c.crlParams.ExpireAfter)
+	if c.params.ExpireAfter != "" {
+		expireAfter, err = time.Parse(time.RFC3339, c.params.ExpireAfter)
 		if err != nil {
 			return errors.Wrap(err, "Invalid 'expireafter' value")
 		}
 	}
-	if c.crlParams.ExpireBefore != "" {
-		expireBefore, err = time.Parse(time.RFC3339, c.crlParams.ExpireBefore)
+	if c.params.ExpireBefore != "" {
+		expireBefore, err = time.Parse(time.RFC3339, c.params.ExpireBefore)
 		if err != nil {
 			return errors.Wrap(err, "Invalid 'expirebefore' value")
 		}
 	}
 	if !expireBefore.IsZero() && expireAfter.After(expireBefore) {
 		return errors.Errorf("Invalid expireafter value '%s'. It must not be a timestamp greater than expirebefore value '%s'",
-			c.crlParams.ExpireAfter, c.crlParams.ExpireBefore)
+			c.params.ExpireAfter, c.params.ExpireBefore)
 	}
 	req := &api.GenCRLRequest{
-		CAName:        c.clientCfg.CAName,
+		CAName:        c.GetClientCfg().CAName,
 		RevokedAfter:  revokedAfter,
 		RevokedBefore: revokedBefore,
 		ExpireAfter:   expireAfter,
@@ -121,7 +137,7 @@ func (c *ClientCmd) runGenCRL() error {
 		return err
 	}
 	log.Info("Successfully generated the CRL")
-	err = storeCRL(c.clientCfg, resp.CRL)
+	err = storeCRL(c.GetClientCfg(), resp.CRL)
 	if err != nil {
 		return err
 	}
