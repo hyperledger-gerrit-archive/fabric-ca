@@ -26,6 +26,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
+	"github.com/hyperledger/fabric/idemix"
 )
 
 const (
@@ -92,6 +93,7 @@ type CAConfig struct {
 	Cfg          cfgOptions
 	CA           CAInfo
 	Signing      *config.Signing
+	IssuerKey    *idemix.IssuerKey
 	CSR          api.CSRInfo
 	Registry     CAConfigRegistry
 	Affiliations map[string]interface{}
@@ -123,10 +125,12 @@ type affiliationsOptions struct {
 
 // CAInfo is the CA information on a fabric-ca-server
 type CAInfo struct {
-	Name      string `opt:"n" help:"Certificate Authority name"`
-	Keyfile   string `help:"PEM-encoded CA key file"`
-	Certfile  string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
-	Chainfile string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
+	Name                string `opt:"n" help:"Certificate Authority name"`
+	Keyfile             string `help:"PEM-encoded CA key file"`
+	Certfile            string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
+	Chainfile           string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
+	IssuerPublicKeyfile string `def:"IssuerPublicKey" help:"Name of the file that contains marshalled bytes of the IssuerPublicKey that represents idemix public key of the CA"`
+	IssuerSecretKeyfile string `def:"IssuerSecretKey" help:"Name of the file that contains idemix secret key of the CA"`
 }
 
 // CAConfigDB is the database part of the server's config
