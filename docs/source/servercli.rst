@@ -18,6 +18,8 @@ Fabric-CA Server's CLI
       -b, --boot string                               The user:pass for bootstrap admin which is required to build default config file
           --ca.certfile string                        PEM-encoded CA certificate file (default "ca-cert.pem")
           --ca.chainfile string                       PEM-encoded CA chain file (default "ca-chain.pem")
+          --ca.issuerpublickeyfile string             Name of the file that contains marshalled bytes of the IssuerPublicKey that represents idemix public key of the CA (default "IssuerPublicKey")
+          --ca.issuersecretkeyfile string             Name of the file that contains idemix secret key of the CA (default "IssuerSecretKey")
           --ca.keyfile string                         PEM-encoded CA key file
       -n, --ca.name string                            Certificate Authority name
           --cacount int                               Number of non-default CA instances

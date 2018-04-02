@@ -78,6 +78,7 @@ func (c *Client) Init() error {
 			return errors.Wrap(err, "Failed to create keystore directory")
 		}
 		c.keyFile = path.Join(keyDir, "key.pem")
+
 		// Cert directory and file
 		certDir := path.Join(mspDir, "signcerts")
 		err = os.MkdirAll(certDir, 0755)
@@ -85,12 +86,14 @@ func (c *Client) Init() error {
 			return errors.Wrap(err, "Failed to create signcerts directory")
 		}
 		c.certFile = path.Join(certDir, "cert.pem")
+
 		// CA certs directory
 		c.caCertsDir = path.Join(mspDir, "cacerts")
 		err = os.MkdirAll(c.caCertsDir, 0755)
 		if err != nil {
 			return errors.Wrap(err, "Failed to create cacerts directory")
 		}
+
 		// Initialize BCCSP (the crypto layer)
 		c.csp, err = util.InitBCCSP(&cfg.CSP, mspDir, c.HomeDir)
 		if err != nil {
@@ -135,6 +138,8 @@ type GetServerInfoResponse struct {
 	// CAChain is the PEM-encoded bytes of the fabric-ca-server's CA chain.
 	// The 1st element of the chain is the root CA cert
 	CAChain []byte
+	// Idemix issuer public key of the CA
+	IssuerPublicKey []byte
 	// Version of the server
 	Version string
 }
@@ -171,6 +176,13 @@ func (c *Client) net2LocalServerInfo(net *serverInfoResponseNet, local *GetServe
 	caChain, err := util.B64Decode(net.CAChain)
 	if err != nil {
 		return err
+	}
+	if net.IssuerPublicKey != "" {
+		ipk, err := util.B64Decode(net.IssuerPublicKey)
+		if err != nil {
+			return err
+		}
+		local.IssuerPublicKey = ipk
 	}
 	local.CAName = net.CAName
 	local.CAChain = caChain
