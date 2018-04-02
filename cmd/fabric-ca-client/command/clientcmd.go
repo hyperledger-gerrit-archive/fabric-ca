@@ -49,21 +49,16 @@ const (
 
 // Command interface initializes client command and loads an identity
 type Command interface {
+	// Initializes the client command configuration
 	ConfigInit() error
+	// Returns the name of the configuration file
+	GetCfgFileName() string
+	// Loads the credentials of an identity that are in the msp directory specified to this command
 	LoadMyIdentity() (*lib.Identity, error)
+	// Returns lib.ClientCfg instance associated with this comamnd
 	GetClientCfg() *lib.ClientConfig
+	// Returns viper instance associated with this comamnd
 	GetViper() *viper.Viper
-}
-
-type crlArgs struct {
-	// Genenerate CRL with all the certificates that were revoked after this timestamp
-	RevokedAfter string `help:"Generate CRL with certificates that were revoked after this UTC timestamp (in RFC3339 format)"`
-	// Genenerate CRL with all the certificates that were revoked before this timestamp
-	RevokedBefore string `help:"Generate CRL with certificates that were revoked before this UTC timestamp (in RFC3339 format)"`
-	// Genenerate CRL with all the certificates that expire after this timestamp
-	ExpireAfter string `help:"Generate CRL with certificates that expire after this UTC timestamp (in RFC3339 format)"`
-	// Genenerate CRL with all the certificates that expire before this timestamp
-	ExpireBefore string `help:"Generate CRL with certificates that expire before this UTC timestamp (in RFC3339 format)"`
 }
 
 type revokeArgs struct {
@@ -97,8 +92,6 @@ type ClientCmd struct {
 	cfgCsrNames []string
 	// csrCommonName is the certificate signing request common name specified via the flag
 	csrCommonName string
-	// gencrl command argument values
-	crlParams crlArgs
 	// revoke command argument values
 	revokeParams revokeArgs
 	// profileMode is the profiling mode, cpu or mem or empty
@@ -154,12 +147,12 @@ func (c *ClientCmd) init() {
 		},
 	}
 	c.rootCmd.AddCommand(c.newRegisterCommand(),
-		c.newEnrollCommand(),
+		newEnrollCmd(c).getCommand(),
 		c.newReenrollCommand(),
 		c.newRevokeCommand(),
-		c.newGetCACertCommand(),
+		newGetCACertCmd(c).getCommand(),
 		c.newGenCsrCommand(),
-		c.newGenCRLCommand(),
+		newGenCRLCmd(c).getCommand(),
 		c.newIdentityCommand(),
 		c.newAffiliationCommand())
 	c.rootCmd.AddCommand(&cobra.Command{
@@ -273,6 +266,11 @@ func (c *ClientCmd) LoadMyIdentity() (*lib.Identity, error) {
 // GetClientCfg returns client configuration
 func (c *ClientCmd) GetClientCfg() *lib.ClientConfig {
 	return c.clientCfg
+}
+
+// GetCfgFileName returns name of the client command configuration file
+func (c *ClientCmd) GetCfgFileName() string {
+	return c.cfgFileName
 }
 
 // GetViper returns the viper instance
