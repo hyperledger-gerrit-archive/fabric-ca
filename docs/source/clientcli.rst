@@ -13,7 +13,7 @@ Fabric-CA Client's CLI
       enroll      Enroll an identity
       gencrl      Generate a CRL
       gencsr      Generate a CSR
-      getcacert   Get CA certificate chain
+      getcacert   Get CA certificate chain and idemix issuer public key
       identity    Manage identities
       reenroll    Reenroll an identity
       register    Register an identity
