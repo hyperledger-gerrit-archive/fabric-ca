@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
+	"github.com/hyperledger/fabric/idemix"
 
 	"github.com/cloudflare/cfssl/config"
 	cfcsr "github.com/cloudflare/cfssl/csr"
@@ -40,6 +40,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	cflocalsigner "github.com/cloudflare/cfssl/signer/local"
+	proto "github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
@@ -51,6 +52,7 @@ import (
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/common/attrmgr"
 	"github.com/jmoiron/sqlx"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -89,6 +91,8 @@ type CA struct {
 	registry spi.UserRegistry
 	// The signer used for enrollment
 	enrollSigner signer.Signer
+	// idemix issuer credential for the CA
+	issuerCred IssuerCredential
 	// The options to use in verifying a signature in token-based authentication
 	verifyOptions *x509.VerifyOptions
 	// The attribute manager
@@ -158,6 +162,11 @@ func (ca *CA) init(renew bool) (err error) {
 	}
 	// Initialize key materials
 	err = ca.initKeyMaterial(renew)
+	if err != nil {
+		return err
+	}
+	// Initialize idemix key materials
+	err = ca.initIdemixKeyMaterial(renew)
 	if err != nil {
 		return err
 	}
@@ -266,7 +275,61 @@ func (ca *CA) initKeyMaterial(renew bool) error {
 	log.Infof("The CA key and certificate were generated for CA %s", ca.Config.CA.Name)
 	log.Infof("The key was stored by BCCSP provider '%s'", ca.Config.CSP.ProviderName)
 	log.Infof("The certificate is at: %s", certFile)
+
 	return nil
+}
+
+func (ca *CA) initIdemixKeyMaterial(renew bool) error {
+	log.Debug("Initialize Idemix key material")
+
+	// Make the path names absolute in the config
+	err := ca.makeFileNamesAbsolute()
+	if err != nil {
+		return err
+	}
+
+	idemixPubKey := ca.Config.CA.IssuerPublicKeyfile
+	idemixSecretKey := ca.Config.CA.IssuerSecretKeyfile
+	issuerCred := newIssuerCredential(idemixPubKey, idemixSecretKey)
+
+	if !renew {
+		pubKeyFileExists := util.FileExists(idemixPubKey)
+		privKeyFileExists := util.FileExists(idemixSecretKey)
+		// If they both exist, the CA was already initialized, load the keys from the disk
+		if pubKeyFileExists && privKeyFileExists {
+			err = issuerCred.Load()
+			if err != nil {
+				return err
+			}
+			ca.issuerCred = issuerCred
+			return nil
+		}
+	}
+	ik, err := ca.getNewIssuerKey()
+	if err != nil {
+		return err
+	}
+	log.Infof("The idemix public and secret keys were generated for CA %s", ca.Config.CA.Name)
+	issuerCred.SetIssuerKey(ik)
+	err = issuerCred.Store()
+	if err != nil {
+		return err
+	}
+	ca.issuerCred = issuerCred
+	return nil
+}
+
+func (ca *CA) getNewIssuerKey() (*idemix.IssuerKey, error) {
+	rng, err := idemix.GetRand()
+	if err != nil {
+		log.Errorf("Error getting rng: \"%s\"", err)
+		return nil, errors.Wrapf(err, "Error generating issuer key")
+	}
+	ik, err := idemix.NewIssuerKey([]string{"OU", "id", "isAdmin", "revocationHandle"}, rng)
+	if err != nil {
+		return nil, err
+	}
+	return ik, nil
 }
 
 // Get the CA certificate for this CA
@@ -439,6 +502,12 @@ func (ca *CA) initConfig() (err error) {
 	}
 	if cfg.CA.Chainfile == "" {
 		cfg.CA.Chainfile = "ca-chain.pem"
+	}
+	if cfg.CA.IssuerPublicKeyfile == "" {
+		cfg.CA.IssuerPublicKeyfile = "IssuerPublicKey"
+	}
+	if cfg.CA.IssuerSecretKeyfile == "" {
+		cfg.CA.IssuerSecretKeyfile = "IssuerSecretKey"
 	}
 	if cfg.CSR.CA == nil {
 		cfg.CSR.CA = &cfcsr.CAConfig{}
@@ -848,6 +917,11 @@ func (ca *CA) addAffiliation(path, parentPath string) error {
 	return ca.registry.InsertAffiliation(path, parentPath, ca.levels.Affiliation)
 }
 
+// GetIssuerCredential returns IssuerCredential of this CA
+func (ca *CA) GetIssuerCredential() IssuerCredential {
+	return ca.issuerCred
+}
+
 // CertDBAccessor returns the certificate DB accessor for CA
 func (ca *CA) CertDBAccessor() *CertDBAccessor {
 	return ca.certDBAccessor
@@ -876,6 +950,8 @@ func (ca *CA) makeFileNamesAbsolute() error {
 		&ca.Config.CA.Certfile,
 		&ca.Config.CA.Keyfile,
 		&ca.Config.CA.Chainfile,
+		&ca.Config.CA.IssuerPublicKeyfile,
+		&ca.Config.CA.IssuerSecretKeyfile,
 	}
 	err := util.MakeFileNamesAbsolute(fields, ca.HomeDir)
 	if err != nil {
@@ -972,6 +1048,16 @@ func (ca *CA) fillCAInfo(info *serverInfoResponseNet) error {
 	}
 	info.CAName = ca.Config.CA.Name
 	info.CAChain = util.B64Encode(caChain)
+
+	ik, err := ca.issuerCred.GetIssuerKey()
+	if err != nil {
+		return err
+	}
+	ipkBytes, err := proto.Marshal(ik.GetIPk())
+	if err != nil {
+		return err
+	}
+	info.IssuerPublicKey = util.B64Encode(ipkBytes)
 	return nil
 }
 
