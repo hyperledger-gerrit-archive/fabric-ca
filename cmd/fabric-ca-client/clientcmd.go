@@ -153,6 +153,8 @@ func (c *ClientCmd) init() {
 			return nil
 		},
 	}
+
+	c.registerFlags()
 	c.rootCmd.AddCommand(c.newRegisterCommand(),
 		c.newEnrollCommand(),
 		c.newReenrollCommand(),
@@ -170,7 +172,7 @@ func (c *ClientCmd) init() {
 			fmt.Print(metadata.GetVersionInfo(cmdName))
 		},
 	})
-	c.registerFlags()
+
 	log.Level = log.LevelInfo
 }
 

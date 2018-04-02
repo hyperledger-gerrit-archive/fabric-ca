@@ -17,9 +17,13 @@ limitations under the License.
 package main
 
 import (
+	"strings"
+	"time"
+
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -93,8 +97,50 @@ func (c *certificateCommand) runListCertificate(cmd *cobra.Command, args []strin
 		return err
 	}
 
+	err = c.getCertListReq()
+	if err != nil {
+		return err
+	}
+
 	req := &c.list
 	req.CAName = c.command.GetClientCfg().CAName
 
 	return id.GetCertificates(req, nil)
+}
+
+func (c *certificateCommand) getCertListReq() error {
+	log.Debug("Parse expiration/revocation time range and generate certificate list request")
+	listReq := &c.list
+	expirationRange := c.timeArgs.Expiration
+	revocationRange := c.timeArgs.Revocation
+
+	if expirationRange != "" {
+		log.Debug("Parsing expiration time range: ", expirationRange)
+		if !strings.Contains(expirationRange, "::") {
+			return errors.Errorf("Invalid format for expiration, use '::' to separate start and end time")
+		}
+		expireTimeArgs := strings.Split(expirationRange, "::")
+		listReq.Expired.StartTime = getTime(expireTimeArgs[0])
+		listReq.Expired.EndTime = getTime(expireTimeArgs[1])
+	}
+
+	if revocationRange != "" {
+		log.Debug("Parsing revocation time range: ", revocationRange)
+		if !strings.Contains(revocationRange, "::") {
+			return errors.Errorf("Invalid format for revocation, use '::' to separate start and end time")
+		}
+		revokedTimeArgs := strings.Split(revocationRange, "::")
+		listReq.Revoked.StartTime = getTime(revokedTimeArgs[0])
+		listReq.Revoked.EndTime = getTime(revokedTimeArgs[1])
+	}
+
+	return nil
+}
+
+func getTime(timeArg string) string {
+	if strings.ToLower(timeArg) == "now" {
+		currentTime := time.Now().UTC()
+		return currentTime.Format(time.RFC3339)
+	}
+	return timeArg
 }

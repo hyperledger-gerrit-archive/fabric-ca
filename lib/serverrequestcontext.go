@@ -107,6 +107,10 @@ func (ctx *serverRequestContext) BasicAuthentication() (string, error) {
 	}
 	// Store the enrollment ID associated with this server request context
 	ctx.enrollmentID = username
+	ctx.caller, err = ctx.GetCaller()
+	if err != nil {
+		return "", err
+	}
 	// Return the username
 	return username, nil
 }
@@ -171,6 +175,10 @@ func (ctx *serverRequestContext) TokenAuthentication() (string, error) {
 	}
 	ctx.enrollmentID = id
 	ctx.enrollmentCert = cert
+	ctx.caller, err = ctx.GetCaller()
+	if err != nil {
+		return "", err
+	}
 	log.Debugf("Successful token authentication of '%s'", id)
 	return id, nil
 }
@@ -599,6 +607,10 @@ func (ctx *serverRequestContext) GetBoolQueryParm(name string) (bool, error) {
 	}
 
 	return value, nil
+}
+
+func (ctx *serverRequestContext) GetQueryParm(name string) string {
+	return ctx.req.URL.Query().Get(name)
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
