@@ -49,9 +49,15 @@ const (
 
 // Command interface initializes client command and loads an identity
 type Command interface {
+	// Initializes the client command configuration
 	ConfigInit() error
+	// Returns the name of the configuration file
+	GetCfgFileName() string
+	// Loads the credentials of an identity that are in the msp directory specified to this command
 	LoadMyIdentity() (*lib.Identity, error)
+	// Returns lib.ClientCfg instance associated with this comamnd
 	GetClientCfg() *lib.ClientConfig
+	// Returns viper instance associated with this comamnd
 	GetViper() *viper.Viper
 }
 
@@ -154,10 +160,10 @@ func (c *ClientCmd) init() {
 		},
 	}
 	c.rootCmd.AddCommand(c.newRegisterCommand(),
-		c.newEnrollCommand(),
+		newEnrollCmd(c).getCommand(),
 		c.newReenrollCommand(),
 		c.newRevokeCommand(),
-		c.newGetCACertCommand(),
+		newGetCAInfoCmd(c).getCommand(),
 		c.newGenCsrCommand(),
 		c.newGenCRLCommand(),
 		c.newIdentityCommand(),
@@ -273,6 +279,11 @@ func (c *ClientCmd) LoadMyIdentity() (*lib.Identity, error) {
 // GetClientCfg returns client configuration
 func (c *ClientCmd) GetClientCfg() *lib.ClientConfig {
 	return c.clientCfg
+}
+
+// GetCfgFileName returns name of the client command configuration file
+func (c *ClientCmd) GetCfgFileName() string {
+	return c.cfgFileName
 }
 
 // GetViper returns the viper instance

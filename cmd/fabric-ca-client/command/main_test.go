@@ -267,6 +267,12 @@ func TestEnroll(t *testing.T) {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
+	// // Enroll with -u parameter. Value of the -u parameter is used as server URL
+	// err = RunMain([]string{cmdName, "enroll", "--enrollment.idemix", "-d", "-u", enrollURL, "-H", adminHome})
+	// if err != nil {
+	// 	t.Errorf("client enroll -u failed: %s", err)
+	// }
+
 	// Enroll without -u parameter, should fail as the server URL is picked
 	// from the configuration file but userid and password are not part of the
 	// URL
@@ -1003,11 +1009,11 @@ func testGetCACert(t *testing.T) {
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 	os.Remove(defYaml) // Clean up any left over config file
 	os.RemoveAll("msp")
-
+	fmt.Println("----")
 	err := RunMain([]string{cmdName, "getcacert", "-d", "-u", serverURL})
-	if err != nil {
-		t.Errorf("getcacert failed: %s", err)
-	}
+	assert.NoError(t, err, "getcacert should not have failed")
+	assert.True(t, util.FileExists(path.Dir(defYaml)+"/msp/IssuerPublicKey"), "IssuerPublicKey file should exist after getcacert call")
+	fmt.Println("----")
 
 	err = RunMain([]string{cmdName, "getcacert", "-d", "-u", "http://localhost:9999"})
 	if err == nil {
@@ -2148,6 +2154,8 @@ func TestDebugSetting(t *testing.T) {
 func TestCleanUp(t *testing.T) {
 	os.Remove(filepath.Join(tdDir, "ca-cert.pem"))
 	os.Remove(filepath.Join(tdDir, "ca-key.pem"))
+	os.Remove(filepath.Join(tdDir, "IssuerPublicKey"))
+	os.Remove(filepath.Join(tdDir, "IssuerSecretKey"))
 	os.Remove(testYaml)
 	os.Remove(fabricCADB)
 	os.RemoveAll(mspDir)
@@ -2159,7 +2167,7 @@ func cleanMultiCADir() {
 	caFolder := filepath.Join(tdDir, "ca/rootca")
 	nestedFolders := []string{"ca1", "ca2"}
 	removeFiles := []string{"msp", "ca-cert.pem",
-		"fabric-ca-server.db", "fabric-ca2-server.db", "ca-chain.pem"}
+		"fabric-ca-server.db", "fabric-ca2-server.db", "ca-chain.pem", "IssuerPublicKey", "IssuerSecretKey"}
 
 	for _, nestedFolder := range nestedFolders {
 		path := filepath.Join(caFolder, nestedFolder)
