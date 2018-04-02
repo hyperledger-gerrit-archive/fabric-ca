@@ -15,6 +15,6 @@ go get github.com/AlekSi/gocov-xml
 
 PKGS=`go list github.com/hyperledger/fabric-ca/test/integration`
 
-go test "github.com/hyperledger/fabric-ca/test/integration"
+go test $PKGS
 
 exit $?
