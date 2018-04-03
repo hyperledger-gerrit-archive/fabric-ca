@@ -63,17 +63,19 @@ type EnrollmentRequest struct {
 	Name string `json:"name" skip:"true"`
 	// The secret returned via Register
 	Secret string `json:"secret,omitempty" skip:"true" mask:"password"`
-	// Profile is the name of the signing profile to use in issuing the certificate
-	Profile string `json:"profile,omitempty" help:"Name of the signing profile to use in issuing the certificate"`
-	// Label is the label to use in HSM operations
-	Label string `json:"label,omitempty" help:"Label to use in HSM operations"`
-	// CSR is Certificate Signing Request info
-	CSR *CSRInfo `json:"csr,omitempty" help:"Certificate Signing Request info"`
 	// CAName is the name of the CA to connect to
 	CAName string `json:"caname,omitempty" skip:"true"`
 	// AttrReqs are requests for attributes to add to the certificate.
 	// Each attribute is added only if the requestor owns the attribute.
 	AttrReqs []*AttributeRequest `json:"attr_reqs,omitempty"`
+	// Profile is the name of the signing profile to use in issuing the X509 certificate
+	Profile string `json:"profile,omitempty" help:"Name of the signing profile to use in issuing the certificate"`
+	// Label is the label to use in HSM operations
+	Label string `json:"label,omitempty" help:"Label to use in HSM operations"`
+	// CSR is Certificate Signing Request info
+	CSR *CSRInfo `json:"csr,omitempty" help:"Certificate Signing Request info"`
+	// Is the request to get idemix credential. False indicates, request is to get X509 private key and certificate
+	Idemix bool `json:"idemix,omitempty" help:"Get idemix credential"`
 }
 
 func (er EnrollmentRequest) String() string {

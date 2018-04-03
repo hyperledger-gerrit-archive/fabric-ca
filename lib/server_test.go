@@ -223,7 +223,7 @@ func TestSRVRootServer(t *testing.T) {
 	}
 	user1 = eresp.Identity
 	// Make sure the OUs are correct based on the identity type and affiliation
-	cert, err := user1.GetECert().GetX509Cert()
+	cert := user1.GetECert().GetX509Cert()
 	if err != nil {
 		assert.NoErrorf(t, err, "Failed to get user1's enrollment certificate")
 	} else {
@@ -672,6 +672,14 @@ func TestSRVRunningTLSServer(t *testing.T) {
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
+		err = os.RemoveAll("../testdata/IssuerPublicKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerSecretKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
 		err = os.RemoveAll("../testdata/fabric-ca-server.db")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
@@ -728,6 +736,14 @@ func TestSRVDefaultDatabase(t *testing.T) {
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
+		err = os.RemoveAll("../testdata/IssuerPublicKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerSecretKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
 		err = os.RemoveAll("../testdata/fabric-ca-server.db")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
@@ -760,6 +776,14 @@ func TestSRVDefaultAddrPort(t *testing.T) {
 	cleanTestSlateSRV(t)
 	defer func() {
 		err := os.RemoveAll("../testdata/ca-cert.pem")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerPublicKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerSecretKey")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
@@ -954,6 +978,14 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	defer func() {
 		cleanMultiCADir(t)
 		err := os.RemoveAll("../testdata/ca-cert.pem")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerPublicKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerSecretKey")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
@@ -1198,6 +1230,14 @@ func TestSRVDefaultCAWithSetCAName(t *testing.T) {
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
+		err = os.RemoveAll("../testdata/IssuerPublicKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/IssuerSecretKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
 		err = os.RemoveAll("../testdata/fabric-ca-server.db")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
@@ -1239,19 +1279,19 @@ func TestSRVMultiCAWithIntermediate(t *testing.T) {
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
-		err = os.RemoveAll("../testdata/fabric-ca-server.db")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/msp")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
 		err = os.RemoveAll("../testdata/IssuerPublicKey")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
 		err = os.RemoveAll("../testdata/IssuerSecretKey")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/fabric-ca-server.db")
+		if err != nil {
+			t.Errorf("RemoveAll failed: %s", err)
+		}
+		err = os.RemoveAll("../testdata/msp")
 		if err != nil {
 			t.Errorf("RemoveAll failed: %s", err)
 		}
@@ -2663,6 +2703,14 @@ func cleanTestSlateSRV(t *testing.T) {
 		t.Errorf("RemoveAll failed: %s", err)
 	}
 	err = os.RemoveAll("../testdata/ca-key.pem")
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
+	err = os.RemoveAll("../testdata/IssuerPublicKey")
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
+	err = os.RemoveAll("../testdata/IssuerSecretKey")
 	if err != nil {
 		t.Errorf("RemoveAll failed: %s", err)
 	}

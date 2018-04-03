@@ -27,28 +27,21 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
-	"github.com/hyperledger/fabric/bccsp"
 )
 
-func newIdentity(client *Client, name string, key bccsp.Key, cert []byte) *Identity {
+func newIdentity(client *Client, name string, creds []Credential) *Identity {
 	id := new(Identity)
 	id.name = name
-	id.ecert = newSigner(key, cert, id)
 	id.client = client
-	if client != nil {
-		id.CSP = client.csp
-	} else {
-		id.CSP = util.GetDefaultBCCSP()
-	}
+	id.creds = creds
 	return id
 }
 
 // Identity is fabric-ca's implementation of an identity
 type Identity struct {
 	name   string
-	ecert  *Signer
 	client *Client
-	CSP    bccsp.BCCSP
+	creds  []Credential
 }
 
 // GetName returns the identity name
@@ -61,9 +54,23 @@ func (i *Identity) GetClient() *Client {
 	return i.client
 }
 
+// GetCredentials returns credentials of this identity
+func (i *Identity) GetCredentials() []Credential {
+	return i.creds
+}
+
 // GetECert returns the enrollment certificate signer for this identity
 func (i *Identity) GetECert() *Signer {
-	return i.ecert
+	for _, cred := range i.creds {
+		if cred.GetType() == X509 {
+			v, _ := cred.GetVal()
+			if v != nil {
+				s, _ := v.(*Signer)
+				return s
+			}
+		}
+	}
+	return nil
 }
 
 // GetTCertBatch returns a batch of TCerts for this identity
@@ -408,7 +415,13 @@ func (i *Identity) Store() error {
 	if i.client == nil {
 		return errors.New("An identity with no client may not be stored")
 	}
-	return i.client.StoreMyIdentity(i.ecert.cert)
+	for _, cred := range i.creds {
+		err := cred.Store()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Get sends a get request to an endpoint
@@ -502,11 +515,15 @@ func (i *Identity) Post(endpoint string, reqBody []byte, result interface{}, que
 
 func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	log.Debug("Adding token-based authorization header")
-	cert := i.ecert.cert
-	key := i.ecert.key
-	token, err := util.CreateToken(i.CSP, cert, key, body)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to add token authorization header")
+	var token string
+	var err error
+	for _, cred := range i.creds {
+		if cred.GetType() == X509 {
+			token, err = cred.CreateOAuthToken(body)
+			if err != nil {
+				return errors.WithMessage(err, "Failed to add token authorization header")
+			}
+		}
 	}
 	req.Header.Set("authorization", token)
 	return nil

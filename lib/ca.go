@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric/idemix"
+	amcl "github.com/milagro-crypto/amcl/version3/go/amcl/FP256BN"
 
 	"github.com/cloudflare/cfssl/config"
 	cfcsr "github.com/cloudflare/cfssl/csr"
@@ -325,11 +326,20 @@ func (ca *CA) getNewIssuerKey() (*idemix.IssuerKey, error) {
 		log.Errorf("Error getting rng: \"%s\"", err)
 		return nil, errors.Wrapf(err, "Error generating issuer key")
 	}
-	ik, err := idemix.NewIssuerKey([]string{"OU", "id", "isAdmin", "revocationHandle"}, rng)
+	ik, err := idemix.NewIssuerKey([]string{"OU", "enrollmentID", "revocationHandle"}, rng)
 	if err != nil {
 		return nil, err
 	}
 	return ik, nil
+}
+
+func (ca *CA) generateNonce() (*amcl.BIG, error) {
+	rng, err := idemix.GetRand()
+	if err != nil {
+		return nil, errors.Wrapf(err, "Error generating nonce")
+	}
+	nonce := idemix.RandModOrder(rng)
+	return nonce, nil
 }
 
 // Get the CA certificate for this CA

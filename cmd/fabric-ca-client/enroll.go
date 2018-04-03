@@ -27,20 +27,25 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	enrollCmdUsage     = "enroll -u http://user:userpw@serverAddr:serverPort"
+	enrollCmdShortDesc = "Enroll an identity"
+	enrollCmdLongDesc  = "Enroll identity with Fabric CA server"
+)
+
 type enrollCmd struct {
 	Command
 }
 
 func newEnrollCmd(c Command) *enrollCmd {
-	enrollCmd := &enrollCmd{c}
-	return enrollCmd
+	return &enrollCmd{c}
 }
 
 func (c *enrollCmd) getCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "enroll -u http://user:userpw@serverAddr:serverPort",
-		Short:   "Enroll an identity",
-		Long:    "Enroll identity with Fabric CA server",
+		Use:     enrollCmdUsage,
+		Short:   enrollCmdShortDesc,
+		Long:    enrollCmdLongDesc,
 		PreRunE: c.preRunEnroll,
 		RunE:    c.runEnroll,
 	}
@@ -85,16 +90,23 @@ func (c *enrollCmd) runEnroll(cmd *cobra.Command, args []string) error {
 		return errors.Wrapf(err, "Failed to write file at '%s'", cfgFileName)
 	}
 
+	// Store identity credentials
 	err = ID.Store()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store enrollment information")
 	}
 
+	// Store CA chain
 	err = storeCAChain(cfg, &resp.ServerInfo)
 	if err != nil {
 		return err
 	}
 
-	// Store issuer public key
+	// Store CA idemix public key
+	err = storeIssuerPublicKey(cfg, &resp.ServerInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

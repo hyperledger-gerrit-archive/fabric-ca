@@ -375,6 +375,146 @@
         }
       }
     },
+    "/api/v1/enroll/idemix": {
+      "post": {
+        "tags": [
+          "fabric-ca-server"
+        ],
+        "description": "Enroll a new identity and return a credential",
+        "parameters": [
+          {
+            "name": "ca",
+            "in": "query",
+            "description": "The name of the CA to direct this request to within the server, or the default CA if not specified",
+            "type": "string"
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "**basic** <base64 encoding of userid:password> (OR) **token** <An enrollment token consisting of two base 64 encoded parts separated by a period:  an enrollment certificate;  a signature over the certificate and body of request>",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "The request body",
+            "required": true,
+            "schema": {
+              "type": "object",
+              "properties": {
+                "request": {
+                  "type": "string",
+                  "description": "JSON encoding idemix.CredentialRequest struct"
+                },
+                "caname": {
+                  "type": "string",
+                  "description": "Name of the CA to direct this request to within the Fabric CA server."
+                },
+                "attr_reqs": {
+                  "type": "array",
+                  "description": "An array of attribute requests to be placed into the enrollment certificate",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "The name of the attribute being requested to put into the enrollment certificate."
+                      },
+                      "optional": {
+                        "type": "boolean",
+                        "description": "Boolean indicating whether the attribute is optional. An error is returned if the attribute is required but not found. The default value is false."
+                      }
+                    },
+                    "required": [
+                      "name"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "request"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successfully enrolled a new identity",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "Success": {
+                  "type": "boolean",
+                  "description": "Boolean indicating if the request was successful."
+                },
+                "Result": {
+                  "type": "object",
+                  "properties": {
+                    "credential": {
+                      "type": "string",
+                      "description": "The credential in base64 encoding of the bytes of the Credential proto buffer."
+                    },
+                    "nonce": {
+                      "type": "string",
+                      "description": "The nonce in base 64 encoded format."
+                    }
+                  }
+                },
+                "Errors": {
+                  "type": "array",
+                  "description": "A array of error messages (i.e. code and string messages).",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "integer",
+                        "description": "Integer code denoting the type of error."
+                      },
+                      "message": {
+                        "type": "string",
+                        "description": "An error message"
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ]
+                  }
+                },
+                "Messages": {
+                  "type": "array",
+                  "description": "A array of informational messages (i.e. code and string messages).",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "code": {
+                        "type": "integer",
+                        "description": "Integer code denoting the type of message."
+                      },
+                      "message": {
+                        "type": "string",
+                        "description": "A more specific message."
+                      }
+                    },
+                    "required": [
+                      "code",
+                      "message"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "Success",
+                "Result",
+                "Errors",
+                "Messages"
+              ]
+            }
+          }
+        }
+      }
+    },
     "/api/v1/reenroll": {
       "post": {
         "tags": [

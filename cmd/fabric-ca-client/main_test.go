@@ -267,11 +267,11 @@ func TestEnroll(t *testing.T) {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
-	// // Enroll with -u parameter. Value of the -u parameter is used as server URL
-	// err = RunMain([]string{cmdName, "enroll", "--enrollment.idemix", "-d", "-u", enrollURL, "-H", adminHome})
-	// if err != nil {
-	// 	t.Errorf("client enroll -u failed: %s", err)
-	// }
+	// Enroll with --enrollment.idemix parameter. Value of the -u parameter is used as server URL
+	err = RunMain([]string{cmdName, "enroll", "--enrollment.idemix", "-d", "-u", enrollURL, "-H", adminHome})
+	if err != nil {
+		t.Errorf("client enroll --enrollment.idemix failed: %s", err)
+	}
 
 	// Enroll without -u parameter, should fail as the server URL is picked
 	// from the configuration file but userid and password are not part of the
@@ -2471,8 +2471,8 @@ func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) []*big.I
 			t.Fatalf("Failed to enroll the identity '%s': %s", userName, err)
 		}
 
-		cert, err := enrollResp.Identity.GetECert().GetX509Cert()
-		if err != nil {
+		cert := enrollResp.Identity.GetECert().GetX509Cert()
+		if cert == nil {
 			t.Fatalf("Failed to get enrollment certificate for the user %s: %s", userName, err)
 		}
 

@@ -553,7 +553,8 @@ func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bo
 	id := eresp.Identity
 	var revResp *api.RevocationResponse
 	if ecertOnly {
-		revResp, err = id.GetECert().RevokeSelf()
+		creds := id.GetCredentials()
+		revResp, err = creds[0].RevokeSelf()
 	} else {
 		revResp, err = id.RevokeSelf()
 	}
@@ -565,10 +566,7 @@ func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bo
 		}
 
 		// Assert that the cert serial in the revocation response is same as that of user certificate
-		cert, err := id.GetECert().GetX509Cert()
-		if err != nil {
-			t.Fatalf("Failed to get certificate for the enrolled user %s: %s", user, err)
-		}
+		cert := id.GetECert().GetX509Cert()
 		assert.Equal(t, 1, len(revResp.RevokedCerts), "Expected 1 certificate to be revoked")
 		assert.Equal(t, util.GetSerialAsHex(cert.SerialNumber), revResp.RevokedCerts[0].Serial,
 			"Cert serial in revocation response does match serial number of the cert that was revoked")
@@ -746,15 +744,15 @@ func testLoadBadCSRInfo(c *Client, t *testing.T) {
 }
 
 func testLoadIdentity(c *Client, t *testing.T) {
-	_, err := c.LoadIdentity("foo", "bar")
+	_, err := c.LoadIdentity("foo", "bar", "rab")
 	if err == nil {
-		t.Error("testLoadIdentity foo/bar passed but should have failed")
+		t.Error("testLoadIdentity foo/bar/rab passed but should have failed")
 	}
-	_, err = c.LoadIdentity("foo", "../testdata/ec.pem")
+	_, err = c.LoadIdentity("foo", "../testdata/ec.pem", "bar")
 	if err == nil {
 		t.Error("testLoadIdentity foo passed but should have failed")
 	}
-	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem")
+	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem", "bar")
 	if err != nil {
 		t.Errorf("testLoadIdentity failed: %s", err)
 	}
