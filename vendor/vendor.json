@@ -333,19 +333,15 @@
 			"revision": "6b6bfcfbd1e798a8a08fa9c3bf4dc0ff766a6b87",
 			"revisionTime": "2017-05-12T16:44:56Z"
 		},
-                {
-                        "checksumSHA1": "k8BLoBCJFqzsCFeg0yp0WpakxyM=",
-                        "path": "github.com/milagro-crypto/amcl/version3/go",
-                        "revision": "281d0829b307c911bb2f14f2fedc414a257cb8c8",
-                        "revisionTime": "2017-12-07T16:03:24Z"
-                },
-                {
-                        "path": "github.com/milagro-crypto/amcl/version3/go/amcl",
-                        "revision": "281d0829b307c911bb2f14f2fedc414a257cb8c8"
-                },
 		{
 			"checksumSHA1": "/L7oCty9/uYhPRTM+WUUqh2+0T0=",
 			"path": "github.com/hyperledger/fabric/idemix",
+			"revision": "7a5a16eff921cafba35f74797fc92ca3333a0af5",
+			"revisionTime": "2018-03-04T13:51:12Z"
+		},
+		{
+			"checksumSHA1": "CyBIW6JzdsObZEmbRgruKsmhUEQ=",
+			"path": "github.com/hyperledger/fabric/protos/msp",
 			"revision": "7a5a16eff921cafba35f74797fc92ca3333a0af5",
 			"revisionTime": "2018-03-04T13:51:12Z"
 		},
@@ -420,6 +416,16 @@
 			"path": "github.com/miekg/pkcs11",
 			"revision": "88ac7c418f89b164432a00c46ec7b7612d686b57",
 			"revisionTime": "2018-02-08T12:37:54Z"
+		},
+		{
+			"checksumSHA1": "k8BLoBCJFqzsCFeg0yp0WpakxyM=",
+			"path": "github.com/milagro-crypto/amcl/version3/go",
+			"revision": "281d0829b307c911bb2f14f2fedc414a257cb8c8",
+			"revisionTime": "2017-12-07T16:03:24Z"
+		},
+		{
+			"path": "github.com/milagro-crypto/amcl/version3/go/amcl",
+			"revision": "281d0829b307c911bb2f14f2fedc414a257cb8c8"
 		},
 		{
 			"checksumSHA1": "UuXgD2dDojfS8AViUEe15gLIWZE=",
