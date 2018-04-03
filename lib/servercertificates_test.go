@@ -19,11 +19,15 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/cloudflare/cfssl/log"
+	"github.com/cloudflare/cfssl/certdb"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/mocks"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
@@ -31,7 +35,6 @@ import (
 )
 
 func TestCertificatesHandler(t *testing.T) {
-	log.Level = log.LevelDebug
 	ctx := new(serverRequestContext)
 	req, err := http.NewRequest("GET", "", bytes.NewReader([]byte{}))
 	ctx.req = req
@@ -352,9 +355,71 @@ func TestProcessGetCertificateRequest(t *testing.T) {
 
 	err = processGetCertificateRequest(ctx)
 	assert.Error(t, err, "Invalid combination of filters, should have failed")
+}
 
-	req, err = http.NewRequest("GET", "", bytes.NewReader([]byte{}))
+type mockHTTPWriter struct {
+	http.ResponseWriter
+	t *testing.T
+}
+
+// Header returns the header map that will be sent by WriteHeader.
+func (m *mockHTTPWriter) Header() http.Header {
+	return m.ResponseWriter.Header()
+}
+
+// WriteHeader sends an HTTP response header with status code.
+func (m *mockHTTPWriter) WriteHeader(scode int) {
+	m.WriteHeader(1)
+}
+
+// Write writes the data to the connection as part of an HTTP reply.
+func (m *mockHTTPWriter) Write(buf []byte) (int, error) {
+	w := m.ResponseWriter
+	if !strings.Contains(string(buf), "certs") && !strings.Contains(string(buf), "BEGIN CERTIFICATE") && !strings.Contains(string(buf), "caname") {
+		m.t.Error("Invalid response being sent back from certificates endpoint")
+	}
+	return w.Write(buf)
+}
+
+// Write writes the data to the connection as part of an HTTP reply.
+func (m *mockHTTPWriter) Flush() {}
+
+func TestServerGetCertificates(t *testing.T) {
+	os.RemoveAll("getCertTest")
+	defer os.RemoveAll("getCertTest")
+	var err error
+
+	level := &dbutil.Levels{
+		Affiliation: 1,
+		Identity:    1,
+		Certificate: 1,
+	}
+	srv := &Server{
+		levels: level,
+	}
+	ca, err := newCA("getCertTest/config.yaml", &CAConfig{}, srv, false)
+	util.FatalError(t, err, "Failed to get CA")
+
+	ctx := new(serverRequestContext)
+	req, err := http.NewRequest("GET", "", bytes.NewReader([]byte{}))
+	util.FatalError(t, err, "Failed to get GET HTTP request")
+
+	user := &UserRecord{
+		Name: "NotRevoker",
+	}
+	ctx.caller = newDBUser(user, nil)
+
 	ctx.req = req
-	err = processGetCertificateRequest(ctx)
+	ctx.ca = ca
+	w := httptest.NewRecorder()
+	ctx.resp = &mockHTTPWriter{w, t}
+
+	err = testInsertCertificate(&certdb.CertificateRecord{
+		Serial: "1111",
+		AKI:    "9876",
+	}, "testCertificate", ca)
+	util.FatalError(t, err, "Failed to insert certificate with serial/AKI")
+
+	err = getCertificates(ctx, &api.GetCertificatesRequest{}, &timeFilters{})
 	assert.NoError(t, err, "Should not have returned error, failed to process GET certificate request")
 }

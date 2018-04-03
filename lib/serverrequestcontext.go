@@ -25,6 +25,9 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/log"
@@ -45,9 +48,12 @@ type ServerRequestCtx interface {
 	TokenAuthentication() (string, error)
 	GetCaller() (spi.User, error)
 	HasRole(role string) error
+	ChunksToDeliver(string) (int, error)
 	GetReq() *http.Request
 	GetQueryParm(name string) string
 	GetBoolQueryParm(name string) (bool, error)
+	GetResp() http.ResponseWriter
+	GetCertificates(string, string, string, string, bool, bool, *time.Time, *time.Time, *time.Time, *time.Time) (*sqlx.Rows, error)
 }
 
 // serverRequestContext represents an HTTP request/response context in the server
@@ -620,12 +626,40 @@ func (ctx *serverRequestContext) GetBoolQueryParm(name string) (bool, error) {
 	return value, nil
 }
 
+// GetQueryParm returns the value of query param based on name
 func (ctx *serverRequestContext) GetQueryParm(name string) string {
 	return ctx.req.URL.Query().Get(name)
 }
 
+// GetReq returns the http.Request
 func (ctx *serverRequestContext) GetReq() *http.Request {
 	return ctx.req
+}
+
+// GetResp returns the http.ResponseWriter
+func (ctx *serverRequestContext) GetResp() http.ResponseWriter {
+	return ctx.resp
+}
+
+// GetCertificates executes the DB query to get back certificates based on the filters passed in
+func (ctx *serverRequestContext) GetCertificates(id, serial, aki, callersAffiliation string, notrevoked, notexpired bool, revokedTimeStart, revokedTimeEnd, expiredTimeStart, expiredTimeEnd *time.Time) (*sqlx.Rows, error) {
+	return ctx.ca.certDBAccessor.GetCertificates(id, serial, aki, callersAffiliation, notrevoked, notexpired, revokedTimeStart, revokedTimeEnd, expiredTimeStart, expiredTimeEnd)
+}
+
+// ChunksToDeliver returns the number of chunks to deliver per flush
+func (ctx *serverRequestContext) ChunksToDeliver(envVar string) (int, error) {
+	var chunkSize int
+	var err error
+
+	if envVar == "" {
+		chunkSize = 100
+	} else {
+		chunkSize, err = strconv.Atoi(envVar)
+		if err != nil {
+			return 0, newHTTPErr(500, ErrParsingIntEnvVar, "Incorrect format specified for environment variable '%s', an integer value is required: %s", envVar, err)
+		}
+	}
+	return chunkSize, nil
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {

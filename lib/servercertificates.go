@@ -17,6 +17,9 @@ limitations under the License.
 package lib
 
 import (
+	"fmt"
+	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +27,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 )
 
@@ -61,6 +65,8 @@ func processCertificateRequest(ctx ServerRequestCtx) error {
 		return err
 	}
 
+	// Perform authority checks to make sure that caller has the correct
+	// set of attributes to manage certificates
 	err = authChecks(ctx)
 	if err != nil {
 		return err
@@ -77,6 +83,8 @@ func processCertificateRequest(ctx ServerRequestCtx) error {
 	}
 }
 
+// authChecks verifies that the caller has either attribute "hf.Registrar.Roles"
+// or "hf.Revoker" with a value of true
 func authChecks(ctx ServerRequestCtx) error {
 	log.Debug("Performing attribute authorization checks for certificates endpoint")
 
@@ -100,24 +108,35 @@ func processGetCertificateRequest(ctx ServerRequestCtx) error {
 	log.Debug("Processing GET certificate request")
 	var err error
 
+	// Convert time string to time type
 	times, err := getTimes(ctx)
 	if err != nil {
 		return newHTTPErr(400, ErrGettingCert, "Invalid Request: %s", err)
 	}
 
+	// Parse the query paramaters
 	req, err := getReq(ctx)
 	if err != nil {
 		return newHTTPErr(400, ErrGettingCert, "Invalid Request: %s", err)
 	}
 
+	// Check to make sure that the request does not have conflicting filters
 	err = validateReq(req, times)
 	if err != nil {
 		return newHTTPErr(400, ErrGettingCert, "Invalid Request: %s", err)
 	}
 
+	// Execute DB query and stream response
+	err = getCertificates(ctx, req, times)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
+// getReq will examine get the query parameters and populate the GetCertificateRequest
+// struct, which makes it easier to pass around
 func getReq(ctx ServerRequestCtx) (*api.GetCertificatesRequest, error) {
 	var err error
 	req := new(api.GetCertificatesRequest)
@@ -137,6 +156,7 @@ func getReq(ctx ServerRequestCtx) (*api.GetCertificatesRequest, error) {
 	return req, nil
 }
 
+// validateReq checks to make sure the request does not contain conflicting filters
 func validateReq(req *api.GetCertificatesRequest, times *timeFilters) error {
 	if req.NotExpired && (times.expiredStart != nil || times.expiredEnd != nil) {
 		return errors.New("Can't specify expiration time filter and the 'notexpired' filter")
@@ -149,6 +169,68 @@ func validateReq(req *api.GetCertificatesRequest, times *timeFilters) error {
 	return nil
 }
 
+// getCertificates executes the DB query and streams the results to client
+func getCertificates(ctx ServerRequestCtx, req *api.GetCertificatesRequest, times *timeFilters) error {
+	w := ctx.GetResp()
+	flusher, _ := w.(http.Flusher)
+
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return err
+	}
+
+	// Execute DB query
+	rows, err := ctx.GetCertificates(req.ID, req.Serial, req.AKI, GetUserAffiliation(caller), req.NotRevoked, req.NotExpired, times.revokedStart, times.revokedEnd, times.expiredStart, times.expiredEnd)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	// Get the number of certificates to return back to client in a chunk based on the environment variable
+	// If environment variable not set, default to 100 certificates
+	numCerts, err := ctx.ChunksToDeliver(os.Getenv("FABRIC_CA_SERVER_MAX_CERTS_PER_CHUNK"))
+	if err != nil {
+		return err
+	}
+	log.Debugf("Number of certs to be delivered in each chunk: %d", numCerts)
+
+	w.Write([]byte(`{"certs":[`))
+
+	rowNumber := 0
+	for rows.Next() {
+		rowNumber++
+		var cert certPEM
+		err := rows.StructScan(&cert)
+		if err != nil {
+			return newHTTPErr(500, ErrGettingCert, "Failed to get read row: %s", err)
+		}
+
+		if rowNumber > 1 {
+			w.Write([]byte(","))
+		}
+
+		resp, err := util.Marshal(cert, "certificate")
+		if err != nil {
+			return newHTTPErr(500, ErrGettingCert, "Failed to marshal certificate: %s", err)
+		}
+		w.Write(resp)
+
+		// If hit the number of identities requested then flush
+		if rowNumber%numCerts == 0 {
+			flusher.Flush() // Trigger "chunked" encoding and send a chunk...
+		}
+	}
+
+	log.Debug("Number of certificates found: ", rowNumber)
+
+	// Close the JSON object
+	caname := ctx.GetQueryParm("ca")
+	w.Write([]byte(fmt.Sprintf("], \"caname\":\"%s\"}", caname)))
+	flusher.Flush()
+
+	return nil
+}
+
 type timeFilters struct {
 	revokedStart *time.Time
 	revokedEnd   *time.Time
@@ -156,6 +238,8 @@ type timeFilters struct {
 	expiredEnd   *time.Time
 }
 
+// getTimes take the string input from query parameters and parses the
+// input and generates time type response
 func getTimes(ctx ServerRequestCtx) (*timeFilters, error) {
 	times := &timeFilters{}
 	var err error
@@ -183,6 +267,7 @@ func getTimes(ctx ServerRequestCtx) (*timeFilters, error) {
 	return times, nil
 }
 
+// Converts string to time type
 func getTime(timeStr string) (*time.Time, error) {
 	log.Debugf("Convert time string (%s) to time type", timeStr)
 	var err error
