@@ -858,6 +858,11 @@ func (ca *CA) DBAccessor() spi.UserRegistry {
 	return ca.registry
 }
 
+// GetDB returns pointer to database
+func (ca *CA) GetDB() *sqlx.DB {
+	return ca.db
+}
+
 func (ca *CA) convertAttrs(inAttrs map[string]string) []api.Attribute {
 	var outAttrs []api.Attribute
 	for name, value := range inAttrs {

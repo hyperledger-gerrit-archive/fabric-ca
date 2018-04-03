@@ -304,3 +304,101 @@ func (d *CertDBAccessor) UpdateOCSP(serial, aki, body string, expiry time.Time) 
 func (d *CertDBAccessor) UpsertOCSP(serial, aki, body string, expiry time.Time) error {
 	return d.accessor.UpsertOCSP(serial, aki, body, expiry)
 }
+
+// GetCertificates returns based on filter parameters certificates
+func (d *CertDBAccessor) GetCertificates(id, serial, aki, callersAffiliation string, notrevoked, notexpired bool, revokedTimeStart, revokedTimeEnd, expiredTimeStart, expiredTimeEnd *time.Time) (*sqlx.Rows, error) {
+	log.Debugf("DB: Get Certificates")
+
+	err := d.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	whereConds := []string{}
+	args := []interface{}{}
+
+	getCertificateSQL := "SELECT certificates.pem FROM certificates" // Base SQL query for getting certificates
+
+	// If caller's does not have root affiliation need to filter certificates based on affiliations of identities the
+	// caller is allowed to see
+	if callersAffiliation != "" {
+		getCertificateSQL = "SELECT certificates.pem FROM certificates INNER JOIN users ON users.id = certificates.id"
+
+		whereConds = append(whereConds, "users.affiliation = ? OR users.affiliation LIKE ?")
+		args = append(args, callersAffiliation)
+		args = append(args, callersAffiliation+".%")
+	}
+
+	// Apply further filters based on inputs
+	if id != "" {
+		whereConds = append(whereConds, "certificates.id = ?")
+		args = append(args, id)
+	}
+	if serial != "" {
+		whereConds = append(whereConds, "certificates.serial_number = ?")
+		args = append(args, serial)
+	}
+	if aki != "" {
+		whereConds = append(whereConds, "certificates.authority_key_identifier = ?")
+		args = append(args, aki)
+	}
+
+	if notexpired { // If notexpired is set to true, only return certificates that are not expired (expiration dates beyond the current time)
+		whereConds = append(whereConds, "certificates.expiry >= ?")
+		currentTime := time.Now().UTC()
+		args = append(args, currentTime)
+	} else {
+		// If either expired start time or end time is not nil, formulate the appropriate query parameters. If end is not nil and start is nil
+		// get all certificates that have an expiration date before the end date. If end is nil and start is not nil, get all certificates that
+		// have expiration date after the start date.
+		if expiredTimeStart != nil || expiredTimeEnd != nil {
+			if expiredTimeStart != nil {
+				whereConds = append(whereConds, "certificates.expiry >= ?")
+				args = append(args, expiredTimeStart)
+			} else {
+				whereConds = append(whereConds, "certificates.expiry >= ?")
+				args = append(args, time.Time{})
+			}
+			if expiredTimeEnd != nil {
+				whereConds = append(whereConds, "certificates.expiry <= ?")
+				args = append(args, expiredTimeEnd)
+			}
+		}
+	}
+
+	if notrevoked { // If notrevoked is set to true, only return certificates that are not revoked (revoked date is set to zero time)
+		whereConds = append(whereConds, "certificates.revoked_at = ?")
+		args = append(args, time.Time{})
+	} else {
+		// If either revoked start time or end time is not nil, formulate the appropriate query parameters. If end is not nil and start is nil
+		// get all certificates that have an revocation date before the end date. If end is nil and start is not nil, get all certificates that
+		// have revocation date after the start date.
+		if revokedTimeStart != nil || revokedTimeEnd != nil {
+			if revokedTimeStart != nil {
+				whereConds = append(whereConds, "certificates.revoked_at >= ?")
+				args = append(args, revokedTimeStart)
+			} else {
+				whereConds = append(whereConds, "certificates.revoked_at > ?")
+				args = append(args, time.Time{})
+			}
+			if revokedTimeEnd != nil {
+				whereConds = append(whereConds, "certificates.revoked_at <= ?")
+				args = append(args, revokedTimeEnd)
+			}
+		}
+	}
+
+	if len(whereConds) > 0 {
+		whereClause := strings.Join(whereConds, " AND ")
+		getCertificateSQL = getCertificateSQL + " WHERE (" + whereClause + ")"
+	}
+	getCertificateSQL = getCertificateSQL + ";"
+
+	log.Debugf("Executing get certificates query: %s, with args: %s", getCertificateSQL, args)
+	rows, err := d.db.Queryx(d.db.Rebind(getCertificateSQL), args...)
+	if err != nil {
+		return nil, getError(err, "Certificate")
+	}
+
+	return rows, nil
+}
