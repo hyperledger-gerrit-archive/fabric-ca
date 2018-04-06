@@ -56,9 +56,9 @@ DOCKER_TAG=$(ARCH)-$(PROJECT_VERSION)
 
 DOCKER_GO_LDFLAGS += $(GO_LDFLAGS)
 ifeq ($(FABRIC_CA_DYNAMIC_LINK),true)
-DOCKER_GO_LDFLAGS += -linkmode external -extldflags '-lpthread'
+DOCKER_GO_LDFLAGS += -linkmode=external -extldflags '-lpthread'
 else
-DOCKER_GO_LDFLAGS += -linkmode external -extldflags '-static -lpthread'
+DOCKER_GO_LDFLAGS += -linkmode=external -extldflags '-static -lpthread'
 endif
 
 #
