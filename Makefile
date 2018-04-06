@@ -59,7 +59,7 @@ else
 PGVER=9.5
 endif
 
-BASEIMAGE_RELEASE = 0.4.6
+BASEIMAGE_RELEASE = 0.4.7
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 METADATA_VAR = Version=$(PROJECT_VERSION)
