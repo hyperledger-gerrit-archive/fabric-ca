@@ -19,7 +19,6 @@ package lib
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"crypto/x509/pkix"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -708,17 +707,9 @@ func (s *Server) loadDNFromCertFile(certFile string) (*DN, error) {
 	if err != nil {
 		return nil, err
 	}
-	issuerDN, err := s.getDNFromCert(cert.Issuer, "/")
-	if err != nil {
-		return nil, err
-	}
-	subjectDN, err := s.getDNFromCert(cert.Subject, "/")
-	if err != nil {
-		return nil, err
-	}
 	distinguishedName := &DN{
-		issuer:  issuerDN,
-		subject: subjectDN,
+		issuer:  cert.Issuer.String(),
+		subject: cert.Subject.String(),
 	}
 	return distinguishedName, nil
 }
@@ -773,27 +764,6 @@ func (dn *DN) equal(checkDN *DN) error {
 		}
 	}
 	return nil
-}
-
-func (s *Server) getDNFromCert(namespace pkix.Name, sep string) (string, error) {
-	subject := []string{}
-	for _, s := range namespace.ToRDNSequence() {
-		for _, i := range s {
-			if v, ok := i.Value.(string); ok {
-				if name, ok := oid[i.Type.String()]; ok {
-					// <oid name>=<value>
-					subject = append(subject, fmt.Sprintf("%s=%s", name, v))
-				} else {
-					// <oid>=<value> if no <oid name> is found
-					subject = append(subject, fmt.Sprintf("%s=%s", i.Type.String(), v))
-				}
-			} else {
-				// <oid>=<value in default format> if value is not string
-				subject = append(subject, fmt.Sprintf("%s=%v", i.Type.String(), v))
-			}
-		}
-	}
-	return sep + strings.Join(subject, sep), nil
 }
 
 var oid = map[string]string{

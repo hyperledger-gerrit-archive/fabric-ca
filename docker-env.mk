@@ -41,6 +41,7 @@ DOCKER_BUILD_FLAGS+=--build-arg NO_PROXY=$(NO_PROXY)
 DOCKER_RUN_FLAGS+=-e NO_PROXY=$(NO_PROXY)
 endif
 
+DOCKER_RUN_FLAGS+=-e GOCACHE=/tmp
 DRUN = docker run -i --rm $(DOCKER_RUN_FLAGS) \
 	-v $(abspath .):/opt/gopath/src/$(PKGNAME) \
 	-w /opt/gopath/src/$(PKGNAME)
@@ -55,9 +56,9 @@ DOCKER_TAG=$(ARCH)-$(PROJECT_VERSION)
 
 DOCKER_GO_LDFLAGS += $(GO_LDFLAGS)
 ifeq ($(FABRIC_CA_DYNAMIC_LINK),true)
-DOCKER_GO_LDFLAGS += -linkmode external -extldflags '-lpthread'
+DOCKER_GO_LDFLAGS += -linkmode=external -extldflags '-lpthread'
 else
-DOCKER_GO_LDFLAGS += -linkmode external -extldflags '-static -lpthread'
+DOCKER_GO_LDFLAGS += -linkmode=external -extldflags '-static -lpthread'
 endif
 
 #
