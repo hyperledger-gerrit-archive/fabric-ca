@@ -231,10 +231,52 @@
 			"revisionTime": "2017-09-02T00:04:52Z"
 		},
 		{
-			"checksumSHA1": "sxqAV/AZKJGGD1eKEMTVMfOUwBY=",
+			"checksumSHA1": "YJGpyuu7P5HjGIm1G9qiG9q3jg8=",
 			"path": "github.com/google/certificate-transparency-go",
-			"revision": "6fbf39431cb1e04074bca386616f272ce2641c1e",
-			"revisionTime": "2018-02-22T12:30:19Z"
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "koSyHgoF+vFkyxGx9ALihCf8Ac0=",
+			"path": "github.com/google/certificate-transparency-go/asn1",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "F0We0YO/novJHuCKaibZ+Gxhj2g=",
+			"path": "github.com/google/certificate-transparency-go/client",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "sb1mCLUWEdBksGx4s2k0SEbwanw=",
+			"path": "github.com/google/certificate-transparency-go/client/configpb",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "CEasVUAg0VTSsgTOV10zeKiY9Q0=",
+			"path": "github.com/google/certificate-transparency-go/jsonclient",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "dPm6djjI7pxI1FyWSIPHJ1Xy6Eg=",
+			"path": "github.com/google/certificate-transparency-go/tls",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "LRY0twnSLSHADVF/CPv+SwBRURE=",
+			"path": "github.com/google/certificate-transparency-go/x509",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
+		},
+		{
+			"checksumSHA1": "MY2Wckh2xLLhwP+BX4iqHJMStK0=",
+			"path": "github.com/google/certificate-transparency-go/x509/pkix",
+			"revision": "b93e90a93aef811ff4e64a0122a057f1e0c19b87",
+			"revisionTime": "2018-04-03T15:24:57Z"
 		},
 		{
 			"checksumSHA1": "g/V4qrXjUGG9B+e3hB+4NAYJ5Gs=",
