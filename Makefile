@@ -59,7 +59,7 @@ else
 PGVER=9.5
 endif
 
-BASEIMAGE_RELEASE = 0.4.6
+BASEIMAGE_RELEASE = 0.4.7
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 METADATA_VAR = Version=$(PROJECT_VERSION)
@@ -74,8 +74,8 @@ FVTIMAGE = $(PROJECT_NAME)-fvt
 RELEASE_PLATFORMS = linux-amd64 darwin-amd64 linux-ppc64le linux-s390x windows-amd64
 RELEASE_PKGS = fabric-ca-client
 
-path-map.fabric-ca-client := ./cmd/fabric-ca-client
-path-map.fabric-ca-server := ./cmd/fabric-ca-server
+path-map.fabric-ca-client := cmd/fabric-ca-client
+path-map.fabric-ca-server := cmd/fabric-ca-server
 
 include docker-env.mk
 
@@ -118,7 +118,7 @@ fabric-ca-server: bin/fabric-ca-server
 
 bin/%: $(GO_SOURCE)
 	@echo "Building ${@F} in bin directory ..."
-	@mkdir -p bin && go build -o bin/${@F} -ldflags "$(GO_LDFLAGS)" $(path-map.${@F})
+	@mkdir -p bin && go build -o bin/${@F} -ldflags "$(GO_LDFLAGS)" $(PKGNAME)/$(path-map.${@F})
 	@echo "Built bin/${@F}"
 
 # We (re)build a package within a docker context but persist the $GOPATH/pkg

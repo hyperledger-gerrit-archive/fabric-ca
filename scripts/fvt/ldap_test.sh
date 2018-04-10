@@ -56,8 +56,7 @@ revokeEcert() {
             test "$?" -eq 0 || ErrorMsg "User '$admin' failed to revoke '$user'"
       ;;
       fail) echo "User '$admin is attempting to revoke the ecert of user cert of user '$user' ..."
-# Caller does not have authority to act on affiliation
-            #$FABRIC_CA_CLIENTEXEC revoke -u $URI -a $AKI -s $SN $TLSOPT -H $UDIR/$admin 2>&1| grep 'does not have authority to revoke'
+            # Caller does not have authority to act on affiliation
             $FABRIC_CA_CLIENTEXEC revoke -u $URI -a $AKI -s $SN $TLSOPT -H $UDIR/$admin 2>&1| egrep "(does not have authority to (act|revoke)|Authorization failure)"
             test "$?" -eq 0 || ErrorMsg "User '$admin' not authorized to revoke '$user'"
       ;;
