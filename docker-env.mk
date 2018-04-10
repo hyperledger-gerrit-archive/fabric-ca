@@ -41,6 +41,7 @@ DOCKER_BUILD_FLAGS+=--build-arg NO_PROXY=$(NO_PROXY)
 DOCKER_RUN_FLAGS+=-e NO_PROXY=$(NO_PROXY)
 endif
 
+DOCKER_RUN_FLAGS+=-e GOCACHE=/tmp
 DRUN = docker run -i --rm $(DOCKER_RUN_FLAGS) \
 	-v $(abspath .):/opt/gopath/src/$(PKGNAME) \
 	-w /opt/gopath/src/$(PKGNAME)
