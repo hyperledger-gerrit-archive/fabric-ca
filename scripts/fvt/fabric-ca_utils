@@ -883,7 +883,7 @@ $registry
 ldap:
   enabled: $LDAP_ENABLE
   url: ${LDAP_PROTO}CN=admin,dc=example,dc=com:adminpw@localhost:$LDAP_PORT/dc=example,dc=com
-  userfilter: "(uid=%s)"
+  userfilter: "(mail=%s)"
   attribute:
     names: [
              "cn",
