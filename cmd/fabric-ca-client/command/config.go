@@ -262,12 +262,12 @@ func (c *ClientCmd) ConfigInit() error {
 
 	c.clientCfg.TLS.Enabled = purl.Scheme == "https"
 
-	err = processAttributes(c.cfgAttrs, c.clientCfg)
+	err = c.processAttributes()
 	if err != nil {
 		return err
 	}
 
-	err = processAttributeRequests(c.cfgAttrReqs, c.clientCfg)
+	err = c.processAttributeRequests()
 	if err != nil {
 		return err
 	}
@@ -278,12 +278,12 @@ func (c *ClientCmd) ConfigInit() error {
 	}
 
 	// Check for separaters and insert values back into slice
-	normalizeStringSlices(c.clientCfg)
+	c.normalizeStringSlices()
 
 	// Commands other than 'enroll' and 'getcacert' require that client already
 	// be enrolled
 	if c.requiresEnrollment() {
-		err = checkForEnrollment(c.cfgFileName, c.clientCfg)
+		err = c.checkForEnrollment()
 		if err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ func (c *ClientCmd) createDefaultConfigFile() error {
 	// Do string subtitution to get the default config
 	cfg = strings.Replace(defaultCfgTemplate, "<<<URL>>>", fabricCAServerURL, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
-	cfg = strings.Replace(cfg, "<<<MSPDIR>>>", c.clientCfg.MSPDir, 1)
+	cfg = strings.Replace(cfg, "<<<MSPDIR>>>", c.clientCfg.GetMSPDir(), 1)
 
 	user := ""
 	var err error
@@ -334,10 +334,10 @@ func (c *ClientCmd) createDefaultConfigFile() error {
 }
 
 // processAttributes parses attributes from command line or env variable
-func processAttributes(cfgAttrs []string, cfg *lib.ClientConfig) error {
-	if cfgAttrs != nil {
-		cfg.ID.Attributes = make([]api.Attribute, len(cfgAttrs))
-		for idx, attr := range cfgAttrs {
+func (c *ClientCmd) processAttributes() error {
+	if c.cfgAttrs != nil {
+		c.clientCfg.ID.Attributes = make([]api.Attribute, len(c.cfgAttrs))
+		for idx, attr := range c.cfgAttrs {
 			sattr := strings.Split(attr, ":")
 			if len(sattr) > 2 {
 				return fmt.Errorf("Multiple ':' characters not allowed in attribute specification; error at '%s'", attr)
@@ -358,9 +358,9 @@ func processAttributes(cfgAttrs []string, cfg *lib.ClientConfig) error {
 			default:
 				return fmt.Errorf("Invalid attribute flag: '%s'", attrFlag)
 			}
-			cfg.ID.Attributes[idx].Name = sattr[0]
-			cfg.ID.Attributes[idx].Value = sattr[1]
-			cfg.ID.Attributes[idx].ECert = ecert
+			c.clientCfg.ID.Attributes[idx].Name = sattr[0]
+			c.clientCfg.ID.Attributes[idx].Value = sattr[1]
+			c.clientCfg.ID.Attributes[idx].ECert = ecert
 		}
 	}
 	return nil
@@ -371,12 +371,12 @@ func processAttributes(cfgAttrs []string, cfg *lib.ClientConfig) error {
 // optional and will not return an error if the identity does not possess the attribute.
 // The default is that each attribute name listed is required and so the identity must
 // possess the attribute.
-func processAttributeRequests(cfgAttrReqs []string, cfg *lib.ClientConfig) error {
-	if len(cfgAttrReqs) == 0 {
+func (c *ClientCmd) processAttributeRequests() error {
+	if len(c.cfgAttrReqs) == 0 {
 		return nil
 	}
-	reqs := make([]*api.AttributeRequest, len(cfgAttrReqs))
-	for idx, req := range cfgAttrReqs {
+	reqs := make([]*api.AttributeRequest, len(c.cfgAttrReqs))
+	for idx, req := range c.cfgAttrReqs {
 		sreq := strings.Split(req, ":")
 		name := sreq[0]
 		switch len(sreq) {
@@ -391,7 +391,7 @@ func processAttributeRequests(cfgAttrReqs []string, cfg *lib.ClientConfig) error
 			return errors.Errorf("Multiple ':' characters not allowed in attribute request specification; error at '%s'", req)
 		}
 	}
-	cfg.Enrollment.AttrReqs = reqs
+	c.clientCfg.Enrollment.AttrReqs = reqs
 	return nil
 }
 
@@ -415,19 +415,19 @@ func (c *ClientCmd) processCsrNames() error {
 	return nil
 }
 
-func checkForEnrollment(cfgFileName string, cfg *lib.ClientConfig) error {
+func (c *ClientCmd) checkForEnrollment() error {
 	log.Debug("Checking for enrollment")
 	client := lib.Client{
-		HomeDir: filepath.Dir(cfgFileName),
-		Config:  cfg,
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
 	}
 	return client.CheckEnrollment()
 }
 
-func normalizeStringSlices(cfg *lib.ClientConfig) {
+func (c *ClientCmd) normalizeStringSlices() {
 	fields := []*[]string{
-		&cfg.CSR.Hosts,
-		&cfg.TLS.CertFiles,
+		&c.clientCfg.CSR.Hosts,
+		&c.clientCfg.TLS.CertFiles,
 	}
 	for _, namePtr := range fields {
 		norm := util.NormalizeStringSlice(*namePtr)

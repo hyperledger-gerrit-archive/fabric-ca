@@ -16,12 +16,10 @@ package command
 import (
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
@@ -83,10 +81,7 @@ func (c *genCRLCmd) preRunGenCRL(cmd *cobra.Command, args []string) error {
 // The client genCRL main logic
 func (c *genCRLCmd) runGenCRL(cmd *cobra.Command, args []string) error {
 	log.Debug("Entered runGenCRL")
-	client := lib.Client{
-		HomeDir: filepath.Dir(c.GetCfgFileName()),
-		Config:  c.GetClientCfg(),
-	}
+	client := c.GetClient()
 	id, err := client.LoadMyIdentity()
 	if err != nil {
 		return err
@@ -127,7 +122,7 @@ func (c *genCRLCmd) runGenCRL(cmd *cobra.Command, args []string) error {
 			c.params.ExpireAfter, c.params.ExpireBefore)
 	}
 	req := &api.GenCRLRequest{
-		CAName:        c.GetClientCfg().CAName,
+		CAName:        c.GetClientCfg().GetCAName(),
 		RevokedAfter:  revokedAfter,
 		RevokedBefore: revokedBefore,
 		ExpireAfter:   expireAfter,
@@ -146,8 +141,8 @@ func (c *genCRLCmd) runGenCRL(cmd *cobra.Command, args []string) error {
 }
 
 // Store the CRL
-func storeCRL(config *lib.ClientConfig, crl []byte) error {
-	dirName := path.Join(config.MSPDir, crlsFolder)
+func storeCRL(config Config, crl []byte) error {
+	dirName := path.Join(config.GetMSPDir(), crlsFolder)
 	if _, err := os.Stat(dirName); os.IsNotExist(err) {
 		mkdirErr := os.MkdirAll(dirName, os.ModeDir|0755)
 		if mkdirErr != nil {
