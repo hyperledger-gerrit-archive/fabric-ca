@@ -16,7 +16,6 @@ package command
 import (
 	"os"
 	"path"
-	"path/filepath"
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
@@ -67,10 +66,7 @@ func (c *ClientCmd) newGenCRLCommand() *cobra.Command {
 // The client register main logic
 func (c *ClientCmd) runGenCRL() error {
 	log.Debug("Entered runGenCRL")
-	client := lib.Client{
-		HomeDir: filepath.Dir(c.cfgFileName),
-		Config:  c.clientCfg,
-	}
+	client := c.GetClient()
 	id, err := client.LoadMyIdentity()
 	if err != nil {
 		return err
@@ -111,7 +107,7 @@ func (c *ClientCmd) runGenCRL() error {
 			c.crlParams.ExpireAfter, c.crlParams.ExpireBefore)
 	}
 	req := &api.GenCRLRequest{
-		CAName:        c.clientCfg.CAName,
+		CAName:        c.GetClientCfg().GetCAName(),
 		RevokedAfter:  revokedAfter,
 		RevokedBefore: revokedBefore,
 		ExpireAfter:   expireAfter,
@@ -130,8 +126,8 @@ func (c *ClientCmd) runGenCRL() error {
 }
 
 // Store the CRL
-func storeCRL(config *lib.ClientConfig, crl []byte) error {
-	dirName := path.Join(config.MSPDir, crlsFolder)
+func storeCRL(config lib.ClientConfig, crl []byte) error {
+	dirName := path.Join(config.GetMSPDir(), crlsFolder)
 	if _, err := os.Stat(dirName); os.IsNotExist(err) {
 		mkdirErr := os.MkdirAll(dirName, os.ModeDir|0755)
 		if mkdirErr != nil {

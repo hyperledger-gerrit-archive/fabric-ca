@@ -726,7 +726,7 @@ func (s *Server) loadDNFromCertFile(certFile string) (*DN, error) {
 func (s *Server) autoGenerateTLSCertificateKey() error {
 	log.Debug("TLS enabled but no certificate or key provided, automatically generate TLS credentials")
 
-	clientCfg := &ClientConfig{
+	clientCfg := &ClientConfigImpl{
 		CSP: s.CA.Config.CSP,
 	}
 	client := Client{

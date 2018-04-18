@@ -24,7 +24,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -47,9 +46,10 @@ type getCAInfoCmd struct {
 	Command
 }
 
-func newGetCAInfoCmd(c Command) *getCAInfoCmd {
-	getcacertcmd := &getCAInfoCmd{c}
-	return getcacertcmd
+// NewGetCAInfoCmd returns cobra.Command that represents getcainfo command
+func NewGetCAInfoCmd(c Command) *cobra.Command {
+	getcainfocmd := &getCAInfoCmd{c}
+	return getcainfocmd.getCommand()
 }
 
 func (c *getCAInfoCmd) getCommand() *cobra.Command {
@@ -57,13 +57,14 @@ func (c *getCAInfoCmd) getCommand() *cobra.Command {
 		Use:     GetCAInfoCmdUsage,
 		Short:   GetCAInfoCmdShortDesc,
 		Aliases: []string{"getcacert"},
-		PreRunE: c.preRunGetCACert,
-		RunE:    c.runGetCACert,
+		PreRunE: c.preRunGetCAInfo,
+		RunE:    c.runGetCAInfo,
 	}
 	return cmd
 }
 
-func (c *getCAInfoCmd) preRunGetCACert(cmd *cobra.Command, args []string) error {
+// preRunGetCAInfo is the PreRunE function for getcainfo cobra command
+func (c *getCAInfoCmd) preRunGetCAInfo(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.Errorf(extraArgsError, args, cmd.UsageString())
 	}
@@ -78,16 +79,14 @@ func (c *getCAInfoCmd) preRunGetCACert(cmd *cobra.Command, args []string) error 
 	return nil
 }
 
-func (c *getCAInfoCmd) runGetCACert(cmd *cobra.Command, args []string) error {
+// runGetCAInfo is the RunE function for getcainfo cobra command
+func (c *getCAInfoCmd) runGetCAInfo(cmd *cobra.Command, args []string) error {
 	log.Debug("Entered runGetCACert")
 
-	client := &lib.Client{
-		HomeDir: filepath.Dir(c.GetCfgFileName()),
-		Config:  c.GetClientCfg(),
-	}
+	client := c.GetClient()
 
 	req := &api.GetCAInfoRequest{
-		CAName: c.GetClientCfg().CAName,
+		CAName: c.GetClientCfg().GetCAName(),
 	}
 
 	si, err := client.GetCAInfo(req)
@@ -95,26 +94,26 @@ func (c *getCAInfoCmd) runGetCACert(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	err = storeCAChain(client.Config, si)
+	err = storeCAChain(c.GetClientCfg(), si)
 	if err != nil {
 		return err
 	}
-	return storeIssuerPublicKey(client.Config, si)
+	return storeIssuerPublicKey(c.GetClientCfg(), si)
 }
 
 // Store the CAChain in the CACerts folder of MSP (Membership Service Provider)
 // The root cert in the chain goes into MSP 'cacerts' directory.
 // The others (if any) go into the MSP 'intermediatecerts' directory.
-func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
-	mspDir := config.MSPDir
+func storeCAChain(config lib.ClientConfig, si *lib.GetCAInfoResponse) error {
+	mspDir := config.GetMSPDir()
 	// Get a unique name to use for filenames
-	serverURL, err := url.Parse(config.URL)
+	serverURL, err := url.Parse(config.GetURL())
 	if err != nil {
 		return err
 	}
 	fname := serverURL.Host
-	if config.CAName != "" {
-		fname = fmt.Sprintf("%s-%s", fname, config.CAName)
+	if config.GetCAName() != "" {
+		fname = fmt.Sprintf("%s-%s", fname, config.GetCAName())
 	}
 	fname = strings.Replace(fname, ":", "-", -1)
 	fname = strings.Replace(fname, ".", "-", -1) + ".pem"
@@ -156,7 +155,7 @@ func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 	// Store the root certificates in the "cacerts" msp folder
 	certBytes := bytes.Join(rootBlks, []byte(""))
 	if len(certBytes) > 0 {
-		if config.Enrollment.Profile == "tls" {
+		if config.GetEnrollmentRequest().Profile == "tls" {
 			err := storeCert("TLS root CA certificate", tlsRootCACertsDir, tlsfname, certBytes)
 			if err != nil {
 				return err
@@ -172,7 +171,7 @@ func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 	// Store the intermediate certificates in the "intermediatecerts" msp folder
 	certBytes = bytes.Join(intBlks, []byte(""))
 	if len(certBytes) > 0 {
-		if config.Enrollment.Profile == "tls" {
+		if config.GetEnrollmentRequest().Profile == "tls" {
 			err = storeCert("TLS intermediate certificates", tlsIntCACertsDir, tlsfname, certBytes)
 			if err != nil {
 				return err
@@ -187,9 +186,9 @@ func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 	return nil
 }
 
-func storeIssuerPublicKey(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
+func storeIssuerPublicKey(config lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 	if len(si.IssuerPublicKey) > 0 {
-		err := storeCert("Issuer public key", config.MSPDir, "IssuerPublicKey", si.IssuerPublicKey)
+		err := storeCert("Issuer public key", config.GetMSPDir(), "IssuerPublicKey", si.IssuerPublicKey)
 		if err != nil {
 			return err
 		}

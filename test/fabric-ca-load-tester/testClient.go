@@ -286,7 +286,7 @@ func (c *testClient) getCACert() error {
 	return err
 }
 
-func getTestClient(id int, configHome *string, cfg *lib.ClientConfig, i *lib.Identity) *testClient {
+func getTestClient(id int, configHome *string, cfg *lib.ClientConfigImpl, i *lib.Identity) *testClient {
 	return &testClient{
 		id: id,
 		FabClient: &lib.Client{
