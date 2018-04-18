@@ -426,7 +426,7 @@ func cleanUpMultiCAFiles() {
 
 func getTestClient(port int, homeDir string) *lib.Client {
 	return &lib.Client{
-		Config:  &lib.ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
+		Config:  &lib.ClientConfigImpl{URL: fmt.Sprintf("http://localhost:%d", port)},
 		HomeDir: homeDir,
 	}
 }

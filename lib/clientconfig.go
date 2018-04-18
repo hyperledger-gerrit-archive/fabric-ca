@@ -29,8 +29,28 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ClientConfig is the fabric-ca client's config
-type ClientConfig struct {
+// ClientConfig represents configuration used by the Fabric CA client
+type ClientConfig interface {
+	// Enrolls an identity using the enrollment request specified in this config and
+	// the lib.EnrollmentResponse object
+	Enroll(rawurl, home string) (*EnrollmentResponse, error)
+	// Generates a CSR using the csr info specified in this config and writes it
+	// to the <msp dir>/signcerts/<cn specifed in the csr section of the config>.csr file
+	GenCSR(home string) error
+	// Returns Fabric CA server URL specified in this config
+	GetURL() string
+	// Returns name of the CA specified in this config
+	GetCAName() string
+	// Returns fully qualified name of the msp directory specified in this config
+	GetMSPDir() string
+	// Returns enrollment info specified in this config
+	GetEnrollmentRequest() *api.EnrollmentRequest
+	// Returns registration info specified in this config
+	GetID() *api.RegistrationRequest
+}
+
+// ClientConfigImpl is the Fabric CA client's config
+type ClientConfigImpl struct {
 	URL        string `def:"http://localhost:7054" opt:"u" help:"URL of fabric-ca-server"`
 	MSPDir     string `def:"msp" opt:"M" help:"Membership Service Provider directory"`
 	TLS        tls.ClientTLSConfig
@@ -46,7 +66,7 @@ type ClientConfig struct {
 // Enroll a client given the server's URL and the client's home directory.
 // The URL may be of the form: http://user:pass@host:port where user and pass
 // are the enrollment ID and secret, respectively.
-func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) {
+func (c *ClientConfigImpl) Enroll(rawurl, home string) (*EnrollmentResponse, error) {
 	purl, err := url.Parse(rawurl)
 	if err != nil {
 		return nil, err
@@ -58,7 +78,12 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 		c.Enrollment.Secret = secret
 		purl.User = nil
 	}
-	if c.Enrollment.Name == "" {
+
+	// When requesting idemix credential, user can use either basic or
+	// token auth based on X509 certificate. So, return error only when
+	// enroll is for X509 cert and userid/password are missing from the
+	// server URL.
+	if c.Enrollment.Name == "" && !c.Enrollment.Idemix {
 		expecting := fmt.Sprintf(
 			"%s://<enrollmentID>:<secret>@%s",
 			purl.Scheme, purl.Host)
@@ -75,7 +100,7 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 }
 
 // GenCSR generates a certificate signing request and writes the CSR to a file.
-func (c *ClientConfig) GenCSR(home string) error {
+func (c *ClientConfigImpl) GenCSR(home string) error {
 
 	client := &Client{HomeDir: home, Config: c}
 	// Generate the CSR
@@ -101,4 +126,29 @@ func (c *ClientConfig) GenCSR(home string) error {
 	}
 	log.Infof("Stored CSR at %s", csrFile)
 	return nil
+}
+
+// GetURL returns server URL from this configuration
+func (c *ClientConfigImpl) GetURL() string {
+	return c.URL
+}
+
+// GetCAName returns CA name from this configuration
+func (c *ClientConfigImpl) GetCAName() string {
+	return c.CAName
+}
+
+// GetMSPDir returns msp directory from this configuration
+func (c *ClientConfigImpl) GetMSPDir() string {
+	return c.MSPDir
+}
+
+// GetEnrollmentRequest returns enrollment request from this configuration
+func (c *ClientConfigImpl) GetEnrollmentRequest() *api.EnrollmentRequest {
+	return &c.Enrollment
+}
+
+// GetID returns registration request from this configuration
+func (c *ClientConfigImpl) GetID() *api.RegistrationRequest {
+	return &c.ID
 }

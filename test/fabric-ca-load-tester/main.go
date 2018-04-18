@@ -57,13 +57,13 @@ type Test struct {
 }
 
 type testConfig struct {
-	ServerURL      string           `yaml:"serverURL"`
-	ConfigHome     string           `yaml:"caConfigHome"`
-	NumUsers       int              `yaml:"numClients"`
-	NumReqsPerUser int              `yaml:"numReqsPerClient"`
-	TestSeq        []Test           `yaml:"testSeq"`
-	Affiliation    string           `yaml:"affiliation"`
-	CAClientConfig lib.ClientConfig `yaml:"caClientConfig"`
+	ServerURL      string               `yaml:"serverURL"`
+	ConfigHome     string               `yaml:"caConfigHome"`
+	NumUsers       int                  `yaml:"numClients"`
+	NumReqsPerUser int                  `yaml:"numReqsPerClient"`
+	TestSeq        []Test               `yaml:"testSeq"`
+	Affiliation    string               `yaml:"affiliation"`
+	CAClientConfig lib.ClientConfigImpl `yaml:"caClientConfig"`
 }
 
 // enrollmentID encapsulates an identity's name and type
@@ -124,7 +124,7 @@ func main() {
 
 // Enrolls bootstrap user and sets the cfg global object
 func enrollBootstrapUser(surl *string, configHome *string,
-	cfg *lib.ClientConfig) (id *lib.Identity, err error) {
+	cfg *lib.ClientConfigImpl) (id *lib.Identity, err error) {
 	var resp *lib.EnrollmentResponse
 	resp, err = cfg.Enroll(*surl, *configHome)
 	if err != nil {

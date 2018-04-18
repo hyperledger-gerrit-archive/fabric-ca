@@ -342,7 +342,7 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 		log.Debugf("Getting CA cert; parent server URL is %s", util.GetMaskedURL(ca.Config.Intermediate.ParentServer.URL))
 		clientCfg := ca.Config.Client
 		if clientCfg == nil {
-			clientCfg = &ClientConfig{}
+			clientCfg = &ClientConfigImpl{}
 		}
 		// Copy over the intermediate configuration into client configuration
 		clientCfg.TLS = ca.Config.Intermediate.TLS

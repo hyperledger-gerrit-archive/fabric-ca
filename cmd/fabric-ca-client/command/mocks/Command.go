@@ -54,16 +54,32 @@ func (_m *Command) GetCfgFileName() string {
 	return r0
 }
 
-// GetClientCfg provides a mock function with given fields:
-func (_m *Command) GetClientCfg() *lib.ClientConfig {
+// GetClient provides a mock function with given fields:
+func (_m *Command) GetClient() *lib.Client {
 	ret := _m.Called()
 
-	var r0 *lib.ClientConfig
-	if rf, ok := ret.Get(0).(func() *lib.ClientConfig); ok {
+	var r0 *lib.Client
+	if rf, ok := ret.Get(0).(func() *lib.Client); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*lib.ClientConfig)
+			r0 = ret.Get(0).(*lib.Client)
+		}
+	}
+
+	return r0
+}
+
+// GetClientCfg provides a mock function with given fields:
+func (_m *Command) GetClientCfg() lib.ClientConfig {
+	ret := _m.Called()
+
+	var r0 lib.ClientConfig
+	if rf, ok := ret.Get(0).(func() lib.ClientConfig); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(lib.ClientConfig)
 		}
 	}
 

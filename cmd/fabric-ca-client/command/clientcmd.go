@@ -47,7 +47,7 @@ const (
 	gencsr    = "gencsr"
 )
 
-// Command interface initializes client command and loads an identity
+// Command represents fabric-ca-client command
 type Command interface {
 	// Initializes the client command configuration
 	ConfigInit() error
@@ -55,8 +55,10 @@ type Command interface {
 	GetCfgFileName() string
 	// Loads the credentials of an identity that are in the msp directory specified to this command
 	LoadMyIdentity() (*lib.Identity, error)
-	// Returns lib.ClientCfg instance associated with this comamnd
-	GetClientCfg() *lib.ClientConfig
+	// Returns config associated with this comamnd
+	GetClientCfg() lib.ClientConfig
+	// Returns a client object using the config associated with this command
+	GetClient() *lib.Client
 	// Returns viper instance associated with this comamnd
 	GetViper() *viper.Viper
 }
@@ -91,7 +93,7 @@ type ClientCmd struct {
 	// homeDirectory is the location of the client's home directory
 	homeDirectory string
 	// clientCfg is the client's configuration
-	clientCfg *lib.ClientConfig
+	clientCfg *lib.ClientConfigImpl
 	// cfgAttrs are the attributes specified via flags or env variables
 	// and translated to Attributes field in registration
 	cfgAttrs []string
@@ -160,10 +162,10 @@ func (c *ClientCmd) init() {
 		},
 	}
 	c.rootCmd.AddCommand(c.newRegisterCommand(),
-		newEnrollCmd(c).getCommand(),
+		NewEnrollCmd(c),
 		c.newReenrollCommand(),
 		c.newRevokeCommand(),
-		newGetCAInfoCmd(c).getCommand(),
+		NewGetCAInfoCmd(c),
 		c.newGenCsrCommand(),
 		c.newGenCRLCommand(),
 		c.newIdentityCommand(),
@@ -209,7 +211,7 @@ func (c *ClientCmd) registerFlags() {
 		&c.cfgCsrNames, "csr.names", "", nil, "A list of comma-separated CSR names of the form <name>=<value> (e.g. C=CA,O=Org1)")
 	pflags.BoolVarP(&c.debug, "debug", "d", false, "Enable debug level logging")
 
-	c.clientCfg = &lib.ClientConfig{}
+	c.clientCfg = &lib.ClientConfigImpl{}
 	tags := map[string]string{
 		"help.csr.cn":           "The common name field of the certificate signing request",
 		"help.csr.serialnumber": "The serial number in a certificate signing request",
@@ -277,7 +279,7 @@ func (c *ClientCmd) LoadMyIdentity() (*lib.Identity, error) {
 }
 
 // GetClientCfg returns client configuration
-func (c *ClientCmd) GetClientCfg() *lib.ClientConfig {
+func (c *ClientCmd) GetClientCfg() lib.ClientConfig {
 	return c.clientCfg
 }
 
@@ -289,4 +291,12 @@ func (c *ClientCmd) GetCfgFileName() string {
 // GetViper returns the viper instance
 func (c *ClientCmd) GetViper() *viper.Viper {
 	return c.myViper
+}
+
+// GetClient creates and returns an instance of lib.Client object
+func (c *ClientCmd) GetClient() *lib.Client {
+	return &lib.Client{
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
+	}
 }

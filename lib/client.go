@@ -47,7 +47,7 @@ type Client struct {
 	// The client's home directory
 	HomeDir string `json:"homeDir,omitempty"`
 	// The client's configuration
-	Config *ClientConfig
+	Config *ClientConfigImpl
 	// Denotes if the client object is already initialized
 	initialized bool
 	// File and directory paths
