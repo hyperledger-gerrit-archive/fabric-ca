@@ -52,12 +52,14 @@ Table of Contents
    1. `Enrolling the bootstrap identity`_
    2. `Registering a new identity`_
    3. `Enrolling a peer identity`_
-   4. `Reenrolling an identity`_
-   5. `Revoking a certificate or identity`_
-   6. `Generating a CRL (Certificate Revocation List)`_
-   7. `Attribute-Based Access Control`_
-   8. `Enabling TLS`_
-   9. `Contact specific CA instance`_
+   4. `Getting a CA certificate chain from another Fabric CA server`_
+   5. `Getting Identity Mixer credential for a user`_
+   6. `Reenrolling an identity`_
+   7. `Revoking a certificate or identity`_
+   8. `Generating a CRL (Certificate Revocation List)`_
+   9. `Attribute-Based Access Control`_
+   10. `Enabling TLS`_
+   11. `Contact specific CA instance`_
 
 6. `HSM`_
 
@@ -1444,6 +1446,39 @@ By default, the Fabric CA server returns the CA chain in child-first order. This
 certificate in the chain is followed by its issuer's CA certificate. If you need the Fabric CA server
 to return the CA chain in the opposite order, then set the environment variable ``CA_CHAIN_PARENT_FIRST``
 to ``true`` and restart the Fabric CA server. The Fabric CA client will handle either order appropriately.
+
+Getting Identity Mixer credential for a user
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Identity Mixer (Idemix) is a cryptographic protocol suite for privacy-preserving authentication and transfer of certified attributes. Idemix allows users to authenticate with verifiers without the involvement of the issuer (CA) and selectively disclose only those attributes that are required by the verifier and can do so without being linkable across their transactions.
+
+Fabric CA server can issue Idemix credentials in addition to X509 certificates. An Idemix credential can be requested by sending request to the ``/api/v1/idemix/credential`` API endpoint. For more information on this and other Fabric CA server API endpoints, please refer to `swagger-fabric-ca.json <https://github.com/hyperledger/fabric-ca/blob/master/swagger/swagger-fabric-ca.json>`_
+
+First get the Fabric CA's Idemix public key. You can get the CA's public key either by running the ``fabric-ca-client getcacert`` command. As mentioned before, all the ``fabric-ca-client`` commands create required payload, send request to appropriate Fabric CA server REST endpoint, process the response and in some cases store the contents of the response. In this case, the ``getcacert`` command sends a request to the ``/api/v1/cainfo`` endpoint (Refer to swagger-fabric-ca.json for more info on all the API endpoints). It processes the response body and stores the CA certificates and public key that are present in the response body to the MSP directory. The CA's Idemix public key is stored in the *<MSP directory>/IssuerPublicKey* file.
+
+For example, following command will store the CA's Idemix public key in the *$HOME/fabric-ca/clients/user1/msp/IssuerPublicKey* file:
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/user1
+    fabric-ca-client getcacert -u http://localhost:7054 
+
+Assuming that you are already registered and have a valid userid/password or have a valid X509 credential (private key and certificate). You can now get an Idemix credential by running ``fabric-ca-client enroll`` command with ``--idemix`` argument. The ``--idemix`` argument indicates to the enrollment command that an Idemix credential is being requested. The Idemix credential issuance is a two step process. First, the enroll command sends a request with empty body to the ``/api/v1/idemix/credential`` API endpoint to get a nonce, creates a credential request using the nonce, sends another request with the credential request in the body to  ``/api/v1/idemix/credential`` API endpoint to get an Idemix credential and finally stores the credential in the *<MSP directory>/user/SignerConfig* file.
+The SignerConfig file contains the credential, secret key, and attribute values. Currently, Idemix only supports four attributes, namely, **OU**, **enrollmentID**, **isAdmin** and **revocationHandle**.
+
+For example, assuming that user has already been registered and has a valid user ID/password, following command will get an Idemix credential and stores it in the *$HOME/fabric-ca/clients/user1/msp/user/SignerConfig* file.
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/user1
+    fabric-ca-client enroll --idemix -u http://user1:user1pw@localhost:7054
+
+If the user already has valid enrollment certificate and is located in the $HOME/fabric-ca/clients/user1/msp/signcerts/ directory,
+then enroll command can be run like this without userid/password:
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/user1
+    fabric-ca-client enroll --idemix -u http://localhost:7054
 
 Reenrolling an Identity
 ~~~~~~~~~~~~~~~~~~~~~~~
