@@ -94,7 +94,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 
 	// Enroll over HTTP
 	client := &Client{
-		Config: &ClientConfig{
+		Config: &ClientConfigImpl{
 			URL: fmt.Sprintf("http://localhost:%d", whitePort),
 		},
 		HomeDir: path.Join(testTLSClientAuthDir, "client"),
@@ -465,7 +465,7 @@ func createServer(port int, home, parentURL string, maxEnroll int) (*Server, err
 
 func getTestClient(port int) *Client {
 	return &Client{
-		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
+		Config:  &ClientConfigImpl{URL: fmt.Sprintf("http://localhost:%d", port)},
 		HomeDir: testdataDir,
 	}
 }

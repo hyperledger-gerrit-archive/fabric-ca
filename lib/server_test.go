@@ -682,7 +682,7 @@ func TestSRVRunningTLSServer(t *testing.T) {
 		}
 	}()
 
-	clientConfig := &ClientConfig{
+	clientConfig := &ClientConfigImpl{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
 			CertFiles: []string{"../testdata/root.pem"},
@@ -1703,7 +1703,7 @@ func TestTLSCertIssuance(t *testing.T) {
 		}
 	}()
 	client := &Client{
-		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", rootPort)},
+		Config:  &ClientConfigImpl{URL: fmt.Sprintf("http://localhost:%d", rootPort)},
 		HomeDir: testDir,
 	}
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
@@ -1763,7 +1763,7 @@ func TestTLSCertIssuance(t *testing.T) {
 	}
 	stopserver = true
 	// Connect to the server over TLS
-	cfg := &ClientConfig{URL: fmt.Sprintf("https://localhost:%d", rootPort)}
+	cfg := &ClientConfigImpl{URL: fmt.Sprintf("https://localhost:%d", rootPort)}
 	cfg.TLS.Enabled = true
 	cfg.TLS.CertFiles = []string{"ca-cert.pem"}
 	client = &Client{Config: cfg, HomeDir: testDir}
@@ -1786,7 +1786,7 @@ func testNoClientCert(t *testing.T) {
 		t.Fatalf("Root server start failed: %s", err)
 	}
 
-	clientConfig := &ClientConfig{
+	clientConfig := &ClientConfigImpl{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
 			CertFiles: []string{"../testdata/root.pem"},
@@ -1849,7 +1849,7 @@ func testClientAuth(t *testing.T) {
 		t.Fatalf("Root server start failed: %s", err)
 	}
 
-	clientConfig := &ClientConfig{
+	clientConfig := &ClientConfigImpl{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
 			CertFiles: []string{"../testdata/root.pem"},
@@ -1865,7 +1865,7 @@ func testClientAuth(t *testing.T) {
 	}
 
 	// Client created with certificate and key for TLS
-	clientConfig = &ClientConfig{
+	clientConfig = &ClientConfigImpl{
 		URL: fmt.Sprintf("https://localhost:%d", rootPort),
 		TLS: libtls.ClientTLSConfig{
 			CertFiles: []string{"../testdata/root.pem"},
@@ -2496,14 +2496,14 @@ func getIntermediateClient() *Client {
 
 func getTestClient(port int) *Client {
 	return &Client{
-		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
+		Config:  &ClientConfigImpl{URL: fmt.Sprintf("http://localhost:%d", port)},
 		HomeDir: testdataDir,
 	}
 }
 
 func getTLSTestClient(port int, trustedTLSCerts []string) *Client {
 	return &Client{
-		Config: &ClientConfig{
+		Config: &ClientConfigImpl{
 			URL: fmt.Sprintf("https://localhost:%d", port),
 			TLS: libtls.ClientTLSConfig{
 				Enabled:   true,

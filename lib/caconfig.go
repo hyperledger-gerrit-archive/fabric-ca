@@ -102,7 +102,7 @@ type CAConfig struct {
 	CSP          *factory.FactoryOpts `mapstructure:"bccsp"`
 	// Optional client config for an intermediate server which acts as a client
 	// of the root (or parent) server
-	Client       *ClientConfig
+	Client       *ClientConfigImpl
 	Intermediate IntermediateCA
 	CRL          CRLConfig
 }
