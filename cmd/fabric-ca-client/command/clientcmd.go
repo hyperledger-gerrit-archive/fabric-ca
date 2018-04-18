@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	"github.com/hyperledger/fabric-ca/util"
@@ -47,7 +48,7 @@ const (
 	gencsr    = "gencsr"
 )
 
-// Command interface initializes client command and loads an identity
+// Command represents fabric-ca-client command
 type Command interface {
 	// Initializes the client command configuration
 	ConfigInit() error
@@ -55,10 +56,32 @@ type Command interface {
 	GetCfgFileName() string
 	// Loads the credentials of an identity that are in the msp directory specified to this command
 	LoadMyIdentity() (*lib.Identity, error)
-	// Returns lib.ClientCfg instance associated with this comamnd
-	GetClientCfg() *lib.ClientConfig
+	// Returns config associated with this comamnd
+	GetClientCfg() Config
+	// Returns a client object using the config associated with this command
+	GetClient() *lib.Client
 	// Returns viper instance associated with this comamnd
 	GetViper() *viper.Viper
+}
+
+// Config represents configuration used by the fabric-ca-client commands
+type Config interface {
+	// Enrolls an identity using the enrollment request specified in this config and
+	// the lib.EnrollmentResponse object
+	Enroll(rawurl, home string) (*lib.EnrollmentResponse, error)
+	// Generates a CSR using the csr info specified in this config and writes it
+	// to the <msp dir>/signcerts/<cn specifed in the csr section of the config>.csr file
+	GenCSR(home string) error
+	// Returns Fabric CA server URL specified in this config
+	GetURL() string
+	// Returns name of the CA specified in this config
+	GetCAName() string
+	// Returns fully qualified name of the msp directory specified in this config
+	GetMSPDir() string
+	// Returns enrollment info specified in this config
+	GetEnrollmentRequest() *api.EnrollmentRequest
+	// Returns registration info specified in this config
+	GetID() *api.RegistrationRequest
 }
 
 type revokeArgs struct {
@@ -147,10 +170,10 @@ func (c *ClientCmd) init() {
 		},
 	}
 	c.rootCmd.AddCommand(c.newRegisterCommand(),
-		newEnrollCmd(c).getCommand(),
+		NewEnrollCmd(c),
 		c.newReenrollCommand(),
 		c.newRevokeCommand(),
-		newGetCACertCmd(c).getCommand(),
+		NewGetCACertCmd(c),
 		c.newGenCsrCommand(),
 		newGenCRLCmd(c).getCommand(),
 		c.newIdentityCommand(),
@@ -264,7 +287,7 @@ func (c *ClientCmd) LoadMyIdentity() (*lib.Identity, error) {
 }
 
 // GetClientCfg returns client configuration
-func (c *ClientCmd) GetClientCfg() *lib.ClientConfig {
+func (c *ClientCmd) GetClientCfg() Config {
 	return c.clientCfg
 }
 
@@ -276,4 +299,12 @@ func (c *ClientCmd) GetCfgFileName() string {
 // GetViper returns the viper instance
 func (c *ClientCmd) GetViper() *viper.Viper {
 	return c.myViper
+}
+
+// GetClient creates and returns an instance of lib.Client object
+func (c *ClientCmd) GetClient() *lib.Client {
+	return &lib.Client{
+		HomeDir: filepath.Dir(c.cfgFileName),
+		Config:  c.clientCfg,
+	}
 }
