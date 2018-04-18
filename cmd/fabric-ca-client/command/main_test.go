@@ -254,7 +254,9 @@ func TestEnroll(t *testing.T) {
 
 	// Remove admin home directory that this test is going to create before
 	// exiting the test case
-	defer os.RemoveAll(adminHome)
+	defer func() {
+		os.RemoveAll(adminHome)
+	}()
 
 	srv := setupEnrollTest(t)
 
@@ -267,11 +269,43 @@ func TestEnroll(t *testing.T) {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
 
-	// // Enroll with -u parameter. Value of the -u parameter is used as server URL
-	// err = RunMain([]string{cmdName, "enroll", "--enrollment.idemix", "-d", "-u", enrollURL, "-H", adminHome})
+	// Enroll --idemix with token auth should fail without enrollment certificate
+	// configFile := filepath.Join(adminHome, "fabric-ca-client-config.yaml")
+	// _, err = os.Stat(configFile)
+	// assert.NoError(t, err, "The client configuration file %s is not found after enroll", configFile)
+
+	// idemixAdminHome, err := ioutil.TempDir(tdDir, "idemixenrolladminhome")
 	// if err != nil {
-	// 	t.Errorf("client enroll -u failed: %s", err)
+	// 	t.Fatalf("Failed to create temp directory %s", err.Error())
 	// }
+	// defer os.RemoveAll(idemixAdminHome)
+
+	// configFile1 := filepath.Join(idemixAdminHome, "fabric-ca-client-config.yaml")
+	// err = util.CopyFile(configFile, configFile1)
+	// if err != nil {
+	// 	t.Fatalf("Failed to copy %s to %s: %+v", configFile, configFile1, err)
+	// }
+
+	// err = RunMain([]string{cmdName, "enroll", "--idemix", "-d", "-u", serverURL, "-H", idemixAdminHome})
+	// assert.Error(t, err, "client enroll --idemix should fail as user has no enrollment certificate but idemix enroll is called without userid/password")
+
+	// // Enroll with --idemix parameter. Value of the -u parameter is used as server URL
+	// err = RunMain([]string{cmdName, "enroll", "--idemix", "-d", "-u", enrollURL, "-H", adminHome})
+	// assert.NoError(t, err, "client enroll --idemix failed")
+	// signerConfigFile := adminHome + "/msp/user/SignerConfig"
+	// _, err = os.Stat(signerConfigFile)
+	// assert.Error(t, err, "Should have found idemix credential at %s after 'enroll --idemix' command using basic auth but did not", signerConfigFile)
+
+	// Enroll with --idemix parameter. Value of the -u parameter is used as server URL
+	// err = os.Remove(signerConfigFile)
+	// if err != nil {
+	// 	t.Fatalf("Failed to remove file %s", signerConfigFile)
+	// }
+	// err = RunMain([]string{cmdName, "enroll", "--idemix", "-d", "-u", serverURL, "-H", adminHome})
+	// assert.NoError(t, err, "client enroll --idemix failed")
+	// signerConfigFile = filepath.Join(adminHome, "msp/user/SignerConfig")
+	// _, err = os.Stat(signerConfigFile)
+	// assert.NoError(t, err, "Should have found idemix credential at %s after 'enroll --idemix' command using token auth but did not", signerConfigFile)
 
 	// Enroll without -u parameter, should fail as the server URL is picked
 	// from the configuration file but userid and password are not part of the
@@ -839,7 +873,7 @@ func TestAffiliationCmd(t *testing.T) {
 
 	result, err := captureOutput(RunMain, []string{cmdName, "affiliation", "list"})
 	assert.NoError(t, err, "Failed to return all affiliations")
-	assert.Equal(t, "affiliation: org1\n", result)
+	assert.Contains(t, result, "affiliation: org1\n")
 
 	err = RunMain([]string{cmdName, "affiliation", "list", "--affiliation", "org2"})
 	assert.Error(t, err, "Should failed to get the requested affiliation, affiliation does not exist")
@@ -2472,7 +2506,7 @@ func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) []*big.I
 		}
 
 		cert, err := enrollResp.Identity.GetECert().GetX509Cert()
-		if err != nil {
+		if err != nil || cert == nil {
 			t.Fatalf("Failed to get enrollment certificate for the user %s: %s", userName, err)
 		}
 

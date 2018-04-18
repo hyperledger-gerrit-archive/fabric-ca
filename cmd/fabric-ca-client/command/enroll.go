@@ -27,26 +27,41 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// EnrollCmdUsage is the usage text for enroll command
+	EnrollCmdUsage = "enroll -u http://user:userpw@serverAddr:serverPort"
+	// EnrollCmdShortDesc is the short description for enroll command
+	EnrollCmdShortDesc = "Enroll an identity"
+	// EnrollCmdLongDesc is the long description for enroll command
+	EnrollCmdLongDesc = "Enroll identity with Fabric CA server"
+)
+
+// enrollCmd represents enroll command
 type enrollCmd struct {
 	Command
+	idemix bool
 }
 
-func newEnrollCmd(c Command) *enrollCmd {
-	enrollCmd := &enrollCmd{c}
-	return enrollCmd
+// NewEnrollCmd returns cobra.Command that represents enroll command
+func NewEnrollCmd(c Command) *cobra.Command {
+	enrollCmd := &enrollCmd{c, false}
+	return enrollCmd.getCommand()
 }
 
+// getCommand returns cobra.Command object for enroll command
 func (c *enrollCmd) getCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "enroll -u http://user:userpw@serverAddr:serverPort",
-		Short:   "Enroll an identity",
-		Long:    "Enroll identity with Fabric CA server",
+		Use:     EnrollCmdUsage,
+		Short:   EnrollCmdShortDesc,
+		Long:    EnrollCmdLongDesc,
 		PreRunE: c.preRunEnroll,
 		RunE:    c.runEnroll,
 	}
+	cmd.Flags().BoolVar(&c.idemix, "idemix", false, "Get idemix credential")
 	return cmd
 }
 
+// preRunEnroll is the PreRunE function for enroll cobra command
 func (c *enrollCmd) preRunEnroll(cmd *cobra.Command, args []string) error {
 	if len(args) > 0 {
 		return errors.Errorf(extraArgsError, args, cmd.UsageString())
@@ -62,11 +77,13 @@ func (c *enrollCmd) preRunEnroll(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// runEnroll is the RunE function for enroll cobra command
 func (c *enrollCmd) runEnroll(cmd *cobra.Command, args []string) error {
-	log.Debug("Entered runEnroll")
+	log.Debug("Entered RunEnroll")
 	cfgFileName := c.GetCfgFileName()
 	cfg := c.GetClientCfg()
-	resp, err := cfg.Enroll(cfg.URL, filepath.Dir(cfgFileName))
+	cfg.GetEnrollmentRequest().Idemix = c.idemix
+	resp, err := cfg.Enroll(cfg.GetURL(), filepath.Dir(cfgFileName))
 	if err != nil {
 		return err
 	}
@@ -85,16 +102,23 @@ func (c *enrollCmd) runEnroll(cmd *cobra.Command, args []string) error {
 		return errors.Wrapf(err, "Failed to write file at '%s'", cfgFileName)
 	}
 
+	// Store identity credentials
 	err = ID.Store()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store enrollment information")
 	}
 
+	// Store CA chain
 	err = storeCAChain(cfg, &resp.ServerInfo)
 	if err != nil {
 		return err
 	}
 
-	// Store issuer public key
+	// Store CA idemix public key
+	err = storeIssuerPublicKey(cfg, &resp.ServerInfo)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }

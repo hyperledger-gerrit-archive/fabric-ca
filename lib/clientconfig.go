@@ -58,7 +58,7 @@ func (c *ClientConfig) Enroll(rawurl, home string) (*EnrollmentResponse, error) 
 		c.Enrollment.Secret = secret
 		purl.User = nil
 	}
-	if c.Enrollment.Name == "" {
+	if c.Enrollment.Name == "" && !c.Enrollment.Idemix {
 		expecting := fmt.Sprintf(
 			"%s://<enrollmentID>:<secret>@%s",
 			purl.Scheme, purl.Host)
@@ -101,4 +101,29 @@ func (c *ClientConfig) GenCSR(home string) error {
 	}
 	log.Infof("Stored CSR at %s", csrFile)
 	return nil
+}
+
+// GetURL returns server URL from this configuration
+func (c *ClientConfig) GetURL() string {
+	return c.URL
+}
+
+// GetCAName returns CA name from this configuration
+func (c *ClientConfig) GetCAName() string {
+	return c.CAName
+}
+
+// GetMSPDir returns msp directory from this configuration
+func (c *ClientConfig) GetMSPDir() string {
+	return c.MSPDir
+}
+
+// GetEnrollmentRequest returns enrollment request from this configuration
+func (c *ClientConfig) GetEnrollmentRequest() *api.EnrollmentRequest {
+	return &c.Enrollment
+}
+
+// GetID returns registration request from this configuration
+func (c *ClientConfig) GetID() *api.RegistrationRequest {
+	return &c.ID
 }
