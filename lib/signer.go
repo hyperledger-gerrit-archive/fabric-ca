@@ -20,29 +20,38 @@ import (
 	"crypto/x509"
 	"fmt"
 
-	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/common/attrmgr"
+	"github.com/pkg/errors"
 )
 
-func newSigner(key bccsp.Key, cert []byte, id *Identity) *Signer {
-	return &Signer{
-		key:    key,
-		cert:   cert,
-		id:     id,
-		client: id.client,
+// NewSigner is constructor for Signer
+func NewSigner(key bccsp.Key, cert []byte) (*Signer, error) {
+	s := &Signer{
+		key:       key,
+		certBytes: cert,
 	}
+	var err error
+	s.cert, err = util.GetX509CertificateFromPEM(s.certBytes)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to unmarshal X509 certificate bytes")
+	}
+	s.name = util.GetEnrollmentIDFromX509Certificate(s.cert)
+	return s, nil
 }
 
 // Signer represents a signer
 // Each identity may have multiple signers, currently one ecert and multiple tcerts
 type Signer struct {
-	key    bccsp.Key
-	cert   []byte
-	id     *Identity
-	client *Client
+	// Private key
+	key bccsp.Key
+	// Certificate bytes
+	certBytes []byte
+	// X509 certificate that is constructed from the cert bytes associated with this signer
+	cert *x509.Certificate
+	// Common name from the certificate associated with this signer
+	name string
 }
 
 // Key returns the key bytes of this signer
@@ -52,41 +61,26 @@ func (s *Signer) Key() bccsp.Key {
 
 // Cert returns the cert bytes of this signer
 func (s *Signer) Cert() []byte {
-	return s.cert
+	return s.certBytes
 }
 
 // GetX509Cert returns the X509 certificate for this signer
-func (s *Signer) GetX509Cert() (*x509.Certificate, error) {
-	cert, err := util.GetX509CertificateFromPEM(s.cert)
-	if err != nil {
-		return nil, fmt.Errorf("Failed getting X509 certificate for '%s': %s", s.id.name, err)
-	}
-	return cert, nil
+func (s *Signer) GetX509Cert() *x509.Certificate {
+	return s.cert
 }
 
-// RevokeSelf revokes only the certificate associated with this signer
-func (s *Signer) RevokeSelf() (*api.RevocationResponse, error) {
-	log.Debugf("RevokeSelf %s", s.id.name)
-	serial, aki, err := GetCertID(s.cert)
-	if err != nil {
-		return nil, err
-	}
-	req := &api.RevocationRequest{
-		Serial: serial,
-		AKI:    aki,
-	}
-	return s.id.Revoke(req)
+// GetName returns common name that is retrieved from the Subject of the certificate
+// associated with this signer
+func (s *Signer) GetName() string {
+	return s.name
 }
 
 // Attributes returns the attributes that are in the certificate
 func (s *Signer) Attributes() (*attrmgr.Attributes, error) {
-	cert, err := s.GetX509Cert()
-	if err != nil {
-		return nil, fmt.Errorf("Failed getting attributes for '%s': %s", s.id.name, err)
-	}
+	cert := s.GetX509Cert()
 	attrs, err := attrmgr.New().GetAttributesFromCert(cert)
 	if err != nil {
-		return nil, fmt.Errorf("Failed getting attributes for '%s': %s", s.id.name, err)
+		return nil, fmt.Errorf("Failed getting attributes for '%s': %s", s.name, err)
 	}
 	return attrs, nil
 }
