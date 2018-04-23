@@ -17,23 +17,23 @@ limitations under the License.
 package lib
 
 import (
-	"io/ioutil"
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/util"
-	"github.com/hyperledger/fabric/bccsp/factory"
 )
 
-func getIdentity() *Identity {
-	key, _ := util.ImportBCCSPKeyFromPEM("../tesdata/ec-key.pem", factory.GetDefault(), true)
-	cert, _ := ioutil.ReadFile("../tesdata/ec.pem")
-	id := newIdentity(nil, "test", key, cert)
+func getIdentity(t *testing.T) *Identity {
+	cred := NewX509Credential("../testdata/ec.pem", "../testdata/ec-key.pem", nil)
+	err := cred.Load()
+	if err != nil {
+		t.Fatalf("Failed to load credential from non existant file ../tesdata/ec.pem: %s", err.Error())
+	}
+	id := NewIdentity(nil, "test", []Credential{cred})
 	return id
 }
 
 func TestIdentity(t *testing.T) {
-	id := getIdentity()
+	id := getIdentity(t)
 	testGetName(id, t)
 	testGetECert(id, t)
 }
@@ -63,7 +63,7 @@ func testGetName(id *Identity, t *testing.T) {
 }
 
 func testGetECert(id *Identity, t *testing.T) {
-	ecert := id.GetECert()
+	ecert := id.GetX509Credential()
 	if ecert == nil {
 		t.Error("No ECert was returned")
 	}

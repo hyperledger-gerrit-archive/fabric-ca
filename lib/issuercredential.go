@@ -34,52 +34,58 @@ type IssuerCredential interface {
 	SetIssuerKey(key *idemix.IssuerKey)
 }
 
-type issuerCredential struct {
+// CAIdemixCredential represents CA's Idemix public and secret key
+type CAIdemixCredential struct {
 	pubKeyFile    string
 	secretKeyFile string
 	issuerKey     *idemix.IssuerKey
 }
 
-func newIssuerCredential(pubKeyFile, secretKeyFile string) IssuerCredential {
-	return &issuerCredential{
+// NewCAIdemixCredential is the constructor for the CAIdemixCredential
+func NewCAIdemixCredential(pubKeyFile, secretKeyFile string) *CAIdemixCredential {
+	return &CAIdemixCredential{
 		pubKeyFile:    pubKeyFile,
 		secretKeyFile: secretKeyFile,
 	}
 }
 
-func (ic *issuerCredential) Load() error {
-	pubKeyFileExists := util.FileExists(ic.pubKeyFile)
-	secretKeyFileExists := util.FileExists(ic.secretKeyFile)
-	if pubKeyFileExists && secretKeyFileExists {
-		log.Info("The issuer public and secret key files already exist")
-		log.Infof("   secret key file location: %s", ic.secretKeyFile)
-		log.Infof("   public key file location: %s", ic.pubKeyFile)
-		pubKeyBytes, err := ioutil.ReadFile(ic.pubKeyFile)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to read issuer public key")
-		}
-		pubKey := &idemix.IssuerPublicKey{}
-		err = proto.Unmarshal(pubKeyBytes, pubKey)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to unmarshal issuer public key bytes")
-		}
-		err = pubKey.Check()
-		if err != nil {
-			return errors.Wrapf(err, "Issuer public key check failed")
-		}
-		privKey, err := ioutil.ReadFile(ic.secretKeyFile)
-		if err != nil {
-			return errors.Wrapf(err, "Failed to read issuer secret key")
-		}
-		ic.issuerKey = &idemix.IssuerKey{
-			IPk: pubKey,
-			ISk: privKey,
-		}
+// Load loads the CA's idemix public and private key from the location specified
+// by pubKeyFile and secretKeyFile attributes, respectively
+func (ic *CAIdemixCredential) Load() error {
+	pubKeyBytes, err := ioutil.ReadFile(ic.pubKeyFile)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to read CA's Idemix public key")
 	}
+	if len(pubKeyBytes) == 0 {
+		return errors.New("CA's Idemix public key file is empty")
+	}
+	pubKey := &idemix.IssuerPublicKey{}
+	err = proto.Unmarshal(pubKeyBytes, pubKey)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to unmarshal CA's Idemix public key bytes")
+	}
+	err = pubKey.Check()
+	if err != nil {
+		return errors.Wrapf(err, "CA Idemix public key check failed")
+	}
+	privKey, err := ioutil.ReadFile(ic.secretKeyFile)
+	if err != nil {
+		return errors.Wrapf(err, "Failed to read CA's Idemix secret key")
+	}
+	if len(privKey) == 0 {
+		return errors.New("CA's Idemix secret key file is empty")
+	}
+	ic.issuerKey = &idemix.IssuerKey{
+		IPk: pubKey,
+		ISk: privKey,
+	}
+	//TODO: check if issuer key is valid by checking public and secret key pair
 	return nil
 }
 
-func (ic *issuerCredential) Store() error {
+// Store stores the CA's Idemix public and private key to the location
+// specified by pubKeyFile and secretKeyFile attributes, respectively
+func (ic *CAIdemixCredential) Store() error {
 	ik, err := ic.GetIssuerKey()
 	if err != nil {
 		return err
@@ -107,13 +113,16 @@ func (ic *issuerCredential) Store() error {
 	return nil
 }
 
-func (ic *issuerCredential) GetIssuerKey() (*idemix.IssuerKey, error) {
+// GetIssuerKey returns idemix.IssuerKey object that is associated with
+// this CAIdemixCredential
+func (ic *CAIdemixCredential) GetIssuerKey() (*idemix.IssuerKey, error) {
 	if ic.issuerKey == nil {
 		return nil, errors.New("Issuer key is not set")
 	}
 	return ic.issuerKey, nil
 }
 
-func (ic *issuerCredential) SetIssuerKey(key *idemix.IssuerKey) {
+// SetIssuerKey sets idemix.IssuerKey object
+func (ic *CAIdemixCredential) SetIssuerKey(key *idemix.IssuerKey) {
 	ic.issuerKey = key
 }
