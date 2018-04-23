@@ -18,7 +18,6 @@ package lib
 import (
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/pem"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -311,12 +310,9 @@ func testImpersonation(id *Identity, t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create self-signed fake cert: %s", err)
 	}
-	fakeCert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: fakeCertBytes})
-	fakeID := newIdentity(id.GetClient(), "admin", privateKey, fakeCert)
-	_, err = fakeID.RevokeSelf()
-	t.Logf("fakeID.RevokeSelf: %v", err)
+	_, err = NewSigner(privateKey, fakeCertBytes)
 	if err == nil {
-		t.Fatalf("Fake ID should have failed revocation")
+		t.Fatalf("Should have failed to create signer with fake certificate")
 	}
 }
 
@@ -474,7 +470,7 @@ func TestCWBCAConfig(t *testing.T) {
 	ca := &CA{}
 
 	//Error cases
-	err := ca.fillCAInfo(nil)
+	err := ca.FillCAInfo(nil)
 	t.Logf("fillCAInfo err: %v", err)
 	if err == nil {
 		t.Error("ca.fileCAInfo should have failed but passed")

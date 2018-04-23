@@ -223,8 +223,8 @@ func TestSRVRootServer(t *testing.T) {
 	}
 	user1 = eresp.Identity
 	// Make sure the OUs are correct based on the identity type and affiliation
-	cert, err := user1.GetECert().GetX509Cert()
-	if err != nil {
+	cert := user1.GetECert().GetX509Cert()
+	if cert == nil {
 		assert.NoErrorf(t, err, "Failed to get user1's enrollment certificate")
 	} else {
 		ouPath := strings.Join(cert.Subject.OrganizationalUnit, ".")
@@ -722,25 +722,15 @@ func TestSRVRunningTLSServer(t *testing.T) {
 }
 
 func TestSRVDefaultDatabase(t *testing.T) {
-	cleanTestSlateSRV(t)
-	defer func() {
-		err := os.RemoveAll("../testdata/ca-cert.pem")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/fabric-ca-server.db")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/msp")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-	}()
+	srvHome, err := ioutil.TempDir(testdataDir, "srvdefaultdbtest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	defer os.RemoveAll(srvHome)
 
-	srv := TestGetServer(rootPort, testdataDir, "", -1, t)
+	srv := TestGetServer(rootPort, srvHome, "", -1, t)
 
-	err := srv.Start()
+	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Root server start failed: %s", err)
 	}
@@ -750,33 +740,23 @@ func TestSRVDefaultDatabase(t *testing.T) {
 		t.Errorf("Failed to stop server: %s", err)
 	}
 
-	exist := util.FileExists("../testdata/fabric-ca-server.db")
+	exist := util.FileExists(filepath.Join(srvHome, "fabric-ca-server.db"))
 	if !exist {
 		t.Error("Failed to create default sqlite fabric-ca-server.db")
 	}
 }
 
 func TestSRVDefaultAddrPort(t *testing.T) {
-	cleanTestSlateSRV(t)
-	defer func() {
-		err := os.RemoveAll("../testdata/ca-cert.pem")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/fabric-ca-server.db")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/msp")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-	}()
+	srvHome, err := ioutil.TempDir(testdataDir, "srvdefaultaddrporttest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	defer os.RemoveAll(srvHome)
 
-	srv1 := getServer(rootPort, testdataDir, "", -1, t)
+	srv1 := getServer(rootPort, srvHome, "", -1, t)
 	srv1.Config.Address = ""
 	srv1.Config.Port = 0
-	err := srv1.Start()
+	err = srv1.Start()
 	t.Logf("srv.Start err: %v", err)
 	if err != nil {
 		t.Fatalf("Failed to start server: %s", err)
@@ -789,7 +769,7 @@ func TestSRVDefaultAddrPort(t *testing.T) {
 	}()
 
 	// Start server with default port (already in use)
-	srv := getServer(rootPort, testdataDir, "", -1, t)
+	srv := getServer(rootPort, srvHome, "", -1, t)
 	srv.Config.Address = ""
 	srv.Config.Port = 0
 	err = srv.Start()
@@ -803,7 +783,7 @@ func TestSRVDefaultAddrPort(t *testing.T) {
 	}
 
 	// Again with TLS
-	srv = getServer(rootPort, testdataDir, "", -1, t)
+	srv = getServer(rootPort, srvHome, "", -1, t)
 	srv.Config.TLS.Enabled = true
 	srv.Config.TLS.CertFile = "../testdata/tls_server-cert.pem"
 	srv.Config.TLS.KeyFile = "../testdata/tls_server-key.pem"
@@ -951,38 +931,69 @@ func TestSRVTLSAuthClient(t *testing.T) {
 func TestSRVMultiCAConfigs(t *testing.T) {
 	t.Log("TestMultiCA...")
 
-	defer func() {
-		cleanMultiCADir(t)
-		err := os.RemoveAll("../testdata/ca-cert.pem")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/fabric-ca-server.db")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/msp")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-	}()
-	srv := TestGetServer(rootPort, testdataDir, "", -1, t)
-	srv.Config.CAfiles = []string{"ca/ca1/fabric-ca-server-config.yaml", "ca/ca1/fabric-ca-server-config.yaml", "ca/ca2/fabric-ca-server-config.yaml"}
+	srvHome, err := ioutil.TempDir(testdataDir, "srvmulticaconfigstest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	srvHome, err = filepath.Abs(srvHome)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path for file %s: %s", srvHome, err.Error())
+	}
+	defer os.RemoveAll(srvHome)
+
+	err = os.MkdirAll(filepath.Join(srvHome, "ca/rootca/ca1/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca1 directory: %s", err.Error())
+	}
+	err = os.MkdirAll(filepath.Join(srvHome, "ca/rootca/ca2/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca2 directory: %s", err.Error())
+	}
+	err = os.MkdirAll(filepath.Join(srvHome, "ca/rootca/ca3/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca3 directory: %s", err.Error())
+	}
+	err = CopyFile("../testdata/ca/rootca/ca1/fabric-ca-server-config.yaml",
+		filepath.Join(srvHome, "ca/rootca/ca1/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca1/fabric-ca-server-config.yaml file")
+	}
+	err = CopyFile("../testdata/ca/rootca/ca2/fabric-ca-server-config.yaml",
+		filepath.Join(srvHome, "ca/rootca/ca2/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca2/fabric-ca-server-config.yaml file")
+	}
+	err = CopyFile("../testdata/ca/rootca/ca3/fabric-ca-server-config.yaml",
+		filepath.Join(srvHome, "ca/rootca/ca3/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca3/fabric-ca-server-config.yaml file")
+	}
+
+	srv := TestGetServer2(false, rootPort, srvHome, "", -1, t)
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
 
 	srv.CA.Config.CSR.Hosts = []string{"hostname"}
 	t.Logf("Server configuration: %+v", srv.Config)
 
 	// Starting server with two cas with same name
-	err := srv.Start()
-	t.Logf("Start two CAs with the same name: %v", err)
+	err = srv.Start()
+	t.Logf("Start two CAs with the same name failed as expected: %v", err)
 	if err == nil {
 		t.Error("Trying to create two CAs with the same name, server start should have failed")
+		err = srv.Stop()
+		if err != nil {
+			t.Errorf("Failed to stop server: %s", err)
+		}
 	}
 
 	// Starting server with a missing ca config file
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml", "ca/rootca/ca4/fabric-ca-server-config.yaml"}
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml",
+		"ca/rootca/ca4/fabric-ca-server-config.yaml"}
 	err = srv.Start()
-	t.Logf("Start CA with missing config: %v", err)
+	t.Logf("Starting CA with missing config failed as expected: %v", err)
 	if err == nil {
 		t.Error("Should have failed to start server, missing ca config file")
 		err = srv.Stop()
@@ -991,9 +1002,11 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 		}
 	}
 
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml", "ca/rootca/ca3/fabric-ca-server-config.yaml"}
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml",
+		"ca/rootca/ca3/fabric-ca-server-config.yaml"}
 	err = srv.Start()
-	t.Logf("Starting 3 CAs with a duplicated CN name: %s", err)
+	t.Logf("Starting 3 CAs with a duplicated CN name failed as expected: %s", err)
 	if err == nil {
 		t.Error("Should have failed to start server, CN name is the same across rootca2 and rootca3")
 		err = srv.Stop()
@@ -1003,19 +1016,27 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	}
 
 	// Starting server with (bad) existing certificate
-	err = ioutil.WriteFile("../testdata/ca/rootca/ca1/ca-key.pem", make([]byte, 1), 0644)
-	t.Logf("Create err: %v", err)
-	if !util.FileExists("../testdata/ca/rootca/ca1/ca-key.pem") {
-		t.Fatal("../testdata/ca1/ca-key.pem doesn't exist")
+	fakecakeyfile := filepath.Join(srvHome, "ca/rootca/ca1/ca-key.pem")
+	err = util.WriteFile(fakecakeyfile, make([]byte, 1), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write to file %s: %s", fakecakeyfile, err.Error())
 	}
-	err = ioutil.WriteFile("../testdata/ca/rootca/ca1/ca-cert.pem", make([]byte, 1), 0644)
-	t.Logf("Create err: %v", err)
-	if !util.FileExists("../testdata/ca/rootca/ca1/ca-cert.pem") {
-		t.Fatal("../testdata/ca1/ca-cert.pem doesn't exist")
+	if !util.FileExists(fakecakeyfile) {
+		t.Fatal(fakecakeyfile + " doesn't exist")
 	}
+
+	fakecacertfile := filepath.Join(srvHome, "ca/rootca/ca1/ca-cert.pem")
+	err = util.WriteFile(fakecacertfile, make([]byte, 1), 0644)
+	if err != nil {
+		t.Fatalf("Failed to write to file %s: %s", fakecacertfile, err.Error())
+	}
+	if !util.FileExists(fakecacertfile) {
+		t.Fatal(fakecacertfile + " doesn't exist")
+	}
+
 	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml"}
 	err = srv.Start()
-	t.Logf("srv.Start ERROR %v", err)
+	t.Logf("Server failed to start as expected: %v", err)
 	if err == nil {
 		t.Error("Should have failed to start server, invalid cert")
 		err = srv.Stop()
@@ -1025,52 +1046,47 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	}
 
 	// Starting server with unreadable certificate
-	keyfile := filepath.Join(os.TempDir(), "ca-key.pem")
-	err = CopyFile("../testdata/ca/rootca/ca1/ca-key.pem", keyfile)
+	tmpDir, err := ioutil.TempDir(testdataDir, "srvmulticaconfigstestunreadable")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %s", err)
+	}
+	defer os.RemoveAll(tmpDir)
+	keyfile := filepath.Join(tmpDir, "ca-key.pem")
+	err = CopyFile(filepath.Join(srvHome, "ca/rootca/ca1/ca-key.pem"), keyfile)
 	if err != nil {
 		t.Errorf("Failed to copy file: %s", err)
 	}
 	if err = os.Chmod(keyfile, 0000); err != nil {
 		t.Errorf("Failed to chmod key file: , %v", err)
 	}
-	certfile := filepath.Join(os.TempDir(), "ca-cert.pem")
-	err = CopyFile("../testdata/ca/rootca/ca1/ca-cert.pem", certfile)
+
+	certfile := filepath.Join(tmpDir, "ca-cert.pem")
+	err = CopyFile(filepath.Join(srvHome, "ca/rootca/ca1/ca-cert.pem"), certfile)
 	if err != nil {
 		t.Errorf("Failed to copy file: %s", err)
 	}
 	if err = os.Chmod(certfile, 0000); err != nil {
 		t.Errorf("Failed to chmod cert file:, %v", err)
 	}
-	configfile := filepath.Join(os.TempDir(), "ca-server-config.yaml")
+
+	configfile, err := filepath.Abs(filepath.Join(tmpDir, "ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to get absolute path of %s", filepath.Join(tmpDir, "ca-server-config.yaml"))
+	}
 	err = CopyFile("../testdata/ca/rootca/ca1/fabric-ca-server-config.yaml", configfile)
 	if err != nil {
 		t.Errorf("Failed to copy file: %s", err)
 	}
+
 	srv.Config.CAfiles = []string{configfile}
 	err = srv.Start()
-	t.Logf("srv.Start ERROR %v", err)
+	t.Logf("Server failed to start as expected because of unreadable cert: %v", err)
 	if err == nil {
 		t.Error("Should have failed to start server, unreadable cert")
 		err = srv.Stop()
 		if err != nil {
 			t.Errorf("Failed to stop server: %s", err)
 		}
-	}
-	err = os.Remove(keyfile)
-	if err != nil {
-		t.Errorf("Remove failed: %s", err)
-	}
-	err = os.Remove(certfile)
-	if err != nil {
-		t.Errorf("Remove failed: %s", err)
-	}
-	err = os.Remove(configfile)
-	if err != nil {
-		t.Errorf("Remove failed: %s", err)
-	}
-	err = os.RemoveAll(filepath.Join(os.TempDir(), "msp"))
-	if err != nil {
-		t.Errorf("RemoveAll failed: %s", err)
 	}
 
 	testBadCryptoData(t, srv, []string{"../testdata/expiredcert.pem", "../testdata/tls_client-key.pem", "expired cert"})
@@ -1084,24 +1100,39 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	testBadCryptoData(t, srv, []string{"../testdata/ec256-1-cert.pem", "../testdata/rsa2048-1-cert.pem", "non-matching key type"})
 
 	// Starting server with correct configuration
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
 	t.Logf("Server configuration: %+v\n\n", srv.Config)
+	t.Logf("Server home: %+v\n\n", srv.HomeDir)
+	_, err = os.Stat(srv.HomeDir)
+	t.Logf("server home dir exists: %v", err)
 
 	err = srv.Start()
 	if err != nil {
 		t.Fatal("Failed to start server:", err)
 	}
 
-	if !util.FileExists("../testdata/ca/rootca/ca1/fabric-ca-server.db") {
+	if !util.FileExists(filepath.Join(srvHome, "ca/rootca/ca1/fabric-ca-server.db")) {
 		t.Error("Failed to correctly add ca1")
 	}
-
-	if !util.FileExists("../testdata/ca/rootca/ca2/fabric-ca2-server.db") {
+	if !util.FileExists(filepath.Join(srvHome, "ca/rootca/ca2/fabric-ca2-server.db")) {
 		t.Error("Failed to correctly add ca2")
 	}
 
+	clientHome, err := ioutil.TempDir(testdataDir, "clientmulticaconfigstest")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %s", err)
+	}
+	defer os.RemoveAll(clientHome)
+	getClient := func() *Client {
+		return &Client{
+			Config:  &ClientConfigImpl{URL: fmt.Sprintf("http://localhost:%d", rootPort)},
+			HomeDir: clientHome,
+		}
+	}
+
 	// Non-existent CA specified by client
-	clientCA := getRootClient()
+	clientCA := getClient()
 	_, err = clientCA.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -1112,7 +1143,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	}
 
 	//Send enroll request to specific CA
-	clientCA1 := getRootClient()
+	clientCA1 := getClient()
 	_, err = clientCA1.Enroll(&api.EnrollmentRequest{
 		Name:   "adminca1",
 		Secret: "adminca1pw",
@@ -1122,7 +1153,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 		t.Error("Failed to enroll, error: ", err)
 	}
 
-	clientCA2 := getRootClient()
+	clientCA2 := getClient()
 	resp, err := clientCA2.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -1148,7 +1179,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	}
 
 	// No ca name specified should sent to default CA 'ca'
-	clientCA3 := getRootClient()
+	clientCA3 := getClient()
 	_, err = clientCA3.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -1163,21 +1194,24 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	}
 
 	// Starting server with correct configuration and pre-existing cert/key
-	err = os.Remove("../testdata/ca/rootca/ca1/ca-cert.pem")
+	cacertfile := filepath.Join(srvHome, "ca/rootca/ca1/ca-cert.pem")
+	err = os.Remove(cacertfile)
 	if err != nil {
 		t.Errorf("Remove failed: %s", err)
 	}
-	srv = getServer(rootPort, testdataDir, "", 0, t)
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	srv = TestGetServer2(false, rootPort, srvHome, "", 0, t)
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
 	t.Logf("Server configuration: %+v\n\n", srv.Config)
 
-	err = CopyFile("../testdata/ec256-1-cert.pem", "../testdata/ca/rootca/ca1/ca-cert.pem")
+	err = CopyFile("../testdata/ec256-1-cert.pem", cacertfile)
 	if err != nil {
-		t.Fatalf("Failed to copy ec256-1 cert to ../testdata/ca1/ca-cert.pem failed %v", err)
+		t.Fatalf("Failed to copy ec256-1-cert.pem to %s failed %v", cacertfile, err)
 	}
-	err = CopyFile("../testdata/ec256-1-key.pem", "../testdata/ca/rootca/ca1/ca-key.pem")
+	cakeyfile := filepath.Join(srvHome, "ca/rootca/ca1/msp/keystore/ca-key.pem")
+	err = CopyFile("../testdata/ec256-1-key.pem", cakeyfile)
 	if err != nil {
-		t.Fatalf("Failed to copy key to ../testdata/ca/rootca/ca1/ca-key.pem failed %v", err)
+		t.Fatalf("Failed to copy ec256-1-key.pem to %s failed %v", cakeyfile, err)
 	}
 
 	err = srv.Start()
@@ -1189,35 +1223,38 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	if err != nil {
 		t.Error("Failed to stop server:", err)
 	}
-
 }
 
 func TestSRVDefaultCAWithSetCAName(t *testing.T) {
-	defer func() {
-		err := os.RemoveAll("../testdata/ca-cert.pem")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/fabric-ca-server.db")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/msp")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-	}()
+	srvHome, err := ioutil.TempDir(testdataDir, "srvdefaultcawithsetcanametest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	srvHome, err = filepath.Abs(srvHome)
+	if err != nil {
+		t.Fatalf("Failed to get absolute path for file %s: %s", srvHome, err.Error())
+	}
+	defer os.RemoveAll(srvHome)
 
-	srv := getServer(rootPort, testdataDir, "", -1, t)
+	srv := getServer(rootPort, srvHome, "", -1, t)
 	srv.CA.Config.CA.Name = "DefaultCA"
 
-	err := srv.Start()
+	err = srv.Start()
 	if err != nil {
 		t.Fatal("Failed to start server:", err)
 	}
 
+	clientHome, err := ioutil.TempDir(testdataDir, "clientdefaultcawithsetcanametest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	defer os.RemoveAll(clientHome)
+
 	// No ca name specified should sent to default CA 'ca'
-	client := getRootClient()
+	client := &Client{
+		Config:  &ClientConfigImpl{URL: fmt.Sprintf("http://localhost:%d", rootPort)},
+		HomeDir: clientHome,
+	}
 	_, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -1233,43 +1270,71 @@ func TestSRVDefaultCAWithSetCAName(t *testing.T) {
 }
 
 func TestSRVMultiCAWithIntermediate(t *testing.T) {
-	defer func() {
-		cleanMultiCADir(t)
-		err := os.RemoveAll("../testdata/ca-cert.pem")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/fabric-ca-server.db")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/msp")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/IssuerPublicKey")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-		err = os.RemoveAll("../testdata/IssuerSecretKey")
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-	}()
+	srvHome, err := ioutil.TempDir(testdataDir, "srvmulticawithIntTest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	defer os.RemoveAll(srvHome)
 
-	srv := TestGetServer(rootPort, testdataDir, "", -1, t)
-	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml", "ca/rootca/ca2/fabric-ca-server-config.yaml"}
+	err = os.MkdirAll(filepath.Join(srvHome, "ca/rootca/ca1/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca1 directory: %s", err.Error())
+	}
+	err = os.MkdirAll(filepath.Join(srvHome, "ca/rootca/ca2/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca2 directory: %s", err.Error())
+	}
+	err = CopyFile("../testdata/ca/rootca/ca1/fabric-ca-server-config.yaml",
+		filepath.Join(srvHome, "ca/rootca/ca1/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca1/fabric-ca-server-config.yaml file: %s", err.Error())
+	}
+	err = CopyFile("../testdata/ca/rootca/ca2/fabric-ca-server-config.yaml",
+		filepath.Join(srvHome, "ca/rootca/ca2/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca2/fabric-ca-server-config.yaml file: %s", err.Error())
+	}
+
+	srv := TestGetServer2(false, rootPort, srvHome, "", -1, t)
+	srv.Config.CAfiles = []string{"ca/rootca/ca1/fabric-ca-server-config.yaml",
+		"ca/rootca/ca2/fabric-ca-server-config.yaml"}
 	srv.CA.Config.CSR.Hosts = []string{"hostname"}
 	t.Logf("Server configuration: %+v\n", srv.Config)
 
 	// Starting server with two cas with same name
-	err := srv.Start()
+	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Failed to start server: %s", err)
 	}
 
-	intermediatesrv := TestGetServer(intermediatePort, testdataDir, "", -1, t)
-	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml", "ca/intermediateca/ca2/fabric-ca-server-config.yaml"}
+	intSrvHome, err := ioutil.TempDir(testdataDir, "intsrvmulticawithIntTest")
+	if err != nil {
+		t.Fatalf("Failed to create temporary directory: %s", err.Error())
+	}
+	defer os.RemoveAll(intSrvHome)
+
+	err = os.MkdirAll(filepath.Join(intSrvHome, "ca/intermediateca/ca1/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca1 directory: %s", err.Error())
+	}
+	err = os.MkdirAll(filepath.Join(intSrvHome, "ca/intermediateca/ca2/"), 0777)
+	if err != nil {
+		t.Fatalf("Failed to create ca2 directory: %s", err.Error())
+	}
+	err = CopyFile("../testdata/ca/intermediateca/ca1/fabric-ca-server-config.yaml",
+		filepath.Join(intSrvHome, "ca/intermediateca/ca1/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca1/fabric-ca-server-config.yaml file: %s", err.Error())
+	}
+	err = CopyFile("../testdata/ca/intermediateca/ca2/fabric-ca-server-config.yaml",
+		filepath.Join(intSrvHome, "ca/intermediateca/ca2/fabric-ca-server-config.yaml"))
+	if err != nil {
+		t.Fatalf("Failed to create ca2/fabric-ca-server-config.yaml file: %s", err.Error())
+	}
+
+	intermediatesrv := TestGetServer2(false, intermediatePort, intSrvHome, "", -1, t)
+	intermediatesrv.Config.CAfiles = []string{"ca/intermediateca/ca1/fabric-ca-server-config.yaml",
+		"ca/intermediateca/ca2/fabric-ca-server-config.yaml"}
 	intermediatesrv.CA.Config.CSR.Hosts = []string{"hostname"}
 
 	// Start it
@@ -1283,7 +1348,7 @@ func TestSRVMultiCAWithIntermediate(t *testing.T) {
 		t.Error("Failed to stop intermediate server: ", err)
 	}
 
-	if !util.FileExists("../testdata/ca/intermediateca/ca1/ca-chain.pem") {
+	if !util.FileExists(filepath.Join(intSrvHome, "ca/intermediateca/ca1/ca-chain.pem")) {
 		t.Error("Failed to enroll intermediate ca")
 	}
 
@@ -1293,7 +1358,7 @@ func TestSRVMultiCAWithIntermediate(t *testing.T) {
 	}
 
 	// Make sure there is no host name in the intermediate CA cert
-	err = util.CheckHostsInCert(filepath.Join("../testdata/ca/intermediateca/ca1", "ca-cert.pem"), "testhost1")
+	err = util.CheckHostsInCert(filepath.Join(intSrvHome, "ca/intermediateca/ca1", "ca-cert.pem"), "testhost1")
 	if err == nil {
 		t.Error("Intermediate CA should not contain a hostname, but does")
 	}
@@ -2626,34 +2691,41 @@ func randSeq(n int) string {
 
 func testBadCryptoData(t *testing.T, s *Server, testData []string) {
 	config := []string{"ca/rootca/ca1/fabric-ca-server-config.yaml"}
-	sCert := "../testdata/ca/rootca/ca1/ca-cert.pem"
-	sKey := "../testdata/ca/rootca/ca1/ca-key.pem"
-	// Starting server with expired certificate
+	sCert := filepath.Join(s.HomeDir, "ca/rootca/ca1/ca-cert.pem")
+	sKey := filepath.Join(s.HomeDir, "ca/rootca/ca1/ca-key.pem")
+
+	// Starting server with bad certificate
 	err := CopyFile(testData[0], sCert)
 	if err != nil {
-		t.Errorf("Failed to copy expired cert to %s failed:  %v", testData[0], err)
+		t.Errorf("Failed to copy bad cert %s to %s failed: %v", testData[0], sCert, err)
 	}
+	defer func() {
+		err = os.Remove(sCert)
+		if err != nil {
+			t.Errorf("Remove failed: %s", err)
+		}
+	}()
+
 	err = CopyFile(testData[1], sKey)
 	if err != nil {
-		t.Errorf("Failed to copy key to %s failed:  %v", testData[1], err)
+		t.Errorf("Failed to copy key %s to %s failed: %v", testData[1], sKey, err)
 	}
+	defer func() {
+		err = os.Remove(sKey)
+		if err != nil {
+			t.Errorf("Remove failed: %s", err)
+		}
+	}()
+
 	s.Config.CAfiles = config
 	err = s.Start()
-	t.Logf("srvStart ERROR %v", err)
+	t.Logf("Server failed to start as expected: %v", err)
 	if err == nil {
 		t.Errorf("Should have failed to start server, %s", testData[2])
 		err = s.Stop()
 		if err != nil {
 			t.Errorf("Failed to stop server: %s", err)
 		}
-	}
-	err = os.Remove(sCert)
-	if err != nil {
-		t.Errorf("Remove failed: %s", err)
-	}
-	err = os.Remove(sKey)
-	if err != nil {
-		t.Errorf("Remove failed: %s", err)
 	}
 }
 
@@ -2663,6 +2735,14 @@ func cleanTestSlateSRV(t *testing.T) {
 		t.Errorf("RemoveAll failed: %s", err)
 	}
 	err = os.RemoveAll("../testdata/ca-key.pem")
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
+	err = os.RemoveAll("../testdata/IssuerPublicKey")
+	if err != nil {
+		t.Errorf("RemoveAll failed: %s", err)
+	}
+	err = os.RemoveAll("../testdata/IssuerSecretKey")
 	if err != nil {
 		t.Errorf("RemoveAll failed: %s", err)
 	}
