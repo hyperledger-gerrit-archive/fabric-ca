@@ -61,7 +61,7 @@ type enrollmentResponseNet struct {
 	// Base64 encoded PEM-encoded ECert
 	Cert string
 	// The server information
-	ServerInfo serverInfoResponseNet
+	ServerInfo ServerInfoResponseNet
 }
 
 func newEnrollEndpoint(s *Server) *serverEndpoint {
@@ -92,7 +92,7 @@ func enrollHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = ctx.ui.LoginComplete()
+	err = ctx.caller.LoginComplete()
 	if err != nil {
 		return nil, err
 	}
@@ -169,7 +169,7 @@ func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
 	resp := &enrollmentResponseNet{
 		Cert: util.B64Encode(cert),
 	}
-	err = ca.fillCAInfo(&resp.ServerInfo)
+	err = ca.FillCAInfo(&resp.ServerInfo)
 	if err != nil {
 		return nil, err
 	}

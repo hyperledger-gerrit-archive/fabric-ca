@@ -39,6 +39,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	registrarRole = "hf.Registrar.Roles"
+)
+
 // serverRequestContext represents an HTTP request/response context in the server
 type serverRequestContext struct {
 	req            *http.Request
@@ -47,7 +51,6 @@ type serverRequestContext struct {
 	ca             *CA
 	enrollmentID   string
 	enrollmentCert *x509.Certificate
-	ui             spi.User
 	caller         spi.User
 	body           struct {
 		read bool   // true after body is read
@@ -57,9 +60,10 @@ type serverRequestContext struct {
 	callerRoles map[string]bool
 }
 
-const (
-	registrarRole = "hf.Registrar.Roles"
-)
+// caNameReqBody is a sparse request body to unmarshal only the CA name
+type caNameReqBody struct {
+	CAName string `json:"caname,omitempty"`
+}
 
 // newServerRequestContext is the constructor for a serverRequestContext
 func newServerRequestContext(r *http.Request, w http.ResponseWriter, se *serverEndpoint) *serverRequestContext {
@@ -96,12 +100,12 @@ func (ctx *serverRequestContext) BasicAuthentication() (string, error) {
 		return "", newAuthErr(ErrEnrollDisabled, "Enroll is disabled")
 	}
 	// Get the user info object for this user
-	ctx.ui, err = ca.registry.GetUser(username, nil)
+	ctx.caller, err = ca.registry.GetUser(username, nil)
 	if err != nil {
 		return "", newAuthErr(ErrInvalidUser, "Failed to get user: %s", err)
 	}
 	// Check the user's password and max enrollments if supported by registry
-	err = ctx.ui.Login(password, caMaxEnrollments)
+	err = ctx.caller.Login(password, caMaxEnrollments)
 	if err != nil {
 		return "", newAuthErr(ErrInvalidPass, "Login failure: %s", err)
 	}
@@ -213,17 +217,38 @@ func (ctx *serverRequestContext) getCA() (*CA, error) {
 	return ctx.ca, nil
 }
 
+// getCAName returns the targeted CA name for this request
+func (ctx *serverRequestContext) getCAName() (string, error) {
+	// Check the query parameters first
+	ca := ctx.req.URL.Query().Get("ca")
+	if ca != "" {
+		return ca, nil
+	}
+	// Next, check the request body, if there is one
+	var body caNameReqBody
+	_, err := ctx.TryReadBody(&body)
+	if err != nil {
+		return "", err
+	}
+	if body.CAName != "" {
+		return body.CAName, nil
+	}
+	// No CA name in the request body either, so use the default CA name
+	return ctx.endpoint.Server.CA.Config.CA.Name, nil
+}
+
 // GetAttrExtension returns an attribute extension to place into a signing request
 func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeRequest, profile string) (*signer.Extension, error) {
 	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
 	}
-	ui, err := ca.registry.GetUser(ctx.enrollmentID, nil)
+	caller, err := ctx.GetCaller()
 	if err != nil {
 		return nil, err
 	}
-	allAttrs, _ := ui.GetAttributes(nil)
+
+	allAttrs, _ := caller.GetAttributes(nil)
 	if attrReqs == nil {
 		attrReqs = getDefaultAttrReqs(allAttrs)
 		if attrReqs == nil {
@@ -252,31 +277,6 @@ func (ctx *serverRequestContext) GetAttrExtension(attrReqs []*api.AttributeReque
 		return ext, nil
 	}
 	return nil, nil
-}
-
-// caNameReqBody is a sparse request body to unmarshal only the CA name
-type caNameReqBody struct {
-	CAName string `json:"caname,omitempty"`
-}
-
-// getCAName returns the targeted CA name for this request
-func (ctx *serverRequestContext) getCAName() (string, error) {
-	// Check the query parameters first
-	ca := ctx.req.URL.Query().Get("ca")
-	if ca != "" {
-		return ca, nil
-	}
-	// Next, check the request body, if there is one
-	var body caNameReqBody
-	_, err := ctx.TryReadBody(&body)
-	if err != nil {
-		return "", err
-	}
-	if body.CAName != "" {
-		return body.CAName, nil
-	}
-	// No CA name in the request body either, so use the default CA name
-	return ctx.endpoint.Server.CA.Config.CA.Name, nil
 }
 
 // ReadBody reads the request body and JSON unmarshals into 'body'

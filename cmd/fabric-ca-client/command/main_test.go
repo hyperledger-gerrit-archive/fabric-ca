@@ -2506,11 +2506,11 @@ func registerAndRevokeUsers(t *testing.T, admin *lib.Identity, num int) []*big.I
 			t.Fatalf("Failed to enroll the identity '%s': %s", userName, err)
 		}
 
-		cert, err := enrollResp.Identity.GetECert().GetX509Cert()
-		if err != nil || cert == nil {
-			t.Fatalf("Failed to get enrollment certificate for the user %s: %s", userName, err)
+		signer := enrollResp.Identity.GetX509Credential()
+		if signer == nil || signer.GetX509Cert() == nil {
+			t.Fatalf("Failed to get enrollment certificate for the user %s", userName)
 		}
-
+		cert := signer.GetX509Cert()
 		revokeReq := &api.RevocationRequest{}
 		if i%2 == 0 {
 			revokeReq.Name = userName
