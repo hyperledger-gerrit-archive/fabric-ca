@@ -92,7 +92,7 @@ type CA struct {
 	// The signer used for enrollment
 	enrollSigner signer.Signer
 	// idemix issuer credential for the CA
-	issuerCred IssuerCredential
+	IssuerCred IssuerCredential
 	// The options to use in verifying a signature in token-based authentication
 	verifyOptions *x509.VerifyOptions
 	// The attribute manager
@@ -290,18 +290,21 @@ func (ca *CA) initIdemixKeyMaterial(renew bool) error {
 
 	idemixPubKey := ca.Config.CA.IssuerPublicKeyfile
 	idemixSecretKey := ca.Config.CA.IssuerSecretKeyfile
-	issuerCred := newIssuerCredential(idemixPubKey, idemixSecretKey)
+	issuerCred := NewCAIdemixCredential(idemixPubKey, idemixSecretKey)
 
 	if !renew {
 		pubKeyFileExists := util.FileExists(idemixPubKey)
 		privKeyFileExists := util.FileExists(idemixSecretKey)
 		// If they both exist, the CA was already initialized, load the keys from the disk
 		if pubKeyFileExists && privKeyFileExists {
+			log.Info("The issuer public and secret key files already exist")
+			log.Infof("   secret key file location: %s", idemixSecretKey)
+			log.Infof("   public key file location: %s", idemixPubKey)
 			err = issuerCred.Load()
 			if err != nil {
 				return err
 			}
-			ca.issuerCred = issuerCred
+			ca.IssuerCred = issuerCred
 			return nil
 		}
 	}
@@ -315,7 +318,7 @@ func (ca *CA) initIdemixKeyMaterial(renew bool) error {
 	if err != nil {
 		return err
 	}
-	ca.issuerCred = issuerCred
+	ca.IssuerCred = issuerCred
 	return nil
 }
 
@@ -325,7 +328,7 @@ func (ca *CA) getNewIssuerKey() (*idemix.IssuerKey, error) {
 		log.Errorf("Error getting rng: \"%s\"", err)
 		return nil, errors.Wrapf(err, "Error generating issuer key")
 	}
-	ik, err := idemix.NewIssuerKey([]string{"OU", "id", "isAdmin", "revocationHandle"}, rng)
+	ik, err := idemix.NewIssuerKey([]string{"OU", "enrollmentID", "isAdmin", "revocationHandle"}, rng)
 	if err != nil {
 		return nil, err
 	}
@@ -917,9 +920,14 @@ func (ca *CA) addAffiliation(path, parentPath string) error {
 	return ca.registry.InsertAffiliation(path, parentPath, ca.levels.Affiliation)
 }
 
-// GetIssuerCredential returns IssuerCredential of this CA
-func (ca *CA) GetIssuerCredential() IssuerCredential {
-	return ca.issuerCred
+// GetConfig returns CAConfig associated with this CA
+func (ca *CA) GetConfig() *CAConfig {
+	return ca.Config
+}
+
+// IssuerCredential returns IssuerCredential of this CA
+func (ca *CA) IssuerCredential() IssuerCredential {
+	return ca.IssuerCred
 }
 
 // CertDBAccessor returns the certificate DB accessor for CA
@@ -1040,8 +1048,8 @@ func (ca *CA) getUserAffiliation(username string) (string, error) {
 	return aff, nil
 }
 
-// Fill the CA info structure appropriately
-func (ca *CA) fillCAInfo(info *serverInfoResponseNet) error {
+// FillCAInfo fills the CA info structure appropriately
+func (ca *CA) FillCAInfo(info *ServerInfoResponseNet) error {
 	caChain, err := ca.getCAChain()
 	if err != nil {
 		return err
@@ -1049,7 +1057,7 @@ func (ca *CA) fillCAInfo(info *serverInfoResponseNet) error {
 	info.CAName = ca.Config.CA.Name
 	info.CAChain = util.B64Encode(caChain)
 
-	ik, err := ca.issuerCred.GetIssuerKey()
+	ik, err := ca.IssuerCred.GetIssuerKey()
 	if err != nil {
 		return err
 	}

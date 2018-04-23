@@ -55,7 +55,7 @@ const (
 	DefaultCA = ""
 )
 
-func TestCLIClientConfigStat(t *testing.T) {
+func TestClientConfigStat(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get cwd: %s", err)
@@ -104,7 +104,7 @@ func TestCLIClientConfigStat(t *testing.T) {
 	}
 }
 
-func TestCLIClientInit(t *testing.T) {
+func TestClientInit(t *testing.T) {
 	client := new(Client)
 	client.Config = new(ClientConfig)
 	client.Config.MSPDir = string(make([]byte, 1))
@@ -155,7 +155,93 @@ func TestCLIClientInit(t *testing.T) {
 	}
 }
 
-func TestCLIClient(t *testing.T) {
+func TestIdemixEnroll(t *testing.T) {
+	srvHome, err := ioutil.TempDir(testdataDir, "idemixenrollsrv")
+	if err != nil {
+		t.Fatal("Failed to create server home directory")
+	}
+	clientHome, err := ioutil.TempDir(testdataDir, "idemixenrollclient")
+	if err != nil {
+		t.Fatal("Failed to create server home directory")
+	}
+
+	server := TestGetServer(ctport1, srvHome, "", 5, t)
+	if server == nil {
+		t.Fatal("Failed to create test server")
+	}
+	err = server.Start()
+	if err != nil {
+		t.Fatalf("Failed to start server: %s", err)
+	}
+	stopserver := true
+	defer func() {
+		if stopserver {
+			err = server.Stop()
+			if err != nil {
+				t.Errorf("Failed to stop server: %s", err)
+			}
+		}
+		os.RemoveAll(srvHome)
+		os.RemoveAll(clientHome)
+	}()
+
+	client := &Client{
+		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", ctport1)},
+		HomeDir: clientHome,
+	}
+
+	cainfo, err := client.GetCAInfo(&api.GetCAInfoRequest{})
+	if err != nil {
+		t.Fatalf("Failed to get CA info: %s", err)
+	}
+	err = util.WriteFile(filepath.Join(clientHome, "msp/IssuerPublicKey"), cainfo.IssuerPublicKey, 0644)
+	if err != nil {
+		t.Fatalf("Failed to store CA's idemix public key: %s", err)
+	}
+
+	req := &api.EnrollmentRequest{
+		Idemix: true,
+	}
+
+	_, err = client.Enroll(req)
+	assert.Error(t, err, "Idemix enroll should have failed as no user id and secret are not specified in the enrollment request")
+
+	req.Name = "admin"
+	req.Secret = "adminpw1"
+	assert.Error(t, err, "Idemix enroll should have failed as secret is incorrect in the enrollment request")
+
+	req.Secret = "adminpw"
+	_, err = client.Enroll(req)
+	assert.NoError(t, err, "Idemix enroll should not have failed with valid userid/password")
+
+	req.Idemix = false
+	enrollRes, err := client.Enroll(req)
+	assert.NoError(t, err, "X509 enroll should not fail")
+
+	err = enrollRes.Identity.Store()
+	if err != nil {
+		t.Fatalf("Failed to store X509 credential: %s", err)
+	}
+
+	req.Idemix = true
+	req.Name = ""
+	req.Secret = ""
+	enrollRes, err = client.Enroll(req)
+	assert.NoError(t, err, "Idemix enroll should not have failed with valid x509 enrollment certificate")
+	err = enrollRes.Identity.Store()
+	if err != nil {
+		t.Fatalf("Failed to store idenditity: %s", err.Error())
+	}
+	_, err = client.LoadIdentity("", filepath.Join(clientHome, "msp/signcerts/cert.pem"), filepath.Join(clientHome, "msp/user/SignerConfig"))
+	assert.NoError(t, err, "Failed to load identity that has both X509 and Idemix credentials")
+
+	CopyFile("../testdata/ec256-1-cert.pem", filepath.Join(clientHome, "msp/signcerts/cert.pem"))
+	CopyFile("../testdata/ec256-1-key.pem", filepath.Join(clientHome, "msp/keystore/key.pem"))
+	_, err = client.Enroll(req)
+	assert.Error(t, err, "Idemix enroll should fail as the certificate is of unregistered user")
+}
+
+func TestClient(t *testing.T) {
 	server := TestGetServer(ctport1, path.Join(serversDir, "c1"), "", 1, t)
 	if server == nil {
 		return
@@ -473,7 +559,6 @@ func testDoubleEnroll(c *Client, t *testing.T) {
 	if err == nil {
 		t.Error("Double enroll should have failed but passed")
 	}
-
 }
 
 func testEnrollMiscFailures(c *Client, t *testing.T) {
@@ -553,7 +638,8 @@ func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bo
 	id := eresp.Identity
 	var revResp *api.RevocationResponse
 	if ecertOnly {
-		revResp, err = id.GetECert().RevokeSelf()
+		creds := id.GetCredentials()
+		revResp, err = creds[0].RevokeSelf()
 	} else {
 		revResp, err = id.RevokeSelf()
 	}
@@ -565,10 +651,7 @@ func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bo
 		}
 
 		// Assert that the cert serial in the revocation response is same as that of user certificate
-		cert, err := id.GetECert().GetX509Cert()
-		if err != nil {
-			t.Fatalf("Failed to get certificate for the enrolled user %s: %s", user, err)
-		}
+		cert := id.GetECert().GetX509Cert()
 		assert.Equal(t, 1, len(revResp.RevokedCerts), "Expected 1 certificate to be revoked")
 		assert.Equal(t, util.GetSerialAsHex(cert.SerialNumber), revResp.RevokedCerts[0].Serial,
 			"Cert serial in revocation response does match serial number of the cert that was revoked")
@@ -746,21 +829,21 @@ func testLoadBadCSRInfo(c *Client, t *testing.T) {
 }
 
 func testLoadIdentity(c *Client, t *testing.T) {
-	_, err := c.LoadIdentity("foo", "bar")
+	_, err := c.LoadIdentity("foo", "bar", "rab")
 	if err == nil {
-		t.Error("testLoadIdentity foo/bar passed but should have failed")
+		t.Error("testLoadIdentity foo/bar/rab passed but should have failed")
 	}
-	_, err = c.LoadIdentity("foo", "../testdata/ec.pem")
+	_, err = c.LoadIdentity("foo", "../testdata/ec.pem", "bar")
 	if err == nil {
 		t.Error("testLoadIdentity foo passed but should have failed")
 	}
-	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem")
+	_, err = c.LoadIdentity("../testdata/ec-key.pem", "../testdata/ec.pem", "bar")
 	if err != nil {
 		t.Errorf("testLoadIdentity failed: %s", err)
 	}
 }
 
-func TestCLICustomizableMaxEnroll(t *testing.T) {
+func TestCustomizableMaxEnroll(t *testing.T) {
 	srv := TestGetServer(ctport2, path.Join(serversDir, "c2"), "", 3, t)
 	if srv == nil {
 		return
@@ -1095,7 +1178,7 @@ func setupGenCRLTest(t *testing.T, serverHome, clientHome string) (*Server, *Ide
 	return server, adminID
 }
 
-func TestCLINormalizeUrl(t *testing.T) {
+func TestNormalizeUrl(t *testing.T) {
 	u, err := NormalizeURL("")
 	if err != nil {
 		t.Errorf("normalizeURL empty: %s", err)
@@ -1137,7 +1220,7 @@ func TestCLINormalizeUrl(t *testing.T) {
 	}
 }
 
-func TestCLISendBadPost(t *testing.T) {
+func TestSendBadPost(t *testing.T) {
 	c := new(Client)
 
 	c.Config = new(ClientConfig)
@@ -1152,7 +1235,7 @@ func TestCLISendBadPost(t *testing.T) {
 }
 
 // Test to make sure that CSR is generated by GenCSR function
-func TestCLIGenCSR(t *testing.T) {
+func TestGenCSR(t *testing.T) {
 	config := new(ClientConfig)
 
 	homeDir := filepath.Join(testdataDir, "identity")
