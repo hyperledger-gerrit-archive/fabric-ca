@@ -380,7 +380,7 @@ func cleanup(srv *Server) {
 
 func createRevokeRequest(admin *Identity, user *Identity) (*http.Request, error) {
 	revokeReq := &api.RevocationRequest{}
-	serial, aki, err := GetCertID(user.GetECert().Cert())
+	serial, aki, err := GetCertID(user.GetX509Credential().Cert())
 	if err != nil {
 		return nil, err
 	}

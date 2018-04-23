@@ -20,8 +20,8 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 )
 
-// The response to the GET /info request
-type serverInfoResponseNet struct {
+// ServerInfoResponseNet is the response to the GET /info request
+type ServerInfoResponseNet struct {
 	// CAName is a unique name associated with fabric-ca-server's CA
 	CAName string
 	// Base64 encoding of PEM-encoded certificate chain
@@ -46,8 +46,8 @@ func cainfoHandler(ctx *serverRequestContext) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp := &serverInfoResponseNet{}
-	err = ca.fillCAInfo(resp)
+	resp := &ServerInfoResponseNet{}
+	err = ca.FillCAInfo(resp)
 	if err != nil {
 		return nil, err
 	}

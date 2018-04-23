@@ -253,7 +253,7 @@ func (c *testClient) revoke(req TestRequest, id *lib.Identity, reason string) (e
 		revokeReq.Reason = reason
 	}
 	var serial, aki, msg string
-	serial, aki, err = lib.GetCertID(id.GetECert().Cert())
+	serial, aki, err = lib.GetCertID(id.GetX509Credential().Cert())
 	if req["Name"] != "" {
 		revokeReq.Name = id.GetName()
 		msg = fmt.Sprintf("Successfully revoked Identity: %s", id.GetName())
