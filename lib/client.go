@@ -541,22 +541,6 @@ func (c *Client) getIssuerPubKey() (*idemix.IssuerPublicKey, error) {
 	return pubKey, nil
 }
 
-// StoreMyIdentity stores my identity to disk
-// func (c *Client) StoreMyIdentity(creds []Credential) error {
-// 	err := c.Init()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for _, cred := range creds {
-// 		err = cred.Store()
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	log.Info("Succesfully stored client credentials")
-// 	return nil
-// }
-
 // LoadMyIdentity loads the client's identity from disk
 func (c *Client) LoadMyIdentity() (*Identity, error) {
 	err := c.Init()
@@ -790,20 +774,26 @@ func (c *Client) getURL(endpoint string) (string, error) {
 	return rtn, nil
 }
 
-// CheckEnrollment returns an error if this client is not enrolled
+// CheckEnrollment returns an error if this client is enrolled, which
+// means if X509 certificate or Idemix credential exist for this client yet.
 func (c *Client) CheckEnrollment() error {
 	err := c.Init()
 	if err != nil {
 		return err
 	}
+	var x509Enrollment, idemixEnrollment bool
 	err = c.checkX509Enrollment()
 	if err == nil {
-		return nil
+		x509Enrollment = true
 	}
 	err = c.checkIdemixEnrollment()
 	if err == nil {
+		idemixEnrollment = true
+	}
+	if x509Enrollment || idemixEnrollment {
 		return nil
 	}
+	log.Errorf("Enrollment check failed: %s", err.Error())
 	return errors.New("Enrollment information does not exist. Please execute enroll command first. Example: fabric-ca-client enroll -u http://user:userpw@serverAddr:serverPort")
 }
 
@@ -825,14 +815,18 @@ func (c *Client) checkX509Enrollment() error {
 	return errors.New("X509 enrollment information does not exist")
 }
 
+// checkIdemixEnrollment returns an error if CA's Idemix public key and user's
+// Idemix credential does not exist and if they exist and credential verification
+// fails. Returns nil if the credential verification suucceeds
 func (c *Client) checkIdemixEnrollment() error {
 	idemixIssuerPubKeyExists := util.FileExists(c.ipkFile)
 	idemixCredExists := util.FileExists(c.idemixCredFile)
 	if idemixIssuerPubKeyExists && idemixCredExists {
 		err := c.verifyIdemixCredential()
-		if err == nil {
-			return nil
+		if err != nil {
+			return errors.WithMessage(err, "Idemix enrollment check failed")
 		}
+		return nil
 	}
 	return errors.New("Idemix enrollment information does not exist")
 }
@@ -855,14 +849,14 @@ func (c *Client) verifyIdemixCredential() error {
 	cred := new(idemix.Credential)
 	err = proto.Unmarshal(signerConfig.GetCred(), cred)
 	if err != nil {
-		return errors.Wrap(err, "Failed to unmarshal credential from signer config")
+		return errors.Wrap(err, "Failed to unmarshal Idemix credential from signer config")
 	}
 	sk := amcl.FromBytes(signerConfig.GetSk())
 
 	// Verify that the credential is cryptographically valid
 	err = cred.Ver(sk, ipk)
 	if err != nil {
-		return errors.Wrap(err, "Credential is not cryptographically valid")
+		return errors.Wrap(err, "Idemix credential is not cryptographically valid")
 	}
 	return nil
 }

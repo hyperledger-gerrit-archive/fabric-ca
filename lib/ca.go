@@ -51,7 +51,6 @@ import (
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/common/attrmgr"
-	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
 
@@ -71,6 +70,13 @@ var (
 	defaultIssuedCertificateExpiration = parseDuration("8760h")
 )
 
+// FabricCA represents CA
+type FabricCA interface {
+	GetConfig() *CAConfig
+	FillCAInfo(resp *ServerInfoResponseNet) error
+	DB() dbutil.FabricCADB
+}
+
 // CA represents a certificate authority which signs, issues and revokes certificates
 type CA struct {
 	// The home directory for the CA
@@ -82,11 +88,15 @@ type CA struct {
 	// The database handle used to store certificates and optionally
 	// the user registry information, unless LDAP it enabled for the
 	// user registry function.
-	db *sqlx.DB
+	db *dbutil.DB
 	// The crypto service provider (BCCSP)
 	csp bccsp.BCCSP
 	// The certificate DB accessor
 	certDBAccessor *CertDBAccessor
+	// The credential DB accessor
+	credDBAccessor IdemixCredDBAccessor
+	// The revocation component associated with this CA
+	ra RevocationAuthority
 	// The user registry
 	registry spi.UserRegistry
 	// The signer used for enrollment
@@ -328,11 +338,16 @@ func (ca *CA) getNewIssuerKey() (*idemix.IssuerKey, error) {
 		log.Errorf("Error getting rng: \"%s\"", err)
 		return nil, errors.Wrapf(err, "Error generating issuer key")
 	}
-	ik, err := idemix.NewIssuerKey([]string{"OU", "enrollmentID", "isAdmin", "revocationHandle"}, rng)
+
+	ik, err := idemix.NewIssuerKey(ca.getAttributeNames(), rng)
 	if err != nil {
 		return nil, err
 	}
 	return ik, nil
+}
+
+func (ca *CA) getAttributeNames() []string {
+	return []string{"OU", "isAdmin", "enrollmentID", "revocationHandle"}
 }
 
 // Get the CA certificate for this CA
@@ -671,6 +686,7 @@ func (ca *CA) initDB() error {
 		if err != nil {
 			return errors.WithMessage(err, "Failed to create user registry for PostgreSQL")
 		}
+
 	case "mysql":
 		ca.db, err = dbutil.NewUserRegistryMySQL(db.Datasource, &db.TLS, ca.csp)
 		if err != nil {
@@ -688,6 +704,12 @@ func (ca *CA) initDB() error {
 
 	// Set the certificate DB accessor
 	ca.certDBAccessor = NewCertDBAccessor(ca.db, ca.levels.Certificate)
+
+	ca.credDBAccessor = NewCredentialAccessor(ca.db, ca.levels.Credential)
+	ca.ra, err = NewRevocationComponent(ca, ca.levels.RCInfo)
+	if err != nil {
+		return err
+	}
 
 	// If DB initialization fails and we need to reinitialize DB, need to make sure to set the DB accessor for the signer
 	if ca.enrollSigner != nil {
@@ -930,9 +952,25 @@ func (ca *CA) IssuerCredential() IssuerCredential {
 	return ca.IssuerCred
 }
 
+// RevocationComponent returns revocation component of this CA
+func (ca *CA) RevocationComponent() RevocationAuthority {
+	return ca.ra
+}
+
+// DB returns the FabricCADB object (which represents database handle
+// to the CA database) associated with this CA
+func (ca *CA) DB() dbutil.FabricCADB {
+	return ca.db
+}
+
 // CertDBAccessor returns the certificate DB accessor for CA
 func (ca *CA) CertDBAccessor() *CertDBAccessor {
 	return ca.certDBAccessor
+}
+
+// CredDBAccessor returns the Idemix credential DB accessor for CA
+func (ca *CA) CredDBAccessor() IdemixCredDBAccessor {
+	return ca.credDBAccessor
 }
 
 // DBAccessor returns the registry DB accessor for server
