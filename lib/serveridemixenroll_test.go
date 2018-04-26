@@ -19,11 +19,13 @@ package lib_test
 import (
 	"testing"
 
+	proto "github.com/golang/protobuf/proto"
 	amcl "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric/idemix"
 
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hyperledger/fabric-ca/lib/mocks"
@@ -74,56 +76,87 @@ func TestIdemixEnrollGetCAError(t *testing.T) {
 func TestHandleIdemixEnrollForNonce(t *testing.T) {
 	ctx := new(mocks.IdemixServerRequestCtx)
 	ctx.On("BasicAuthentication").Return("foo", nil)
-	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true}
+
+	idemixlib := new(mocks.IdemixLib)
+	rnd, err := idemix.GetRand()
+	if err != nil {
+		t.Fatalf("Error generating a random number")
+	}
+	rmo := idemix.RandModOrder(rnd)
+	idemixlib.On("GetRand").Return(rnd, nil)
+	idemixlib.On("RandModOrder", rnd).Return(rmo)
+	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true, IdmxLib: idemixlib}
 
 	req := api.IdemixEnrollmentRequestNet{}
 	req.CredRequest = nil
 	ctx.On("ReadBody", &req).Return(nil)
-	ca := &CA{}
+	ca := new(mocks.IdemixCA)
 	ctx.On("GetCA").Return(ca, nil)
-	_, err := handler.HandleIdemixEnroll()
+	ca.On("IdemixRand").Return(rnd)
+	_, err = handler.HandleIdemixEnroll()
 	assert.NoError(t, err, "Idemix enroll should return a valid nonce")
 }
 
 func TestHandleIdemixEnrollForNonceTokenAuth(t *testing.T) {
 	ctx := new(mocks.IdemixServerRequestCtx)
 	ctx.On("TokenAuthentication").Return("foo", nil)
-	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: false}
+
+	idemixlib := new(mocks.IdemixLib)
+	rnd, err := idemix.GetRand()
+	if err != nil {
+		t.Fatalf("Error generating a random number")
+	}
+	rmo := idemix.RandModOrder(rnd)
+	idemixlib.On("GetRand").Return(rnd, nil)
+	idemixlib.On("RandModOrder", rnd).Return(rmo)
+	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: false, IdmxLib: idemixlib}
 
 	req := api.IdemixEnrollmentRequestNet{}
 	req.CredRequest = nil
 	ctx.On("ReadBody", &req).Return(nil)
-	ca := &CA{}
+	ca := new(mocks.IdemixCA)
 	ctx.On("GetCA").Return(ca, nil)
-	_, err := handler.HandleIdemixEnroll()
+	ca.On("IdemixRand").Return(rnd)
+	_, err = handler.HandleIdemixEnroll()
 	assert.NoError(t, err, "Idemix enroll should return a valid nonce")
 }
 
-func TestHandleIdemixEnrollForCredentialFail(t *testing.T) {
+func TestHandleIdemixEnrollForCredentialError(t *testing.T) {
 	ctx := new(mocks.IdemixServerRequestCtx)
 	ctx.On("BasicAuthentication").Return("foo", nil)
-	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true}
 
-	nonce, err := handler.GenerateNonce()
+	idemixlib := new(mocks.IdemixLib)
+	rnd, err := idemix.GetRand()
 	if err != nil {
-		t.Fatalf("Failed to get nonce")
+		t.Fatalf("Error generating a random number")
 	}
+	rmo := idemix.RandModOrder(rnd)
+	idemixlib.On("GetRand").Return(rnd, nil)
+	idemixlib.On("RandModOrder", rnd).Return(rmo)
 
 	issuerCred := NewCAIdemixCredential("../testdata/IdemixPublicKey", "../testdata/IdemixSecretKey")
-	ca := &CA{IssuerCred: issuerCred}
-	ca.Config = &CAConfig{
+	ca := new(mocks.IdemixCA)
+	ca.On("GetConfig").Return(&CAConfig{
 		CA: CAInfo{
 			Name: "",
 		},
-	}
-	f := getReadBodyFunc(t, nonce)
+	})
+	ca.On("IssuerCredential").Return(issuerCred)
+	ca.On("IdemixRand").Return(rnd)
+
+	ctx.On("GetCA").Return(ca, nil)
+	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true, IdmxLib: idemixlib, CA: ca}
+	nonce := handler.GenerateNonce()
+
+	credReq, _, _, err := newIdemixCredentialRequest(t, nonce)
+	f := getReadBodyFunc(t, credReq)
 	req := api.IdemixEnrollmentRequestNet{}
 	ctx.On("ReadBody", &req).Return(f)
-	ctx.On("GetCA").Return(ca, nil)
+
 	_, err = handler.HandleIdemixEnroll()
-	assert.Error(t, err, "Idemix enroll should return error because issuerCredential has not been loaded from disk")
+	assert.Error(t, err, "Idemix enroll should return error if IssuerCredential has not been loaded from disk")
 	if err != nil {
-		assert.Contains(t, err.Error(), "Failed to get issuer key for the CA")
+		assert.Contains(t, err.Error(), "Failed to get Idemix issuer key for the CA")
 	}
 
 	err = issuerCred.Load()
@@ -132,27 +165,35 @@ func TestHandleIdemixEnrollForCredentialFail(t *testing.T) {
 	}
 	ctx.On("GetCaller").Return(nil, errors.New("Error when getting caller of the request"))
 	_, err = handler.HandleIdemixEnroll()
-	assert.Error(t, err, "Idemix enroll should return error because ctx.GetCaller returned error")
+	assert.Error(t, err, "Idemix enroll should return error if ctx.GetCaller returns error")
 	if err != nil {
-		assert.Contains(t, err.Error(), "Failed to determine the caller of the request")
+		assert.Contains(t, err.Error(), "Error when getting caller of the request")
 	}
 }
 
 func TestHandleIdemixEnrollForCredentialSuccess(t *testing.T) {
 	ctx := new(mocks.IdemixServerRequestCtx)
-	ctx.On("BasicAuthentication").Return("foo", nil)
-	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true}
-
-	nonce, err := handler.GenerateNonce()
+	idemixlib := new(mocks.IdemixLib)
+	rnd, err := idemix.GetRand()
 	if err != nil {
-		t.Fatalf("Failed to get nonce")
+		t.Fatalf("Error generating a random number")
 	}
+	rmo := idemix.RandModOrder(rnd)
+	idemixlib.On("GetRand").Return(rnd, nil)
+	idemixlib.On("RandModOrder", rnd).Return(rmo)
 
-	issuerCred := NewCAIdemixCredential("../testdata/IdemixPublicKey", "../testdata/IdemixSecretKey")
+	issuerCred := NewCAIdemixCredential("../testdata/IdemixPublicKey",
+		"../testdata/IdemixSecretKey")
 	err = issuerCred.Load()
 	if err != nil {
 		t.Fatalf("Failed to load issuer credential")
 	}
+	ik, _ := issuerCred.GetIssuerKey()
+
+	rh := RevocationHandle(1)
+	ra := new(mocks.RevocationAuthority)
+	ra.On("GetNewRevocationHandle").Return(&rh, nil)
+
 	ca := new(mocks.IdemixCA)
 	ca.On("GetConfig").Return(&CAConfig{
 		CA: CAInfo{
@@ -161,26 +202,89 @@ func TestHandleIdemixEnrollForCredentialSuccess(t *testing.T) {
 	})
 	ca.On("IssuerCredential").Return(issuerCred)
 	ca.On("FillCAInfo", &ServerInfoResponseNet{}).Return(nil)
-	f := getReadBodyFunc(t, nonce)
-	req := api.IdemixEnrollmentRequestNet{}
-	ctx.On("ReadBody", &req).Return(f)
-	ctx.On("GetCA").Return(ca, nil)
+	ca.On("RevocationComponent").Return(ra)
+	ca.On("IdemixRand").Return(rnd)
+
+	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true, IdmxLib: idemixlib, CA: ca}
+	nonce := handler.GenerateNonce()
+
 	caller := new(mocks.User)
 	caller.On("GetName").Return("foo")
 	caller.On("GetAffiliationPath").Return([]string{"a", "b", "c"})
-	caller.On("GetAttribute", "Role").Return(&api.Attribute{Name: "isAdmin", Value: "true"}, nil)
+	caller.On("GetAttribute", "isAdmin").Return(&api.Attribute{Name: "isAdmin", Value: "true"}, nil)
 	caller.On("LoginComplete").Return(nil)
+
+	credReq, _, _, err := newIdemixCredentialRequest(t, nonce)
+	if err != nil {
+		t.Fatalf("Failed to create test credential request")
+	}
+	_, attrs, err := handler.GetAttributeValues(caller, ik.IPk, &rh)
+	if err != nil {
+		t.Fatalf("Failed to get attributes")
+	}
+	cred, err := idemix.NewCredential(ik, credReq, attrs, rnd)
+	if err != nil {
+		t.Fatalf("Failed to create credential")
+	}
+	idemixlib.On("NewCredential", ik, credReq, attrs, rnd).Return(cred, nil)
+
+	b64CredBytes, err := getB64EncodedCred(cred)
+	if err != nil {
+		t.Fatalf("Failed to base64 encode credential")
+	}
+	credAccessor := new(mocks.CredDBAccessor)
+	credAccessor.On("InsertCredential", IdemixCredRecord{RevocationHandle: 1,
+		CALabel: "", ID: "foo", Status: "good", Cred: b64CredBytes}).Return(nil)
+
+	ca.On("CredDBAccessor").Return(credAccessor, nil)
+
+	ctx.On("BasicAuthentication").Return("foo", nil)
+	f := getReadBodyFunc(t, credReq)
+	ctx.On("ReadBody", &api.IdemixEnrollmentRequestNet{}).Return(f)
+	ctx.On("GetCA").Return(ca, nil)
 	ctx.On("GetCaller").Return(caller, nil)
+
+	// Now setup of all mocks is over, test the method
 	_, err = handler.HandleIdemixEnroll()
 	assert.NoError(t, err, "Idemix enroll should return error because ctx.GetCaller returned error")
 }
 
-func getReadBodyFunc(t *testing.T, nonce *amcl.BIG) func(body interface{}) error {
+func TestGetAttributeValues(t *testing.T) {
+	ctx := new(mocks.IdemixServerRequestCtx)
+	idemixlib := new(mocks.IdemixLib)
+	handler := IdemixEnrollRequestHandler{Ctx: ctx, IsBasicAuth: true, IdmxLib: idemixlib}
+
+	caller := new(mocks.User)
+	caller.On("GetName").Return("foo")
+	caller.On("GetAffiliationPath").Return([]string{"a", "b", "c"})
+	caller.On("GetAttribute", "isAdmin").Return(&api.Attribute{Name: "isAdmin", Value: "true"}, nil)
+	caller.On("GetAttribute", "type").Return(&api.Attribute{Name: "type", Value: "client"}, nil)
+	caller.On("LoginComplete").Return(nil)
+
+	rh := RevocationHandle(1)
+
+	ipk := idemix.IssuerPublicKey{AttributeNames: []string{"OU", "Role", "EnrollmentID", "RevocationHandle", "type"}}
+	_, _, err := handler.GetAttributeValues(caller, &ipk, &rh)
+	assert.NoError(t, err)
+}
+
+func getB64EncodedCred(cred *idemix.Credential) (string, error) {
+	credBytes, err := proto.Marshal(cred)
+	if err != nil {
+		return "", errors.New("Failed to marshal credential to bytes")
+	}
+	b64CredBytes := util.B64Encode(credBytes)
+	return b64CredBytes, nil
+}
+
+func getReadBodyFunc(t *testing.T, credReq *idemix.CredRequest) func(body interface{}) error {
 	return func(body interface{}) error {
 		enrollReq, _ := body.(*api.IdemixEnrollmentRequestNet)
-		var err error
-		enrollReq.CredRequest, _, _, err = newIdemixCredentialRequest(t, nonce)
-		return err
+		if credReq == nil {
+			return errors.New("Error reading the body")
+		}
+		enrollReq.CredRequest = credReq
+		return nil
 	}
 }
 

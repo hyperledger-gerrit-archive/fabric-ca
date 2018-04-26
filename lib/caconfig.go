@@ -90,7 +90,7 @@ csr:
 // "skip" - to skip the field.
 type CAConfig struct {
 	Version      string `skip:"true"`
-	Cfg          cfgOptions
+	Cfg          CfgOptions
 	CA           CAInfo
 	Signing      *config.Signing
 	IssuerKey    *idemix.IssuerKey
@@ -107,10 +107,11 @@ type CAConfig struct {
 	CRL          CRLConfig
 }
 
-// cfgOptions is a CA configuration that allows for setting different options
-type cfgOptions struct {
+// CfgOptions is a CA configuration that allows for setting different options
+type CfgOptions struct {
 	Identities   identitiesOptions
 	Affiliations affiliationsOptions
+	RCOpts       RevocationComponentOptions
 }
 
 // identitiesOptions are options that are related to identities
