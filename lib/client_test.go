@@ -232,13 +232,17 @@ func TestIdemixEnroll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to store idenditity: %s", err.Error())
 	}
+
+	err = client.CheckEnrollment()
+	assert.NoError(t, err, "CheckEnrollment should not fail")
+
 	_, err = client.LoadIdentity("", filepath.Join(clientHome, "msp/signcerts/cert.pem"), filepath.Join(clientHome, "msp/user/SignerConfig"))
 	assert.NoError(t, err, "Failed to load identity that has both X509 and Idemix credentials")
 
 	CopyFile("../testdata/ec256-1-cert.pem", filepath.Join(clientHome, "msp/signcerts/cert.pem"))
 	CopyFile("../testdata/ec256-1-key.pem", filepath.Join(clientHome, "msp/keystore/key.pem"))
 	_, err = client.Enroll(req)
-	assert.Error(t, err, "Idemix enroll should fail as the certificate is of unregistered user")
+	assert.Error(t, err, "Idemix enroll should fail as the certificate is of an unregistered user")
 }
 
 func TestClient(t *testing.T) {

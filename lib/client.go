@@ -541,22 +541,6 @@ func (c *Client) getIssuerPubKey() (*idemix.IssuerPublicKey, error) {
 	return pubKey, nil
 }
 
-// StoreMyIdentity stores my identity to disk
-// func (c *Client) StoreMyIdentity(creds []Credential) error {
-// 	err := c.Init()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	for _, cred := range creds {
-// 		err = cred.Store()
-// 		if err != nil {
-// 			return err
-// 		}
-// 	}
-// 	log.Info("Succesfully stored client credentials")
-// 	return nil
-// }
-
 // LoadMyIdentity loads the client's identity from disk
 func (c *Client) LoadMyIdentity() (*Identity, error) {
 	err := c.Init()
@@ -798,12 +782,12 @@ func (c *Client) CheckEnrollment() error {
 	}
 	err = c.checkX509Enrollment()
 	if err == nil {
-		return nil
+		err = c.checkIdemixEnrollment()
+		if err == nil {
+			return nil
+		}
 	}
-	err = c.checkIdemixEnrollment()
-	if err == nil {
-		return nil
-	}
+	log.Errorf("Enrollment check failed: %s", err.Error())
 	return errors.New("Enrollment information does not exist. Please execute enroll command first. Example: fabric-ca-client enroll -u http://user:userpw@serverAddr:serverPort")
 }
 
@@ -830,11 +814,11 @@ func (c *Client) checkIdemixEnrollment() error {
 	idemixCredExists := util.FileExists(c.idemixCredFile)
 	if idemixIssuerPubKeyExists && idemixCredExists {
 		err := c.verifyIdemixCredential()
-		if err == nil {
-			return nil
+		if err != nil {
+			return errors.WithMessage(err, "Idemix enrollment check failed")
 		}
 	}
-	return errors.New("Idemix enrollment information does not exist")
+	return nil
 }
 
 func (c *Client) verifyIdemixCredential() error {
@@ -855,14 +839,14 @@ func (c *Client) verifyIdemixCredential() error {
 	cred := new(idemix.Credential)
 	err = proto.Unmarshal(signerConfig.GetCred(), cred)
 	if err != nil {
-		return errors.Wrap(err, "Failed to unmarshal credential from signer config")
+		return errors.Wrap(err, "Failed to unmarshal Idemix credential from signer config")
 	}
 	sk := amcl.FromBytes(signerConfig.GetSk())
 
 	// Verify that the credential is cryptographically valid
 	err = cred.Ver(sk, ipk)
 	if err != nil {
-		return errors.Wrap(err, "Credential is not cryptographically valid")
+		return errors.Wrap(err, "Idemix credential is not cryptographically valid")
 	}
 	return nil
 }

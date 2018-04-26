@@ -139,6 +139,31 @@ func FileExists(name string) bool {
 	return true
 }
 
+// CopyFile copies contents of the source file to destination file. Throws
+// error if src file does not exist or
+//       if destination directory does not exist  or
+//       if dest file already exists
+func CopyFile(src, dest string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.OpenFile(dest, os.O_CREATE|os.O_EXCL|os.O_RDWR, os.FileMode(0666))
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		return err
+	}
+	return out.Close()
+}
+
 // Marshal to bytes
 func Marshal(from interface{}, what string) ([]byte, error) {
 	buf, err := json.Marshal(from)

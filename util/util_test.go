@@ -774,3 +774,29 @@ func TestValidateAndReturnAbsConf(t *testing.T) {
 		t.Error("Failed to get correct path for configuration file")
 	}
 }
+
+func TestCopyFile(t *testing.T) {
+	f, err := ioutil.TempFile("", "copyfiletest")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %s", err.Error())
+	}
+	defer os.RemoveAll(filepath.Dir(f.Name()))
+	_, err = f.WriteString("hello")
+	if err != nil {
+		t.Fatalf("Failed to write to file %s: %s", f.Name(), err.Error())
+	}
+	dest, err := ioutil.TempDir("", "copyfiletest")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %s", err.Error())
+	}
+	defer os.RemoveAll(dest)
+
+	err = CopyFile("blah", filepath.Join(dest, "copyfiletestdestFile"))
+	assert.Error(t, err, "Should error if source file does not exist")
+	err = CopyFile(f.Name(), filepath.Join("dest1", "copyfiletestdestFile"))
+	assert.Error(t, err, "Should error if destination directory does not exist")
+	err = CopyFile(f.Name(), filepath.Join(dest, "copyfiletestdestFile"))
+	assert.NoError(t, err, "Should not error if source file exists and destination directory exists")
+	err = CopyFile(f.Name(), filepath.Join(dest, "copyfiletestdestFile"))
+	assert.Error(t, err, "Should error if destination file already exists")
+}
