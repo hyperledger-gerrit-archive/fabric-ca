@@ -93,22 +93,22 @@ func (ic *CAIdemixCredential) Store() error {
 
 	ipkBytes, err := proto.Marshal(ik.IPk)
 	if err != nil {
-		return errors.New("Failed to marshal issuer public key")
+		return errors.New("Failed to marshal CA's Idemix public key")
 	}
 
 	err = util.WriteFile(ic.pubKeyFile, ipkBytes, 0644)
 	if err != nil {
-		log.Errorf("Failed to store issuer public key: %s", err.Error())
-		return errors.New("Failed to store issuer public key")
+		log.Errorf("Failed to store CA's Idemix public key: %s", err.Error())
+		return errors.New("Failed to store CA's Idemix public key")
 	}
 
 	err = util.WriteFile(ic.secretKeyFile, ik.ISk, 0644)
 	if err != nil {
-		log.Errorf("Failed to store issuer secret key: %s", err.Error())
-		return errors.New("Failed to store issuer secret key")
+		log.Errorf("Failed to store CA's Idemix secret key: %s", err.Error())
+		return errors.New("Failed to store CA's Idemix secret key")
 	}
 
-	log.Infof("The issuer key was successfully stored. The public key is at: %s, secret key is at: %s",
+	log.Infof("The CA's issuer key was successfully stored. The public key is at: %s, secret key is at: %s",
 		ic.pubKeyFile, ic.secretKeyFile)
 	return nil
 }
@@ -117,7 +117,7 @@ func (ic *CAIdemixCredential) Store() error {
 // this CAIdemixCredential
 func (ic *CAIdemixCredential) GetIssuerKey() (*idemix.IssuerKey, error) {
 	if ic.issuerKey == nil {
-		return nil, errors.New("Issuer key is not set")
+		return nil, errors.New("CA's Idemix credential is not set")
 	}
 	return ic.issuerKey, nil
 }
