@@ -99,7 +99,7 @@ func TestStoreNilIssuerKey(t *testing.T) {
 	err := ik.Store()
 	assert.Error(t, err, "Should fail if store is called without setting the issuer key or loading the issuer key from disk")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Issuer key is not set")
+		assert.Equal(t, err.Error(), "CA's Idemix credential is not set")
 	}
 }
 
@@ -111,7 +111,7 @@ func TestStoreNilIdemixPublicKey(t *testing.T) {
 	err := ik.Store()
 	assert.Error(t, err, "Should fail if store is called with empty issuer public key byte array")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Failed to marshal issuer public key")
+		assert.Equal(t, err.Error(), "Failed to marshal CA's Idemix public key")
 	}
 }
 
@@ -137,7 +137,7 @@ func TestStoreInvalidPublicKeyFilePath(t *testing.T) {
 	err = ik.Store()
 	assert.Error(t, err, "Should fail if issuer public key is being stored to non-existent directory")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Failed to store issuer public key")
+		assert.Equal(t, err.Error(), "Failed to store CA's Idemix public key")
 	}
 }
 
@@ -166,7 +166,7 @@ func TestStoreInvalidSecretKeyFilePath(t *testing.T) {
 	err = ik.Store()
 	assert.Error(t, err, "Should fail if issuer secret key is being stored to non-existent directory")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Failed to store issuer secret key")
+		assert.Equal(t, err.Error(), "Failed to store CA's Idemix secret key")
 	}
 }
 
@@ -177,7 +177,7 @@ func TestGetIssuerKey(t *testing.T) {
 	_, err := ik.GetIssuerKey()
 	assert.Error(t, err, "GetIssuerKey should return an error if it is called without setting the issuer key or loading the issuer key from disk")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Issuer key is not set")
+		assert.Equal(t, err.Error(), "CA's Idemix credential is not set")
 	}
 	err = ik.Load()
 	if err != nil {

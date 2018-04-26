@@ -23,18 +23,15 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	proto "github.com/golang/protobuf/proto"
-	amcl "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
+	amcl "github.com/hyperledger/fabric-amcl/amcl"
+	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/idemix"
+	mspprotos "github.com/hyperledger/fabric/protos/msp"
 	"github.com/pkg/errors"
 )
-
-// RevocationHandle is the identifier of the credential using which a user can
-// prove to the verifier that his/her credential is not revoked with a zero knowledge
-// proof
-type RevocationHandle int
 
 // IdemixEnrollmentResponseNet is the idemix enrollment response from the server
 type IdemixEnrollmentResponseNet struct {
@@ -61,10 +58,21 @@ type IdemixServerRequestCtx interface {
 
 // IdemixCA is the CA that Idemix enroll expects
 type IdemixCA interface {
+	FabricCA
+	GetIdemixRand() *amcl.RAND
 	IssuerCredential() IssuerCredential
-	GetConfig() *CAConfig
-	FillCAInfo(resp *ServerInfoResponseNet) error
+	RevocationComponent() RevocationAuthority
+	CredDBAccessor() IdemixCredDBAccessor
 }
+
+// IdemixLib represents idemix library
+type IdemixLib interface {
+	NewCredential(key *idemix.IssuerKey, m *idemix.CredRequest, attrs []*fp256bn.BIG, rng *amcl.RAND) (*idemix.Credential, error)
+	GetRand() (*amcl.RAND, error)
+	RandModOrder(rng *amcl.RAND) *fp256bn.BIG
+}
+
+type idemixLibrary struct{}
 
 type idemixServerRequestCtxAdapter struct {
 	ctx *serverRequestContext
@@ -76,6 +84,7 @@ type IdemixEnrollRequestHandler struct {
 	Ctx          IdemixServerRequestCtx
 	EnrollmentID string
 	CA           IdemixCA
+	IdmxLib      IdemixLib
 }
 
 func newIdemixEnrollEndpoint(s *Server) *serverEndpoint {
@@ -90,10 +99,15 @@ func newIdemixEnrollEndpoint(s *Server) *serverEndpoint {
 // HandleReq handles an Idemix enroll request, guarded by basic/token authentication
 func handleIdemixEnrollReq(ctx *serverRequestContext) (interface{}, error) {
 	_, _, isBasicAuth := ctx.req.BasicAuth()
-	handler := IdemixEnrollRequestHandler{Ctx: &idemixServerRequestCtxAdapter{ctx}, IsBasicAuth: isBasicAuth}
+	handler := IdemixEnrollRequestHandler{
+		Ctx:         &idemixServerRequestCtxAdapter{ctx},
+		IsBasicAuth: isBasicAuth,
+		IdmxLib:     &idemixLibrary{},
+	}
 
 	resp, err := handler.HandleIdemixEnroll()
 	if err != nil {
+		log.Errorf("Error processing the /idemix/credential request: %s", err.Error())
 		return nil, err
 	}
 	return resp, nil
@@ -119,10 +133,7 @@ func (h *IdemixEnrollRequestHandler) HandleIdemixEnroll() (interface{}, error) {
 	}
 
 	if req.CredRequest == nil {
-		nonce, err := h.GenerateNonce()
-		if err != nil {
-			return nil, err
-		}
+		nonce := h.GenerateNonce()
 
 		// TODO: store the nonce so it can be validated later
 
@@ -134,14 +145,15 @@ func (h *IdemixEnrollRequestHandler) HandleIdemixEnroll() (interface{}, error) {
 
 	ik, err := h.CA.IssuerCredential().GetIssuerKey()
 	if err != nil {
-		log.Errorf("Failed to get issuer key for the CA %s: %s", h.CA.GetConfig().CA.Name, err.Error())
-		return nil, errors.WithMessage(err, fmt.Sprintf("Failed to get issuer key for the CA: %s", h.CA.GetConfig().CA.Name))
+		log.Errorf("Failed to get Idemix issuer key for the CA %s: %s", h.CA.GetConfig().CA.Name, err.Error())
+		return nil, errors.WithMessage(err, fmt.Sprintf("Failed to get Idemix issuer key for the CA: %s",
+			h.CA.GetConfig().CA.Name))
 	}
 
 	caller, err := h.Ctx.GetCaller()
 	if err != nil {
 		log.Errorf("Failed to get caller of the request: %s", err.Error())
-		return nil, errors.New("Failed to determine the caller of the request")
+		return nil, err
 	}
 
 	// TODO: validate issuer nonce
@@ -149,37 +161,46 @@ func (h *IdemixEnrollRequestHandler) HandleIdemixEnroll() (interface{}, error) {
 	// Check the if credential request is valid
 	err = req.CredRequest.Check(ik.GetIPk())
 	if err != nil {
-		log.Errorf("Invalid credential request : %s", err.Error())
-		return nil, errors.New("Invalid credential request")
+		log.Errorf("Invalid Idemix credential request: %s", err.Error())
+		return nil, newHTTPErr(400, ErrBadCredRequest, "Invalid Idemix credential request: %s", err)
 	}
 
-	rng, err := idemix.GetRand()
+	// Get revocation handle for the credential
+	rh, err := h.CA.RevocationComponent().GetNewRevocationHandle()
 	if err != nil {
-		log.Errorf("Error getting rng: \"%s\"", err)
 		return nil, err
 	}
-
-	// TODO: Get revocation handle for the credential
-	rh := RevocationHandle(1)
 
 	// Get attributes for the identity
-	attrMap, attrs, err := h.GetAttributeValues(caller, ik.GetIPk(), &rh)
+	attrMap, attrs, err := h.GetAttributeValues(caller, ik.GetIPk(), rh)
 	if err != nil {
 		return nil, err
 	}
 
-	cred, err := idemix.NewCredential(ik, req.CredRequest, attrs, rng)
+	cred, err := h.IdmxLib.NewCredential(ik, req.CredRequest, attrs, h.CA.GetIdemixRand())
 	if err != nil {
-		log.Errorf("CA %s failed to create new credential for identity %s: %s", h.CA.GetConfig().CA.Name, h.EnrollmentID, err.Error())
-		return nil, errors.New("Failed to create new credential")
+		log.Errorf("CA '%s' failed to create new Idemix credential for identity '%s': %s",
+			h.CA.GetConfig().CA.Name, h.EnrollmentID, err.Error())
+		return nil, errors.New("Failed to create new Idemix credential")
 	}
 	credBytes, err := proto.Marshal(cred)
 	if err != nil {
-		return nil, errors.New("Failed to marshal credential to bytes")
+		return nil, errors.New("Failed to marshal Idemix credential to bytes")
 	}
 	b64CredBytes := util.B64Encode(credBytes)
 
-	// TODO: Store the credential in the database
+	// Store the credential in the database
+	err = h.CA.CredDBAccessor().InsertCredential(IdemixCredRecord{
+		CALabel:          h.CA.GetConfig().CA.Name,
+		ID:               caller.GetName(),
+		Status:           "good",
+		Cred:             b64CredBytes,
+		RevocationHandle: int(*rh),
+	})
+	if err != nil {
+		log.Errorf("Failed to store the Idemix credential for identity '%s' in the database: %s", caller.GetName(), err.Error())
+		return nil, errors.New("Failed to store the Idemix credential")
+	}
 
 	// TODO: Get CRL from revocation authority of the CA
 
@@ -220,24 +241,18 @@ func (h *IdemixEnrollRequestHandler) Authenticate() error {
 	return nil
 }
 
-// GenerateNonce generates a nonce for this Idemix enroll request
-func (h *IdemixEnrollRequestHandler) GenerateNonce() (*amcl.BIG, error) {
-	rng, err := idemix.GetRand()
-	if err != nil {
-		return nil, errors.Wrapf(err, "Error generating nonce")
-	}
-	nonce := idemix.RandModOrder(rng)
-	return nonce, nil
+// GenerateNonce generates a nonce for an Idemix enroll request
+func (h *IdemixEnrollRequestHandler) GenerateNonce() *fp256bn.BIG {
+	return h.IdmxLib.RandModOrder(h.CA.GetIdemixRand())
 }
 
 // GetAttributeValues returns attribute values of the caller of Idemix enroll request
 func (h *IdemixEnrollRequestHandler) GetAttributeValues(caller spi.User, ipk *idemix.IssuerPublicKey,
-	rh *RevocationHandle) (map[string]string, []*amcl.BIG, error) {
-	rc := []*amcl.BIG{}
+	rh *RevocationHandle) (map[string]string, []*fp256bn.BIG, error) {
+	rc := []*fp256bn.BIG{}
 	attrMap := make(map[string]string)
-	fmt.Println(ipk.AttributeNames)
 	for _, attrName := range ipk.AttributeNames {
-		if attrName == "enrollmentID" {
+		if attrName == "EnrollmentID" {
 			idBytes := []byte(caller.GetName())
 			rc = append(rc, idemix.HashModOrder(idBytes))
 			attrMap[attrName] = caller.GetName()
@@ -250,21 +265,22 @@ func (h *IdemixEnrollRequestHandler) GetAttributeValues(caller spi.User, ipk *id
 			ouBytes := []byte(ouVal)
 			rc = append(rc, idemix.HashModOrder(ouBytes))
 			attrMap[attrName] = ouVal
-		} else if attrName == "revocationHandle" {
+		} else if attrName == "RevocationHandle" {
 			rhi := int(*rh)
-			rhBytes := idemix.BigToBytes(amcl.NewBIGint(rhi))
-			rc = append(rc, idemix.HashModOrder(rhBytes))
+			rc = append(rc, fp256bn.NewBIGint(rhi))
 			attrMap[attrName] = strconv.Itoa(rhi)
-		} else if attrName == "isAdmin" {
+		} else if attrName == "Role" {
 			isAdmin := false
-			attrObj, err := caller.GetAttribute(attrName)
+			attrObj, err := caller.GetAttribute("isAdmin")
 			if err == nil {
 				isAdmin, err = strconv.ParseBool(attrObj.GetValue())
 			}
-			isAdminVal := strconv.FormatBool(isAdmin)
-			isAdminBytes := []byte(isAdminVal)
-			rc = append(rc, idemix.HashModOrder(isAdminBytes))
-			attrMap[attrName] = isAdminVal
+			role := mspprotos.MSPRole_MEMBER
+			if isAdmin {
+				role = mspprotos.MSPRole_ADMIN
+			}
+			rc = append(rc, fp256bn.NewBIGint(int(role)))
+			attrMap[attrName] = strconv.FormatBool(isAdmin)
 		} else {
 			attrObj, err := caller.GetAttribute(attrName)
 			if err != nil {
@@ -293,4 +309,14 @@ func (a *idemixServerRequestCtxAdapter) GetCaller() (spi.User, error) {
 }
 func (a *idemixServerRequestCtxAdapter) ReadBody(body interface{}) error {
 	return a.ctx.ReadBody(body)
+}
+
+func (i *idemixLibrary) GetRand() (*amcl.RAND, error) {
+	return idemix.GetRand()
+}
+func (i *idemixLibrary) NewCredential(key *idemix.IssuerKey, m *idemix.CredRequest, attrs []*fp256bn.BIG, rng *amcl.RAND) (*idemix.Credential, error) {
+	return idemix.NewCredential(key, m, attrs, rng)
+}
+func (i *idemixLibrary) RandModOrder(rng *amcl.RAND) *fp256bn.BIG {
+	return idemix.RandModOrder(rng)
 }
