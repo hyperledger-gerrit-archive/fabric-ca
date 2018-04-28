@@ -1,0 +1,10 @@
+Code-Review+1: Manu Drijvers <mdr@zurich.ibm.com>
+Code-Review+1: Maria Dubovitskaya <mdu@zurich.ibm.com>
+Code-Review+2: Keith Smith <keithsmithlfid@gmail.com>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Submitted-by: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Submitted-at: Sat, 28 Apr 2018 02:12:47 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/20087
+Project: fabric-ca
+Branch: refs/heads/master
