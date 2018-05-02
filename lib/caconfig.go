@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
+	"github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -89,7 +90,7 @@ csr:
 // "skip" - to skip the field.
 type CAConfig struct {
 	Version      string `skip:"true"`
-	Cfg          cfgOptions
+	Cfg          CfgOptions
 	CA           CAInfo
 	Signing      *config.Signing
 	CSR          api.CSRInfo
@@ -105,10 +106,11 @@ type CAConfig struct {
 	CRL          CRLConfig
 }
 
-// cfgOptions is a CA configuration that allows for setting different options
-type cfgOptions struct {
+// CfgOptions is a CA configuration that allows for setting different options
+type CfgOptions struct {
 	Identities   identitiesOptions
 	Affiliations affiliationsOptions
+	IdemixOpts   idemix.CfgOptions
 }
 
 // identitiesOptions are options that are related to identities
@@ -123,10 +125,12 @@ type affiliationsOptions struct {
 
 // CAInfo is the CA information on a fabric-ca-server
 type CAInfo struct {
-	Name      string `opt:"n" help:"Certificate Authority name"`
-	Keyfile   string `help:"PEM-encoded CA key file"`
-	Certfile  string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
-	Chainfile string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
+	Name                string `opt:"n" help:"Certificate Authority name"`
+	Keyfile             string `help:"PEM-encoded CA key file"`
+	Certfile            string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
+	Chainfile           string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
+	IdemixPublicKeyfile string `def:"IssuerPublicKey" help:"Name of the file that contains marshalled bytes of CA's Idemix public key"`
+	IdemixSecretKeyfile string `def:"IssuerSecretKey" help:"Name of the file that contains CA's Idemix secret key"`
 }
 
 // CAConfigDB is the database part of the server's config
