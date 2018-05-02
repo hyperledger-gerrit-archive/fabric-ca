@@ -223,13 +223,12 @@ func TestSRVRootServer(t *testing.T) {
 	}
 	user1 = eresp.Identity
 	// Make sure the OUs are correct based on the identity type and affiliation
-	cert, err := user1.GetECert().GetX509Cert()
-	if err != nil {
-		assert.NoErrorf(t, err, "Failed to get user1's enrollment certificate")
-	} else {
-		ouPath := strings.Join(cert.Subject.OrganizationalUnit, ".")
-		assert.Equal(t, "user.hyperledger.fabric.security", ouPath, "Invalid OU path in certificate")
-	}
+	cert := user1.GetECert().GetX509Cert()
+	assert.NotNil(t, cert, "Failed to get user1's enrollment certificate")
+
+	ouPath := strings.Join(cert.Subject.OrganizationalUnit, ".")
+	assert.Equal(t, "user.hyperledger.fabric.security", ouPath, "Invalid OU path in certificate")
+
 	// The admin ID should have 1 cert in the DB now
 	dba := server.CA.CertDBAccessor()
 	recs, err = dba.GetCertificatesByID("admin")
