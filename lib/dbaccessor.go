@@ -21,16 +21,17 @@ import (
 	"strings"
 
 	"github.com/hyperledger/fabric-ca/lib/attr"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ocsp"
 
-	"github.com/jmoiron/sqlx"
 	"github.com/kisielk/sqlstruct"
 )
 
@@ -96,11 +97,11 @@ type AffiliationRecord struct {
 
 // Accessor implements db.Accessor interface.
 type Accessor struct {
-	db *sqlx.DB
+	db *dbutil.DB
 }
 
 // NewDBAccessor is a constructor for the database API
-func NewDBAccessor(db *sqlx.DB) *Accessor {
+func NewDBAccessor(db *dbutil.DB) *Accessor {
 	return &Accessor{
 		db: db,
 	}
@@ -114,7 +115,7 @@ func (d *Accessor) checkDB() error {
 }
 
 // SetDB changes the underlying sql.DB object Accessor is manipulating.
-func (d *Accessor) SetDB(db *sqlx.DB) {
+func (d *Accessor) SetDB(db *dbutil.DB) {
 	d.db = db
 }
 
@@ -914,7 +915,7 @@ type DBUser struct {
 	spi.UserInfo
 	pass  []byte
 	attrs map[string]api.Attribute
-	db    *sqlx.DB
+	db    *dbutil.DB
 }
 
 // GetName returns the enrollment ID of the user
