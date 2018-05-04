@@ -103,6 +103,7 @@ type CA struct {
 	// A random number used in generation of Idemix nonces and credentials
 	idemixRand *amcl.RAND
 	rc         idemix.RevocationComponent
+	nm         idemix.NonceManager
 	// The options to use in verifying a signature in token-based authentication
 	verifyOptions *x509.VerifyOptions
 	// The attribute manager
@@ -552,6 +553,12 @@ func (ca *CA) initConfig() (err error) {
 	if ca.Config.Cfg.Idemix.RevocationHandlePoolSize == 0 {
 		ca.Config.Cfg.Idemix.RevocationHandlePoolSize = idemix.DefaultRevocationHandlePoolSize
 	}
+	if ca.Config.Cfg.Idemix.NonceExpiration == "" {
+		ca.Config.Cfg.Idemix.NonceExpiration = idemix.DefaultNonceExpiration
+	}
+	if ca.Config.Cfg.Idemix.NonceSweepInterval == "" {
+		ca.Config.Cfg.Idemix.NonceSweepInterval = idemix.DefaultNonceSweepInterval
+	}
 	return nil
 }
 
@@ -695,6 +702,10 @@ func (ca *CA) initDB() error {
 
 	ca.credDBAccessor = idemix.NewCredentialAccessor(ca.db, ca.levels.Credential)
 	ca.rc, err = idemix.NewRevocationComponent(ca, &ca.Config.Cfg.Idemix, ca.levels.RCInfo)
+	if err != nil {
+		return err
+	}
+	ca.nm, err = idemix.NewNonceManager(ca, &ca.Config.Cfg.Idemix, idemix.NewLib(), &wallClock{}, ca.levels.Nonce)
 	if err != nil {
 		return err
 	}
@@ -949,6 +960,11 @@ func (ca *CA) IssuerCredential() idemix.IssuerCredential {
 // RevocationComponent returns revocation component of this CA
 func (ca *CA) RevocationComponent() idemix.RevocationComponent {
 	return ca.rc
+}
+
+// NonceManager returns nonce manager of this CA
+func (ca *CA) NonceManager() idemix.NonceManager {
+	return ca.nm
 }
 
 // DB returns the FabricCADB object (which represents database handle
@@ -1431,4 +1447,10 @@ func getIntLevel(properties map[string]string, version string) int {
 		panic(err)
 	}
 	return intVersion
+}
+
+type wallClock struct{}
+
+func (wc wallClock) Now() time.Time {
+	return time.Now()
 }
