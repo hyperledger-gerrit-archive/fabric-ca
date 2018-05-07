@@ -41,7 +41,7 @@ type SearchElement struct {
 
 // StreamJSONArray searches the JSON stream for an array matching 'path'.
 // For each element of this array, it streams one element at a time.
-func StreamJSONArray(decoder *json.Decoder, path string, cb func(*json.Decoder) error) error {
+func StreamJSONArray(decoder *json.Decoder, path string, cb func(*json.Decoder) error) (bool, error) {
 	ses := []SearchElement{
 		SearchElement{Path: path, CB: cb},
 		SearchElement{Path: "errors", CB: errCB},
@@ -51,7 +51,7 @@ func StreamJSONArray(decoder *json.Decoder, path string, cb func(*json.Decoder) 
 
 // StreamJSON searches the JSON stream for arrays matching a search element.
 // For each array that it finds, it streams them one element at a time.
-func StreamJSON(decoder *json.Decoder, search []SearchElement) error {
+func StreamJSON(decoder *json.Decoder, search []SearchElement) (bool, error) {
 	js := &jsonStream{decoder: decoder, search: search, stack: []string{}}
 	return js.stream()
 }
@@ -62,13 +62,14 @@ type jsonStream struct {
 	stack   []string
 }
 
-func (js *jsonStream) stream() error {
+func (js *jsonStream) stream() (bool, error) {
+	results := false
 	t, err := js.getToken()
 	if err != nil {
-		return err
+		return results, err
 	}
 	if _, ok := t.(json.Delim); !ok {
-		return nil
+		return results, nil
 	}
 	path := strings.Join(js.stack, ".")
 	se := js.getSearchElement(path)
@@ -79,42 +80,43 @@ func (js *jsonStream) stream() error {
 			for js.decoder.More() {
 				err = se.CB(js.decoder)
 				if err != nil {
-					return err
+					return results, err
 				}
+				results = true
 			}
 		}
 		err = js.skipToDelim("]")
 		if err != nil {
-			return err
+			return results, err
 		}
 	case "]":
-		return errors.Errorf("Unexpected '%s'", d)
+		return results, errors.Errorf("Unexpected '%s'", d)
 	case "{":
 		if se != nil {
-			return errors.Errorf("Expecting array for value of '%s'", path)
+			return results, errors.Errorf("Expecting array for value of '%s'", path)
 		}
 		for {
 			name, err := js.getNextName()
 			if err != nil {
-				return err
+				return results, err
 			}
 			if name == "" {
-				return nil
+				return results, nil
 			}
 			stack := js.stack
 			js.stack = append(stack, name)
-			err = js.stream()
+			_, err = js.stream()
 			if err != nil {
-				return err
+				return results, err
 			}
 			js.stack = stack
 		}
 	case "}":
-		return errors.Errorf("Unexpected '%s'", d)
+		return results, errors.Errorf("Unexpected '%s'", d)
 	default:
-		return errors.Errorf("unknown JSON delimiter: '%s'", d)
+		return results, errors.Errorf("unknown JSON delimiter: '%s'", d)
 	}
-	return nil
+	return results, nil
 }
 
 // Find a search element named 'path'
@@ -194,5 +196,5 @@ func errCB(decoder *json.Decoder) error {
 	if err != nil {
 		return errors.Errorf("Invalid JSON error format: %s", err)
 	}
-	return errors.Errorf("%+v", errMsg)
+	return errors.Errorf("Code: %d, Message: %s", errMsg.Code, errMsg.Message)
 }
