@@ -206,10 +206,14 @@ func (ctx *serverRequestContext) GetCA() (*CA, error) {
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to get CA instance")
 	}
-	if !ctx.ca.dbInitialized {
+	if ctx.ca.db == nil || !ctx.ca.db.IsInitialized() {
 		err := ctx.ca.initDB()
 		if err != nil {
 			return nil, errors.WithMessage(err, fmt.Sprintf("%s handler failed to initialize DB", strings.TrimLeft(ctx.req.URL.String(), "/")))
+		}
+		err = ctx.ca.issuer.Init(false, ctx.ca.db, ctx.ca.levels)
+		if err != nil {
+			return nil, nil
 		}
 	}
 	return ctx.ca, nil

@@ -71,6 +71,8 @@ type CredRecord struct {
 
 // CredDBAccessor is the accessor for credentials database table
 type CredDBAccessor interface {
+	// Sets reference to datastore object
+	SetDB(db dbutil.FabricCADB)
 	// InsertCredential inserts specified Idemix credential record into database
 	InsertCredential(cr CredRecord) error
 	// GetCredential returns Idemix credential associated with the specified revocation
@@ -88,7 +90,7 @@ type CredentialAccessor struct {
 }
 
 // NewCredentialAccessor returns a new CredentialAccessor.
-func NewCredentialAccessor(db dbutil.FabricCADB, level int) *CredentialAccessor {
+func NewCredentialAccessor(db dbutil.FabricCADB, level int) CredDBAccessor {
 	ac := new(CredentialAccessor)
 	ac.db = db
 	ac.level = level
