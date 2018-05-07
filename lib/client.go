@@ -35,6 +35,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/lib/streamer"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
@@ -158,7 +159,7 @@ func (c *Client) GetCAInfo(req *api.GetCAInfoRequest) (*GetCAInfoResponse, error
 	if err != nil {
 		return nil, err
 	}
-	netSI := &ServerInfoResponseNet{}
+	netSI := &common.CAInfoResponseNet{}
 	err = c.SendReq(cainforeq, netSI)
 	if err != nil {
 		return nil, err
@@ -172,7 +173,7 @@ func (c *Client) GetCAInfo(req *api.GetCAInfoRequest) (*GetCAInfoResponse, error
 }
 
 // Convert from network to local server information
-func (c *Client) net2LocalServerInfo(net *ServerInfoResponseNet, local *GetCAInfoResponse) error {
+func (c *Client) net2LocalServerInfo(net *common.CAInfoResponseNet, local *GetCAInfoResponse) error {
 	caChain, err := util.B64Decode(net.CAChain)
 	if err != nil {
 		return err
@@ -192,8 +193,8 @@ func (c *Client) net2LocalServerInfo(net *ServerInfoResponseNet, local *GetCAInf
 
 // EnrollmentResponse is the response from Client.Enroll and Identity.Reenroll
 type EnrollmentResponse struct {
-	Identity   *Identity
-	ServerInfo GetCAInfoResponse
+	Identity *Identity
+	CAInfo   GetCAInfoResponse
 }
 
 // Enroll enrolls a new identity
@@ -235,7 +236,7 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 		return nil, err
 	}
 	post.SetBasicAuth(req.Name, req.Secret)
-	var result enrollmentResponseNet
+	var result common.EnrollmentResponseNet
 	err = c.SendReq(post, &result)
 	if err != nil {
 		return nil, err
@@ -249,7 +250,7 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 // @param result The result from server
 // @param id Name of identity being enrolled or reenrolled
 // @param key The private key which was used to sign the request
-func (c *Client) newEnrollmentResponse(result *enrollmentResponseNet, id string, key bccsp.Key) (*EnrollmentResponse, error) {
+func (c *Client) newEnrollmentResponse(result *common.EnrollmentResponseNet, id string, key bccsp.Key) (*EnrollmentResponse, error) {
 	log.Debugf("newEnrollmentResponse %s", id)
 	certByte, err := util.B64Decode(result.Cert)
 	if err != nil {
@@ -258,7 +259,7 @@ func (c *Client) newEnrollmentResponse(result *enrollmentResponseNet, id string,
 	resp := &EnrollmentResponse{
 		Identity: newIdentity(c, id, key, certByte),
 	}
-	err = c.net2LocalServerInfo(&result.ServerInfo, &resp.ServerInfo)
+	err = c.net2LocalServerInfo(&result.CAInfo, &resp.CAInfo)
 	if err != nil {
 		return nil, err
 	}

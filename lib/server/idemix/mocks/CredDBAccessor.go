@@ -17,6 +17,7 @@ limitations under the License.
 
 package mocks
 
+import dbutil "github.com/hyperledger/fabric-ca/lib/dbutil"
 import idemix "github.com/hyperledger/fabric-ca/lib/server/idemix"
 import mock "github.com/stretchr/testify/mock"
 
@@ -83,4 +84,9 @@ func (_m *CredDBAccessor) InsertCredential(cr idemix.CredRecord) error {
 	}
 
 	return r0
+}
+
+// SetDB provides a mock function with given fields: db
+func (_m *CredDBAccessor) SetDB(db dbutil.FabricCADB) {
+	_m.Called(db)
 }

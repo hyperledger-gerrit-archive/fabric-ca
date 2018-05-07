@@ -91,7 +91,7 @@ func (c *ClientCmd) runReenroll() error {
 		return err
 	}
 
-	err = storeCAChain(c.clientCfg, &resp.ServerInfo)
+	err = storeCAChain(c.clientCfg, &resp.CAInfo)
 	if err != nil {
 		return err
 	}
