@@ -31,31 +31,33 @@ import (
 )
 
 func TestNewNonceManager(t *testing.T) {
-	ca := new(mocks.CA)
-	ca.On("GetName").Return("ca1")
-	opts := &CfgOptions{
+	issuer := new(mocks.MyIssuer)
+	issuer.On("Name").Return("ca1")
+	opts := &Config{
 		NonceExpiration:    "15",
 		NonceSweepInterval: "15",
 	}
 	clock := new(mocks.Clock)
 	lib := new(mocks.Lib)
-	_, err := NewNonceManager(ca, opts, lib, clock, 1)
+	issuer.On("Config").Return(opts)
+	issuer.On("IdemixLib").Return(lib)
+	_, err := NewNonceManager(issuer, clock, 1)
 	assert.Error(t, err, "NewNonceManager should return error if the NonceExpiration config option is not in time.Duration string format")
-	assert.Contains(t, err.Error(), "Failed to parse idemix.nonceexpiration config option while initializing Nonce manager for CA 'ca1'")
+	assert.Contains(t, err.Error(), "Failed to parse idemix.nonceexpiration config option while initializing Nonce manager for Issuer 'ca1'")
 
 	opts.NonceExpiration = "15s"
-	_, err = NewNonceManager(ca, opts, lib, clock, 1)
+	_, err = NewNonceManager(issuer, clock, 1)
 	assert.Error(t, err, "NewNonceManager should return error if the NonceSweepInterval config option is not in time.Duration string format")
-	assert.Contains(t, err.Error(), "Failed to parse idemix.noncesweepinterval config option while initializing Nonce manager for CA 'ca1'")
+	assert.Contains(t, err.Error(), "Failed to parse idemix.noncesweepinterval config option while initializing Nonce manager for Issuer 'ca1'")
 
 	opts.NonceSweepInterval = "15m"
-	_, err = NewNonceManager(ca, opts, lib, clock, 1)
+	_, err = NewNonceManager(issuer, clock, 1)
 	assert.NoError(t, err)
 }
 
 func TestGetNonce(t *testing.T) {
-	ca := new(mocks.CA)
-	ca.On("GetName").Return("ca1")
+	issuer := new(mocks.MyIssuer)
+	issuer.On("Name").Return("ca1")
 
 	lib := new(mocks.Lib)
 	rnd, err := idemix.GetRand()
@@ -65,7 +67,7 @@ func TestGetNonce(t *testing.T) {
 	rmo := idemix.RandModOrder(rnd)
 	lib.On("RandModOrder", rnd).Return(rmo)
 
-	ca.On("IdemixRand").Return(rnd)
+	issuer.On("IdemixRand").Return(rnd)
 
 	noncestr := util.B64Encode(idemix.BigToBytes(rmo))
 	now := time.Now()
@@ -86,15 +88,17 @@ func TestGetNonce(t *testing.T) {
 	f2 := getResultForInsertNonceFunc(result, &numResultForInsertNonceCalls)
 	f3 := getErrorForInsertNonceFunc(result, &numErrorForInsertNonceCalls)
 	db.On("NamedExec", InsertNonce, nonceObj).Return(f2, f3)
-	ca.On("DB").Return(db)
+	issuer.On("DB").Return(db)
 
-	opts := &CfgOptions{
+	opts := &Config{
 		NonceExpiration:    "15s",
 		NonceSweepInterval: "15m",
 	}
 	clock := new(mocks.Clock)
 	clock.On("Now").Return(now)
-	nm, err := NewNonceManager(ca, opts, lib, clock, 1)
+	issuer.On("Config").Return(opts)
+	issuer.On("IdemixLib").Return(lib)
+	nm, err := NewNonceManager(issuer, clock, 1)
 
 	_, err = nm.GetNonce()
 	assert.Error(t, err, "Executing insert SQL should return an error")
@@ -119,8 +123,8 @@ func TestGetNonce(t *testing.T) {
 }
 
 func TestCheckNonce(t *testing.T) {
-	ca := new(mocks.CA)
-	ca.On("GetName").Return("ca1")
+	issuer := new(mocks.MyIssuer)
+	issuer.On("Name").Return("ca1")
 
 	lib := new(mocks.Lib)
 	rnd, err := idemix.GetRand()
@@ -130,8 +134,8 @@ func TestCheckNonce(t *testing.T) {
 	rmo := idemix.RandModOrder(rnd)
 	lib.On("RandModOrder", rnd).Return(rmo)
 
-	ca.On("IdemixRand").Return(rnd)
-
+	issuer.On("IdemixRand").Return(rnd)
+	issuer.On("GetIdemixLib").Return(lib)
 	noncestr := util.B64Encode(idemix.BigToBytes(rmo))
 
 	db := new(dmocks.FabricCADB)
@@ -149,16 +153,17 @@ func TestCheckNonce(t *testing.T) {
 	f1 := getTxRemoveNonceResultFunc(noncestr, &numTxRemoveResultCalls)
 	f2 := getTxRemoveNonceErrorFunc(&numTxRemoveErrorCalls)
 	tx.On("Exec", RemoveNonce, noncestr).Return(f1, f2)
-	ca.On("DB").Return(db)
+	issuer.On("DB").Return(db)
 
-	opts := &CfgOptions{
+	opts := &Config{
 		NonceExpiration:    "15s",
 		NonceSweepInterval: "15m",
 	}
+	issuer.On("Config").Return(opts)
 	now := time.Now()
 	clock := new(mocks.Clock)
 	clock.On("Now").Return(now)
-	nm, err := NewNonceManager(ca, opts, lib, clock, 1)
+	nm, err := NewNonceManager(issuer, clock, 1)
 	if err != nil {
 		t.Fatalf("Failed to get new instance of Nonce Manager")
 	}
@@ -182,25 +187,26 @@ func TestCheckNonce(t *testing.T) {
 }
 
 func TestSweepExpiredNonces(t *testing.T) {
-	ca := new(mocks.CA)
-	ca.On("GetName").Return("ca1")
+	issuer := new(mocks.MyIssuer)
+	issuer.On("Name").Return("ca1")
 	now := time.Now()
 
 	db := new(dmocks.FabricCADB)
-	ca.On("DB").Return(db)
+	issuer.On("DB").Return(db)
 	numRemoveExpiredNoncesErrorFuncCalls := 0
 	f := getRemoveExpiredNoncesErrorFunc(&numRemoveExpiredNoncesErrorFuncCalls)
 	db.On("NamedExec", RemoveExpiredNonces, now.UTC()).Return(nil, f)
 
 	lib := new(mocks.Lib)
-	opts := &CfgOptions{
+	opts := &Config{
 		NonceExpiration:    "15s",
 		NonceSweepInterval: "15m",
 	}
-
+	issuer.On("Config").Return(opts)
+	issuer.On("IdemixLib").Return(lib)
 	clock := new(mocks.Clock)
 	clock.On("Now").Return(now)
-	nm, err := NewNonceManager(ca, opts, lib, clock, 1)
+	nm, err := NewNonceManager(issuer, clock, 1)
 	if err != nil {
 		t.Fatalf("Failed to get new instance of Nonce Manager")
 	}

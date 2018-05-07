@@ -1,5 +1,5 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. 2018 All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -38,6 +38,20 @@ func (_m *FabricCADB) BeginTx() dbutil.FabricCATx {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(dbutil.FabricCATx)
 		}
+	}
+
+	return r0
+}
+
+// IsInitialized provides a mock function with given fields:
+func (_m *FabricCADB) IsInitialized() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
 	}
 
 	return r0

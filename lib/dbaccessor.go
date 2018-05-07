@@ -883,7 +883,7 @@ func (d *Accessor) getResult(ids []UserRecord, affs []AffiliationRecord) *spi.Db
 }
 
 // Creates a DBUser object from the DB user record
-func newDBUser(userRec *UserRecord, db *sqlx.DB) *DBUser {
+func newDBUser(userRec *UserRecord, db *dbutil.DB) *DBUser {
 	var user = new(DBUser)
 	user.Name = userRec.Name
 	user.pass = userRec.Pass
