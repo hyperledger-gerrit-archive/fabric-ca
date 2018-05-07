@@ -30,6 +30,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -251,7 +252,7 @@ func enrollAndCheck(t *testing.T, c *Client, body []byte, authHeader string) {
 	if authHeader != "" {
 		post.Header.Set("Authorization", authHeader)
 	}
-	var result enrollmentResponseNet
+	var result common.EnrollmentResponseNet
 	err = c.SendReq(post, &result)
 	t.Logf("c.SendReq: %v", err)
 	if err == nil {
@@ -678,7 +679,7 @@ func masqueradeEnroll(c *Client, id string, passInSubject bool, req *api.Enrollm
 		return nil, err
 	}
 	post.SetBasicAuth(req.Name, req.Secret)
-	var result enrollmentResponseNet
+	var result common.EnrollmentResponseNet
 	err = c.SendReq(post, &result)
 	if err != nil {
 		return nil, err
@@ -715,7 +716,7 @@ func masqueradeReenroll(c *Client, id string, identity *Identity, passInSubject 
 		return nil, err
 	}
 	// Send the CSR to the fabric-ca server with basic auth header
-	var result enrollmentResponseNet
+	var result common.EnrollmentResponseNet
 	err = identity.Post("reenroll", body, &result, nil)
 	if err != nil {
 		return nil, err

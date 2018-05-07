@@ -18,23 +18,10 @@ package lib
 
 import (
 	"github.com/cloudflare/cfssl/log"
+	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 )
-
-// IdemixEnrollmentResponseNet is the idemix enrollment response from the server
-type IdemixEnrollmentResponseNet struct {
-	// Base64 encoding of idemix Credential
-	Credential string
-	// Attribute name-value pairs
-	Attrs map[string]string
-	// Base64 encoding of Credential Revocation list
-	//CRL string
-	// Base64 encoding of the issuer nonce
-	Nonce string
-	// The server information
-	ServerInfo ServerInfoResponseNet
-}
 
 func newIdemixEnrollEndpoint(s *Server) *serverEndpoint {
 	return &serverEndpoint{
@@ -47,20 +34,18 @@ func newIdemixEnrollEndpoint(s *Server) *serverEndpoint {
 
 // handleIdemixEnrollReq handles an Idemix enroll request
 func handleIdemixEnrollReq(ctx *serverRequestContext) (interface{}, error) {
-	_, _, isBasicAuth := ctx.req.BasicAuth()
-	handler := idemix.EnrollRequestHandler{
-		Ctx:         &idemixServerCtx{ctx},
-		IsBasicAuth: isBasicAuth,
-		IdmxLib:     idemix.NewLib(),
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return nil, err
 	}
 
-	idemixEnrollResp, err := handler.HandleIdemixEnroll()
+	idemixEnrollResp, err := ca.issuer.IssueCredential(&idemixServerCtx{ctx})
 	if err != nil {
 		log.Errorf("Error processing the /idemix/credential request: %s", err.Error())
 		return nil, err
 	}
 	resp := newIdemixEnrollmentResponseNet(idemixEnrollResp)
-	err = ctx.ca.fillCAInfo(&resp.ServerInfo)
+	err = ctx.ca.fillCAInfo(&resp.CAInfo)
 	if err != nil {
 		return nil, err
 	}
@@ -69,12 +54,12 @@ func handleIdemixEnrollReq(ctx *serverRequestContext) (interface{}, error) {
 
 // newIdemixEnrollmentResponseNet returns an instance of IdemixEnrollmentResponseNet that is
 // constructed using the specified idemix.EnrollmentResponse object
-func newIdemixEnrollmentResponseNet(resp *idemix.EnrollmentResponse) IdemixEnrollmentResponseNet {
-	return IdemixEnrollmentResponseNet{
+func newIdemixEnrollmentResponseNet(resp *idemix.EnrollmentResponse) common.IdemixEnrollmentResponseNet {
+	return common.IdemixEnrollmentResponseNet{
 		Nonce:      resp.Nonce,
 		Attrs:      resp.Attrs,
 		Credential: resp.Credential,
-		ServerInfo: ServerInfoResponseNet{}}
+		CAInfo:     common.CAInfoResponseNet{}}
 }
 
 // idemixServerCtx implements idemix.ServerRequestContext
@@ -82,14 +67,15 @@ type idemixServerCtx struct {
 	srvCtx *serverRequestContext
 }
 
+func (c *idemixServerCtx) IsBasicAuth() bool {
+	_, _, isBasicAuth := c.srvCtx.req.BasicAuth()
+	return isBasicAuth
+}
 func (c *idemixServerCtx) BasicAuthentication() (string, error) {
 	return c.srvCtx.BasicAuthentication()
 }
 func (c *idemixServerCtx) TokenAuthentication() (string, error) {
 	return c.srvCtx.TokenAuthentication()
-}
-func (c *idemixServerCtx) GetCA() (idemix.CA, error) {
-	return c.srvCtx.GetCA()
 }
 func (c *idemixServerCtx) GetCaller() (spi.User, error) {
 	return c.srvCtx.GetCaller()
