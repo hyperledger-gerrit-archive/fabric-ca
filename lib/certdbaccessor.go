@@ -22,13 +22,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/certdb"
 	certsql "github.com/cloudflare/cfssl/certdb/sql"
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/lib/server"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/kisielk/sqlstruct"
 )

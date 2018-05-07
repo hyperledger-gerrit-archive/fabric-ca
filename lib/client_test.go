@@ -1474,3 +1474,55 @@ func testWhenServerIsDown(c *Client, t *testing.T) {
 		t.Error("GetTCertBatch while server is down should have failed")
 	}
 }
+
+func TestGetCertificates(t *testing.T) {
+	serverHome := path.Join(serversDir, "getcertstestsrv")
+	clientHome := path.Join(tdDir, "getcertstestclient")
+	err := os.RemoveAll(serverHome)
+	if err != nil {
+		t.Fatalf("Failed to remove directory %s", serverHome)
+	}
+	err = os.RemoveAll(clientHome)
+	if err != nil {
+		t.Fatalf("Failed to remove directory %s", clientHome)
+	}
+	defer os.RemoveAll(serverHome)
+	defer os.RemoveAll(clientHome)
+
+	srv, adminID := setupGenCRLTest(t, serverHome, clientHome)
+	defer func() {
+		if srv != nil {
+			srv.Stop()
+		}
+	}()
+
+	err = adminID.GetCertificates(&api.GetCertificatesRequest{}, CertificateDecoder)
+	assert.NoError(t, err)
+}
+
+func setupGetCertsTest(t *testing.T, serverHome, clientHome string) (*Server, *Identity) {
+	server := TestGetServer(ctport1, serverHome, "", 1, t)
+	if server == nil {
+		t.Fatalf("Failed to get server")
+	}
+	d, _ := time.ParseDuration("2h")
+	server.CA.Config.Signing.Default.Expiry = d
+
+	err := server.Start()
+	if err != nil {
+		t.Fatalf("Failed to start server: %s", err)
+	}
+
+	c := &Client{
+		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", ctport1)},
+		HomeDir: clientHome,
+	}
+
+	// Enroll admin
+	eresp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: "adminpw"})
+	if err != nil {
+		t.Fatalf("Failed to enroll admin: %s", err)
+	}
+	adminID := eresp.Identity
+	return server, adminID
+}
