@@ -76,6 +76,9 @@ func (js *jsonStream) stream() error {
 	switch d {
 	case "[":
 		if se != nil {
+			if !js.decoder.More() && strings.HasPrefix(path, "result.") {
+				fmt.Println("No results returned")
+			}
 			for js.decoder.More() {
 				err = se.CB(js.decoder)
 				if err != nil {
@@ -194,5 +197,5 @@ func errCB(decoder *json.Decoder) error {
 	if err != nil {
 		return errors.Errorf("Invalid JSON error format: %s", err)
 	}
-	return errors.Errorf("%+v", errMsg)
+	return errors.Errorf("Code: %d, Message: %s", errMsg.Code, errMsg.Message)
 }
