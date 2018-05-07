@@ -22,16 +22,16 @@ import (
 	"encoding/pem"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/cloudflare/cfssl/config"
 	"github.com/cloudflare/cfssl/csr"
 	cferr "github.com/cloudflare/cfssl/errors"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -55,14 +55,6 @@ var (
 	organizationOID       = asn1.ObjectIdentifier{2, 5, 4, 10}
 	organizationalUnitOID = asn1.ObjectIdentifier{2, 5, 4, 11}
 )
-
-// The enrollment response from the server
-type enrollmentResponseNet struct {
-	// Base64 encoded PEM-encoded ECert
-	Cert string
-	// The server information
-	ServerInfo ServerInfoResponseNet
-}
 
 func newEnrollEndpoint(s *Server) *serverEndpoint {
 	return &serverEndpoint{
@@ -166,10 +158,10 @@ func handleEnroll(ctx *serverRequestContext, id string) (interface{}, error) {
 		return nil, errors.WithMessage(err, "Certificate signing failure")
 	}
 	// Add server info to the response
-	resp := &enrollmentResponseNet{
+	resp := &common.EnrollmentResponseNet{
 		Cert: util.B64Encode(cert),
 	}
-	err = ca.fillCAInfo(&resp.ServerInfo)
+	err = ca.fillCAInfo(&resp.CAInfo)
 	if err != nil {
 		return nil, err
 	}
