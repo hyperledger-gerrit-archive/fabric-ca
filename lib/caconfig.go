@@ -104,13 +104,13 @@ type CAConfig struct {
 	Client       *ClientConfig
 	Intermediate IntermediateCA
 	CRL          CRLConfig
+	Idemix       idemix.Config
 }
 
 // CfgOptions is a CA configuration that allows for setting different options
 type CfgOptions struct {
 	Identities   identitiesOptions
 	Affiliations affiliationsOptions
-	Idemix       idemix.CfgOptions
 }
 
 // identitiesOptions are options that are related to identities
@@ -125,12 +125,10 @@ type affiliationsOptions struct {
 
 // CAInfo is the CA information on a fabric-ca-server
 type CAInfo struct {
-	Name                string `opt:"n" help:"Certificate Authority name"`
-	Keyfile             string `help:"PEM-encoded CA key file"`
-	Certfile            string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
-	Chainfile           string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
-	IdemixPublicKeyfile string `def:"IssuerPublicKey" help:"Name of the file that contains marshalled bytes of CA's Idemix public key"`
-	IdemixSecretKeyfile string `def:"IssuerSecretKey" help:"Name of the file that contains CA's Idemix secret key"`
+	Name      string `opt:"n" help:"Certificate Authority name"`
+	Keyfile   string `help:"PEM-encoded CA key file"`
+	Certfile  string `def:"ca-cert.pem" help:"PEM-encoded CA certificate file"`
+	Chainfile string `def:"ca-chain.pem" help:"PEM-encoded CA chain file"`
 }
 
 // CAConfigDB is the database part of the server's config

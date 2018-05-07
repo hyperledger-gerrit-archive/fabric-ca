@@ -91,7 +91,7 @@ func (c *enrollCmd) runEnroll(cmd *cobra.Command, args []string) error {
 	}
 
 	// Store issuer public key
-	err = storeCAChain(cfg, &resp.ServerInfo)
+	err = storeCAChain(cfg, &resp.CAInfo)
 	if err != nil {
 		return err
 	}

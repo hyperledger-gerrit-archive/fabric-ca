@@ -47,29 +47,6 @@ func (_m *ServerRequestCtx) BasicAuthentication() (string, error) {
 	return r0, r1
 }
 
-// GetCA provides a mock function with given fields:
-func (_m *ServerRequestCtx) GetCA() (idemix.CA, error) {
-	ret := _m.Called()
-
-	var r0 idemix.CA
-	if rf, ok := ret.Get(0).(func() idemix.CA); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(idemix.CA)
-		}
-	}
-
-	var r1 error
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetCaller provides a mock function with given fields:
 func (_m *ServerRequestCtx) GetCaller() (spi.User, error) {
 	ret := _m.Called()
@@ -91,6 +68,43 @@ func (_m *ServerRequestCtx) GetCaller() (spi.User, error) {
 	}
 
 	return r0, r1
+}
+
+// GetIssuer provides a mock function with given fields:
+func (_m *ServerRequestCtx) GetIssuer() (idemix.Issuer, error) {
+	ret := _m.Called()
+
+	var r0 idemix.Issuer
+	if rf, ok := ret.Get(0).(func() idemix.Issuer); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(idemix.Issuer)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func() error); ok {
+		r1 = rf()
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IsBasicAuth provides a mock function with given fields:
+func (_m *ServerRequestCtx) IsBasicAuth() bool {
+	ret := _m.Called()
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
 }
 
 // ReadBody provides a mock function with given fields: body

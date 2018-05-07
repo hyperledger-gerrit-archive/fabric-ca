@@ -60,8 +60,8 @@ type caIdemixCredential struct {
 	idemixLib     Lib
 }
 
-// NewCAIdemixCredential returns an instance of an object that implements IssuerCredential interface
-func NewCAIdemixCredential(pubKeyFile, secretKeyFile string, lib Lib) IssuerCredential {
+// NewIssuerCredential returns an instance of an object that implements IssuerCredential interface
+func NewIssuerCredential(pubKeyFile, secretKeyFile string, lib Lib) IssuerCredential {
 	return &caIdemixCredential{
 		pubKeyFile:    pubKeyFile,
 		secretKeyFile: secretKeyFile,

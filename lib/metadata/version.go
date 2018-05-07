@@ -74,7 +74,7 @@ var versionToLevelsMapping = []versionLevels{
 	},
 	{
 		version: "1.2.0",
-		levels:  &dbutil.Levels{Identity: 1, Affiliation: 1, Certificate: 1, Credential: 1, RCInfo: 1, Nonce: 1},
+		levels:  &dbutil.Levels{Identity: 1, Affiliation: 1, Certificate: 1, Credential: 1, RAInfo: 1, Nonce: 1},
 	},
 }
 
