@@ -27,6 +27,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/grantae/certinfo"
 	"github.com/pkg/errors"
 
 	"github.com/cloudflare/cfssl/log"
@@ -181,4 +182,37 @@ func AffiliationDecoder(decoder *json.Decoder) error {
 	}
 	fmt.Printf("%s\n", aff.Name)
 	return nil
+}
+
+// CertificateDecoder decodes streams of data coming from the server
+func CertificateDecoder(decoder *json.Decoder) error {
+	var cert certPEM
+	err := decoder.Decode(&cert)
+	if err != nil {
+		return err
+	}
+	block, rest := pem.Decode([]byte(cert.PEM))
+	if block == nil || len(rest) > 0 {
+		return errors.New("Certificate decoding error")
+	}
+	certificate, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return err
+	}
+	result, err := certinfo.CertificateText(certificate)
+	if err != nil {
+		return err
+	}
+	fmt.Printf(result)
+	certID := getUniqueCertID(certificate)
+	// TODO: Add support for revoke command to be able to use
+	// this unique certificate identifier to revoke a ceritificate
+	fmt.Println("Unique Certificate Identifier: ", certID)
+	return nil
+}
+
+func getUniqueCertID(certificate *x509.Certificate) string {
+	serial := fmt.Sprintf("%X", certificate.SerialNumber)
+	aki := fmt.Sprintf("%X", certificate.AuthorityKeyId)
+	return fmt.Sprintf("%s:%s", serial, aki)
 }
