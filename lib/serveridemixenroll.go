@@ -59,6 +59,7 @@ func newIdemixEnrollmentResponseNet(resp *idemix.EnrollmentResponse) common.Idem
 		Nonce:      resp.Nonce,
 		Attrs:      resp.Attrs,
 		Credential: resp.Credential,
+		CRI:        resp.CRI,
 		CAInfo:     common.CAInfoResponseNet{}}
 }
 
