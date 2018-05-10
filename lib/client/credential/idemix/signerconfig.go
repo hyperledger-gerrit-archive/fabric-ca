@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2018 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package idemix
@@ -28,6 +18,8 @@ type SignerConfig struct {
 	IsAdmin bool `protobuf:"varint,4,opt,name=is_admin,json=isAdmin" json:"is_admin,omitempty"`
 	// EnrollmentID contains the enrollment id of this signer
 	EnrollmentID string `protobuf:"bytes,5,opt,name=enrollment_id,json=enrollmentId" json:"enrollment_id,omitempty"`
+	// CRI contains a serialized Credential Revocation Information
+	CredentialRevocationInformation []byte `protobuf:"bytes,6,opt,name=credential_revocation_information,json=credentialRevocationInformation,proto3" json:"credential_revocation_information,omitempty"`
 }
 
 // GetCred returns credential associated with this signer config
@@ -55,4 +47,9 @@ func (s *SignerConfig) GetIsAdmin() bool {
 // GetEnrollmentID returns enrollment ID of the user associated with this signer config
 func (s *SignerConfig) GetEnrollmentID() string {
 	return s.EnrollmentID
+}
+
+// GetCredentialRevocationInformation returns CRI
+func (s *SignerConfig) GetCredentialRevocationInformation() []byte {
+	return s.CredentialRevocationInformation
 }
