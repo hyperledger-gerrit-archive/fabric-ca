@@ -17,6 +17,8 @@ limitations under the License.
 package idemix
 
 import (
+	"crypto/ecdsa"
+
 	"github.com/hyperledger/fabric-amcl/amcl"
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric/idemix"
@@ -26,10 +28,10 @@ import (
 type Lib interface {
 	NewIssuerKey(AttributeNames []string, rng *amcl.RAND) (*idemix.IssuerKey, error)
 	NewCredential(key *idemix.IssuerKey, m *idemix.CredRequest, attrs []*fp256bn.BIG, rng *amcl.RAND) (*idemix.Credential, error)
+	CreateCRI(key *ecdsa.PrivateKey, unrevokedHandles []*fp256bn.BIG, epoch int, alg idemix.RevocationAlgorithm, rng *amcl.RAND) (*idemix.CredentialRevocationInformation, error)
+	GenerateLongTermRevocationKey() (*ecdsa.PrivateKey, error)
 	GetRand() (*amcl.RAND, error)
 	RandModOrder(rng *amcl.RAND) *fp256bn.BIG
-	// BigToBytes(big *fp256bn.BIG) []byte
-	// HashModOrder(data []byte) *fp256bn.BIG
 }
 
 // libImpl is adapter for idemix library. It implements Lib interface
@@ -52,10 +54,9 @@ func (i *libImpl) RandModOrder(rng *amcl.RAND) *fp256bn.BIG {
 func (i *libImpl) NewIssuerKey(AttributeNames []string, rng *amcl.RAND) (*idemix.IssuerKey, error) {
 	return idemix.NewIssuerKey(AttributeNames, rng)
 }
-
-// func (i *libImpl) BigToBytes(big *fp256bn.BIG) []byte {
-// 	return idemix.BigToBytes(big)
-// }
-// func (i *libImpl) HashModOrder(data []byte) *fp256bn.BIG {
-// 	return idemix.HashModOrder(data)
-// }
+func (i *libImpl) CreateCRI(key *ecdsa.PrivateKey, unrevokedHandles []*fp256bn.BIG, epoch int, alg idemix.RevocationAlgorithm, rng *amcl.RAND) (*idemix.CredentialRevocationInformation, error) {
+	return idemix.CreateCRI(key, unrevokedHandles, epoch, alg, rng)
+}
+func (i *libImpl) GenerateLongTermRevocationKey() (*ecdsa.PrivateKey, error) {
+	return idemix.GenerateLongTermRevocationKey()
+}
