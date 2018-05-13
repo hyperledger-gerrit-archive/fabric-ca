@@ -1023,6 +1023,14 @@ To upgrade a single instance of Fabric CA server:
 
       fabric-ca-client getcainfo -u http://<host>:7054
 
+Upgrading server to 1.4:
+
+The token authentication mechanism was improved to prevent token reuse. After upgrading
+to 1.4, both old and new authentication mechanism are supported. To disable the old authentication
+mechanism, the following environment should be set to true::
+
+ FABRIC_CA_SERVER_NEWAUTHHDR=true
+
 Upgrading a cluster:
 ^^^^^^^^^^^^^^^^^^^^
 To upgrade a cluster of fabric-ca-server instances using either a MySQL or Postgres database, perform the following procedure. We assume that you are using haproxy to load balance to two fabric-ca-server cluster members on host1 and host2, respectively, both listening on port 7054. After this procedure, you will be load balancing to upgraded fabric-ca-server cluster members on host3 and host4 respectively, both listening on port 7054.
