@@ -42,7 +42,7 @@ BASE_VERSION = 1.2.0
 PREV_VERSION = 1.1.0
 IS_RELEASE = false
 
-ARCH=$(shell uname -m)
+ARCH=$(shell go env GOARCH)
 MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 ifneq ($(IS_RELEASE),true)
 EXTRA_VERSION ?= snapshot-$(shell git rev-parse --short HEAD)
@@ -59,7 +59,7 @@ else
 PGVER=9.5
 endif
 
-BASEIMAGE_RELEASE = 0.4.6
+BASEIMAGE_RELEASE = 0.4.8
 PKGNAME = github.com/hyperledger/$(PROJECT_NAME)
 
 METADATA_VAR = Version=$(PROJECT_VERSION)
