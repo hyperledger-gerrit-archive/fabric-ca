@@ -11,6 +11,8 @@ import (
 	"fmt"
 
 	"github.com/cloudflare/cfssl/log"
+	"github.com/golang/protobuf/proto"
+	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
@@ -61,7 +63,7 @@ func (cred *Credential) EnrollmentID() (string, error) {
 	if cred.val == nil {
 		return "", errors.New("Credential value is not set")
 	}
-	return "", errors.New("Not implemented") // TODO
+	return cred.val.EnrollmentID, nil
 }
 
 // SetVal sets *SignerConfig for this Idemix credential
@@ -112,53 +114,54 @@ func (cred *Credential) Load() error {
 
 // CreateOAuthToken creates oauth token based on this Idemix credential
 func (cred *Credential) CreateOAuthToken(reqBody []byte) (string, error) {
-	return "", errors.New("Not implemented") // TODO
-	// enrollmentID, err := cred.EnrollmentID()
-	// if err != nil {
-	// 	return "", err
-	// }
-	// rng, err := idemix.GetRand()
-	// if err != nil {
-	// 	return "", errors.WithMessage(err, "Failed to get a random number while creating oauth token")
-	// }
-	// // Get user's secret key
-	// sk := amcl.FromBytes(cred.val.GetSk())
+	enrollmentID, err := cred.EnrollmentID()
+	if err != nil {
+		return "", err
+	}
+	rng, err := idemix.GetRand()
+	if err != nil {
+		return "", errors.WithMessage(err, "Failed to get a random number while creating oauth token")
+	}
+	// Get user's secret key
+	sk := fp256bn.FromBytes(cred.val.GetSk())
 
-	// // Get issuer public key
-	// ipk, err := cred.client.GetIssuerPubKey()
-	// if err != nil {
-	// 	return "", errors.WithMessage(err, "Failed to get CA's Idemix public key while creating oauth token")
-	// }
+	// Get issuer public key
+	ipk, err := cred.client.GetIssuerPubKey()
+	if err != nil {
+		return "", errors.WithMessage(err, "Failed to get CA's Idemix public key while creating oauth token")
+	}
 
-	// // Generate a fresh Pseudonym (and a corresponding randomness)
-	// nym, randNym := idemix.MakeNym(sk, ipk, rng)
+	// Generate a fresh Pseudonym (and a corresponding randomness)
+	nym, randNym := idemix.MakeNym(sk, ipk, rng)
 
-	// nymBytes := []byte{}
-	// nym.ToBytes(nymBytes)
-	// nym64Encoding := util.B64Encode(nymBytes)
-	// body64Encoding := util.B64Encode(reqBody)
-	// msg := nym64Encoding + "." + body64Encoding
+	msg := util.B64Encode(reqBody)
 
-	// digest, digestError := cred.client.GetCSP().Hash([]byte(msg), &bccsp.SHAOpts{})
-	// if digestError != nil {
-	// 	return "", errors.WithMessage(digestError, fmt.Sprintf("Failed to create authentication token '%s'", msg))
-	// }
+	digest, digestError := cred.client.GetCSP().Hash([]byte(msg), &bccsp.SHAOpts{})
+	if digestError != nil {
+		return "", errors.WithMessage(digestError, fmt.Sprintf("Failed to create authentication token '%s'", msg))
+	}
 
-	// // a disclosure vector is formed (indicating that all attributes from the credential are revealed)
-	// disclosure := []byte{1, 1, 1, 1}
+	// A disclosure vector is formed (indicating that only enrollment ID from the credential is revealed)
+	disclosure := []byte{0, 0, 1, 0}
 
-	// var credential *idemix.Credential
-	// err = json.Unmarshal(cred.val.GetCred(), credential)
-	// if err != nil {
-	// 	errors.Wrapf(err, "Failed to unmarshal Idemix credential while creating oauth token")
-	// }
-	// sig, err := idemix.NewSignature(credential, sk, nym, randNym, ipk, disclosure, digest, rng)
-	// if err != nil {
-	// 	errors.Wrapf(err, "Failed to create signature while creating oauth token")
-	// }
-	// sigBytes, err := json.Marshal(sig)
-	// token := enrollmentID + "." + util.B64Encode(sigBytes)
-	// return token, nil
+	credential := idemix.Credential{}
+	err = proto.Unmarshal(cred.val.GetCred(), &credential)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to unmarshal Idemix credential while creating oauth token")
+	}
+	cri := idemix.CredentialRevocationInformation{}
+	err = proto.Unmarshal(cred.val.GetCredentialRevocationInformation(), &cri)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to unmarshal Idemix CRI while creating oauth token")
+	}
+
+	sig, err := idemix.NewSignature(&credential, sk, nym, randNym, ipk, disclosure, digest, 3, &cri, rng)
+	if err != nil {
+		return "", errors.Wrapf(err, "Failed to create signature while creating oauth token")
+	}
+	sigBytes, err := proto.Marshal(sig)
+	token := "idemix." + enrollmentID + "." + util.B64Encode(sigBytes)
+	return token, nil
 }
 
 // RevokeSelf revokes this Idemix credential

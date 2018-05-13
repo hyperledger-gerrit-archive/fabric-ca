@@ -136,6 +136,14 @@ func (ctx *serverRequestContext) TokenAuthentication() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	log.Debugf("Received auth header: %s", authHdr)
+	if strings.HasPrefix(authHdr, "idemix") {
+		return ctx.ca.issuer.VerifyToken(authHdr, body)
+	}
+	return ctx.verifyX509Token(ca, authHdr, body)
+}
+
+func (ctx *serverRequestContext) verifyX509Token(ca *CA, authHdr string, body []byte) (string, error) {
 	// Verify the token; the signature is over the header and body
 	cert, err2 := util.VerifyToken(ca.csp, authHdr, body)
 	if err2 != nil {
@@ -148,6 +156,7 @@ func (ctx *serverRequestContext) TokenAuthentication() (string, error) {
 	}
 	id := util.GetEnrollmentIDFromX509Certificate(cert)
 	log.Debugf("Checking for revocation/expiration of certificate owned by '%s'", id)
+
 	// VerifyCertificate ensures that the certificate passed in hasn't
 	// expired and checks the CRL for the server.
 	expired, checked := revoke.VerifyCertificate(cert)

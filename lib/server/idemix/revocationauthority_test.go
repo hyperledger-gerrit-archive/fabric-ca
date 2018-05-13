@@ -11,7 +11,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"fmt"
 	"testing"
 
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
@@ -339,6 +338,20 @@ func TestGetNewRevocationHandleLastHandle(t *testing.T) {
 	assert.Equal(t, util.B64Encode(idemix.BigToBytes(fp256bn.NewBIGint(100))), util.B64Encode(idemix.BigToBytes(rh)), "Expected next revocation handle to be 100")
 }
 
+func TestGetEpoch(t *testing.T) {
+	db := new(dmocks.FabricCADB)
+	ra := getRevocationAuthority(t, db, 0, false, false)
+
+	rcInfos := []RevocationAuthorityInfo{}
+	f := getSelectFunc(t, nil, true, false, false)
+	db.On("Select", &rcInfos, SelectRCInfo).Return(f)
+	epoch, err := ra.Epoch()
+	assert.NoError(t, err)
+	assert.Equal(t, 1, epoch)
+	key := ra.PublicKey()
+	assert.NotNil(t, key, "Public key should not be nil")
+}
+
 func TestCreateCRI(t *testing.T) {
 	db := new(dmocks.FabricCADB)
 	ra := getRevocationAuthority(t, db, 0, true, false)
@@ -414,7 +427,6 @@ func setupForInsertTests(t *testing.T) (*mocks.MyIssuer, *dmocks.FabricCADB, *ec
 
 func getRevocationAuthority(t *testing.T, db *dmocks.FabricCADB, revokedCred int,
 	getRevokedCredsError bool, idemixCreateCRIError bool) RevocationAuthority {
-	fmt.Println("HERE")
 	issuer := new(mocks.MyIssuer)
 	issuer.On("Name").Return("")
 	lib := new(mocks.Lib)
@@ -503,9 +515,7 @@ func getRevocationAuthority(t *testing.T, db *dmocks.FabricCADB, revokedCred int
 
 func getSelectFunc(t *testing.T, privateKey *ecdsa.PrivateKey, newDB bool, isError bool, badKey bool) func(interface{}, string, ...interface{}) error {
 	numTimesCalled := 0
-	fmt.Printf("****%d, %p\n", numTimesCalled, &numTimesCalled)
 	return func(dest interface{}, query string, args ...interface{}) error {
-		fmt.Printf("numTimesCalled=%d, %p\n", numTimesCalled, &numTimesCalled)
 		rcInfos, _ := dest.(*[]RevocationAuthorityInfo)
 		if privateKey == nil {
 			var err error
