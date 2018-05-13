@@ -218,6 +218,10 @@ func TestIdemixEnroll(t *testing.T) {
 		t.Fatalf("Failed to store X509 credential: %s", err)
 	}
 
+	criRes, err := enrollRes.Identity.GetCRI(&api.GetCRIRequest{CAName: ""})
+	assert.NoError(t, err)
+	assert.NotNil(t, criRes)
+
 	req.Type = "idemix"
 	req.Name = ""
 	req.Secret = ""
@@ -237,6 +241,10 @@ func TestIdemixEnroll(t *testing.T) {
 	CopyFile("../testdata/ec256-1-key.pem", filepath.Join(clientHome, "msp/keystore/key.pem"))
 	_, err = client.Enroll(req)
 	assert.Error(t, err, "Idemix enroll should fail as the certificate is of unregistered user")
+}
+
+func TestGetCRI(t *testing.T) {
+
 }
 
 func TestClient(t *testing.T) {

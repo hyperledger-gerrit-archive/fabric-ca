@@ -1461,18 +1461,33 @@ the ``/api/v1/idemix/credential`` API endpoint. For more information on this and
 The Idemix credential issuance is a two step process. First, send a request with an empty body to the ``/api/v1/idemix/credential``
 API endpoint to get a nonce and CA's Idemix public key. Second, create a credential request using the nonce and CA's Idemix public key and
 send another request with the credential request in the body to  the ``/api/v1/idemix/credential`` API endpoint to get an Idemix credential,
-and attribute names and values. Currently, only three attributes are supported:
+Credential Revocation Information (CRI), and attribute names and values. Currently, only three attributes are supported:
 
 - **OU** - organization unit of the user
 - **IsAdmin** - if the user is an admin or not
 - **EnrollmentID** - enrollment ID of the user
 
+You can refer to the `handleIdemixEnroll` function in https://github.com/hyperledger/fabric-ca/blob/master/lib/client.go for reference implementation
+of the two step process for getting Idemix credential.
+
 The ``/api/v1/idemix/credential`` API endpoint accepts both OAuth basic and token authorization headers. The basic authorization header should
 contain User's registration ID and password. If the user already has X509 enrollment certificate, it can also be used to create a token authorization header.
 
-Note that Hyperledger Fabric will support clients/users to sign transactions with their Idemix credentials, but will only support X509 credentials
+Note that Hyperledger Fabric will support clients/users to sign transactions with both X509 and Idemix credentials, but will only support X509 credentials
 for peer and orderer identities. As before, applications can use a Fabric SDK to send requests to the Fabric CA server. SDKs hide the complexity
 associated with creating authorization header and request payload, and with processing the response.
+
+Getting Idemix CRI
+~~~~~~~~~~~~~~~~~~
+Credential Revocation Information (CRI) is equivalent to X509 Certificate Revocation List (CRL). It is an artifact used by the provers along with the revocation
+handle associated with their Credential to create a non-revocation proof in order to prove to the verifiers that their credential has not been revoked. A revocation 
+handle is an unique identifier that the Fabric CA embeds as an attribute in each issued credential. Verifiers use the CRI and CA's issuer public key to verifiy 
+non-revocation proof presented by the provers. For verification to succeed the version of the CRI (known as Epoch) used by the prover and verifier must be same.
+Epoch is a property of the Credential Revocation Information, which is represented by the proto buffer ``idemix.CredentialRevocationInformation``.
+Latest CRI can be requested by sending request to ``/api/v1/idemix/cri`` API endpoint.
+
+
+prove to the It is used by the provers along with the Revocation 
 
 Reenrolling an Identity
 ~~~~~~~~~~~~~~~~~~~~~~~
