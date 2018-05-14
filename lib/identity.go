@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package lib
@@ -224,11 +214,11 @@ func (i *Identity) GetIdentity(id, caname string) (*api.GetIDResponse, error) {
 }
 
 // GetAllIdentities returns all identities that the caller is authorized to see
-func (i *Identity) GetAllIdentities(caname string, cb func(*json.Decoder) error) error {
+func (i *Identity) GetAllIdentities(caname string, cb func(*json.Decoder, string) error) error {
 	log.Debugf("Entering identity.GetAllIdentities")
 	queryParam := make(map[string]string)
 	queryParam["ca"] = caname
-	err := i.GetStreamResponse("identities", queryParam, "result.identities", cb)
+	err := i.GetStreamResponse("identities", queryParam, "result.identities", "", cb)
 	if err != nil {
 		return err
 	}
@@ -406,7 +396,7 @@ func (i *Identity) RemoveAffiliation(req *api.RemoveAffiliationRequest) (*api.Af
 }
 
 // GetCertificates returns all certificates that the caller is authorized to see
-func (i *Identity) GetCertificates(req *api.GetCertificatesRequest, cb func(*json.Decoder) error) error {
+func (i *Identity) GetCertificates(req *api.GetCertificatesRequest, store string, cb func(*json.Decoder, string) error) error {
 	log.Debugf("Entering identity.GetCertificates, sending request: %+v", req)
 
 	queryParam := make(map[string]string)
@@ -420,7 +410,7 @@ func (i *Identity) GetCertificates(req *api.GetCertificatesRequest, cb func(*jso
 	queryParam["notrevoked"] = strconv.FormatBool(req.NotRevoked)
 	queryParam["notexpired"] = strconv.FormatBool(req.NotExpired)
 	queryParam["ca"] = req.CAName
-	err := i.GetStreamResponse("certificates", queryParam, "result.certs", cb)
+	err := i.GetStreamResponse("certificates", queryParam, "result.certs", store, cb)
 	if err != nil {
 		return err
 	}
@@ -454,7 +444,7 @@ func (i *Identity) Get(endpoint, caname string, result interface{}) error {
 }
 
 // GetStreamResponse sends a request to an endpoint and streams the response
-func (i *Identity) GetStreamResponse(endpoint string, queryParam map[string]string, stream string, cb func(*json.Decoder) error) error {
+func (i *Identity) GetStreamResponse(endpoint string, queryParam map[string]string, stream, store string, cb func(*json.Decoder, string) error) error {
 	req, err := i.client.newGet(endpoint)
 	if err != nil {
 		return err
@@ -470,7 +460,7 @@ func (i *Identity) GetStreamResponse(endpoint string, queryParam map[string]stri
 	if err != nil {
 		return err
 	}
-	return i.client.StreamResponse(req, stream, cb)
+	return i.client.StreamResponse(req, stream, store, cb)
 }
 
 // Put sends a put request to an endpoint

@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2017 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 // StreamJSONArray scans the JSON stream associated with 'decoder' to find
@@ -36,32 +26,33 @@ import (
 // SearchElement defines the JSON arrays for which to search
 type SearchElement struct {
 	Path string
-	CB   func(*json.Decoder) error
+	CB   func(*json.Decoder, string) error
 }
 
 // StreamJSONArray searches the JSON stream for an array matching 'path'.
 // For each element of this array, it streams one element at a time.
-func StreamJSONArray(decoder *json.Decoder, path string, cb func(*json.Decoder) error) (bool, error) {
+func StreamJSONArray(decoder *json.Decoder, path, store string, cb func(*json.Decoder, string) error) (bool, error) {
 	ses := []SearchElement{
 		SearchElement{Path: path, CB: cb},
 		SearchElement{Path: "errors", CB: errCB},
 	}
-	return StreamJSON(decoder, ses)
+	return StreamJSON(decoder, ses, store)
 }
 
 // StreamJSON searches the JSON stream for arrays matching a search element.
 // For each array that it finds, it streams them one element at a time.
-func StreamJSON(decoder *json.Decoder, search []SearchElement) (bool, error) {
-	js := &jsonStream{decoder: decoder, search: search, stack: []string{}}
+func StreamJSON(decoder *json.Decoder, search []SearchElement, store string) (bool, error) {
+	js := &jsonStream{decoder: decoder, search: search, stack: []string{}, storeResults: store}
 	err := js.stream()
 	return js.gotResults, err
 }
 
 type jsonStream struct {
-	decoder    *json.Decoder
-	search     []SearchElement
-	stack      []string
-	gotResults bool
+	decoder      *json.Decoder
+	search       []SearchElement
+	stack        []string
+	gotResults   bool
+	storeResults string
 }
 
 func (js *jsonStream) stream() error {
@@ -79,7 +70,7 @@ func (js *jsonStream) stream() error {
 	case "[":
 		if se != nil {
 			for js.decoder.More() {
-				err = se.CB(js.decoder)
+				err = se.CB(js.decoder, js.storeResults)
 				if err != nil {
 					return err
 				}
@@ -191,7 +182,7 @@ func (js *jsonStream) getToken() (interface{}, error) {
 	return token, err
 }
 
-func errCB(decoder *json.Decoder) error {
+func errCB(decoder *json.Decoder, store string) error {
 	errMsg := &api.ResponseMessage{}
 	err := decoder.Decode(errMsg)
 	if err != nil {

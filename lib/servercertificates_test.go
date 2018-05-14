@@ -1,23 +1,16 @@
 /*
-Copyright IBM Corp. 2018 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
+
 package lib
 
 import (
 	"bytes"
+	"io/ioutil"
 	"net/http"
+	"path/filepath"
 	"testing"
 
 	"fmt"
@@ -255,4 +248,47 @@ func TestServerGetCertificates(t *testing.T) {
 	mockCtx.On("GetCertificates", (*server.CertificateRequestImpl)(nil), "").Return(nil, errors.New("failed to get certificates"))
 	err = getCertificates(mockCtx, nil)
 	util.ErrorContains(t, err, "failed to get certificates", "did not get correct error response")
+}
+
+func TestStoreCert(t *testing.T) {
+	dir, err := ioutil.TempDir("", "testStoreCert")
+	assert.NoError(t, err, "failed to create temp directory")
+	defer os.RemoveAll(dir)
+
+	cd := NewCertificateDecoder()
+	err = cd.StoreCert("testID", dir, []byte("testing store cert function"))
+	assert.NoError(t, err, "failed to store cert")
+
+	filePath := filepath.Join(dir, "testID.pem")
+	assert.Equal(t, true, util.FileExists(filePath))
+
+	cert, err := ioutil.ReadFile(filePath)
+	assert.NoError(t, err, "failed to read certificate file")
+	assert.Equal(t, "testing store cert function", string(cert))
+
+	err = cd.StoreCert("testID", dir, []byte("testing store cert function - second cert"))
+	assert.NoError(t, err, "failed to store cert")
+
+	filePath = filepath.Join(dir, "testID-1.pem")
+	assert.Equal(t, true, util.FileExists(filePath))
+	cert, err = ioutil.ReadFile(filePath)
+	assert.NoError(t, err, "failed to read certificate file")
+	assert.Equal(t, "testing store cert function", string(cert))
+
+	filePath = filepath.Join(dir, "testID-2.pem")
+	assert.Equal(t, true, util.FileExists(filePath))
+	cert, err = ioutil.ReadFile(filePath)
+	assert.NoError(t, err, "failed to read certificate file")
+	assert.Equal(t, "testing store cert function - second cert", string(cert))
+
+	err = cd.StoreCert("testID", dir, []byte("testing store cert function - third cert"))
+	assert.NoError(t, err, "failed to store cert")
+	filePath = filepath.Join(dir, "testID-3.pem")
+	assert.Equal(t, true, util.FileExists(filePath))
+
+	// Error case - renaming a certificate file that does not exist should fail
+	cd = NewCertificateDecoder()
+	cd.certIDCount["testID2"] = 1
+	err = cd.StoreCert("testID2", dir, []byte("testing store cert function"))
+	util.ErrorContains(t, err, "Failed to rename certificate", "Should have failed")
 }
