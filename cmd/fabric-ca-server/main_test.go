@@ -127,6 +127,39 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestKeyRequestEnvBinding(t *testing.T) {
+	testDir := "keyRequestTest"
+	os.RemoveAll(testDir)
+	defer os.RemoveAll(testDir)
+
+	os.Setenv("FABRIC_CA_SERVER_CSR_KEYREQUEST_ALGO", "ecdsa")
+	os.Setenv("FABRIC_CA_SERVER_CSR_KEYREQUEST_SIZE", "1111")
+
+	err := RunMain([]string{cmdName, "start", "-b", "admin:adminpw", "-H", testDir})
+	util.ErrorContains(t, err, "Invalid ECDSA key size: 1111", "should fail, if correctly picking up environment variables")
+
+	err = RunMain([]string{cmdName, "start", "-b", "admin:adminpw", "-H", testDir, "--csr.keyrequest.size", "2222"})
+	util.ErrorContains(t, err, "Invalid ECDSA key size: 2222", "should fail, if correctly picking up environment variables")
+
+	os.Setenv("FABRIC_CA_SERVER_CSR_KEYREQUEST_ALGO", "invalid_key_algo")
+	os.Setenv("FABRIC_CA_SERVER_CSR_KEYREQUEST_SIZE", "256")
+
+	err = RunMain([]string{cmdName, "start", "-b", "admin:adminpw", "-H", testDir})
+	util.ErrorContains(t, err, "Invalid algorithm: 'invalid_key_algo'", "should fail, if correctly picking up environment variables")
+
+	err = RunMain([]string{cmdName, "start", "-b", "admin:adminpw", "-H", testDir, "--csr.keyrequest.algo", "incorrect_key_algo"})
+	util.ErrorContains(t, err, "Invalid algorithm: 'incorrect_key_algo'", "should fail, if correctly picking up environment variables")
+
+	// Unset the variables and start the server using default config.
+	// Server should start with errors
+	os.Unsetenv("FABRIC_CA_SERVER_CSR_KEYREQUEST_ALGO")
+	os.Unsetenv("FABRIC_CA_SERVER_CSR_KEYREQUEST_SIZE")
+
+	blockingStart = false
+	err = RunMain([]string{cmdName, "start", "-b", "admin:adminpw", "-H", testDir, "-p", "7058"})
+	assert.NoError(t, err, "failed to start server")
+}
+
 func TestOneTimePass(t *testing.T) {
 	testDir := "oneTimePass"
 	os.RemoveAll(testDir)
