@@ -301,8 +301,8 @@ func (c *Client) newCertificateRequest(req *api.CSRInfo) *csr.CertificateRequest
 			cr.Hosts[0] = hostname
 		}
 	}
-	if req != nil && req.KeyRequest != nil {
-		cr.KeyRequest = newCfsslBasicKeyRequest(req.KeyRequest)
+	if req != nil && (req.KeyRequest.Algo != "" && req.KeyRequest.Size != 0) {
+		cr.KeyRequest = newCfsslBasicKeyRequest(&req.KeyRequest)
 	}
 	if req != nil {
 		cr.CA = req.CA

@@ -437,7 +437,7 @@ Algorithm (ECDSA) with curve ``prime256v1`` and signature algorithm
 
 .. code:: yaml
 
-    key:
+    keyrequest:
        algo: ecdsa
        size: 256
 
@@ -1142,7 +1142,7 @@ to the ID of the bootstrap identity. Default CSR values are shown below:
 
     csr:
       cn: <<enrollment ID>>
-      key:
+      keyrequest:
         algo: ecdsa
         size: 256
       names:

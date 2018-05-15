@@ -497,10 +497,10 @@ func testEnrollMiscFailures(c *Client, t *testing.T) {
 	k.Size = 256
 	n.C = "US"
 
-	r.KeyRequest = &k
+	r.KeyRequest = k
 	r.Names = []csr.Name{n}
 	r.Hosts = []string{"host"}
-	r.KeyRequest = &k
+	r.KeyRequest = k
 	req.CSR = &r
 	_, err = c.Enroll(req)
 	t.Logf("Client Enroll error %v", err)
@@ -1198,7 +1198,7 @@ func TestCLIGenCSR(t *testing.T) {
 	// Fail to gen key
 	config.CSR = api.CSRInfo{
 		CN: "TestGenCSR",
-		KeyRequest: &api.BasicKeyRequest{
+		KeyRequest: api.BasicKeyRequest{
 			Algo: "dsa",
 			Size: 256,
 		},

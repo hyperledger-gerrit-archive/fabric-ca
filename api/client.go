@@ -305,12 +305,12 @@ type AffiliationInfo struct {
 
 // CSRInfo is Certificate Signing Request (CSR) Information
 type CSRInfo struct {
-	CN           string           `json:"CN"`
-	Names        []csr.Name       `json:"names,omitempty"`
-	Hosts        []string         `json:"hosts,omitempty"`
-	KeyRequest   *BasicKeyRequest `json:"key,omitempty"`
-	CA           *csr.CAConfig    `json:"ca,omitempty"`
-	SerialNumber string           `json:"serial_number,omitempty"`
+	CN           string          `json:"CN"`
+	Names        []csr.Name      `json:"names,omitempty"`
+	Hosts        []string        `json:"hosts,omitempty"`
+	KeyRequest   BasicKeyRequest `json:"key,omitempty"`
+	CA           *csr.CAConfig   `json:"ca,omitempty"`
+	SerialNumber string          `json:"serial_number,omitempty"`
 }
 
 // GetCertificatesRequest represents the request to get certificates from the server
@@ -342,8 +342,8 @@ type TimeRange struct {
 
 // BasicKeyRequest encapsulates size and algorithm for the key to be generated
 type BasicKeyRequest struct {
-	Algo string `json:"algo" yaml:"algo"`
-	Size int    `json:"size" yaml:"size"`
+	Algo string `json:"algo" yaml:"algo" help:"Set the algorithm to use for key generation"`
+	Size int    `json:"size" yaml:"size" help:"Set the size of the key"`
 }
 
 // Attribute is a name and value pair

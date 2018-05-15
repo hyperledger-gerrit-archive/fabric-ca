@@ -307,6 +307,9 @@ Fabric-CA Server's Configuration File
     ###########################################################################
     csr:
        cn: <<<COMMONNAME>>>
+       keyrequest:
+         algo: ecdsa
+         size: 256
        names:
           - C: US
             ST: "North Carolina"
@@ -319,6 +322,7 @@ Fabric-CA Server's Configuration File
        ca:
           expiry: 131400h
           pathlength: <<<PATHLENGTH>>>
+          pathlenzero: false
     
     #############################################################################
     # BCCSP (BlockChain Crypto Service Provider) section is used to select which

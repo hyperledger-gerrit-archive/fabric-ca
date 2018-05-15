@@ -148,7 +148,7 @@ func getBCCSPKeyOpts(kr csr.KeyRequest, ephemeral bool) (opts bccsp.KeyGenOpts, 
 			return nil, errors.Errorf("Invalid ECDSA key size: %d", kr.Size())
 		}
 	default:
-		return nil, errors.Errorf("Invalid algorithm: %s", kr.Algo())
+		return nil, errors.Errorf("Invalid algorithm: '%s'", kr.Algo())
 	}
 }
 

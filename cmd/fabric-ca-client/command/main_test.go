@@ -1073,7 +1073,7 @@ func TestGencsr(t *testing.T) {
 
 	defer os.Remove(defYaml)
 
-	err := RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,OU=OU1", "-M", mspDir})
+	err := RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,OU=OU1", "-M", mspDir, "--csr.keyrequest.algo", "rsa", "--csr.keyrequest.size", "2048"})
 	if err != nil {
 		t.Errorf("client gencsr failed: %s", err)
 	}
@@ -1089,6 +1089,19 @@ func TestGencsr(t *testing.T) {
 	if files[0].Name() != "identity.csr" {
 		t.Fatalf("Failed to find identity.csr in '%s': %s", signcerts, err)
 	}
+
+	csrBytes, err := ioutil.ReadFile(filepath.Join(signcerts, "identity.csr"))
+	util.FatalError(t, err, "Failed to read the generated CSR from the file")
+
+	block, _ := pem.Decode(csrBytes)
+	if block == nil || block.Type != "CERTIFICATE REQUEST" {
+		t.Errorf("Block type read from the CSR file is not of type certificate request")
+	}
+	certReq, err := x509.ParseCertificateRequest(block.Bytes)
+	util.FatalError(t, err, "Failed to parse generated CSR")
+
+	assert.Equal(t, certReq.PublicKeyAlgorithm.String(), "RSA")
+	assert.Equal(t, certReq.SignatureAlgorithm.String(), "SHA256-RSA")
 
 	err = RunMain([]string{cmdName, "gencsr", "--csr.cn", "identity", "--csr.names", "C=CA,O=Org1,FOO=BAR", "-M", mspDir})
 	if err == nil {
@@ -2505,7 +2518,7 @@ func setupGenCSRTest(t *testing.T, adminHome string) *lib.Server {
 
 	srv := lib.TestGetServer(serverPort, srvHome, "", -1, t)
 	srv.Config.Debug = true
-	srv.CA.Config.CSR.KeyRequest = &api.BasicKeyRequest{Algo: "ecdsa", Size: 384}
+	srv.CA.Config.CSR.KeyRequest = api.BasicKeyRequest{Algo: "ecdsa", Size: 384}
 
 	adminName := "admin"
 	adminPass := "adminpw"
