@@ -19,6 +19,7 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+        "strings"
 	"sync"
 	"time"
 
@@ -866,9 +867,27 @@ func (ca *CA) GetDB() *dbutil.DB {
 func (ca *CA) convertAttrs(inAttrs map[string]string) []api.Attribute {
 	var outAttrs []api.Attribute
 	for name, value := range inAttrs {
+		sattr := strings.Split(value, ":")
+		if len(sattr) > 2 {
+			log.Warningf("Multiple ':' characters not allowed in attribute "+
+				"specification '%s'; The attributes have been discarded!", value)
+		}
+		attrFlag := ""
+		if len(sattr) > 1 {
+			attrFlag = sattr[1]
+		}
+		ecert := false
+		switch strings.ToLower(attrFlag) {
+		case "":
+		case "ecert":
+			ecert = true
+		default:
+			log.Warningf("Invalid attribute flag: '%s'", attrFlag)
+		}
 		outAttrs = append(outAttrs, api.Attribute{
 			Name:  name,
-			Value: value,
+			Value: sattr[0],
+			ECert: ecert,
 		})
 	}
 	return outAttrs
