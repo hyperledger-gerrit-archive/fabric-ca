@@ -15,6 +15,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	idemix "github.com/hyperledger/fabric/idemix"
@@ -135,7 +136,8 @@ func (cred *Credential) CreateToken(req *http.Request, reqBody []byte) (string, 
 	// Generate a fresh Pseudonym (and a corresponding randomness)
 	nym, randNym := idemix.MakeNym(sk, ipk, rng)
 
-	msg := util.B64Encode(reqBody)
+	b64uri := util.B64Encode([]byte(req.URL.RequestURI()))
+	msg := req.Method + "." + b64uri + "." + util.B64Encode(reqBody)
 
 	digest, digestError := cred.client.GetCSP().Hash([]byte(msg), &bccsp.SHAOpts{})
 	if digestError != nil {
@@ -161,7 +163,7 @@ func (cred *Credential) CreateToken(req *http.Request, reqBody []byte) (string, 
 		return "", errors.Wrapf(err, "Failed to create signature while creating token")
 	}
 	sigBytes, err := proto.Marshal(sig)
-	token := "idemix." + enrollmentID + "." + util.B64Encode(sigBytes)
+	token := "idemix." + common.IdemixTokenVersion1 + "." + enrollmentID + "." + util.B64Encode(sigBytes)
 	return token, nil
 }
 
