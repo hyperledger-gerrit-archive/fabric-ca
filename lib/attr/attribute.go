@@ -12,6 +12,8 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
+
+SPDX-License-Identifier: Apache-2.0
 */
 
 package attr
@@ -372,4 +374,34 @@ func GetAttrValue(attrs []api.Attribute, name string) string {
 		}
 	}
 	return ""
+}
+
+// ConvertAttrs converts attribute string into an Attribute object array
+func ConvertAttrs(inAttrs map[string]string) ([]api.Attribute, error) {
+	var outAttrs []api.Attribute
+	for name, value := range inAttrs {
+		sattr := strings.Split(value, ":")
+		if len(sattr) > 2 {
+			return []api.Attribute{}, errors.Errorf("Multiple ':' characters not allowed "+
+				"in attribute specification '%s'; The attributes have been discarded!", value)
+		}
+		attrFlag := ""
+		if len(sattr) > 1 {
+			attrFlag = sattr[1]
+		}
+		ecert := false
+		switch strings.ToLower(attrFlag) {
+		case "":
+		case "ecert":
+			ecert = true
+		default:
+			return []api.Attribute{}, errors.Errorf("Invalid attribute flag: '%s'", attrFlag)
+		}
+		outAttrs = append(outAttrs, api.Attribute{
+			Name:  name,
+			Value: sattr[0],
+			ECert: ecert,
+		})
+	}
+	return outAttrs, nil
 }
