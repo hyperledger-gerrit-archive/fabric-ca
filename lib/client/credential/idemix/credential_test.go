@@ -21,6 +21,7 @@ import (
 const (
 	testDataDir          = "../../../../testdata"
 	testSignerConfigFile = testDataDir + "/IdemixSignerConfig"
+	testIssuerPublicFile = testDataDir + "/IdemixPublicKey"
 )
 
 func TestIdemixCredential(t *testing.T) {
@@ -37,6 +38,10 @@ func TestIdemixCredential(t *testing.T) {
 		},
 		HomeDir: clientHome,
 	}
+	err = client.Init()
+	if err != nil {
+		t.Fatalf("Failed to initialize client: %s", err.Error())
+	}
 
 	idemixCred := NewCredential(signerConfig, client)
 
@@ -44,12 +49,17 @@ func TestIdemixCredential(t *testing.T) {
 	_, err = idemixCred.Val()
 	assert.Error(t, err, "Val should return error if credential has not been loaded from disk or set")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Credential value is not set")
+		assert.Equal(t, err.Error(), "Idemix credential value is not set")
 	}
 	_, err = idemixCred.EnrollmentID()
 	assert.Error(t, err, "EnrollmentID should return an error if credential has not been loaded from disk or set")
 	if err != nil {
-		assert.Equal(t, err.Error(), "Credential value is not set")
+		assert.Equal(t, err.Error(), "Idemix credential value is not set")
+	}
+	_, err = idemixCred.CreateToken([]byte("hello"))
+	assert.Error(t, err, "CreateToken should return an error if credential has not been loaded from disk or set")
+	if err != nil {
+		assert.Equal(t, err.Error(), "Idemix credential value is not set")
 	}
 
 	err = idemixCred.SetVal("hello")
@@ -73,6 +83,16 @@ func TestIdemixCredential(t *testing.T) {
 		t.Fatalf("Failed to copy %s to %s: %s", testSignerConfigFile, signerConfig, err.Error())
 	}
 
+	clientPubKeyFile := filepath.Join(clientHome, "msp/IssuerPublicKey")
+	err = os.MkdirAll(filepath.Join(clientHome, "msp"), 0744)
+	if err != nil {
+		t.Fatalf("Failed to create msp directory: %s", err.Error())
+	}
+	err = lib.CopyFile(testIssuerPublicFile, clientPubKeyFile)
+	if err != nil {
+		t.Fatalf("Failed to copy %s to %s: %s", testIssuerPublicFile, clientPubKeyFile, err.Error())
+	}
+
 	err = idemixCred.Load()
 	assert.NoError(t, err, "Load should not return error as %s exists and is valid", signerConfig)
 
@@ -83,11 +103,14 @@ func TestIdemixCredential(t *testing.T) {
 	cred := signercfg.GetCred()
 	assert.NotNil(t, cred)
 	assert.True(t, len(cred) > 0, "Credential bytes length should be more than zero")
+
 	enrollID := signercfg.GetEnrollmentID()
 	assert.Equal(t, "admin", enrollID, "Enrollment ID of the Idemix credential in testdata/IdemixSignerConfig should be admin")
+
 	sk := signercfg.GetSk()
 	assert.NotNil(t, sk, "secret key should not be nil")
 	assert.True(t, len(sk) > 0, "Secret key bytes length should be more than zero")
+
 	signercfg.GetOrganizationalUnitIdentifier()
 	isAdmin := signercfg.GetIsAdmin()
 	assert.False(t, isAdmin)
@@ -111,10 +134,33 @@ func TestIdemixCredential(t *testing.T) {
 	assert.NoError(t, err, "Val should not return error as Idemix credential has been loaded")
 
 	_, err = idemixCred.EnrollmentID()
-	assert.Error(t, err, "EnrollmentID is not implemented for Idemix credential")
+	assert.NoError(t, err, "EnrollmentID should not return error as Idemix credential has been loaded")
 
-	_, err = idemixCred.CreateOAuthToken([]byte("hello"))
-	assert.Error(t, err, "CreateOAuthToken is not implemented for Idemix credential")
+	if err = os.Chmod(clientPubKeyFile, 0000); err != nil {
+		t.Fatalf("Failed to chmod SignerConfig file %s: %v", clientPubKeyFile, err)
+	}
+	_, err = idemixCred.CreateToken([]byte("hello"))
+	assert.Error(t, err, "CreateToken should fail as %s is not readable", clientPubKeyFile)
+
+	if err = os.Chmod(clientPubKeyFile, 0644); err != nil {
+		t.Fatalf("Failed to chmod SignerConfig file %s: %v", clientPubKeyFile, err)
+	}
+
+	origCred := signercfg.Cred
+	signercfg.Cred = []byte("fakecred")
+	_, err = idemixCred.CreateToken([]byte("hello"))
+	assert.Error(t, err, "CreateToken should fail credential is junk bytes in the signerconfig")
+	signercfg.Cred = origCred
+
+	origCri := signercfg.CredentialRevocationInformation
+	signercfg.CredentialRevocationInformation = []byte("fakecred")
+	_, err = idemixCred.CreateToken([]byte("hello"))
+	assert.Error(t, err, "CreateToken should fail credential revocation information is junk bytes in the signerconfig")
+	signercfg.CredentialRevocationInformation = origCri
+
+	token, err := idemixCred.CreateToken([]byte("hello"))
+	assert.NoError(t, err, "CreateToken should not return error as Idemix credential has been loaded")
+	t.Logf("token=%s\n", token)
 
 	_, err = idemixCred.RevokeSelf()
 	assert.Error(t, err, "RevokeSelf should fail as it is not implmented for Idemix credential")

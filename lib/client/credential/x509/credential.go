@@ -57,7 +57,7 @@ func (cred *Credential) Type() string {
 // Val returns *Signer associated with this X509 credential
 func (cred *Credential) Val() (interface{}, error) {
 	if cred.val == nil {
-		return nil, errors.New("Credential value is not set")
+		return nil, errors.New("X509 Credential value is not set")
 	}
 	return cred.val, nil
 }
@@ -65,7 +65,7 @@ func (cred *Credential) Val() (interface{}, error) {
 // EnrollmentID returns enrollment ID of this X509 credential
 func (cred *Credential) EnrollmentID() (string, error) {
 	if cred.val == nil {
-		return "", errors.New("Credential value is not set")
+		return "", errors.New("X509 Credential value is not set")
 	}
 	return cred.val.GetName(), nil
 }
@@ -74,7 +74,7 @@ func (cred *Credential) EnrollmentID() (string, error) {
 func (cred *Credential) SetVal(val interface{}) error {
 	s, ok := val.(*Signer)
 	if !ok {
-		return errors.New("The credential value should be of type *Signer for X509 credential")
+		return errors.New("The X509 credential value must be of type *Signer for X509 credential")
 	}
 	cred.val = s
 	return nil
@@ -111,7 +111,7 @@ func (cred *Credential) Load() error {
 // specified by certFile attribute
 func (cred *Credential) Store() error {
 	if cred.val == nil {
-		return errors.New("Certificate is not set")
+		return errors.New("X509 Credential value is not set")
 	}
 	err := util.WriteFile(cred.certFile, cred.val.Cert(), 0644)
 	if err != nil {
@@ -121,27 +121,25 @@ func (cred *Credential) Store() error {
 	return nil
 }
 
-// CreateOAuthToken creates oauth token based on this X509 credential
-func (cred *Credential) CreateOAuthToken(reqBody []byte) (string, error) {
+// CreateToken creates oauth token based on this X509 credential
+func (cred *Credential) CreateToken(reqBody []byte) (string, error) {
 	return util.CreateToken(cred.getCSP(), cred.val.certBytes, cred.val.key, reqBody)
 }
 
 // RevokeSelf revokes this X509 credential
 func (cred *Credential) RevokeSelf() (*api.RevocationResponse, error) {
-	val := cred.val
-	if val == nil {
-		return nil, errors.New("Credential value is not set")
+	name, err := cred.EnrollmentID()
+	if err != nil {
+		return nil, err
 	}
+	val := cred.val
 	serial := util.GetSerialAsHex(val.cert.SerialNumber)
 	aki := hex.EncodeToString(val.cert.AuthorityKeyId)
 	req := &api.RevocationRequest{
 		Serial: serial,
 		AKI:    aki,
 	}
-	name, err := cred.EnrollmentID()
-	if err != nil {
-		return nil, err
-	}
+
 	id := cred.client.NewX509Identity(name, []credential.Credential{cred})
 	return id.Revoke(req)
 }
