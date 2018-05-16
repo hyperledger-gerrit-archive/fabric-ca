@@ -135,11 +135,17 @@ func (cred *Credential) CreateToken(tokenVersion int, req *http.Request, reqBody
 	// Generate a fresh Pseudonym (and a corresponding randomness)
 	nym, randNym := idemix.MakeNym(sk, ipk, rng)
 
-	msg := util.B64Encode(reqBody)
+	var payload string
+	if tokenVersion == 2 {
+		b64uri := util.B64Encode([]byte(req.URL.RequestURI()))
+		payload = req.Method + "." + b64uri + "." + util.B64Encode(reqBody)
+	} else {
+		payload = util.B64Encode(reqBody)
+	}
 
-	digest, digestError := cred.client.GetCSP().Hash([]byte(msg), &bccsp.SHAOpts{})
+	digest, digestError := cred.client.GetCSP().Hash([]byte(payload), &bccsp.SHAOpts{})
 	if digestError != nil {
-		return "", errors.WithMessage(digestError, fmt.Sprintf("Failed to create token '%s'", msg))
+		return "", errors.WithMessage(digestError, fmt.Sprintf("Failed to create token '%s'", payload))
 	}
 
 	// A disclosure vector is formed (indicating that only enrollment ID from the credential is revealed)
@@ -161,6 +167,7 @@ func (cred *Credential) CreateToken(tokenVersion int, req *http.Request, reqBody
 		return "", errors.Wrapf(err, "Failed to create signature while creating token")
 	}
 	sigBytes, err := proto.Marshal(sig)
+
 	token := "idemix." + enrollmentID + "." + util.B64Encode(sigBytes)
 	return token, nil
 }
