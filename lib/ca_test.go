@@ -876,3 +876,64 @@ func testDirClean(t *testing.T) {
 	}
 	os.Remove(configFile)
 }
+
+func TestConvertAttrs(t *testing.T) {
+	testAttr1 := map[string]string{
+		"hf.Registrar.Roles":         "peer,orderer,client,user",
+		"hf.Registrar.DelegateRoles": "peer,orderer,client,user:ecert",
+		"hf.Revoker":                 "true",
+		"hf.IntermediateCA":          "true:ecert",
+		"hf.GenCRL":                  "false",
+		"hf.Registrar.Attributes":    "*",
+		"hf.Invalid.1":               "true:invalid",
+		"hf.Invalid.2":               "true:ecert:ecert",
+	}
+	srv.levels = &dbutil.Levels{
+		Identity:    1,
+		Affiliation: 1,
+		Certificate: 1,
+	}
+	testDirClean(t)
+	ca, err := newCA(configFile, &CAConfig{}, &srv, false)
+	if err != nil {
+		t.Fatal("newCA failed ", err)
+	}
+	attrs := ca.convertAttrs(testAttr1)
+	for _, attr := range attrs {
+		switch attr.Name {
+		case "hf.Registrar.Roles":
+			if attr.Value != "peer,orderer,client,user" || attr.ECert != false {
+				t.Fatal("Attribute conversion failed (1)")
+			}
+		case "hf.Registrar.DelegateRoles":
+			if attr.Value != "peer,orderer,client,user" || attr.ECert != true {
+				t.Fatal("Attribute conversion failed (2)")
+			}
+		case "hf.Revoker":
+			if attr.Value != "true" || attr.ECert != false {
+				t.Fatal("Attribute conversion failed (3)")
+			}
+		case "hf.IntermediateCA":
+			if attr.Value != "true" || attr.ECert != true {
+				t.Fatal("Attribute conversion failed (4)")
+			}
+		case "hf.GenCRL":
+			if attr.Value != "false" || attr.ECert != false {
+				t.Fatal("Attribute conversion failed (5)")
+			}
+		case "hf.Registrar.Attributes":
+			if attr.Value != "*" || attr.ECert != false {
+				t.Fatal("Attribute conversion failed (6)")
+			}
+		case "hf.Invalid.1": // with invalid flag
+			if attr.Value != "true" || attr.ECert != false {
+				t.Fatal("Attribute conversion failed (7)")
+			}
+		case "hf.Invalid.2": // with multiple flags
+			if attr.Value != "true" || attr.ECert != true {
+				t.Fatal("Attribute conversion failed (8)")
+			}
+		}
+	}
+	CAclean(ca, t)
+}
