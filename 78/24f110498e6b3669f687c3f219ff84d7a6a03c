@@ -1,0 +1,9 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+1: Ramesh Babu <rameshbabu.thoomu@gmail.com>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Code-Review+2: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-by: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-at: Wed, 16 May 2018 19:41:00 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/19835
+Project: fabric-ca
+Branch: refs/heads/release-1.0
