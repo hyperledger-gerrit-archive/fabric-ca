@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 bin
 build
 coverage.xml
@@ -19,3 +21,6 @@ fabric-ca
 vendor/github.com/cloudflare/cfssl/vendor/github.com/cloudflare/cfssl_trust/ca-bundle/http:*.crt
 # tox
 .tox/
+profile.cov
+report.xml
+results.txt

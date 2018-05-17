@@ -12,7 +12,7 @@ function runlint {
    do
       if [ -d $dir ]; then
         case "$dir" in
-         vendor|bin|testdata|scripts)
+         vendor|bin|testdata|scripts|release_notes|images|release|swagger|docker|docs)
            ;;
         *)
            $GOLINT $dir/...
