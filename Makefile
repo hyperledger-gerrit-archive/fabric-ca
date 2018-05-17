@@ -172,7 +172,10 @@ all-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_integration_tests
 
 unit-tests: checks fabric-ca-server fabric-ca-client
-	@scripts/run_unit_tests
+	@JOB_TYPE=PROFILE scripts/run_unit_tests
+
+desk-check: checks fabric-ca-server fabric-ca-client
+	@JOB_TYPE=VERIFY scripts/run_unit_tests
 
 int-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_integration_tests
