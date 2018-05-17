@@ -1,28 +1,91 @@
-#!/bin/bash
+#!/bin/bash -e
 #
 # Copyright IBM Corp. All Rights Reserved.
 #
 # SPDX-License-Identifier: Apache-2.0
 #
+
+# regexes for packages to exclude from unit test
+excluded_packages=(
+  github.com/hyperledger/fabric-ca/lib/ldap
+  github.com/hyperledger/fabric-ca/test/fabric-ca-load-tester
+  github.com/hyperledger/fabric-ca/test/integration/default
+)
+
 FCA=$GOPATH/src/github.com/hyperledger/fabric-ca
 
-echo "Running unit tests ..."
-{
-export PATH=$PATH:$GOPATH/bin
+# obtain packages changed since some git refspec
+packages_diff() {
+    git -C "${GOPATH}/src/github.com/hyperledger/fabric-ca" diff --no-commit-id --name-only -r "${1:-HEAD}" |
+        grep '.go$' | grep -Ev '^vendor/|^build/' | \
+        sed 's%/[^/]*$%/%' | sort -u | \
+        awk '{print "github.com/hyperledger/fabric-ca/"$1"..."}'
+}
 
-go get github.com/axw/gocov/...
-go get github.com/AlekSi/gocov-xml
+# "go list" packages and filter out excluded packages
+list_and_filter() {
+    local filter=$(local IFS='|' ; echo "${excluded_packages[*]}")
+    if [ -n "$filter" ]; then
+        go list $@ 2>/dev/null | grep -Ev "${filter}" || true
+    else
+        go list $@ 2>/dev/null
+    fi
+}
 
-# Skipping /lib/common package as there is only one file that contains request/response structs used by both client and server. It needs to be removed from exclude package list
-# when code is added to this package
-# Skipping credential package as there is only one file that contains Credential interface definition. It needs to be removed from exclude package list when code is added to this package
-PKGS=`go list github.com/hyperledger/fabric-ca/... | grep -Ev '/vendor/|/api|/dbutil|/ldap|/mocks|/test/fabric-ca-load-tester|/integration|/fabric-ca-client$|/credential$|/lib/common$'`
+# "go test" the provided packages. Packages that are not prsent in the serial package list
+# will be tested in parallel
+run_tests() {
+    local flags="-cover"
+    if [ -n "${VERBOSE}" ]; then
+      flags="${flags} -v"
+    fi
 
-gocov test -timeout 15m $PKGS | gocov-xml > coverage.xml
+    echo ${GO_TAGS}
+    time go test ${flags} -tags "$GO_TAGS" $@ -short -timeout=5m 2>&1 | tee -a results.txt
+}
 
-} 2>&1 | tee /tmp/test.results
-echo "Finished running all tests"
+# "go test" the provided packages and generate code coverage reports.
+run_tests_with_coverage() {
+    # run the tests serially
+    go test -p 1 -cover -coverprofile=profile_tmp.cov -tags "$GO_TAGS" $@ -timeout=5m 2>&1 | tee -a results.txt
+    tail -n +2 profile_tmp.cov >> profile.cov && rm profile_tmp.cov
+}
 
-$FCA/scripts/check_test_results /tmp/test.results
+main() {
+    # place the cache directory into the default build tree if it exists
+    if [ -d "${GOPATH}/src/github.com/hyperledger/fabric-ca/bin" ]; then
+        export GOCACHE="${GOPATH}/src/github.com/hyperledger/fabric-ca/bin/go-cache"
+    fi
 
-exit $?
+    # default behavior is to run all tests
+    local package_spec=${TEST_PKGS:-github.com/hyperledger/fabric-ca/...}
+
+    # when running a "verify" job, only test packages that have changed
+    if [ "${JOB_TYPE}" = "VERIFY" ]; then
+        # first check for uncommitted changes
+        package_spec=$(packages_diff HEAD)
+        if [ -z "${package_spec}" ]; then
+            # next check for changes in the latest commit - typically this will
+            # be for CI only, but could also handle a committed change before
+            # pushing to Gerrit
+            package_spec=$(packages_diff HEAD^)
+        fi
+    fi
+
+    # expand the package spec into an array of packages
+    local -a packages=$(list_and_filter ${package_spec})
+
+    if [ -z "${packages}" ]; then
+        echo "Nothing to test!!!"
+    elif [ "${JOB_TYPE}" = "PROFILE" ]; then
+        echo "mode: set" > profile.cov
+        run_tests_with_coverage "${packages[@]}"
+        gocov convert profile.cov | gocov-xml > report.xml
+    else
+        run_tests "${packages[@]}"
+    fi
+
+    ${FCA}/scripts/check_test_results results.txt
+}
+
+main
