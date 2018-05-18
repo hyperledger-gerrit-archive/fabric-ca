@@ -77,7 +77,7 @@ func genCRLHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 	// configured.
 	err = ca.attributeIsTrue(id, "hf.GenCRL")
 	if err != nil {
-		return nil, newAuthErr(ErrNoGenCRLAuth, "The identity '%s' does not have authority to generate a CRL", id)
+		return nil, newAuthorizationErr(ErrNoGenCRLAuth, "The identity '%s' does not have authority to generate a CRL", id)
 	}
 
 	crl, err := genCRL(ca, req)

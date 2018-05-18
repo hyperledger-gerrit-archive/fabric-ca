@@ -383,14 +383,14 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	// First check that all settings are correct
 	if len(ids) > 0 {
 		if !isRegistar {
-			return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Removing affiliation affects identities, but caller is not a registrar")
+			return nil, newAuthenticationErr(ErrUpdateConfigRemoveAff, "Removing affiliation affects identities, but caller is not a registrar")
 		}
 		if !identityRemoval {
-			return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Identity removal is not allowed on server")
+			return nil, newAuthenticationErr(ErrUpdateConfigRemoveAff, "Identity removal is not allowed on server")
 		}
 		if !force {
 			// If force option is not specified, only delete affiliation if there are no identities that have that affiliation
-			return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following identities associated: %s. Need to use 'force' to remove identities and affiliation", name, idNamesStr)
+			return nil, newAuthenticationErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following identities associated: %s. Need to use 'force' to remove identities and affiliation", name, idNamesStr)
 		}
 	}
 
@@ -409,7 +409,7 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	if len(allAffs) > 0 {
 		if !force {
 			// If force option is not specified, only delete affiliation if there are no sub-affiliations
-			return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following sub-affiliations: %s. Need to use 'force' to remove affiliation and sub-affiliations", name, allAffs)
+			return nil, newAuthenticationErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following sub-affiliations: %s. Need to use 'force' to remove affiliation and sub-affiliations", name, allAffs)
 		}
 	}
 	allAffs = append(allAffs, aff)
@@ -750,7 +750,7 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 		}
 		if len(idsWithOldAff) > 0 {
 			if !isRegistar {
-				return nil, newAuthErr(ErrMissingRegAttr, "Modifying affiliation affects identities, but caller is not a registrar")
+				return nil, newAuthenticationErr(ErrMissingRegAttr, "Modifying affiliation affects identities, but caller is not a registrar")
 			}
 			// Get the list of names of the identities that need to be updated to use new affiliation
 			ids := []string{}

@@ -138,7 +138,7 @@ func missingHfRegistrarAttr(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar does not own 'hf.Registrar.Attributes'
@@ -151,7 +151,7 @@ func missingHfRegistrarAttr(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 }
 
@@ -165,7 +165,7 @@ func invalidAttrRequestValues(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Errorf(t, err, "Should have failed to register an identity with inappropriate values for '%s', can only register a subset", attr.Roles) {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar owns this attribute but with a value of 'false', can't register with a value of 'true'
@@ -178,7 +178,7 @@ func invalidAttrRequestValues(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with an attribute that is not part of 'hf.Registrar.Attributes'") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar owns this attribute but with a value of 'false', can't register with a value of 'true'
@@ -191,7 +191,7 @@ func invalidAttrRequestValues(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with an attribute invalid attribute with prefix 'hf.'") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 }
 
@@ -206,7 +206,7 @@ func invalidAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -219,7 +219,7 @@ func invalidAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -232,7 +232,7 @@ func invalidAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -245,7 +245,7 @@ func invalidAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -258,7 +258,7 @@ func invalidAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -271,7 +271,7 @@ func invalidAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes (hf.fakeAttr)") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 }
 
@@ -286,7 +286,7 @@ func invalidHfRegistrarAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -299,7 +299,7 @@ func invalidHfRegistrarAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 
 	// Negative case: Registrar's hf.Registrar.Attribute = a.b.c, x.y.*, testattr*, attr$, hf.Registrar.Attributes, hf.Revoker
@@ -312,7 +312,7 @@ func invalidHfRegistrarAttrRequest(t *testing.T, registrar *Identity) {
 		}),
 	)
 	if assert.Error(t, err, "Should have failed to register an identity with inappropriate attributes, identity does not posses 'hf.Revoker'") {
-		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthFailure))
+		assert.Contains(t, err.Error(), strconv.Itoa(ErrAuthorizationFailure))
 	}
 }
 

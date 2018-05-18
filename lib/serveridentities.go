@@ -167,7 +167,7 @@ func getIDs(ctx *serverRequestContextImpl, caller spi.User, caname string) error
 		return err
 	}
 	if !isRegistrar {
-		return newAuthErr(ErrGettingUser, "Caller is not a registrar")
+		return newAuthenticationErr(ErrGettingUser, "Caller is not a registrar")
 	}
 
 	// Getting all identities of appropriate affiliation and type

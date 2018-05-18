@@ -38,8 +38,8 @@ func TestServerEndpoint(t *testing.T) {
 	testEndpoint(t, "POST", url, 200, 0)
 	// Negative tests
 	testEndpoint(t, "DELETE", url, 405, ErrMethodNotAllowed)
-	handlerError = newAuthErr(ErrInvalidToken, "Invalid token")
-	testEndpoint(t, "GET", url, 401, ErrAuthFailure)
+	handlerError = newAuthenticationErr(ErrInvalidToken, "Invalid token")
+	testEndpoint(t, "GET", url, 401, ErrAuthenticationFailure)
 }
 
 func testEndpoint(t *testing.T, method, url string, scode, rcode int) {

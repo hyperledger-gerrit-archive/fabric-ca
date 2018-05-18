@@ -70,7 +70,7 @@ const (
 	// The CA (Certificate Authority) name was not found
 	ErrCANotFound = 19
 	// Authorization failure
-	ErrAuthFailure = 20
+	ErrAuthenticationFailure = 20
 	// No username and password were in the authorization header
 	ErrNoUserPass = 21
 	// Enrollment is currently disabled for the server
@@ -167,6 +167,8 @@ const (
 	ErrGettingCert = 67
 	// Error occurred parsing variable as an integer
 	ErrParsingIntEnvVar = 68
+	// Authorization failure
+	ErrAuthorizationFailure = 69
 )
 
 // Construct a new HTTP error.
@@ -186,12 +188,21 @@ func newHTTPErr(scode, code int, format string, args ...interface{}) error {
 	return errors.Wrap(createHTTPErr(scode, code, format, args...), "")
 }
 
+// Construct an HTTP error specifically indicating an authentication failure.
+// The local code and message is specific, but the remote code and message is generic
+// for security reasons.
+func newAuthenticationErr(code int, format string, args ...interface{}) error {
+	he := createHTTPErr(401, code, format, args...)
+	he.Remote(ErrAuthenticationFailure, "Authentication failure")
+	return errors.Wrap(he, "")
+}
+
 // Construct an HTTP error specifically indicating an authorization failure.
 // The local code and message is specific, but the remote code and message is generic
 // for security reasons.
-func newAuthErr(code int, format string, args ...interface{}) error {
-	he := createHTTPErr(401, code, format, args...)
-	he.Remote(ErrAuthFailure, "Authorization failure")
+func newAuthorizationErr(code int, format string, args ...interface{}) error {
+	he := createHTTPErr(403, code, format, args...)
+	he.Remote(ErrAuthorizationFailure, "Authorization failure")
 	return errors.Wrap(he, "")
 }
 

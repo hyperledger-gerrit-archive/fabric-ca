@@ -223,7 +223,7 @@ func processAffiliationDeleteRequest(ctx *serverRequestContextImpl, caname strin
 	log.Debug("Processing DELETE request")
 
 	if !ctx.ca.Config.Cfg.Affiliations.AllowRemove {
-		return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Affiliation removal is disabled")
+		return nil, newAuthorizationErr(ErrUpdateConfigRemoveAff, "Affiliation removal is disabled")
 	}
 
 	removeAffiliation, err := ctx.GetVar("affiliation")
@@ -234,7 +234,7 @@ func processAffiliationDeleteRequest(ctx *serverRequestContextImpl, caname strin
 
 	callerAff := GetUserAffiliation(ctx.caller)
 	if callerAff == removeAffiliation {
-		return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Can't remove affiliation '%s' because the caller is associated with this affiliation", removeAffiliation)
+		return nil, newAuthorizationErr(ErrUpdateConfigRemoveAff, "Can't remove affiliation '%s' because the caller is associated with this affiliation", removeAffiliation)
 	}
 
 	err = ctx.ContainsAffiliation(removeAffiliation)

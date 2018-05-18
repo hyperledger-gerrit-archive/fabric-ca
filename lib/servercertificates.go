@@ -93,7 +93,7 @@ func authChecks(ctx ServerRequestContext) error {
 	if err != nil {
 		err = ctx.HasRole("hf.Revoker")
 		if err != nil {
-			return newAuthErr(ErrAuthFailure, "Caller does not posses either hf.Registrar.Roles or hf.Revoker attribute")
+			return newAuthorizationErr(ErrAuthenticationFailure, "Caller does not posses either hf.Registrar.Roles or hf.Revoker attribute")
 		}
 	}
 
