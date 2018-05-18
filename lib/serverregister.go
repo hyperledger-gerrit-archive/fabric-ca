@@ -195,7 +195,7 @@ func canRegister(registrar spi.User, req *api.RegistrationRequest, ctx *serverRe
 
 	err = attr.CanRegisterRequestedAttributes(req.Attributes, nil, registrar)
 	if err != nil {
-		return newAuthErr(ErrRegAttrAuth, "Failed to register attribute: %s", err)
+		return newAuthorizationErr(ErrRegAttrAuth, "Failed to register attribute: %s", err)
 	}
 
 	return nil
