@@ -16,6 +16,8 @@ type CAInfoResponseNet struct {
 	IssuerPublicKey string
 	// Version of the server
 	Version string
+	// Version of the authorization header supported by the server
+	AuthHeaderVersion int
 }
 
 // EnrollmentResponseNet is the response to the /enroll request

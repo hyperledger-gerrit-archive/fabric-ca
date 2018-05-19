@@ -120,7 +120,10 @@ func TestIdemixCredential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create HTTP request: %s", err.Error())
 	}
-	_, err = idemixCred.CreateOAuthToken(req, body)
+	_, err = idemixCred.CreateOAuthToken(1, req, body)
+	assert.Error(t, err, "CreateOAuthToken is not implemented for Idemix credential")
+
+	_, err = idemixCred.CreateOAuthToken(2, req, body)
 	assert.Error(t, err, "CreateOAuthToken is not implemented for Idemix credential")
 
 	_, err = idemixCred.RevokeSelf()

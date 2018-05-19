@@ -123,8 +123,8 @@ func (cred *Credential) Store() error {
 }
 
 // CreateOAuthToken creates oauth token based on this X509 credential
-func (cred *Credential) CreateOAuthToken(req *http.Request, reqBody []byte) (string, error) {
-	return util.CreateToken(cred.getCSP(), cred.val.certBytes, cred.val.key, req.Method, req.URL.RequestURI(), reqBody)
+func (cred *Credential) CreateOAuthToken(tokenVersion int, req *http.Request, reqBody []byte) (string, error) {
+	return util.CreateToken(cred.getCSP(), tokenVersion, cred.val.certBytes, cred.val.key, req.Method, req.URL.RequestURI(), reqBody)
 }
 
 // RevokeSelf revokes this X509 credential

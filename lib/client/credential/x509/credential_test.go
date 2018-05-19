@@ -145,7 +145,10 @@ func TestX509Credential(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create HTTP request: %s", err.Error())
 	}
-	_, err = x509Cred.CreateOAuthToken(req, body)
+	_, err = x509Cred.CreateOAuthToken(1, req, body)
+	assert.NoError(t, err, "CreateOAuthToken should not return error")
+
+	_, err = x509Cred.CreateOAuthToken(2, req, body)
 	assert.NoError(t, err, "CreateOAuthToken should not return error")
 }
 
@@ -217,7 +220,7 @@ func TestRevokeSelf(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create HTTP request: %s", err.Error())
 	}
-	_, err = x509Cred.CreateOAuthToken(httpReq, body)
+	_, err = x509Cred.CreateOAuthToken(1, httpReq, body)
 	assert.NoError(t, err)
 }
 

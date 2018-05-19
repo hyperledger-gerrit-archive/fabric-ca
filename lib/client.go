@@ -67,6 +67,8 @@ type GetCAInfoResponse struct {
 	IssuerPublicKey []byte
 	// Version of the server
 	Version string
+	// Version of the authorization header supported by the server
+	AuthHeaderVersion int
 }
 
 // EnrollmentResponse is the response from Client.Enroll and Identity.Reenroll

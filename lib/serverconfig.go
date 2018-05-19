@@ -55,4 +55,6 @@ type ServerConfig struct {
 	CAcount int `def:"0" help:"Number of non-default CA instances"`
 	// Size limit of an acceptable CRL in bytes
 	CRLSizeLimit int `def:"512000" help:"Size limit of an acceptable CRL in bytes"`
+	// AuthHeaderVer is the version of the Authorization header supported by the server
+	AuthHeaderVer int `def:"1" help:"Version of the authorization header supported by the server"`
 }

@@ -112,7 +112,7 @@ func (cred *Credential) Load() error {
 }
 
 // CreateOAuthToken creates oauth token based on this Idemix credential
-func (cred *Credential) CreateOAuthToken(req *http.Request, reqBody []byte) (string, error) {
+func (cred *Credential) CreateOAuthToken(tokenVersion int, req *http.Request, reqBody []byte) (string, error) {
 	return "", errors.New("Not implemented") // TODO
 	// enrollmentID, err := cred.EnrollmentID()
 	// if err != nil {
