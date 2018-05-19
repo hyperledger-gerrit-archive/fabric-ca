@@ -560,7 +560,7 @@ func (i *Identity) addTokenAuthHdr(req *http.Request, body []byte) error {
 	var err error
 	for _, cred := range i.creds {
 		if cred.Type() == x509.CredType {
-			token, err = cred.CreateOAuthToken(req, body)
+			token, err = cred.CreateOAuthToken(i.client.Config.AuthHeaderVer, req, body)
 			if err != nil {
 				return errors.WithMessage(err, "Failed to add token authorization header")
 			}

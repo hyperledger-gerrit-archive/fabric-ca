@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -237,6 +238,125 @@ func TestIdemixEnroll(t *testing.T) {
 	CopyFile("../testdata/ec256-1-key.pem", filepath.Join(clientHome, "msp/keystore/key.pem"))
 	_, err = client.Enroll(req)
 	assert.Error(t, err, "Idemix enroll should fail as the certificate is of unregistered user")
+}
+
+func TestTokenVersions(t *testing.T) {
+	setupServerClient := func(index, srvPort, authHdrVer int) (*Server, *Client, *Client) {
+		srvHome, err := ioutil.TempDir(testdataDir, "testAuthHdrVerSrv"+strconv.Itoa(index))
+		if err != nil {
+			t.Fatal("Failed to create server home directory")
+		}
+		goodClientHome, err := ioutil.TempDir(testdataDir, "testAuthHdrVerGoodClient"+strconv.Itoa(index))
+		if err != nil {
+			t.Fatal("Failed to create server home directory")
+		}
+		badClientHome, err := ioutil.TempDir(testdataDir, "testAuthHdrVerBadClient"+strconv.Itoa(index))
+		if err != nil {
+			t.Fatal("Failed to create server home directory")
+		}
+
+		// start a server that support specified auth header version
+		server := TestGetServer3(false, srvPort, srvHome, "", 5, authHdrVer, t)
+		if server == nil {
+			t.Fatal("Failed to create test server")
+		}
+		server.Config.AuthHeaderVer = authHdrVer
+		err = server.Start()
+		if err != nil {
+			t.Fatalf("Failed to start server: %s", err)
+		}
+
+		client := &Client{
+			Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", srvPort), AuthHeaderVer: authHdrVer},
+			HomeDir: goodClientHome,
+		}
+
+		var clientAuthHdrVer int
+		if authHdrVer == 1 {
+			clientAuthHdrVer = 2
+		} else {
+			clientAuthHdrVer = 1
+		}
+		badClient := &Client{
+			Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", srvPort), AuthHeaderVer: clientAuthHdrVer},
+			HomeDir: badClientHome,
+		}
+
+		return server, client, badClient
+	}
+
+	server1, client1, badClient1 := setupServerClient(1, ctport1, 1)
+	server2, client2, badClient2 := setupServerClient(2, ctport2, 2)
+
+	servers := []*Server{server1, server2}
+	goodClients := []*Client{client1, client2}
+	badClients := []*Client{badClient1, badClient2}
+
+	defer func() {
+		if servers != nil && len(servers) > 0 {
+			for _, server := range servers {
+				err := server.Stop()
+				if err != nil {
+					t.Errorf("Failed to stop server: %s", err)
+				}
+				os.RemoveAll(server.HomeDir)
+			}
+		}
+		if goodClients != nil && len(goodClients) > 0 {
+			for _, client := range goodClients {
+				os.RemoveAll(client.HomeDir)
+			}
+		}
+		if badClients != nil && len(badClients) > 0 {
+			for _, client := range badClients {
+				os.RemoveAll(client.HomeDir)
+			}
+		}
+	}()
+
+	for _, client := range goodClients {
+		req := &api.EnrollmentRequest{
+			Type:   "x509",
+			Name:   "admin",
+			Secret: "adminpw",
+		}
+
+		resp, err := client.Enroll(req)
+		assert.NoError(t, err, "X509 enroll should not have failed with valid userid/password")
+
+		registerReq := &api.RegistrationRequest{
+			Name:           "tokenversiontestuser",
+			Type:           "Client",
+			Affiliation:    "hyperledger",
+			MaxEnrollments: 1,
+		}
+		_, err = resp.Identity.Register(registerReq)
+		assert.NoError(t, err)
+	}
+
+	for _, client := range badClients {
+
+		req := &api.EnrollmentRequest{
+			Type:   "x509",
+			Name:   "admin",
+			Secret: "adminpw",
+		}
+
+		resp, err := client.Enroll(req)
+		assert.NoError(t, err, "X509 enroll should not have failed with valid userid/password")
+
+		registerReq := &api.RegistrationRequest{
+			Name:           "tokenversiontestuser1",
+			Type:           "Client",
+			Affiliation:    "hyperledger",
+			MaxEnrollments: 1,
+		}
+		_, err = resp.Identity.Register(registerReq)
+		assert.Error(t, err)
+		if err != nil {
+			assert.Contains(t, err.Error(), "Authorization failure")
+		}
+	}
 }
 
 func TestClient(t *testing.T) {

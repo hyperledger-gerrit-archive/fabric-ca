@@ -53,6 +53,23 @@ Fabric-CA Server's Configuration File
     # Size limit of an acceptable CRL in bytes (default: 512000)
     crlsizelimit: 512000
     
+    # Specifies authorization header version. Default value is 1
+    # version 1:
+    # - format of the token based on X509 enrollment certificate:
+    #   <base64 encoding of X509 certificate>.<base64 encoding of payload>
+    #   where payload is the signature over hash of the string: <base64 encoding of request body>.<base64 encoding of X509 cert>
+    # - format of the token based on Idemix credential:
+    #   idemix.<enrollment ID>.<base64 encoding of payload>
+    #   where payload is the signature over hash of the string: <base64 encoding of request body>
+    # version 2:
+    # - format of the token based on X509 enrollment certificate:
+    #   <base64 encoding of X509 certificate>.<base64 encoding of payload>
+    #   where payload is the signature over hash of the string: <request method>.<base64 encoding of request URI>.<base64 encoding of request body>.<base64 encoding of X509 cert>
+    # - format of the token based on Idemix credential:
+    #   idemix.<enrollment ID>.<base64 encoding of payload>
+    #   where payload is the signature over hash of the string: <request method>.<base64 encoding of request URI>.<base64 encoding of request body>
+    authheaderver: 1
+    
     #############################################################################
     #  TLS section for the server's listening port
     #

@@ -67,9 +67,15 @@ func TestGetServer(port int, home, parentURL string, maxEnroll int, t *testing.T
 	return TestGetServer2(home != testdataDir, port, home, parentURL, maxEnroll, t)
 }
 
-// TestGetServer2 creates and returns a pointer to a server struct, with an option of
+// TestGetServer2 creates and returns a pointer to a server that supports auth header version 2, with an option of
 // whether or not to remove the home directory first
 func TestGetServer2(deleteHome bool, port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
+	return TestGetServer3(deleteHome, port, home, parentURL, maxEnroll, 2, t)
+}
+
+// TestGetServer3 creates and returns a pointer to a server struct, with an option of
+// whether or not to remove the home directory first
+func TestGetServer3(deleteHome bool, port int, home, parentURL string, maxEnroll int, authHdrVer int, t *testing.T) *Server {
 	if deleteHome {
 		os.RemoveAll(home)
 	}

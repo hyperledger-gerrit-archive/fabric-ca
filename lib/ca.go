@@ -978,7 +978,7 @@ func (ca *CA) fillCAInfo(info *common.CAInfoResponseNet) error {
 	}
 	info.CAName = ca.Config.CA.Name
 	info.CAChain = util.B64Encode(caChain)
-
+	info.AuthHeaderVersion = ca.server.Config.AuthHeaderVer
 	ipkBytes, err := ca.issuer.IssuerPublicKey()
 	if err != nil {
 		return err

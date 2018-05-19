@@ -23,6 +23,7 @@ Fabric-CA Client's CLI
       version     Prints Fabric CA Client version
     
     Flags:
+          --authheaderver int              Version of the authorization header that the Fabric CA server expects (default 1)
           --caname string                  Name of CA
           --csr.cn string                  The common name field of the certificate signing request
           --csr.hosts stringSlice          A list of space-separated host names in a certificate signing request

@@ -32,7 +32,7 @@ type Credential interface {
 	Load() error
 	// CreateOAuthToken returns oauth autentication token for that request with
 	// specified body
-	CreateOAuthToken(req *http.Request, reqBody []byte) (string, error)
+	CreateOAuthToken(tokenVersion int, req *http.Request, reqBody []byte) (string, error)
 	// Submits revoke request to the Fabric CA server to revoke this credential
 	RevokeSelf() (*api.RevocationResponse, error)
 }
