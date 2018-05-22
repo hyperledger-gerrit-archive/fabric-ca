@@ -70,6 +70,7 @@ type User interface {
 	GetLevel() int
 	// SetLevel sets the level of the user
 	SetLevel(level int) error
+	HasActiveX509Cert() (bool, error)
 }
 
 // UserRegistry is the API for retreiving users and groups

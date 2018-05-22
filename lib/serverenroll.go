@@ -88,6 +88,19 @@ func reenrollHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return nil, err
+	}
+	hasActive, err := caller.HasActiveX509Cert()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to get certificates for caller")
+	}
+	if !hasActive {
+		return nil, errors.Errorf("The 'reenroll' command is valid only for x509 certificates. Caller '%s' does not currently have any active x509 certificates", caller.GetName())
+	}
+
 	return handleEnroll(ctx, id)
 }
 

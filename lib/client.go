@@ -552,21 +552,33 @@ func (c *Client) LoadIdentity(keyFile, certFile, idemixCredFile string) (*Identi
 	if err != nil {
 		return nil, err
 	}
+
+	var x509Found, idemixFound bool
 	x509Cred := x509cred.NewCredential(certFile, keyFile, c)
 	err = x509Cred.Load()
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load X509 credential")
+		log.Debugf("No x509 credential found at %s, %s", keyFile, certFile)
 	}
-	creds := []credential.Credential{x509Cred}
-	_, err = os.Stat(idemixCredFile)
+	var creds []credential.Credential
 	if err == nil {
-		idemixCred := idemixcred.NewCredential(idemixCredFile, c)
-		err = idemixCred.Load()
-		if err != nil {
-			log.Debugf("No idemix credential found at %s", idemixCredFile)
-		}
+		x509Found = true
+		creds = append(creds, x509Cred)
+	}
+
+	idemixCred := idemixcred.NewCredential(idemixCredFile, c)
+	err = idemixCred.Load()
+	if err != nil {
+		log.Debugf("No idemix credential found at %s", idemixCredFile)
+	}
+	if err == nil {
+		idemixFound = true
 		creds = append(creds, idemixCred)
 	}
+
+	if !x509Found && !idemixFound {
+		return nil, errors.New("Identity does not posses any enrollment credentials")
+	}
+
 	return c.NewIdentity(creds)
 }
 

@@ -469,6 +469,11 @@ func (u *user) ModifyAttributes(attrs []api.Attribute) error {
 	return errNotSupported
 }
 
+// ModifyAttributes adds a new attribute or modifies existing attribute
+func (u *user) HasActiveX509Cert() (bool, error) {
+	return false, errNotSupported
+}
+
 // Returns a slice with the elements reversed
 func reverse(in []string) []string {
 	size := len(in)

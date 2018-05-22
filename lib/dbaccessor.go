@@ -18,7 +18,9 @@ package lib
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/util"
@@ -1151,6 +1153,28 @@ func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute) error {
 		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, id)
 	}
 	return nil
+}
+
+// HasActiveX509Cert returns true if the user has an active x509 certificate
+func (u *DBUser) HasActiveX509Cert() (bool, error) {
+	var certs []CertRecord
+	err := u.db.Select(&certs, fmt.Sprintf(u.db.Rebind(selectSQLbyID), sqlstruct.Columns(CertRecord{})), u.Name)
+	if err != nil {
+		return false, err
+	}
+
+	// TODO: Need to figure out if the credential is x509 or idemix
+	for _, cert := range certs {
+		if time.Now().Before(cert.Expiry) {
+			// certificate not expired
+			if time.Now().After(cert.RevokedAt) {
+				// found certificate that is not expired nor revoked
+				return true, nil
+			}
+		}
+	}
+
+	return false, nil
 }
 
 func getError(err error, getType string) error {
