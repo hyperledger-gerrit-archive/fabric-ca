@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package idemix
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -32,6 +34,7 @@ import (
 type Issuer interface {
 	Init(renew bool, db dbutil.FabricCADB, levels *dbutil.Levels) error
 	IssuerPublicKey() ([]byte, error)
+	RevocationPublicKey() ([]byte, error)
 	IssueCredential(ctx ServerRequestCtx) (*EnrollmentResponse, error)
 	GetCRI(ctx ServerRequestCtx) (*api.GetCRIResponse, error)
 	VerifyToken(req *http.Request, body []byte) (string, error)
@@ -99,7 +102,7 @@ func (i *issuer) Init(renew bool, db dbutil.FabricCADB, levels *dbutil.Levels) e
 	}
 
 	if db == nil || reflect.ValueOf(db).IsNil() || !db.IsInitialized() {
-		log.Debugf("Returning without initializing Issuer for CA '%s' as the database is not initialized", i.Name())
+		log.Debugf("Returning without initializing Idemix issuer for CA '%s' as the database is not initialized", i.Name())
 		return nil
 	}
 	i.db = db
@@ -112,12 +115,12 @@ func (i *issuer) Init(renew bool, db dbutil.FabricCADB, levels *dbutil.Levels) e
 		return err
 	}
 	i.credDBAccessor = NewCredentialAccessor(i.db, levels.Credential)
-	log.Debugf("Intializing revocation authority for issuer %s", i.Name())
+	log.Debugf("Intializing revocation authority for issuer '%s'", i.Name())
 	i.rc, err = NewRevocationAuthority(i, levels.RAInfo)
 	if err != nil {
 		return err
 	}
-	log.Debugf("Intializing nonce manager for issuer %s", i.Name())
+	log.Debugf("Intializing nonce manager for issuer '%s'", i.Name())
 	i.nm, err = NewNonceManager(i, &wallClock{}, levels.Nonce)
 	if err != nil {
 		return err
@@ -139,6 +142,19 @@ func (i *issuer) IssuerPublicKey() ([]byte, error) {
 		return nil, err
 	}
 	return ipkBytes, nil
+}
+
+func (i *issuer) RevocationPublicKey() ([]byte, error) {
+	if !i.isInitialized {
+		return nil, errors.New("Issuer is not initialized")
+	}
+	rpk := i.RevocationAuthority().PublicKey()
+	encodedPubKey, err := x509.MarshalPKIXPublicKey(rpk)
+	if err != nil {
+		return nil, errors.Wrapf(err, "Failed to encode revocation authority public key of the issuer %s", i.Name())
+	}
+	pemEncodedPubKey := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: encodedPubKey})
+	return pemEncodedPubKey, nil
 }
 
 func (i *issuer) IssueCredential(ctx ServerRequestCtx) (*EnrollmentResponse, error) {
@@ -309,7 +325,7 @@ func (i *issuer) initKeyMaterial(renew bool) error {
 	if err != nil {
 		return err
 	}
-	log.Infof("The Idemix public and secret keys were generated for Issuer %s", i.name)
+	log.Infof("Idemix issuer public and secret keys were generated for CA '%s'", i.name)
 	issuerCred.SetIssuerKey(ik)
 	err = issuerCred.Store()
 	if err != nil {
