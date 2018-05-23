@@ -167,6 +167,8 @@ const (
 	ErrGettingCert = 67
 	// Error occurred parsing variable as an integer
 	ErrParsingIntEnvVar = 68
+	// Error occurs when invoking a request that is not allowed for a specific credential type
+	ErrInvalidCredType = 69
 )
 
 // Construct a new HTTP error.

@@ -88,6 +88,11 @@ func reenrollHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	if ctx.GetCallerCredType() != X509 {
+		return nil, newHTTPErr(401, ErrInvalidCredType, "The 'reenroll' command is valid only for x509 certificates. The caller must use a x509 MSP to reenroll a certificate")
+	}
+
 	return handleEnroll(ctx, id)
 }
 

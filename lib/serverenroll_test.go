@@ -17,7 +17,9 @@ limitations under the License.
 package lib
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/api"
@@ -86,4 +88,56 @@ func cleanTestSlateSE(t *testing.T) {
 	if err != nil {
 		t.Errorf("RemoveAll failed: %s", err)
 	}
+}
+
+// Reenroll is not supported for an Idemix type credential.
+// If the identity only posses an Idemix credential, it should
+// not be able to reenroll. If an identity has both x509 and Idmex
+// credential than reenroll should be allowed.
+func TestReenrollIdemixCred(t *testing.T) {
+	var err error
+	srvHome := "serverHome"
+	clientHome := "clientHome"
+	ctport1 := 7098
+
+	srv := TestGetServer(ctport1, srvHome, "", 5, t)
+
+	err = srv.Start()
+	assert.NoError(t, err, "Failed to start server")
+	defer srv.Stop()
+	defer os.RemoveAll(srvHome)
+	defer os.RemoveAll(clientHome)
+
+	req := &api.EnrollmentRequest{
+		Name:   "admin",
+		Secret: "adminpw",
+		Type:   "idemix",
+	}
+
+	client := &Client{
+		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", ctport1)},
+		HomeDir: clientHome,
+	}
+
+	cainfo, err := client.GetCAInfo(&api.GetCAInfoRequest{})
+	if err != nil {
+		t.Fatalf("Failed to get CA info: %s", err)
+	}
+	err = util.WriteFile(filepath.Join(clientHome, "msp/IssuerPublicKey"), cainfo.IssuerPublicKey, 0644)
+	if err != nil {
+		t.Fatalf("Failed to store CA's idemix public key: %s", err)
+	}
+
+	idemixEnrollRes, err := client.Enroll(req)
+	assert.NoError(t, err, "Idemix enroll should not have failed with valid userid/password")
+
+	_, err = idemixEnrollRes.Identity.Reenroll(&api.ReenrollmentRequest{})
+	assert.Error(t, err, "Identity with only Idemix crdential should not be able to reenroll")
+
+	req.Type = "" // Use default type: x509
+	x509EnrollRes, err := client.Enroll(req)
+	assert.NoError(t, err, "x509 enroll should not have failed with valid userid/password")
+
+	_, err = x509EnrollRes.Identity.Reenroll(&api.ReenrollmentRequest{})
+	assert.NoError(t, err, "Failed to enroll identity with both x509 and Idemix credential")
 }
