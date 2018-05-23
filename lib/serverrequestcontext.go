@@ -62,11 +62,19 @@ type serverRequestContextImpl struct {
 		buf  []byte // the body itself
 		err  error  // any error from reading the body
 	}
-	callerRoles map[string]bool
+	callerRoles    map[string]bool
+	callerCredType credType
 }
+
+type credType int
 
 const (
 	registrarRole = "hf.Registrar.Roles"
+
+	// X509 credential
+	X509 credType = 1 + iota
+	// IDEMIX credential
+	IDEMIX
 )
 
 // newServerRequestContext is the constructor for a serverRequestContextImpl
@@ -144,8 +152,11 @@ func (ctx *serverRequestContextImpl) TokenAuthentication() (string, error) {
 		return "", err
 	}
 	if idemix.IsToken(authHdr) {
-		return ctx.ca.issuer.VerifyToken(authHdr, body)
+		ctx.callerCredType = IDEMIX
+		ctx.enrollmentID, err = ctx.ca.issuer.VerifyToken(authHdr, body)
+		return ctx.enrollmentID, err
 	}
+	ctx.callerCredType = X509
 	return ctx.verifyX509Token(ca, authHdr, body)
 }
 
@@ -678,6 +689,11 @@ func (ctx *serverRequestContextImpl) GetRegistry() spi.UserRegistry {
 
 func (ctx *serverRequestContextImpl) GetCAConfig() *CAConfig {
 	return ctx.ca.Config
+}
+
+// GetCallerCredType returns the type of credential the caller is using
+func (ctx *serverRequestContextImpl) GetCallerCredType() credType {
+	return ctx.callerCredType
 }
 
 func convertAttrReqs(attrReqs []*api.AttributeRequest) []attrmgr.AttributeRequest {
