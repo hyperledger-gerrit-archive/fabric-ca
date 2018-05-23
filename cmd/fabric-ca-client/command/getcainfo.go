@@ -99,7 +99,11 @@ func (c *getCAInfoCmd) runGetCACert(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	return storeIssuerPublicKey(client.Config, si)
+	err = storeIssuerPublicKey(client.Config, si)
+	if err != nil {
+		return err
+	}
+	return storeIssuerRevocationPublicKey(client.Config, si)
 }
 
 // Store the CAChain in the CACerts folder of MSP (Membership Service Provider)
@@ -190,6 +194,16 @@ func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 func storeIssuerPublicKey(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 	if len(si.IssuerPublicKey) > 0 {
 		err := storeCert("Issuer public key", config.MSPDir, "IssuerPublicKey", si.IssuerPublicKey)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func storeIssuerRevocationPublicKey(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
+	if len(si.IssuerRevocationPublicKey) > 0 {
+		err := storeCert("Issuer revocation public key", config.MSPDir, "IssuerRevocationPublicKey", si.IssuerRevocationPublicKey)
 		if err != nil {
 			return err
 		}
