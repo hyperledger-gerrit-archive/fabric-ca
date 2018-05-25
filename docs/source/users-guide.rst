@@ -1492,7 +1492,14 @@ revocation is recorded in the CRI.  The CRI is given to the end user (aka "prove
 proof that their credential has not been revoked according to the CRI.  The end user gives this proof to the verifier
 who verifies the proof according to the CRI.
 For verification to succeed, the version of the CRI (known as the "epoch") used by the end user and verifier must be same.
-The latest CRI can be requested by sending a request to ``/api/v1/idemix/cri`` API endpoint.
+The latest CRI can be requested by sending a request to ``/api/v1/idemix/cri`` API endpoint or by issuing following 
+command:
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/peer1
+    fabric-ca-client getcri
+
 
 The version of the CRI is incremented when an enroll request is received by the fabric-ca-server and there are no revocation
 handles remaining in the revocation handle pool. In this case, the fabric-ca-server must generate a new pool of revocation

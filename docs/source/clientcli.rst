@@ -16,6 +16,7 @@ Fabric-CA Client's CLI
       gencrl      Generate a CRL
       gencsr      Generate a CSR
       getcainfo   Get CA certificate chain and Idemix public key
+      getcri      GET latest CRI from the Fabric CA server
       identity    Manage identities
       reenroll    Reenroll an identity
       register    Register an identity
