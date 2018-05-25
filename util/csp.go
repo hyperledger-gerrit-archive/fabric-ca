@@ -82,6 +82,11 @@ func makeFileNamesAbsolute(opts *factory.FactoryOpts, homeDir string) error {
 		fks := opts.SwOpts.FileKeystore
 		fks.KeyStorePath, err = MakeFileAbs(fks.KeyStorePath, homeDir)
 	}
+
+	if err == nil && opts != nil && opts.Pkcs11Opts != nil && opts.Pkcs11Opts.FileKeystore != nil {
+		fks := opts.Pkcs11Opts.FileKeystore
+		fks.KeyStorePath, err = MakeFileAbs(fks.KeyStorePath, homeDir)
+	}
 	return err
 }
 
