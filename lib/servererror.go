@@ -169,6 +169,8 @@ const (
 	ErrParsingIntEnvVar = 68
 	// Error occurs when invoking a request that is not allowed for a specific credential type
 	ErrInvalidCredType = 69
+	// Error occurs when invoking a request revoked enrollment ID
+	ErrRevokedID = 70
 )
 
 // Construct a new HTTP error.
