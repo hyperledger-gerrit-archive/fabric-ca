@@ -1,0 +1,8 @@
+Code-Review+2: Kostas Christidis <kostas@gmail.com>
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Submitted-by: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Submitted-at: Fri, 25 May 2018 13:01:26 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/13845
+Project: fabric-ca
+Branch: refs/heads/master
