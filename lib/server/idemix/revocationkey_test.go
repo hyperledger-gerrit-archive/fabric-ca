@@ -28,6 +28,9 @@ const (
 
 func TestLoadNonExistentRevocationPublicKey(t *testing.T) {
 	testdir, err := ioutil.TempDir(".", "rkloadTest")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %s", err.Error())
+	}
 	defer os.RemoveAll(testdir)
 	idemixLib := new(mocks.Lib)
 	rk := NewRevocationKey(path.Join(testdir, DefaultRevocationPublicKeyFile),
@@ -41,6 +44,9 @@ func TestLoadNonExistentRevocationPublicKey(t *testing.T) {
 
 func TestLoadEmptyRevocationPublicKey(t *testing.T) {
 	testdir, err := ioutil.TempDir(".", "rkloadTest")
+	if err != nil {
+		t.Fatalf("Failed to create temp directory: %s", err.Error())
+	}
 	pubkeyfile, err := ioutil.TempFile(testdir, DefaultRevocationPublicKeyFile)
 	defer os.RemoveAll(testdir)
 	idemixLib := new(mocks.Lib)

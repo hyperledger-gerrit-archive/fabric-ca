@@ -6,8 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 
 package idemix
 
-import "path/filepath"
-import "github.com/hyperledger/fabric-ca/util"
+import (
+	"os"
+	"path"
+	"path/filepath"
+
+	"github.com/hyperledger/fabric-ca/util"
+	"github.com/pkg/errors"
+)
 
 const (
 	// DefaultIssuerPublicKeyFile is the default name of the file that contains issuer public key
@@ -57,6 +63,15 @@ func (c *Config) init(homeDir string) error {
 	err := util.MakeFileNamesAbsolute(fields, homeDir)
 	if err != nil {
 		return err
+	}
+	// Check if the keystore directory exists. It may not exist if CA is configured to store
+	// X509 private keys in an HSM
+	secretkeyDir := path.Dir(c.IssuerSecretKeyfile)
+	if _, err := os.Stat(secretkeyDir); os.IsNotExist(err) {
+		err = os.MkdirAll(secretkeyDir, 0755)
+		if err != nil {
+			return errors.Wrapf(err, "Failed to create directory '%s' while initializing issuer config", secretkeyDir)
+		}
 	}
 	return nil
 }
