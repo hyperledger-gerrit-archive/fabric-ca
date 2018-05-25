@@ -167,6 +167,8 @@ const (
 	ErrGettingCert = 67
 	// Error occurred parsing variable as an integer
 	ErrParsingIntEnvVar = 68
+	// Error occurs when invoking a request revoked enrollment ID
+	ErrRevokedID = 69
 )
 
 // Construct a new HTTP error.
