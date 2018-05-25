@@ -472,6 +472,80 @@ func TestGenCRL(t *testing.T) {
 	assert.Error(t, err, "gencrl should have failed when --expireafter value is greater than --expirebefore")
 }
 
+func TestGetCRI(t *testing.T) {
+	t.Log("Testing GetCRI")
+	adminHome := filepath.Join(tdDir, "getcriadminhome")
+
+	// Remove admin home directory if it exists
+	err := os.RemoveAll(adminHome)
+	if err != nil {
+		t.Fatalf("Failed to remove directory %s: %s", adminHome, err)
+	}
+
+	// Remove admin home directory that this test is going to create before
+	// exiting the test case
+	defer os.RemoveAll(adminHome)
+
+	// Set up for the test case
+	srv := setupGenCRLTest(t, adminHome)
+
+	// Cleanup before exiting the test case
+	defer stopAndCleanupServer(t, srv)
+
+	// Error case 1: getcri command should fail when called without enrollment info
+	tmpHome := filepath.Join(os.TempDir(), "getcrihome")
+	defer os.RemoveAll(tmpHome)
+	prvHome := os.Getenv(homeEnvVar)
+	defer os.Setenv(homeEnvVar, prvHome)
+
+	os.Setenv(homeEnvVar, tmpHome)
+	err = RunMain([]string{cmdName, "getcri"})
+	assert.Error(t, err, "getcri should have failed when called without enrollment information")
+
+	os.Setenv(homeEnvVar, adminHome)
+	criFile := path.Join(adminHome, "msp/cri")
+
+	err = RunMain([]string{cmdName, "getcri"})
+	assert.NoError(t, err, "getcri should not fail when called by user with valid enrollment")
+	_, err = os.Stat(criFile)
+	assert.NoError(t, err, "cri was not found in the admin msp")
+
+	if err = os.Chmod(criFile, 0444); err != nil {
+		t.Fatalf("Failed to chmod for directory %s: %s", criFile, err.Error())
+	}
+	err = RunMain([]string{cmdName, "getcri"})
+	assert.Error(t, err, "getcri should not fail when storing the cri")
+
+	// Enroll with --enrollment.idemix parameter. Value of the -u parameter is used as server URL
+	err = RunMain([]string{cmdName, "enroll", "--enrollment.type", "idemix", "-d", "-u", enrollURL, "-H", adminHome})
+	if err != nil {
+		t.Fatalf("client enroll --enrollment.type idemix failed: %s", err.Error())
+	}
+
+	err = RunMain([]string{cmdName, "getcri"})
+	assert.NoError(t, err, "getcri should not fail when called by user with valid enrollment")
+
+	signerCfgFile := path.Join(adminHome, "msp/user/SignerConfig")
+	if err = os.Chmod(signerCfgFile, 0000); err != nil {
+		t.Fatalf("Failed to chmod for file %s: %s", signerCfgFile, err.Error())
+	}
+	err = RunMain([]string{cmdName, "getcri"})
+	assert.Error(t, err, "getcri should fail when command line client tries to load the idemix credential")
+	if err != nil {
+		assert.Contains(t, err.Error(), "Idemix credential value is not set")
+	}
+
+	signerCfgFile = path.Join(adminHome, "msp/user/SignerConfig")
+	if err = os.Chmod(signerCfgFile, 0444); err != nil {
+		t.Fatalf("Failed to chmod for file %s: %s", signerCfgFile, err.Error())
+	}
+	err = RunMain([]string{cmdName, "getcri"})
+	assert.Error(t, err, "getcri should fail when command line clien tries to store the credential")
+	if err != nil {
+		assert.Contains(t, err.Error(), "Failed to store the Idemix credential")
+	}
+}
+
 // Test role based access control
 func TestRBAC(t *testing.T) {
 	// Variable initialization
