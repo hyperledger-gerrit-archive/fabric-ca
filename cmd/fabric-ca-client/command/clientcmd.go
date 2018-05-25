@@ -158,6 +158,7 @@ func (c *ClientCmd) init() {
 		newGetCAInfoCmd(c).getCommand(),
 		c.newGenCsrCommand(),
 		c.newGenCRLCommand(),
+		newGetCRICmd(c).getCommand(),
 		c.newIdentityCommand(),
 		c.newAffiliationCommand(),
 		createCertificateCommand(c))

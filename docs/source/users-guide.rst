@@ -1484,18 +1484,24 @@ associated with creating authorization header and request payload, and with proc
 Getting Idemix CRI (Certificate Revocation Information)
 -----------------------------------------------
 An Idemix CRI (Credential Revocation Information) is similar in purpose to an X509 CRL (Certificate Revocation List):
-to revoke what was previously issued.  However, there are some differences.
+to revoke what was previously issued. However, there are some differences.
 
 In X509, the issuer revokes an end user's certificate and its ID is included in the CRL.
 The verifier checks to see if the user's certificate is in the CRL and if so, returns an authorization failure.
 The end user is not involved in this revocation process, other than receiving an authorization error from a verifier.
 
-In Idemix, the end user is involved.  The issuer revokes an end user's credential similar to X509 and evidence of this 
-revocation is recorded in the CRI.  The CRI is given to the end user (aka "prover").  The end user then generates a 
-proof that their credential has not been revoked according to the CRI.  The end user gives this proof to the verifier
+In Idemix, the end user is involved. The issuer revokes an end user's credential similar to X509 and evidence of this
+revocation is recorded in the CRI. The CRI is given to the end user (aka "prover"). The end user then generates a
+proof that their credential has not been revoked according to the CRI. The end user gives this proof to the verifier
 who verifies the proof according to the CRI.
 For verification to succeed, the version of the CRI (known as the "epoch") used by the end user and verifier must be same.
-The latest CRI can be requested by sending a request to ``/api/v1/idemix/cri`` API endpoint.
+The latest CRI can be requested by sending a request to ``/api/v1/idemix/cri`` API endpoint or by issuing following command:
+
+.. code:: bash
+
+    export FABRIC_CA_CLIENT_HOME=$HOME/fabric-ca/clients/peer1
+    fabric-ca-client getcri
+
 
 The version of the CRI is incremented when an enroll request is received by the fabric-ca-server and there are no revocation
 handles remaining in the revocation handle pool. In this case, the fabric-ca-server must generate a new pool of revocation
