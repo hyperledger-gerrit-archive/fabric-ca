@@ -31,7 +31,8 @@ func TestGetServerVersion(t *testing.T) {
 
 	var err error
 
-	metadata.Version = "1.1.0"
+	metadata.Version = "1.2.0"
+	metadata.DefaultVersion = "1.2.0"
 	srv := TestGetRootServer(t)
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
@@ -43,5 +44,5 @@ func TestGetServerVersion(t *testing.T) {
 	})
 	assert.NoError(t, err, "Failed to get back server info")
 
-	assert.Equal(t, "1.1.0", resp.Version)
+	assert.Equal(t, "1.2.0", resp.Version)
 }
