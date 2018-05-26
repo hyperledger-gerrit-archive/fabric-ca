@@ -34,6 +34,7 @@ PREV_VERSION = 1.1.0
 IS_RELEASE = false
 
 ARCH=$(shell go env GOARCH)
+
 MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 ifneq ($(IS_RELEASE),true)
 EXTRA_VERSION ?= snapshot-$(shell git rev-parse --short HEAD)
@@ -129,6 +130,8 @@ build/image/%/$(DUMMY): Makefile build/image/%/payload
 	$(eval DOCKER_NAME = $(DOCKER_NS)/$(TARGET))
 	@echo "Building docker $(TARGET) image"
 	@cat images/$(TARGET)/Dockerfile.in \
+		| sed -e 's/_BASE_NS_/$(BASE_DOCKER_NS)/g' \
+		| sed -e 's/_NS_/$(DOCKER_NS)/g' \
 		| sed -e 's/_BASE_TAG_/$(BASE_DOCKER_TAG)/g' \
 		| sed -e 's/_FABRIC_TAG_/$(FABRIC_TAG)/g' \
 		| sed -e 's/_TAG_/$(DOCKER_TAG)/g' \
@@ -215,7 +218,7 @@ fvt-tests:
 	@scripts/run_fvt_tests
 
 ci-tests: docker-clean docker-fvt all-tests docs
-	@docker run -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca hyperledger/fabric-ca-fvt
+	@docker run -v $(shell pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca ${BASE_DOCKER_NS}/fabric-ca-fvt
 
 %-docker-clean:
 	$(eval TARGET = ${patsubst %-docker-clean,%,${@}})
