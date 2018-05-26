@@ -199,9 +199,12 @@ for DRIVER in mysql postgres; do
    echo -e "   >>>>>>>>>>  Initializing Root CAs"
    $SCRIPTDIR/fabric-ca_setup.sh -x $ROOTDIR -I -n 1 -u $NUMCAS \
                                  -n $NUMSERVER -D -d $DRIVER > $ROOTDIR/log.txt 2>&1
+  
    echo -e "   >>>>>>>>>>  Initializing Intermediate CAs"
-   DBNAME=$INTDBNAME $SCRIPTDIR/fabric-ca_setup.sh -D -d $DRIVER -u $NUMCAS -I -r $INTERMEDIATE_CA_DEFAULT_PORT -x $INTDIR \
-        -U "${PROTO}$INTUSER:$INTPSWD@$ROOT_CA_ADDR:$CA_DEFAULT_PORT" > $INTDIR/log.txt 2>&1
+    
+   # Copy root CA config file to int CA home and change the database name
+   cp "$ROOTDIR/$DEFAULT_RUN_CONFIG_FILE_NAME" "$INTDIR/$DEFAULT_RUN_CONFIG_FILE_NAME"
+   sed -i "/datasource:/ s/datasource:\(.*\)fabric_ca\(.*\)/datasource:\1intfabric_ca\2/" "$INTDIR/$DEFAULT_RUN_CONFIG_FILE_NAME"
 
    ##################################################################
    ## Customize enrollment for each CA
@@ -213,6 +216,11 @@ for DRIVER in mysql postgres; do
    intermediateDBconfig=""
    # append the customized DB config to each CA's config file
    while test $((ca++)) -lt $NUMCAS; do
+      # Copy CA config files of root CA server to int CA home and change the database name
+      mkdir -p "$INTDIR/ca/ca$ca" || true
+      cp "$ROOTDIR/ca/ca$ca/fabric-ca-config.yaml" "$INTDIR/ca/ca$ca/fabric-ca-config.yaml"
+      sed -i "/datasource:/ s/datasource:\(.*\)fabric_ca_ca$ca\(.*\)/datasource:\1intfabric_ca_ca$ca\2/" "$INTDIR/ca/ca$ca/fabric-ca-config.yaml"
+
       # build the list of cafiles to be passed to server start
       rootCafiles="$rootCafiles,$ROOTDIR/ca/ca$ca/${DEFAULT_CA_CONFIG}"
       intermediateCafiles="$intermediateCafiles,$INTDIR/ca/ca$ca/${DEFAULT_CA_CONFIG}"
@@ -253,10 +261,11 @@ EOF
                                  -- "--cafiles" "$rootCafiles" >> $ROOTDIR/log.txt 2>&1 ||
                                  ErrorExit "Failed to start root servers"
    echo -e "   >>>>>>>>>>  Starting $NUMSERVER Intermediate CA instances with $NUMCAS servers each"
+
    $SCRIPTDIR/fabric-ca_setup.sh -n $NUMSERVER -S -r $INTERMEDIATE_CA_DEFAULT_PORT -x $INTDIR \
                                  -U "https://$INTUSER:$INTPSWD@$ROOT_CA_ADDR:$PROXY_PORT" \
                                  --  "--cafiles" "$intermediateCafiles" >> $INTDIR/log.txt 2>&1 ||
-                                 ErrorExit "Failed to intermediate servers"
+                                 ErrorExit "Failed to start intermediate servers"
 
    #########################################################
    # The bulk of the work comes here  --
