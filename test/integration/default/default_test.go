@@ -50,7 +50,8 @@ var (
 func TestMain(m *testing.M) {
 	var err error
 
-	metadata.Version = "1.1.0"
+	metadata.Version = "1.2.0"
+	metadata.DefaultVersion = "1.2.0"
 
 	os.RemoveAll(defaultServerHomeDir)
 	defaultServer, err = getDefaultServer()

@@ -31,6 +31,10 @@ const (
 // It is defined by the Makefile and passed in with ldflags
 var Version string
 
+// DefaultVersion is the version that is used for the current release if
+// Version variable is not set
+var DefaultVersion = "1.2.0"
+
 // GetVersionInfo returns version information for the fabric-ca-client/fabric-ca-server
 func GetVersionInfo(prgName string) string {
 	if Version == "" {
@@ -45,7 +49,17 @@ func GetVersionInfo(prgName string) string {
 // GetVersion returns the version
 func GetVersion() string {
 	if Version == "" {
-		panic("Version is not set for fabric-ca library")
+		// This must have been built with "go get" rather
+		// than through the Makefile, so just return
+		// the default version
+		return DefaultVersion
+	}
+	versionSemver := strings.Split(Version, "-")[0]
+	curVersSemver := strings.Split(DefaultVersion, "-")[0]
+	if versionSemver != curVersSemver {
+		// Panic here to indicate to the development team that CurrentVersion value must be updated to
+		// match the value of BASE_VERSION Makefile variable.
+		panic(fmt.Sprintf("Default version is set to %s. It must be set to %s", DefaultVersion, versionSemver))
 	}
 	return Version
 }
