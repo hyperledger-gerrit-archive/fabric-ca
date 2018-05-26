@@ -76,9 +76,29 @@ func TestGetVersionInfo(t *testing.T) {
 }
 
 func TestGetVersion(t *testing.T) {
+	metadata.Version = ""
 	info := metadata.GetVersion()
 
 	metadata.Version = "1.0.0"
+	f := func() {
+		metadata.GetVersion()
+	}
+	assert.Panics(t, f, "Should panic if DefaultVersion variable value is not same Version variable semver value")
+
+	metadata.DefaultVersion = "1.0.0"
+	metadata.Version = "1.0.0"
 	info = metadata.GetVersion()
 	assert.Contains(t, info, "1.0.0")
+
+	metadata.DefaultVersion = "1.0.0"
+	metadata.Version = "1.0.0-snapshot"
+	info = metadata.GetVersion()
+	assert.Contains(t, info, "1.0.0-snapshot")
+
+	metadata.DefaultVersion = "1.0.0"
+	metadata.Version = "1.1.0-snapshot"
+	f = func() {
+		metadata.GetVersion()
+	}
+	assert.Panics(t, f, "Should panic if DefaultVersion variable value is not same Version variable semver value")
 }

@@ -45,7 +45,8 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	metadata.Version = "1.1.0"
+	metadata.Version = "1.2.0"
+	metadata.DefaultVersion = "1.2.0"
 	os.Exit(m.Run())
 }
 

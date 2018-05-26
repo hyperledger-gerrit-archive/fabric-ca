@@ -121,11 +121,12 @@ func TestGetServer2(deleteHome bool, port int, home, parentURL string, maxEnroll
 					Profiles: profiles,
 					Default:  defaultProfile,
 				},
-				Version: "1.1.0", // The default test server/ca should use the latest version
+				Version: "1.2.0", // The default test server/ca should use the latest version
 			},
 		},
 		HomeDir: home,
 	}
+
 	// The bootstrap user's affiliation is the empty string, which
 	// means the user is at the affiliation root
 	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
