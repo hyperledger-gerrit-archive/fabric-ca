@@ -650,11 +650,17 @@ func (ca *CA) initDB() error {
 			dbError = true
 		}
 
-		err = ca.performMigration()
+		err = ca.migrateUserTable()
 		if err != nil {
 			log.Error(err)
 			dbError = true
 		}
+	}
+
+	err = ca.updateDBLevels()
+	if err != nil {
+		log.Error(err)
+		dbError = true
 	}
 
 	if dbError {
@@ -1172,7 +1178,7 @@ func (ca *CA) loadCNFromEnrollmentInfo(certFile string) (string, error) {
 	return name, nil
 }
 
-func (ca *CA) performMigration() error {
+func (ca *CA) migrateUserTable() error {
 	log.Debug("Checking and performing migration, if needed")
 
 	users, err := ca.registry.GetUserLessThanLevel(metadata.IdentityLevel)
@@ -1191,6 +1197,10 @@ func (ca *CA) performMigration() error {
 		}
 	}
 
+	return nil
+}
+
+func (ca *CA) updateDBLevels() error {
 	sl, err := metadata.GetLevels(metadata.GetVersion())
 	if err != nil {
 		return err
@@ -1199,7 +1209,6 @@ func (ca *CA) performMigration() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to correctly update level of tables in the database")
 	}
-
 	return nil
 }
 
