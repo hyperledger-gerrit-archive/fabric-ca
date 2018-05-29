@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
 
 dbDriver=postgres
 
@@ -331,6 +336,6 @@ testAlternateTruthValues
 echo -e "\n\n\n =============> testNonExistant"
 testNonExistant
 
-$SCRIPTDIR/fabric-ca_setup.sh -D -R -x $TESTDIR
+SCRIPTDIR/fabric-ca_setup.sh -D -R -x $TESTDIR
 CleanUp $RC
 exit $RC
