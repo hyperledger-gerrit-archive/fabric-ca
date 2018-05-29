@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-		 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package lib
@@ -89,18 +79,6 @@ UPDATE affiliations
 	WHERE (name = ?)`
 )
 
-// UserRecord defines the properties of a user
-type UserRecord struct {
-	Name           string `db:"id"`
-	Pass           []byte `db:"token"`
-	Type           string `db:"type"`
-	Affiliation    string `db:"affiliation"`
-	Attributes     string `db:"attributes"`
-	State          int    `db:"state"`
-	MaxEnrollments int    `db:"max_enrollments"`
-	Level          int    `db:"level"`
-}
-
 // AffiliationRecord defines the properties of an affiliation
 type AffiliationRecord struct {
 	ID     int    `db:"id"`
@@ -158,7 +136,7 @@ func (d *Accessor) InsertUser(user *spi.UserInfo) error {
 	}
 
 	// Store the user record in the DB
-	res, err := d.db.NamedExec(insertUser, &UserRecord{
+	res, err := d.db.NamedExec(insertUser, &dbutil.UserRecord{
 		Name:           user.Name,
 		Pass:           pwd,
 		Type:           user.Type,
@@ -201,8 +179,8 @@ func (d *Accessor) DeleteUser(id string) (spi.User, error) {
 		return nil, err
 	}
 
-	userRec := result.(*UserRecord)
-	user := newDBUser(userRec, d.db)
+	userRec := result.(*dbutil.UserRecord)
+	user := dbutil.NewDBUser(userRec, d.db)
 
 	return user, nil
 }
@@ -211,7 +189,7 @@ func (d *Accessor) deleteUserTx(tx *sqlx.Tx, args ...interface{}) (interface{}, 
 	id := args[0].(string)
 	reason := args[1].(int)
 
-	var userRec UserRecord
+	var userRec dbutil.UserRecord
 	err := tx.Get(&userRec, tx.Rebind(getUser), id)
 	if err != nil {
 		return nil, getError(err, "User")
@@ -262,7 +240,7 @@ func (d *Accessor) UpdateUser(user *spi.UserInfo, updatePass bool) error {
 	}
 
 	// Store the updated user entry
-	res, err := d.db.NamedExec(updateUser, &UserRecord{
+	res, err := d.db.NamedExec(updateUser, &dbutil.UserRecord{
 		Name:           user.Name,
 		Pass:           pwd,
 		Type:           user.Type,
@@ -300,13 +278,13 @@ func (d *Accessor) GetUser(id string, attrs []string) (spi.User, error) {
 		return nil, err
 	}
 
-	var userRec UserRecord
+	var userRec dbutil.UserRecord
 	err = d.db.Get(&userRec, d.db.Rebind(getUser), id)
 	if err != nil {
 		return nil, getError(err, "User")
 	}
 
-	return newDBUser(&userRec, d.db), nil
+	return dbutil.NewDBUser(&userRec, d.db), nil
 }
 
 // InsertAffiliation inserts affiliation into database
@@ -373,10 +351,10 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 
 	subAffName := name + ".%"
 	query := "SELECT * FROM users WHERE (affiliation = ? OR affiliation LIKE ?)"
-	ids := []UserRecord{}
+	ids := []dbutil.UserRecord{}
 	err = tx.Select(&ids, tx.Rebind(query), name, subAffName)
 	if err != nil {
-		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with sub-affiliation of '%s': %s", name, err)
+		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with affiliation '%s': %s", name, err)
 	}
 
 	idNames := []string{}
@@ -526,42 +504,9 @@ func (d *Accessor) getAffiliationTreeTx(tx *sqlx.Tx, args ...interface{}) (inter
 		}
 	}
 
-	ids := []UserRecord{} // TODO: Return identities associated with these affiliations
+	ids := []dbutil.UserRecord{} // TODO: Return identities associated with these affiliations
 	result := d.getResult(ids, allAffs)
 	return result, nil
-}
-
-// GetProperties returns the properties from the database
-func (d *Accessor) GetProperties(names []string) (map[string]string, error) {
-	log.Debugf("DB: Get properties %s", names)
-	err := d.checkDB()
-	if err != nil {
-		return nil, err
-	}
-
-	type property struct {
-		Name  string `db:"property"`
-		Value string `db:"value"`
-	}
-
-	properties := []property{}
-
-	query := "SELECT * FROM properties WHERE (property IN (?))"
-	inQuery, args, err := sqlx.In(query, names)
-	if err != nil {
-		return nil, errors.Wrapf(err, "Failed to construct query '%s' for properties '%s'", query, names)
-	}
-	err = d.db.Select(&properties, d.db.Rebind(inQuery), args...)
-	if err != nil {
-		return nil, getError(err, "Properties")
-	}
-
-	propertiesMap := make(map[string]string)
-	for _, prop := range properties {
-		propertiesMap[prop.Name] = prop.Value
-	}
-
-	return propertiesMap, nil
 }
 
 // GetUserLessThanLevel returns all identities that are less than the level specified
@@ -579,9 +524,9 @@ func (d *Accessor) GetUserLessThanLevel(level int) ([]spi.User, error) {
 	allUsers := []spi.User{}
 
 	for rows.Next() {
-		var user UserRecord
+		var user dbutil.UserRecord
 		rows.StructScan(&user)
-		dbUser := newDBUser(&user, d.db)
+		dbUser := dbutil.NewDBUser(&user, d.db)
 		allUsers = append(allUsers, dbUser)
 	}
 
@@ -721,7 +666,7 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	// Iterate through all the affiliations found and update to use new affiliation path
 	idsUpdated := []string{}
 	for _, affiliation := range allOldAffiliations {
-		var idsWithOldAff []UserRecord
+		var idsWithOldAff []dbutil.UserRecord
 		oldPath := affiliation.Name
 		oldParentPath := affiliation.Prekey
 		newPath := strings.Replace(oldPath, oldAffiliation, newAffiliation, 1)
@@ -758,11 +703,11 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 
 				// If user's affiliation is being updated, need to also update 'hf.Affiliation' attribute of user
 				for _, userRec := range idsWithOldAff {
-					user := newDBUser(&userRec, d.db)
+					user := dbutil.NewDBUser(&userRec, d.db)
 					currentAttrs, _ := user.GetAttributes(nil)                            // Get all current user attributes
 					userAff := GetUserAffiliation(user)                                   // Get the current affiliation
 					newAff := strings.Replace(userAff, oldAffiliation, newAffiliation, 1) // Replace old affiliation with new affiliation
-					userAttrs := getNewAttributes(currentAttrs, []api.Attribute{          // Generate the new set of attributes for user
+					userAttrs := dbutil.GetNewAttributes(currentAttrs, []api.Attribute{   // Generate the new set of attributes for user
 						api.Attribute{
 							Name:  attr.Affiliation,
 							Value: newAff,
@@ -816,7 +761,7 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	}
 
 	// Generate the result set that has all identities with their new affiliation and all renamed affiliations
-	var idsWithNewAff []UserRecord
+	var idsWithNewAff []dbutil.UserRecord
 	if len(idsUpdated) > 0 {
 		query := "Select * FROM users WHERE (id IN (?))"
 		inQuery, args, err := sqlx.In(query, idsUpdated)
@@ -866,11 +811,11 @@ func (d *Accessor) doTransaction(doit func(tx *sqlx.Tx, args ...interface{}) (in
 }
 
 // Returns the identities and affiliations that were modified
-func (d *Accessor) getResult(ids []UserRecord, affs []AffiliationRecord) *spi.DbTxResult {
+func (d *Accessor) getResult(ids []dbutil.UserRecord, affs []AffiliationRecord) *spi.DbTxResult {
 	// Collect all the identities that were modified
 	identities := []spi.User{}
 	for _, id := range ids {
-		identities = append(identities, newDBUser(&id, d.db))
+		identities = append(identities, dbutil.NewDBUser(&id, d.db))
 	}
 
 	// Collect the name of all affiliations that were modified
@@ -884,265 +829,6 @@ func (d *Accessor) getResult(ids []UserRecord, affs []AffiliationRecord) *spi.Db
 		Affiliations: affiliations,
 		Identities:   identities,
 	}
-}
-
-// Creates a DBUser object from the DB user record
-func newDBUser(userRec *UserRecord, db *dbutil.DB) *DBUser {
-	var user = new(DBUser)
-	user.Name = userRec.Name
-	user.pass = userRec.Pass
-	user.State = userRec.State
-	user.MaxEnrollments = userRec.MaxEnrollments
-	user.Affiliation = userRec.Affiliation
-	user.Type = userRec.Type
-	user.Level = userRec.Level
-
-	var attrs []api.Attribute
-	json.Unmarshal([]byte(userRec.Attributes), &attrs)
-	user.Attributes = attrs
-
-	user.attrs = make(map[string]api.Attribute)
-	for _, attr := range attrs {
-		user.attrs[attr.Name] = api.Attribute{
-			Name:  attr.Name,
-			Value: attr.Value,
-			ECert: attr.ECert,
-		}
-	}
-
-	user.db = db
-	return user
-}
-
-// DBUser is the databases representation of a user
-type DBUser struct {
-	spi.UserInfo
-	pass  []byte
-	attrs map[string]api.Attribute
-	db    *dbutil.DB
-}
-
-// GetName returns the enrollment ID of the user
-func (u *DBUser) GetName() string {
-	return u.Name
-}
-
-// GetType returns the type of the user
-func (u *DBUser) GetType() string {
-	return u.Type
-}
-
-// GetMaxEnrollments returns the max enrollments of the user
-func (u *DBUser) GetMaxEnrollments() int {
-	return u.MaxEnrollments
-}
-
-// GetLevel returns the level of the user
-func (u *DBUser) GetLevel() int {
-	return u.Level
-}
-
-// SetLevel sets the level of the user
-func (u *DBUser) SetLevel(level int) error {
-	query := "UPDATE users SET level = ? where (id = ?)"
-	id := u.GetName()
-	res, err := u.db.Exec(u.db.Rebind(query), level, id)
-	if err != nil {
-		return err
-	}
-	numRowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "Failed to get number of rows affected")
-	}
-
-	if numRowsAffected == 0 {
-		return errors.Errorf("No rows were affected when updating the state of identity %s", id)
-	}
-
-	if numRowsAffected != 1 {
-		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, id)
-	}
-	return nil
-}
-
-// Login the user with a password
-func (u *DBUser) Login(pass string, caMaxEnrollments int) error {
-	log.Debugf("DB: Login user %s with max enrollments of %d and state of %d", u.Name, u.MaxEnrollments, u.State)
-
-	// Check the password by comparing to stored hash
-	err := bcrypt.CompareHashAndPassword(u.pass, []byte(pass))
-	if err != nil {
-		return errors.Wrap(err, "Password mismatch")
-	}
-
-	if u.MaxEnrollments == 0 {
-		return errors.Errorf("Zero is an invalid value for maximum enrollments on identity '%s'", u.Name)
-	}
-
-	if u.State == -1 {
-		return errors.Errorf("User %s is revoked; access denied", u.Name)
-	}
-
-	// If max enrollment value of user is greater than allowed by CA, using CA max enrollment value for user
-	if caMaxEnrollments != -1 && (u.MaxEnrollments > caMaxEnrollments || u.MaxEnrollments == -1) {
-		log.Debugf("Max enrollment value (%d) of identity is greater than allowed by CA, using CA max enrollment value of %d", u.MaxEnrollments, caMaxEnrollments)
-		u.MaxEnrollments = caMaxEnrollments
-	}
-
-	// If maxEnrollments is set to -1, user has unlimited enrollment
-	// If the maxEnrollments is set (i.e. >= 1), make sure we haven't exceeded this number of logins.
-	// The state variable keeps track of the number of previously successful logins.
-	if u.MaxEnrollments != -1 && u.State >= u.MaxEnrollments {
-		return errors.Errorf("The identity %s has already enrolled %d times, it has reached its maximum enrollment allowance", u.Name, u.MaxEnrollments)
-	}
-
-	log.Debugf("DB: identity %s successfully logged in", u.Name)
-
-	return nil
-
-}
-
-// LoginComplete completes the login process by incrementing the state of the user
-func (u *DBUser) LoginComplete() error {
-	var stateUpdateSQL string
-	var args []interface{}
-	var err error
-
-	state := u.State + 1
-	args = append(args, u.Name)
-	if u.MaxEnrollments == -1 {
-		// unlimited so no state check
-		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ?)"
-	} else {
-		// state must be less than max enrollments
-		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ? AND state < ?)"
-		args = append(args, u.MaxEnrollments)
-	}
-	res, err := u.db.Exec(u.db.Rebind(stateUpdateSQL), args...)
-	if err != nil {
-		return errors.Wrapf(err, "Failed to update state of identity %s to %d", u.Name, state)
-	}
-
-	numRowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "db.RowsAffected failed")
-	}
-
-	if numRowsAffected == 0 {
-		return errors.Errorf("No rows were affected when updating the state of identity %s", u.Name)
-	}
-
-	if numRowsAffected != 1 {
-		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, u.Name)
-	}
-
-	log.Debugf("Successfully incremented state for identity %s to %d", u.Name, state)
-	return nil
-
-}
-
-// GetAffiliationPath returns the complete path for the user's affiliation.
-func (u *DBUser) GetAffiliationPath() []string {
-	affiliationPath := strings.Split(u.Affiliation, ".")
-	return affiliationPath
-}
-
-// GetAttribute returns the value for an attribute name
-func (u *DBUser) GetAttribute(name string) (*api.Attribute, error) {
-	value, hasAttr := u.attrs[name]
-	if !hasAttr {
-		return nil, errors.Errorf("User does not have attribute '%s'", name)
-	}
-	return &value, nil
-}
-
-// GetAttributes returns the requested attributes. Return all the user's
-// attributes if nil is passed in
-func (u *DBUser) GetAttributes(attrNames []string) ([]api.Attribute, error) {
-	var attrs []api.Attribute
-	if attrNames == nil {
-		for _, value := range u.attrs {
-			attrs = append(attrs, value)
-		}
-		return attrs, nil
-	}
-
-	for _, name := range attrNames {
-		value, hasAttr := u.attrs[name]
-		if !hasAttr {
-			return nil, errors.Errorf("User does not have attribute '%s'", name)
-		}
-		attrs = append(attrs, value)
-	}
-	return attrs, nil
-}
-
-// Revoke will revoke the user, setting the state of the user to be -1
-func (u *DBUser) Revoke() error {
-	stateUpdateSQL := "UPDATE users SET state = -1 WHERE (id = ?)"
-
-	res, err := u.db.Exec(u.db.Rebind(stateUpdateSQL), u.GetName())
-	if err != nil {
-		return errors.Wrapf(err, "Failed to update state of identity %s to -1", u.Name)
-	}
-
-	numRowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "db.RowsAffected failed")
-	}
-
-	if numRowsAffected == 0 {
-		return errors.Errorf("No rows were affected when updating the state of identity %s", u.Name)
-	}
-
-	if numRowsAffected != 1 {
-		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, u.Name)
-	}
-
-	log.Debugf("Successfully incremented state for identity %s to -1", u.Name)
-
-	return nil
-}
-
-// IsRevoked returns back true if user is revoked
-func (u *DBUser) IsRevoked() bool {
-	if u.State == -1 {
-		return true
-	}
-	return false
-}
-
-// ModifyAttributes adds a new attribute, modifies existing attribute, or delete attribute
-func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute) error {
-	log.Debugf("Modify Attributes: %+v", newAttrs)
-	currentAttrs, _ := u.GetAttributes(nil)
-	userAttrs := getNewAttributes(currentAttrs, newAttrs)
-
-	attrBytes, err := json.Marshal(userAttrs)
-	if err != nil {
-		return err
-	}
-
-	query := "UPDATE users SET attributes = ? where (id = ?)"
-	id := u.GetName()
-	res, err := u.db.Exec(u.db.Rebind(query), string(attrBytes), id)
-	if err != nil {
-		return err
-	}
-
-	numRowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "Failed to get number of rows affected")
-	}
-
-	if numRowsAffected == 0 {
-		return errors.Errorf("No rows were affected when updating the state of identity %s", id)
-	}
-
-	if numRowsAffected != 1 {
-		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, id)
-	}
-	return nil
 }
 
 func getError(err error, getType string) error {
