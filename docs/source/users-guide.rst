@@ -2015,8 +2015,7 @@ issuing the following command.
 Manage Certificates
 ~~~~~~~~~~~~~~~~~~~~
 
-This section describes how to use fabric-ca-client to manage certificates. The
-following shows how to list and delete certificates.
+This section describes how to use fabric-ca-client to manage certificates.
 
 Listing certificates information
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -2024,25 +2023,27 @@ Listing certificates information
 The certificates that are visible to a caller include:
 
   - Those certificates which belong to the caller
-  - If the caller possesses the 'hf.Registrar.Roles' attribute or the 'hf.Revoker' attribute with a value of 'true',
+  - If the caller possesses the ``hf.Registrar.Roles`` attribute or the ``hf.Revoker`` attribute with a value of ``true``,
     all certificates which belong to identities in and below the caller's affiliation. For example, if the client's
-    affiliation is "a.b", the client may get certificates for identities who's affiliation
-    is "a.b" or "a.b.c" but not "a" or "a.c".
+    affiliation is ``a.b``, the client may get certificates for identities who's affiliation
+    is ``a.b`` or ``a.b.c`` but not ``a`` or ``a.c``.
 
 If executing a list command that requests certificates of more than one identity, only certificates of identities
 with an affiliation that is equal to or heirachically below the caller's affiliation will be listed.
 
-The certificates which will be listed may be filtered based on ID, AKI, serial number, expiration time, and/or revocation time.
+The certificates which will be listed may be filtered based on ID, AKI, serial number, expiration time, revocation time, notrevoked, and/or notexpired flags.
 
-ID: List certificates for this enrollment ID
-Serial Number: List certificates that have this serial number
-AKI: List certificates that have this AKI
-Expiration Time: List certificates that have expiration dates that fall within this expiration time
-Revocation Time: List certificates that were revoked within this revocation time
+* ``id``: List certificates for this enrollment ID
+* ``serial``: List certificates that have this serial number
+* ``aki``: List certificates that have this AKI
+* ``expiration``: List certificates that have expiration dates that fall within this expiration time
+* ``revocation``: List certificates that were revoked within this revocation time
+* ``notrevoked``: List certificates that have not yet been revoked
+* ``notexpired``: List certificates that have not yet expired
 
-There are two other filters that will further filter your results. You can choose to not return revoked certificates
-and/or not return expired certificates. For example, if you only care about certificates that have expired but have
-not been revoked you can use this filter to get back such results. An example of this case is provided below.
+You can use flags ``notexpired`` and ``notrevoekd`` as filters to exclude revoked certificates and/or expired certificate from the result set.
+For example, if you only care about certificates that have expired but have not been revoked you can use the ``notrevoked`` filter to
+get back such results. An example of this case is provided below.
 
 Time should be specified based on RFC3339. For instance, to list certificates that have expirations between
 March 1, 2018 at 1:00 PM and June 15, 2018 at 2:00 AM, the input time string would look like 2018-03-01T13:00:00z
@@ -2082,6 +2083,7 @@ List certificates that are neither revoker nor expired by id:
  fabric-ca-client certificate list --id admin --notrevoked --notexpired
 
 List all certificates that have not been revoked for an id (admin):
+
 .. code:: bash
 
  fabric-ca-client certificate list --id admin --notrevoked
@@ -2185,7 +2187,8 @@ Contact specific CA instance
 When a server is running multiple CA instances, requests can be directed to a
 specific CA. By default, if no CA name is specified in the client request the
 request will be directed to the default CA on the fabric-ca server. A CA name
-can be specified on the command line of a client command as follows:
+can be specified on the command line of a client command using the ``caname``
+filter as follows:
 
 .. code:: bash
 
