@@ -550,9 +550,9 @@ func TestCWBCAConfig(t *testing.T) {
 func TestCWBNewCertificateRequest(t *testing.T) {
 	c := &Client{}
 	req := &api.CSRInfo{
-		Names:      []csr.Name{},
-		Hosts:      []string{},
-		KeyRequest: api.NewBasicKeyRequest(),
+		Names: []csr.Name{},
+		Hosts: []string{},
+		Key:   api.NewBasicKeyRequest(),
 	}
 	if c.newCertificateRequest(req) == nil {
 		t.Error("newCertificateRequest failed")
