@@ -136,6 +136,9 @@ tls:
 #############################################################################
 csr:
   cn: <<<ENROLLMENT_ID>>>
+  key:
+    algo: ecdsa
+    size: 256
   serialnumber:
   names:
     - C: US

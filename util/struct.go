@@ -48,9 +48,18 @@ func ParseObj(obj interface{}, cb func(*Field) error) error {
 }
 
 func parse(ptr interface{}, cb func(*Field) error, parent *Field) error {
+	v := reflect.ValueOf(ptr)
+	err := parse2(v, cb, parent)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func parse2(val reflect.Value, cb func(*Field) error, parent *Field) error {
 	var path string
 	var depth int
-	v := reflect.ValueOf(ptr).Elem()
+	v := val.Elem()
 	t := v.Type()
 	for i := 0; i < v.NumField(); i++ {
 		vf := v.Field(i)
@@ -81,6 +90,17 @@ func parse(ptr interface{}, cb func(*Field) error, parent *Field) error {
 		err := cb(field)
 		if err != nil {
 			return err
+		}
+		if kind == reflect.Ptr {
+			// Skip parsing the entire struct if "skip" tag is present on a struct field
+			if tf.Tag.Get(TagSkip) == "true" {
+				continue
+			}
+			rf := reflect.New(vf.Type().Elem())
+			err := parse2(rf, cb, field)
+			if err != nil {
+				return err
+			}
 		}
 		if kind == reflect.Struct {
 			// Skip parsing the entire struct if "skip" tag is present on a struct field

@@ -972,7 +972,7 @@ signing:
       caconstraint:
          isca: false
 csr:
-  keyrequest:
+  key:
     algo: $KEYTYPE
     size: $KEYLEN 
   names:

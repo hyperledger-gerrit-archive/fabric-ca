@@ -1029,7 +1029,13 @@ func testEnroll(t *testing.T) {
 		t.Errorf("No username/password provided, should have errored")
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp")})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.key.algo", "badalgo"})
+	assert.Error(t, err, "Incorrect key algo value, should fail")
+
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.key.algo", "ecdsa", "--csr.key.size", "1234"})
+	assert.Error(t, err, "Incorrect key size value, should fail")
+
+	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.key.algo", "ecdsa", "--csr.key.size", "256"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -1103,7 +1109,7 @@ func TestDifferentKeySizeAlgos(t *testing.T) {
       L:
       O: Hyperledger
       OU: Fabric
-  keyrequest:
+  key:
     algo: <<ALGO>>
     size: <<SIZE>>
   hosts:
@@ -2496,7 +2502,7 @@ func setupGenCSRTest(t *testing.T, adminHome string) *lib.Server {
 
 	srv := lib.TestGetServer(serverPort, srvHome, "", -1, t)
 	srv.Config.Debug = true
-	srv.CA.Config.CSR.KeyRequest = &api.BasicKeyRequest{Algo: "ecdsa", Size: 384}
+	srv.CA.Config.CSR.Key = &api.BasicKeyRequest{Algo: "ecdsa", Size: 384}
 
 	adminName := "admin"
 	adminPass := "adminpw"

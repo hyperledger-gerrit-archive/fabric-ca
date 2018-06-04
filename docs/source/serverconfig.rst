@@ -307,6 +307,9 @@ Fabric-CA Server's Configuration File
     ###########################################################################
     csr:
        cn: <<<COMMONNAME>>>
+       key:
+         algo: ecdsa
+         size: 256
        names:
           - C: US
             ST: "North Carolina"

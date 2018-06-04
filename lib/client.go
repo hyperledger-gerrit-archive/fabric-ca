@@ -202,7 +202,7 @@ func (c *Client) GenCSR(req *api.CSRInfo, id string) ([]byte, bccsp.Key, error) 
 	cr := c.newCertificateRequest(req)
 	cr.CN = id
 
-	if cr.KeyRequest == nil {
+	if (cr.KeyRequest == nil) || (cr.KeyRequest.Size() == 0 && cr.KeyRequest.Algo() == "") {
 		cr.KeyRequest = newCfsslBasicKeyRequest(api.NewBasicKeyRequest())
 	}
 
@@ -505,8 +505,8 @@ func (c *Client) newCertificateRequest(req *api.CSRInfo) *csr.CertificateRequest
 			cr.Hosts[0] = hostname
 		}
 	}
-	if req != nil && req.KeyRequest != nil {
-		cr.KeyRequest = newCfsslBasicKeyRequest(req.KeyRequest)
+	if req != nil && req.Key != nil {
+		cr.KeyRequest = newCfsslBasicKeyRequest(req.Key)
 	}
 	if req != nil {
 		cr.CA = req.CA

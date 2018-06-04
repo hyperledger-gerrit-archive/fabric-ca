@@ -36,7 +36,7 @@ test -d "$CA_CFG_PATH/$USERNAME" || mkdir -p $CA_CFG_PATH/$USERNAME
 cat > $CA_CFG_PATH/$USERNAME/fabric-ca-client-config.yaml <<EOF
 csr:
   cn: $USERNAME
-  keyrequest:
+  key:
     algo: $KEYTYPE
     size: $KEYLEN
 EOF
