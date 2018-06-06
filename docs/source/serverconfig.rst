@@ -40,19 +40,19 @@ Fabric-CA Server's Configuration File
     #   of this configuration file.
     #
     #############################################################################
-    
+
     # Version of config file
     version: <<<VERSION>>>
-    
+
     # Server's listening port (default: 7054)
     port: 7054
-    
+
     # Enables debug logging (default: false)
     debug: false
-    
+
     # Size limit of an acceptable CRL in bytes (default: 512000)
     crlsizelimit: 512000
-    
+
     #############################################################################
     #  TLS section for the server's listening port
     #
@@ -72,7 +72,7 @@ Fabric-CA Server's Configuration File
       clientauth:
         type: noclientcert
         certfiles:
-    
+
     #############################################################################
     #  The CA section contains information related to the Certificate Authority
     #  including the name of the CA, which should be unique for all members
@@ -92,7 +92,7 @@ Fabric-CA Server's Configuration File
       certfile:
       # Chain file
       chainfile:
-    
+
     #############################################################################
     #  The gencrl REST endpoint is used to generate a CRL that contains revoked
     #  certificates. This section contains configuration options that are used
@@ -103,7 +103,7 @@ Fabric-CA Server's Configuration File
       # specified by this property is added to the UTC time, the resulting time
       # is used to set the 'Next Update' date of the CRL.
       expiry: 24h
-    
+
     #############################################################################
     #  The registry section controls how the fabric-ca-server does two things:
     #  1) authenticates enrollment requests which contain a username and password
@@ -125,7 +125,7 @@ Fabric-CA Server's Configuration File
       # Maximum number of times a password/secret can be reused for enrollment
       # (default: -1, which means there is no limit)
       maxenrollments: -1
-    
+
       # Contains identity information which is used when LDAP is disabled
       identities:
          - name: <<<adminUserName>>>
@@ -140,7 +140,7 @@ Fabric-CA Server's Configuration File
               hf.GenCRL: true
               hf.Registrar.Attributes: "*"
               hf.AffiliationMgr: true
-    
+
     #############################################################################
     #  Database section
     #  Supported types are: "sqlite3", "postgres", and "mysql".
@@ -160,7 +160,7 @@ Fabric-CA Server's Configuration File
           client:
             certfile:
             keyfile:
-    
+
     #############################################################################
     #  LDAP section
     #  If LDAP is enabled, the fabric-ca-server calls LDAP to:
@@ -220,7 +220,7 @@ Fabric-CA Server's Configuration File
              groups:
                 - name:
                   value:
-    
+
     #############################################################################
     # Affiliations section. Fabric CA server can be bootstrapped with the
     # affiliations specified in this section. Affiliations are specified as maps.
@@ -247,7 +247,7 @@ Fabric-CA Server's Configuration File
           - department2
        org2:
           - department1
-    
+
     #############################################################################
     #  Signing section
     #
@@ -286,7 +286,7 @@ Fabric-CA Server's Configuration File
                 - client auth
                 - key agreement
              expiry: 8760h
-    
+
     ###########################################################################
     #  Certificate Signing Request (CSR) section.
     #  This controls the creation of the root CA certificate.
@@ -319,7 +319,7 @@ Fabric-CA Server's Configuration File
        ca:
           expiry: 131400h
           pathlength: <<<PATHLENGTH>>>
-    
+
     ###########################################################################
     # Each CA can issue both X509 enrollment certificate as well as Idemix
     # Credential. This section specifies configuration for the issuer component
@@ -333,17 +333,17 @@ Fabric-CA Server's Configuration File
       # A revocation handle and credential revocation information (CRI) are used to create non revocation proof
       # by the prover to prove to the verifier that her credential is not revoked.
       rhpoolsize: 1000
-    
+
       # The Idemix credential issuance is a two step process. First step is to  get a nonce from the issuer
       # and second step is send credential request that is constructed using the nonce to the isuser to
       # request a credential. This configuration property specifies expiration for the nonces. By default is
       # nonces expire after 15 seconds. The value is expressed in the time.Duration format (see https://golang.org/pkg/time/#ParseDuration).
       nonceexpiration: 15s
-    
+
       # Specifies interval at which expired nonces are removed from datastore. Default value is 15 minutes.
       #  The value is expressed in the time.Duration format (see https://golang.org/pkg/time/#ParseDuration)
       noncesweepinterval: 15m
-    
+
     #############################################################################
     # BCCSP (BlockChain Crypto Service Provider) section is used to select which
     # crypto library implementation to use
@@ -356,7 +356,7 @@ Fabric-CA Server's Configuration File
             filekeystore:
                 # The directory used for the software file-based keystore
                 keystore: msp/keystore
-    
+
     #############################################################################
     # Multi CA section
     #
@@ -381,11 +381,11 @@ Fabric-CA Server's Configuration File
     # --cafiles ca/ca2/fabric-ca-server-config.yaml
     #
     #############################################################################
-    
+
     cacount:
-    
+
     cafiles:
-    
+
     #############################################################################
     # Intermediate CA section
     #
@@ -420,14 +420,23 @@ Fabric-CA Server's Configuration File
       parentserver:
         url:
         caname:
-    
+
       enrollment:
         hosts:
         profile:
         label:
-    
+
       tls:
         certfiles:
         client:
           certfile:
           keyfile:
+    #############################################################################
+    # Extra configuration options
+    # .e.g to enable adding and removing affiliations or identities
+    #############################################################################
+    cfg:
+      affiliations:
+        allowremove: false
+      identities:
+        allowremove: false
