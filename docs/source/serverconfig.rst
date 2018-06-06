@@ -431,3 +431,12 @@ Fabric-CA Server's Configuration File
         client:
           certfile:
           keyfile:
+    #############################################################################
+    # Extra configuration options
+    # .e.g to enable adding and removing affiliations or identities
+    #############################################################################
+    cfg:
+      affiliations:
+        allowremove: false
+      identities:
+        allowremove: false
