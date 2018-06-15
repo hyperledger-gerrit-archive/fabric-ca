@@ -307,6 +307,7 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
+	srv.CA.Config.Cfg.Identities.DisableRemove = true
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()

@@ -1,4 +1,8 @@
 #!/bin/bash
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
 
 dbDriver=postgres
 
@@ -95,10 +99,11 @@ function genAffYaml() {
 }
 
 function setupServerEnv() {
-   $SCRIPTDIR/fabric-ca_setup.sh -d $dbDriver -I -S -X -n1 -D -x $TESTDIR > $TESTDIR/server.log 2>&1
+   $SCRIPTDIR/fabric-ca_setup.sh -d $dbDriver -I -S -X -n1 -D -x $TESTDIR -- \
+       --cfg.affiliations.disableremove > $TESTDIR/server.log 2>&1
    enroll
-   # Ensure affiliations cannot be deleted if --cfg.affiliations.allowremove not configured
-   $FABRIC_CA_CLIENTEXEC affiliation remove org1 $URI -H $TESTDIR/admin/ 2>&1|
+   # Ensure affiliations cannot be deleted if --cfg.affiliations.disableremove is configured on the server
+   $FABRIC_CA_CLIENTEXEC affiliation remove org1 $URI -H $TESTDIR/admin/ --force -d  2>&1|
       grep 'Authorization failure' ||
          ErrorMsg "should not be able to delete 'org1', or wrong error msg"
    $SCRIPTDIR/fabric-ca_setup.sh -K
@@ -107,7 +112,7 @@ function setupServerEnv() {
    # this is way faster than adding with the cmd-line client
    genAffYaml >> $CA_CFG_PATH/runFabricCaFvt.yaml
    $SCRIPTDIR/fabric-ca_setup.sh -d $dbDriver -S -X -n1 -D -x $TESTDIR -- \
-                    --cfg.affiliations.allowremove > $TESTDIR/server.log 2>&1
+       --cfg.identities.disableremove > $TESTDIR/server.log 2>&1
    # Sanity check the number of affilitations
    dbEntries=$(tableCount $dbDriver Affiliations ".*"| awk -F':' '{print $2}')
    # discount the summary line displayed in the above command
@@ -133,7 +138,7 @@ function testAffiliationRefs() {
    $FABRIC_CA_CLIENTEXEC affiliation remove bank_b $URI -H $TESTDIR/admin/ -d 2>&1 &&
       ErrorMsg "should not be able to delete 'bank_b' with references"
    # Ensure affiliations cannot be deleted if ID's are referencing them,
-   # and --cfg.identities.allowremove is not configed, even w/ --force
+   # and --cfg.identities.disablerevmoe is configured, even w/ --force
    $FABRIC_CA_CLIENTEXEC affiliation remove bank_b $URI -H $TESTDIR/admin/ --force -d 2>&1 &&
       ErrorMsg "should be able to delete 'bank_b' without --cfg.identities.allowremove"
 }
@@ -145,8 +150,7 @@ function testAllowremove() {
          ErrorMsg "should not be able to delete 'bank_b', or wrong error msg"
    # add cfg.identities.allowremove flag
    $SCRIPTDIR/fabric-ca_setup.sh -K
-   $SCRIPTDIR/fabric-ca_setup.sh -d $dbDriver -S -X -n1 -D -x $TESTDIR -- \
-                    --cfg.affiliations.allowremove --cfg.identities.allowremove > $TESTDIR/server.log 2>&1
+   $SCRIPTDIR/fabric-ca_setup.sh -d $dbDriver -S -X -n1 -D -x $TESTDIR > $TESTDIR/server.log 2>&1
    # try again
    $FABRIC_CA_CLIENTEXEC affiliation remove bank_b --force $URI -H $TESTDIR/admin/ 2>&1  || ErrorMsg "should be able to delete 'bank_b'"
    # make sure entries are deleted
