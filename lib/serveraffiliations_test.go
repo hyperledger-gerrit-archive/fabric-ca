@@ -234,6 +234,7 @@ func TestDynamicRemoveAffiliation(t *testing.T) {
 
 	srv := TestGetRootServer(t)
 	srv.RegisterBootstrapUser("admin2", "admin2pw", "org2")
+	srv.CA.Config.Cfg.Identities.DisableRemove = true
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()

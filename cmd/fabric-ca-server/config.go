@@ -499,6 +499,14 @@ func (s *ServerCmd) configInit() (err error) {
 		return err
 	}
 
+	if s.cfg.CAcfg.Cfg.Affiliations.AllowRemove && s.cfg.CAcfg.Cfg.Affiliations.DisableRemove {
+		return errors.New("Flags --cfg.affiliations.allowremove and --cfg.affiliations.disableremove can't be used together")
+	}
+
+	if s.cfg.CAcfg.Cfg.Identities.AllowRemove && s.cfg.CAcfg.Cfg.Identities.DisableRemove {
+		return errors.New("Flags --cfg.identities.allowremove and --cfg.identities.disableremove can't be used together")
+	}
+
 	// The pathlength field controls how deep the CA hierarchy when requesting
 	// certificates. If it is explicitly set to 0, set the PathLenZero field to
 	// true as CFSSL expects.
