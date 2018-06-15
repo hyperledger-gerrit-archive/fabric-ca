@@ -2283,6 +2283,7 @@ func setupIdentityCmdTest(t *testing.T, id lib.CAConfigIdentity) *lib.Server {
 		},
 	}
 	srv.CA.Config.Registry.Identities = append(srv.CA.Config.Registry.Identities, id)
+	srv.CA.Config.Cfg.Identities.DisableRemove = true
 
 	err = srv.RegisterBootstrapUser("admin", "adminpw", "")
 	if err != nil {

@@ -1,4 +1,8 @@
 #!/bin/bash
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
 
 : ${TESTCASE="ident_modify"}
 FABRIC_CA="$GOPATH/src/github.com/hyperledger/fabric-ca"
@@ -448,8 +452,7 @@ mkdir -p $TESTDIR
 cp /tmp/runFabricCaFvt.yaml  $TESTDIR/runFabricCaFvt.yaml
 sed -i '/name: admin$/,/hf.Registrar.DelegateRoles:/s/hf.Registrar.Roles:.*/hf.Registrar.Roles: "client,user,peer,validator,auditor,ca,app,role1,role2,role3,role4,role5,role6,role7,role8,apple,orange,ca\"/;
         s/hf.Registrar.DelegateRoles:.*/hf.Registrar.DelegateRoles: "client,user,peer,validator,auditor,ca,app,role1,role2,role3,role4,role5,role6,role7,role8,apple,orange,ca\"/'  $TESTDIR/runFabricCaFvt.yaml
-$SCRIPTDIR/fabric-ca_setup.sh -d mysql -S -X -n1 -D -x $TESTDIR -- \
-                 --cfg.identities.allowremove > $TESTDIR/server.log 2>&1
+$SCRIPTDIR/fabric-ca_setup.sh -d mysql -S -X -n1 -D -x $TESTDIR > $TESTDIR/server.log 2>&1
 
 setTLS
 URI="-u ${PROTO}@$CA_HOST_ADDRESS:$PROXY_PORT $TLSOPT"

@@ -105,12 +105,14 @@ type CfgOptions struct {
 
 // identitiesOptions are options that are related to identities
 type identitiesOptions struct {
-	AllowRemove bool `help:"Enables removal of identities dynamically"`
+	AllowRemove   bool `help:"Enables removal of identities dynamically" hide:"true"`
+	DisableRemove bool `help:"Disables removal of identities dynamically"`
 }
 
 // affiliationsOptions are options that are related to affiliations
 type affiliationsOptions struct {
-	AllowRemove bool `help:"Enables removal of affiliations dynamically"`
+	AllowRemove   bool `help:"Enables removal of affiliations dynamically" hide:"true"`
+	DisableRemove bool `help:"Disables removal of affiliations dynamically"`
 }
 
 // CAInfo is the CA information on a fabric-ca-server

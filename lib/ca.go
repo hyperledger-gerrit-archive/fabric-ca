@@ -425,6 +425,14 @@ func (ca *CA) initConfig() (err error) {
 		ca.Config = new(CAConfig)
 		ca.Config.Registry.MaxEnrollments = -1
 	}
+	ca.Config.Cfg.Identities.AllowRemove = true
+	ca.Config.Cfg.Affiliations.AllowRemove = true
+	if ca.Config.Cfg.Identities.DisableRemove {
+		ca.Config.Cfg.Identities.AllowRemove = false
+	}
+	if ca.Config.Cfg.Affiliations.DisableRemove {
+		ca.Config.Cfg.Affiliations.AllowRemove = false
+	}
 	// Set config defaults
 	cfg := ca.Config
 	if cfg.Version == "" {
