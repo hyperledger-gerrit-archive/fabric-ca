@@ -73,7 +73,7 @@ SELECT * FROM affiliations
 
 	getAllAffiliationsQuery = `
 SELECT * FROM affiliations
-	WHERE ((name = ?) OR (name LIKE ?))`
+	WHERE (name = ? OR name LIKE ?)`
 )
 
 // UserRecord defines the properties of a user
@@ -358,22 +358,14 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	identityRemoval := args[2].(bool)
 	isRegistar := args[3].(bool)
 
-	query := "SELECT * FROM users WHERE (affiliation = ?)"
-	ids := []UserRecord{}
-	err = tx.Select(&ids, tx.Rebind(query), name)
-	if err != nil {
-		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with affiliation '%s': %s", name, err)
-	}
-
 	subAffName := name + ".%"
-	query = "SELECT * FROM users WHERE (affiliation LIKE ?)"
-	subAffIds := []UserRecord{}
-	err = tx.Select(&subAffIds, tx.Rebind(query), subAffName)
+	query := "SELECT * FROM users WHERE (affiliation = ? OR affiliation LIKE ?)"
+	ids := []UserRecord{}
+	err = tx.Select(&ids, tx.Rebind(query), name, subAffName)
 	if err != nil {
 		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with sub-affiliation of '%s': %s", name, err)
 	}
 
-	ids = append(ids, subAffIds...)
 	idNames := []string{}
 	for _, id := range ids {
 		idNames = append(idNames, id.Name)
@@ -394,25 +386,24 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 		}
 	}
 
-	aff := AffiliationRecord{}
-	err = tx.Get(&aff, tx.Rebind(getAffiliationQuery), name)
+	allAffs := []AffiliationRecord{}
+	err = tx.Select(&allAffs, tx.Rebind(getAllAffiliationsQuery), name, subAffName)
 	if err != nil {
 		return nil, getError(err, "Affiliation")
 	}
-	// Getting all the sub-affiliations that are going to be deleted
-	allAffs := []AffiliationRecord{}
-	err = tx.Select(&allAffs, tx.Rebind("Select * FROM affiliations where (name LIKE ?)"), subAffName)
-	if err != nil {
-		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select sub-affiliations of '%s': %s", allAffs, err)
-	}
 
-	if len(allAffs) > 0 {
+	affNames := []string{}
+	for _, aff := range allAffs {
+		affNames = append(affNames, aff.Name)
+	}
+	affNamesStr := strings.Join(affNames, ",")
+
+	if len(allAffs) > 1 {
 		if !force {
 			// If force option is not specified, only delete affiliation if there are no sub-affiliations
-			return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following sub-affiliations: %s. Need to use 'force' to remove affiliation and sub-affiliations", name, allAffs)
+			return nil, newAuthErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following sub-affiliations: %s. Need to use 'force' to remove affiliation and sub-affiliations", name, affNamesStr)
 		}
 	}
-	allAffs = append(allAffs, aff)
 
 	// Now proceed with deletion
 
@@ -445,19 +436,12 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 
 	log.Debugf("All affiliations to be removed: %s", allAffs)
 
-	// Delete the requested affiliation
-	_, err = tx.Exec(tx.Rebind(deleteAffiliation), name)
+	// Delete the requested affiliation and it's subaffiliations
+	_, err = tx.Exec(tx.Rebind("DELETE FROM affiliations where (name = ? OR name LIKE ?)"), name, subAffName)
 	if err != nil {
 		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to delete affiliation '%s': %s", name, err)
 	}
 
-	if len(allAffs) > 1 {
-		// Delete all the sub-affiliations
-		_, err = tx.Exec(tx.Rebind("DELETE FROM affiliations where (name LIKE ?)"), subAffName)
-		if err != nil {
-			return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to delete affiliations: %s", err)
-		}
-	}
 	// Return the identities and affiliations that were removed
 	result := d.getResult(ids, allAffs)
 
@@ -712,23 +696,13 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	force := args[2].(bool)
 	isRegistar := args[3].(bool)
 
-	// Get the affiliation record
-	query := "SELECT name, prekey FROM affiliations WHERE (name = ?)"
-	var oldAffiliationRecord AffiliationRecord
-	err := tx.Get(&oldAffiliationRecord, tx.Rebind(query), oldAffiliation)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get the affiliation records for all sub affiliations
-	query = "SELECT name, prekey FROM affiliations WHERE (name LIKE ?)"
+	// Get the affiliation records including all sub affiliations
+	query := "SELECT name, prekey FROM affiliations WHERE (name = ? OR name LIKE ?)"
 	var allOldAffiliations []AffiliationRecord
-	err = tx.Select(&allOldAffiliations, tx.Rebind(query), oldAffiliation+".%")
+	err := tx.Select(&allOldAffiliations, tx.Rebind(query), oldAffiliation, oldAffiliation+".%")
 	if err != nil {
 		return nil, err
 	}
-
-	allOldAffiliations = append(allOldAffiliations, oldAffiliationRecord)
 
 	log.Debugf("Affiliations to be modified %+v", allOldAffiliations)
 
