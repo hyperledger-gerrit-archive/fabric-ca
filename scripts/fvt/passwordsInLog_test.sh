@@ -87,6 +87,7 @@ function testExternalServers() {
 }
 
 function testRegister() {
+   server=""
    rmConfigFiles
    $SCRIPTDIR/fabric-ca_setup.sh -D -X -I -S > $LOGFILE 2>&1
    test $? -eq 0 && checkPasswd "$PSWD" $server || ErrorMsg "Start of CA failed"
