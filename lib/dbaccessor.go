@@ -913,8 +913,13 @@ type DBUser struct {
 	db    *dbutil.DB
 }
 
-// GetName returns the enrollment ID of the user
+// GetName returns the distiguished name of the user (enrollment ID and distiguished name are same for database user)
 func (u *DBUser) GetName() string {
+	return u.Name
+}
+
+// GetEnrollmentID returns the user's enrollment ID
+func (u *DBUser) GetEnrollmentID() string {
 	return u.Name
 }
 

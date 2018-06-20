@@ -99,6 +99,43 @@ func (_m *CredDBAccessor) InsertCredential(cr idemix.CredRecord) error {
 	return r0
 }
 
+// RevokeCredential provides a mock function with given fields: rh, reasonCode
+func (_m *CredDBAccessor) RevokeCredential(rh string, reasonCode int) error {
+	ret := _m.Called(rh, reasonCode)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(string, int) error); ok {
+		r0 = rf(rh, reasonCode)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// RevokeCredentialsByID provides a mock function with given fields: id, reasonCode
+func (_m *CredDBAccessor) RevokeCredentialsByID(id string, reasonCode int) ([]idemix.CredRecord, error) {
+	ret := _m.Called(id, reasonCode)
+
+	var r0 []idemix.CredRecord
+	if rf, ok := ret.Get(0).(func(string, int) []idemix.CredRecord); ok {
+		r0 = rf(id, reasonCode)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]idemix.CredRecord)
+		}
+	}
+
+	var r1 error
+	if rf, ok := ret.Get(1).(func(string, int) error); ok {
+		r1 = rf(id, reasonCode)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // SetDB provides a mock function with given fields: db
 func (_m *CredDBAccessor) SetDB(db dbutil.FabricCADB) {
 	_m.Called(db)
