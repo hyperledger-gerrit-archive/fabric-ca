@@ -35,6 +35,7 @@ type Issuer interface {
 	IssuerPublicKey() ([]byte, error)
 	RevocationPublicKey() ([]byte, error)
 	IssueCredential(ctx ServerRequestCtx) (*EnrollmentResponse, error)
+	Revoke(ctx ServerRequestCtx) (*api.IdemixRevocationResponse, error)
 	GetCRI(ctx ServerRequestCtx) (*api.GetCRIResponse, error)
 	VerifyToken(authHdr string, body []byte) (string, error)
 }
@@ -59,6 +60,8 @@ type ServerRequestCtx interface {
 	BasicAuthentication() (string, error)
 	TokenAuthentication() (string, error)
 	GetCaller() (spi.User, error)
+	GetUser(user string) (spi.User, error)
+	CanRevoke(user spi.User) error
 	ReadBody(body interface{}) error
 }
 
@@ -180,6 +183,35 @@ func (i *issuer) GetCRI(ctx ServerRequestCtx) (*api.GetCRIResponse, error) {
 	}
 
 	return handler.HandleRequest()
+}
+
+func (i *issuer) Revoke(ctx ServerRequestCtx) (*api.IdemixRevocationResponse, error) {
+	if !i.isInitialized {
+		return nil, errors.New("Issuer is not initialized")
+	}
+	handler := RevokeRequestHandler{
+		Ctx:    ctx,
+		Issuer: i,
+	}
+
+	rhs, err := handler.HandleRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	res := &api.IdemixRevocationResponse{RevokedHandles: rhs}
+	if len(rhs) > 0 {
+		cri, err := i.RevocationAuthority().CreateCRI()
+		if err != nil {
+			return nil, err
+		}
+		criBytes, err := marshalCRI(cri)
+		if err != nil {
+			return nil, err
+		}
+		res.CRI = util.B64Encode(criBytes)
+	}
+	return res, nil
 }
 
 func (i *issuer) VerifyToken(authHdr string, body []byte) (string, error) {
