@@ -458,6 +458,7 @@ func (s *Server) registerHandlers() {
 	s.registerHandler("enroll", newEnrollEndpoint(s))
 	s.registerHandler("idemix/credential", newIdemixEnrollEndpoint(s))
 	s.registerHandler("idemix/cri", newIdemixCRIEndpoint(s))
+	s.registerHandler("idemix/revocation", newIdemixRevokeEndpoint(s))
 	s.registerHandler("reenroll", newReenrollEndpoint(s))
 	s.registerHandler("revoke", newRevokeEndpoint(s))
 	s.registerHandler("tcert", newTCertEndpoint(s))

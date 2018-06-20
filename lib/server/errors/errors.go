@@ -1,20 +1,10 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
-package lib
+package errors
 
 import (
 	"encoding/json"
@@ -171,10 +161,10 @@ const (
 	ErrCACertFileNotFound = 69
 )
 
-// Construct a new HTTP error.
-func createHTTPErr(scode, code int, format string, args ...interface{}) *httpErr {
+// CreateHTTPErr constructs a new HTTP error.
+func CreateHTTPErr(scode, code int, format string, args ...interface{}) *HttpErr {
 	msg := fmt.Sprintf(format, args...)
-	return &httpErr{
+	return &HttpErr{
 		scode: scode,
 		lcode: code,
 		lmsg:  msg,
@@ -183,27 +173,27 @@ func createHTTPErr(scode, code int, format string, args ...interface{}) *httpErr
 	}
 }
 
-// Construct a new HTTP error wrappered with pkg/errors error.
-func newHTTPErr(scode, code int, format string, args ...interface{}) error {
-	return errors.Wrap(createHTTPErr(scode, code, format, args...), "")
+// NewHTTPErr constructs a new HTTP error wrappered with pkg/errors error.
+func NewHTTPErr(scode, code int, format string, args ...interface{}) error {
+	return errors.Wrap(CreateHTTPErr(scode, code, format, args...), "")
 }
 
-// Construct an HTTP error specifically indicating an authorization failure.
+// NewAuthErr constructs a HTTP error specifically indicating an authorization failure.
 // The local code and message is specific, but the remote code and message is generic
 // for security reasons.
-func newAuthErr(code int, format string, args ...interface{}) error {
-	he := createHTTPErr(401, code, format, args...)
+func NewAuthErr(code int, format string, args ...interface{}) error {
+	he := CreateHTTPErr(401, code, format, args...)
 	he.Remote(ErrAuthFailure, "Authorization failure")
 	return errors.Wrap(he, "")
 }
 
-// httpErr is an HTTP error.
+// HttpErr is a HTTP error.
 // "local" refers to errors as logged in the server (local to the server).
 // "remote" refers to errors as returned to the client (remote to the server).
 // This allows us to log a more specific error in the server logs while
 // returning a more generic error to the client, as is done for authorization
 // failures.
-type httpErr struct {
+type HttpErr struct {
 	scode int    // HTTP status code
 	lcode int    // local error code
 	lmsg  string // local error message
@@ -212,12 +202,12 @@ type httpErr struct {
 }
 
 // Error returns the string representation
-func (he *httpErr) Error() string {
+func (he *HttpErr) Error() string {
 	return he.String()
 }
 
 // String returns a string representation of this augmented error
-func (he *httpErr) String() string {
+func (he *HttpErr) String() string {
 	if he.lcode == he.rcode && he.lmsg == he.rmsg {
 		return fmt.Sprintf("scode: %d, code: %d, msg: %s", he.scode, he.lcode, he.lmsg)
 	}
@@ -225,15 +215,15 @@ func (he *httpErr) String() string {
 		he.scode, he.lcode, he.lmsg, he.rcode, he.rmsg)
 }
 
-// Set the remote code and message to something different from that of the local code and message
-func (he *httpErr) Remote(code int, format string, args ...interface{}) *httpErr {
+// Remote sets the remote code and message to something different from that of the local code and message
+func (he *HttpErr) Remote(code int, format string, args ...interface{}) *HttpErr {
 	he.rcode = code
 	he.rmsg = fmt.Sprintf(format, args...)
 	return he
 }
 
 // Write the server's HTTP error response
-func (he *httpErr) writeResponse(w http.ResponseWriter) error {
+func (he *HttpErr) writeResponse(w http.ResponseWriter) error {
 	response := cfsslapi.NewErrorResponse(he.rmsg, he.rcode)
 	jsonMessage, err := json.Marshal(response)
 	if err != nil {
@@ -245,42 +235,43 @@ func (he *httpErr) writeResponse(w http.ResponseWriter) error {
 	return nil
 }
 
-type serverErr struct {
+type ServerErr struct {
 	code int
 	msg  string
 }
 
-type fatalErr struct {
-	serverErr
+type FatalErr struct {
+	ServerErr
 }
 
-func newServerError(code int, format string, args ...interface{}) *serverErr {
+func NewServerError(code int, format string, args ...interface{}) *ServerErr {
 	msg := fmt.Sprintf(format, args...)
-	return &serverErr{
+	return &ServerErr{
 		code: code,
 		msg:  msg,
 	}
 }
 
-func newFatalError(code int, format string, args ...interface{}) *fatalErr {
+func NewFatalError(code int, format string, args ...interface{}) *FatalErr {
 	msg := fmt.Sprintf(format, args...)
-	return &fatalErr{
-		serverErr{
+	return &FatalErr{
+		ServerErr{
 			code: code,
 			msg:  msg,
 		},
 	}
 }
 
-func (fe *fatalErr) Error() string {
+func (fe *FatalErr) Error() string {
 	return fe.String()
 }
 
-func (fe *fatalErr) String() string {
+func (fe *FatalErr) String() string {
 	return fmt.Sprintf("Code: %d - %s", fe.code, fe.msg)
 }
 
-func isFatalError(err error) bool {
+// IsFatalError returns true if the specified error is of type FatalErr
+func IsFatalError(err error) bool {
 	causeErr := errors.Cause(err)
 	typ := reflect.TypeOf(causeErr)
 	// If a pointer to a struct is passe, get the type of the dereferenced object
@@ -288,7 +279,7 @@ func isFatalError(err error) bool {
 		typ = typ.Elem()
 	}
 
-	if typ == reflect.TypeOf(fatalErr{}) {
+	if typ == reflect.TypeOf(FatalErr{}) {
 		return true
 	}
 	return false

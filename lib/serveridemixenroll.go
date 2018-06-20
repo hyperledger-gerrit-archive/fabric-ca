@@ -74,3 +74,9 @@ func (c *idemixServerCtx) GetCaller() (spi.User, error) {
 func (c *idemixServerCtx) ReadBody(body interface{}) error {
 	return c.srvCtx.ReadBody(body)
 }
+func (c *idemixServerCtx) GetUser(id string) (spi.User, error) {
+	return c.srvCtx.GetRegistry().GetUser(id, nil)
+}
+func (c *idemixServerCtx) CanRevoke(user spi.User) error {
+	return c.srvCtx.CanRevoke(user)
+}
