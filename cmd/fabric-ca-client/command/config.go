@@ -204,9 +204,13 @@ bccsp:
 func (c *ClientCmd) ConfigInit() error {
 	var err error
 
-	if c.debug {
-		log.Level = log.LevelDebug
+	c.myViper.AutomaticEnv() // read in environment variables that match
+	if !c.logLevelSet {
+	err = c.SetLogLevel()
+	if err != nil {
+		return err
 	}
+}
 
 	c.cfgFileName, c.homeDirectory, err = util.ValidateAndReturnAbsConf(c.cfgFileName, c.homeDirectory, cmdName)
 	if err != nil {
@@ -217,7 +221,6 @@ func (c *ClientCmd) ConfigInit() error {
 
 	// Set configuration file name for viper and configure it to read env variables
 	c.myViper.SetConfigFile(c.cfgFileName)
-	c.myViper.AutomaticEnv() // read in environment variables that match
 
 	// If the config file doesn't exist, create a default one if enroll
 	// command being executed. Enroll should be the first command to be

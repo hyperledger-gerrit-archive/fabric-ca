@@ -51,6 +51,8 @@ type Command interface {
 	// Returns viper instance associated with this comamnd
 	GetViper() *viper.Viper
 	GetHomeDirectory() string
+	// Set the default level to be something other than 'info'
+	SetDefaultLogLevel(string)
 }
 
 type crlArgs struct {
@@ -109,8 +111,7 @@ type ClientCmd struct {
 	dynamicIdentity identityArgs
 	// Dynamically configuring affiliations
 	dynamicAffiliation affiliationArgs
-	// Enable debug level logging
-	debug bool
+	logLevelSet        bool
 }
 
 // NewCommand returns new ClientCmd ready for running
@@ -200,7 +201,6 @@ func (c *ClientCmd) registerFlags() {
 		"Hostname to include in the certificate signing request during enrollment")
 	pflags.StringSliceVarP(
 		&c.cfgCsrNames, "csr.names", "", nil, "A list of comma-separated CSR names of the form <name>=<value> (e.g. C=CA,O=Org1)")
-	pflags.BoolVarP(&c.debug, "debug", "d", false, "Enable debug level logging")
 
 	c.clientCfg = &lib.ClientConfig{}
 	tags := map[string]string{
@@ -283,4 +283,21 @@ func (c *ClientCmd) GetCfgFileName() string {
 // GetViper returns the viper instance
 func (c *ClientCmd) GetViper() *viper.Viper {
 	return c.myViper
+}
+
+func (c *ClientCmd) SetDefaultLogLevel(logLevel string) {
+	debug := c.myViper.GetBool("debug")
+	util.SetDefaultLogLevel(logLevel, debug)
+	c.logLevelSet = true
+}
+
+func (c *ClientCmd) SetLogLevel() error {
+	logLevel := c.myViper.GetString("loglevel")
+	debug := c.myViper.GetBool("debug")
+	err := util.SetLogLevel(logLevel, debug)
+	if err != nil {
+		return err
+	}
+	c.logLevelSet = true
+	return nil
 }

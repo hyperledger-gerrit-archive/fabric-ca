@@ -50,7 +50,7 @@ func (c *ClientCmd) newListAffiliationCommand() *cobra.Command {
 		Short: "List affiliations",
 		Long:  "List affiliations visible to caller",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			log.Level = log.LevelWarning
+			c.SetDefaultLogLevel("warning")
 			err := c.ConfigInit()
 			if err != nil {
 				return err
