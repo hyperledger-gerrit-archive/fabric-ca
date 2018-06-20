@@ -73,7 +73,7 @@ func newListCertificateCommand(c *certificateCommand) *cobra.Command {
 }
 
 func (c *certificateCommand) preRunCertificate(cmd *cobra.Command, args []string) error {
-	log.Level = log.LevelWarning
+	c.command.SetDefaultLogLevel("warning")
 	err := c.command.ConfigInit()
 	if err != nil {
 		return err
