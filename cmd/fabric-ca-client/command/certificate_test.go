@@ -48,6 +48,7 @@ func TestCreateCertificateCommand(t *testing.T) {
 
 func TestBadPreRunCertificate(t *testing.T) {
 	mockBadClientCmd := new(mocks.Command)
+	mockBadClientCmd.On("SetDefaultLogLevel", "warning")
 	mockBadClientCmd.On("ConfigInit").Return(errors.New("Failed to initialize config"))
 	cmd := newCertificateCommand(mockBadClientCmd)
 	err := cmd.preRunCertificate(&cobra.Command{}, []string{})
@@ -56,6 +57,7 @@ func TestBadPreRunCertificate(t *testing.T) {
 
 func TestGoodPreRunCertificate(t *testing.T) {
 	mockGoodClientCmd := new(mocks.Command)
+	mockGoodClientCmd.On("SetDefaultLogLevel", "warning")
 	mockGoodClientCmd.On("ConfigInit").Return(nil)
 	mockGoodClientCmd.On("GetClientCfg").Return(&lib.ClientConfig{})
 	cmd := newCertificateCommand(mockGoodClientCmd)
@@ -65,6 +67,7 @@ func TestGoodPreRunCertificate(t *testing.T) {
 
 func TestFailLoadIdentity(t *testing.T) {
 	mockBadClientCmd := new(mocks.Command)
+	mockBadClientCmd.On("SetDefaultLogLevel", "warning")
 	mockBadClientCmd.On("LoadMyIdentity").Return(nil, errors.New("Failed to load identity"))
 	cmd := newCertificateCommand(mockBadClientCmd)
 	err := cmd.runListCertificate(&cobra.Command{}, []string{})
@@ -73,6 +76,7 @@ func TestFailLoadIdentity(t *testing.T) {
 
 func TestBadRunListCertificate(t *testing.T) {
 	cmd := new(mocks.Command)
+	cmd.On("SetDefaultLogLevel", "warning")
 	cmd.On("LoadMyIdentity").Return(&lib.Identity{}, nil)
 	certCmd := newCertificateCommand(cmd)
 	certCmd.timeArgs = timeArgs{
@@ -84,6 +88,7 @@ func TestBadRunListCertificate(t *testing.T) {
 
 func TestBadExpirationTime(t *testing.T) {
 	cmd := new(mocks.Command)
+	cmd.On("SetDefaultLogLevel", "warning")
 	cmd.On("LoadMyIdentity").Return(&lib.Identity{}, nil)
 	certCmd := newCertificateCommand(cmd)
 	certCmd.timeArgs = timeArgs{
@@ -101,6 +106,7 @@ func TestBadExpirationTime(t *testing.T) {
 
 func TestGoodExpirationTime(t *testing.T) {
 	cmd := new(mocks.Command)
+	cmd.On("SetDefaultLogLevel", "warning")
 	cmd.On("LoadMyIdentity").Return(&lib.Identity{}, nil)
 	certCmd := newCertificateCommand(cmd)
 	certCmd.timeArgs = timeArgs{
@@ -112,6 +118,7 @@ func TestGoodExpirationTime(t *testing.T) {
 
 func TestBadRevocationTime(t *testing.T) {
 	cmd := new(mocks.Command)
+	cmd.On("SetDefaultLogLevel", "warning")
 	cmd.On("LoadMyIdentity").Return(&lib.Identity{}, nil)
 	certCmd := newCertificateCommand(cmd)
 	certCmd.timeArgs = timeArgs{
@@ -129,6 +136,7 @@ func TestBadRevocationTime(t *testing.T) {
 
 func TestGoodRevocationTime(t *testing.T) {
 	cmd := new(mocks.Command)
+	cmd.On("SetDefaultLogLevel", "warning")
 	cmd.On("LoadMyIdentity").Return(&lib.Identity{}, nil)
 	certCmd := newCertificateCommand(cmd)
 	certCmd.timeArgs = timeArgs{
