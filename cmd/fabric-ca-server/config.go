@@ -16,6 +16,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib"
+	calog "github.com/hyperledger/fabric-ca/lib/common/log"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	"github.com/hyperledger/fabric-ca/util"
 )
@@ -457,6 +458,11 @@ func (s *ServerCmd) configInit() (err error) {
 		return err
 	}
 
+	s.myViper.AutomaticEnv() // read in environment variables that match
+	logLevel := s.myViper.GetString("loglevel")
+	debug := s.myViper.GetBool("debug")
+	calog.SetLogLevel(logLevel, debug)
+
 	log.Debugf("Home directory: %s", s.homeDirectory)
 
 	// If the config file doesn't exist, create a default one
@@ -471,7 +477,6 @@ func (s *ServerCmd) configInit() (err error) {
 	}
 
 	// Read the config
-	s.myViper.AutomaticEnv() // read in environment variables that match
 	err = lib.UnmarshalConfig(s.cfg, s.myViper, s.cfgFileName, true)
 	if err != nil {
 		return err
@@ -542,7 +547,7 @@ func (s *ServerCmd) createDefaultConfigFile() error {
 	cfg = strings.Replace(cfg, "<<<ADMINPW>>>", pass, 1)
 	cfg = strings.Replace(cfg, "<<<MYHOST>>>", myhost, 1)
 	purl := s.myViper.GetString("intermediate.parentserver.url")
-	log.Debugf("parent server URL: '%s'", purl)
+	log.Debugf("parent server URL: '%s'", util.GetMaskedURL(purl))
 	if purl == "" {
 		// This is a root CA
 		cfg = strings.Replace(cfg, "<<<COMMONNAME>>>", "fabric-ca-server", 1)
