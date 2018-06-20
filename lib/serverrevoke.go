@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
-	"encoding/hex"
 	"strings"
 
 	"github.com/cloudflare/cfssl/log"
@@ -48,7 +47,7 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 		return nil, err
 	}
 	// Authentication
-	id, err := ctx.TokenAuthentication()
+	_, err = ctx.TokenAuthentication()
 	if err != nil {
 		return nil, err
 	}
@@ -56,12 +55,6 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 	ca, err := ctx.GetCA()
 	if err != nil {
 		return nil, err
-	}
-	// Authorization
-	// Make sure that the caller has the "hf.Revoker" attribute.
-	err = ca.attributeIsTrue(id, "hf.Revoker")
-	if err != nil {
-		return nil, newAuthorizationErr(ErrNotRevoker, "Caller does not have authority to revoke")
 	}
 
 	req.AKI = parseInput(req.AKI)
@@ -73,9 +66,6 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 
 	result := &revocationResponseNet{}
 	if req.Serial != "" && req.AKI != "" {
-		calleraki := strings.ToLower(strings.TrimLeft(hex.EncodeToString(ctx.enrollmentCert.AuthorityKeyId), "0"))
-		callerserial := strings.ToLower(strings.TrimLeft(util.GetSerialAsHex(ctx.enrollmentCert.SerialNumber), "0"))
-
 		certificate, err := certDBAccessor.GetCertificateWithID(req.Serial, req.AKI)
 		if err != nil {
 			return nil, newHTTPErr(404, ErrRevCertNotFound, "Certificate with serial %s and AKI %s was not found: %s",
@@ -97,11 +87,9 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 			return nil, newHTTPErr(404, ErrRevokeIDNotFound, "Identity %s was not found: %s", certificate.ID, err)
 		}
 
-		if !((req.AKI == calleraki) && (req.Serial == callerserial)) {
-			err = ctx.CanManageUser(userInfo)
-			if err != nil {
-				return nil, err
-			}
+		err = ctx.canRevoke(ca, userInfo)
+		if err != nil {
+			return nil, err
 		}
 
 		err = certDBAccessor.RevokeCertificate(req.Serial, req.AKI, reason)
@@ -110,30 +98,19 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 		}
 		result.RevokedCerts = append(result.RevokedCerts, api.RevokedCert{Serial: req.Serial, AKI: req.AKI})
 	} else if req.Name != "" {
-
 		user, err := registry.GetUser(req.Name, nil)
 		if err != nil {
 			return nil, newHTTPErr(404, ErrRevokeIDNotFound, "Identity %s was not found: %s", req.Name, err)
 		}
 
-		// Set user state to -1 for revoked user
-		if user != nil {
-			caller, err := ctx.GetCaller()
-			if err != nil {
-				return nil, err
-			}
+		err = ctx.canRevoke(ca, user)
+		if err != nil {
+			return nil, err
+		}
 
-			if caller.GetName() != user.GetName() {
-				err = ctx.CanManageUser(user)
-				if err != nil {
-					return nil, err
-				}
-			}
-
-			err = user.Revoke()
-			if err != nil {
-				return nil, newHTTPErr(500, ErrRevokeUpdateUser, "Failed to revoke user: %s", err)
-			}
+		err = user.Revoke()
+		if err != nil {
+			return nil, newHTTPErr(500, ErrRevokeUpdateUser, "Failed to revoke user: %s", err)
 		}
 
 		var recs []CertRecord

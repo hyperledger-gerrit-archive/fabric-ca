@@ -70,6 +70,8 @@ func TestInit(t *testing.T) {
 	assert.Error(t, err, "IssuerCredential should fail")
 	_, err = issuer.GetCRI(ctx)
 	assert.Error(t, err, "GetCRI should fail")
+	_, err = issuer.Revoke(ctx)
+	assert.Error(t, err, "Revoke should fail")
 }
 
 func TestInitDBNotInitialized(t *testing.T) {

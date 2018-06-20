@@ -46,8 +46,10 @@ type DbTxResult struct {
 
 // User is the SPI for a user
 type User interface {
-	// Returns the enrollment ID of the user
+	// Returns the distiguished name of the user
 	GetName() string
+	// Returns enrollment ID of the user
+	GetEnrollmentID() string
 	// Return the type of the user
 	GetType() string
 	// Return the max enrollments of the user

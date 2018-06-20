@@ -10,6 +10,7 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/idemix"
 	"github.com/pkg/errors"
 )
 
@@ -30,13 +31,21 @@ func (ch *CRIRequestHandler) HandleRequest() (*api.GetCRIResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	criBytes, err := proto.Marshal(cri)
+	criBytes, err := marshalCRI(cri)
 	if err != nil {
-		return nil, errors.New("Failed to marshal Idemix credential to bytes")
+		return nil, err
 	}
 	b64CriBytes := util.B64Encode(criBytes)
 	res := api.GetCRIResponse{
 		CRI: b64CriBytes,
 	}
 	return &res, nil
+}
+
+func marshalCRI(cri *idemix.CredentialRevocationInformation) ([]byte, error) {
+	criBytes, err := proto.Marshal(cri)
+	if err != nil {
+		return nil, errors.New("Failed to marshal Idemix credential revocation information to bytes")
+	}
+	return criBytes, nil
 }

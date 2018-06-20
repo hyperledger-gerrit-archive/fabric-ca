@@ -466,6 +466,35 @@ func (ctx *serverRequestContextImpl) GetCaller() (spi.User, error) {
 	return ctx.caller, nil
 }
 
+func (ctx *serverRequestContextImpl) CanRevoke(user spi.User) error {
+	ca, err := ctx.GetCA()
+	if err != nil {
+		return err
+	}
+	return ctx.canRevoke(ca, user)
+}
+
+func (ctx *serverRequestContextImpl) canRevoke(ca *CA, user spi.User) error {
+	caller, err := ctx.GetCaller()
+	if err != nil {
+		return err
+	}
+
+	err = ca.attributeIsTrue(caller.GetEnrollmentID(), "hf.Revoker")
+	if err != nil {
+		log.Debugf("Error while checking if user has hf.Revoker attribute: %s", err.Error())
+		return newAuthorizationErr(ErrNotRevoker, "Caller does not have authority to revoke")
+	}
+
+	if user != nil && caller.GetName() != user.GetName() {
+		err = ctx.CanManageUser(user)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ContainsAffiliation returns an error if the requested affiliation does not contain the caller's affiliation
 func (ctx *serverRequestContextImpl) ContainsAffiliation(affiliation string) error {
 	validAffiliation, err := ctx.containsAffiliation(affiliation)
