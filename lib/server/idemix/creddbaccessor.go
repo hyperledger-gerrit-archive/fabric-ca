@@ -39,7 +39,18 @@ WHERE (revocation_handle = ?);`
 SELECT %s FROM credentials
 WHERE (status = 'revoked');`
 
-	// UpdateRevokeCredentialSQL is the SQL for updating status of a credential to revoked
+	// SelectUnRevokedCredentialsByIDSQL is the SQL for getting un revoked credentials
+	SelectUnRevokedCredentialsByIDSQL = `
+SELECT %s FROM credentials
+WHERE (id = ? AND status != 'revoked');`
+
+	// UpdateRevokeACredentialSQL is the SQL for updating status of a credential to revoked
+	UpdateRevokeACredentialSQL = `
+UPDATE credentials
+SET status='revoked', revoked_at=CURRENT_TIMESTAMP, reason=:reason
+WHERE (revocation_handle = :id);`
+
+	// UpdateRevokeCredentialSQL is the SQL for updating status of credentials to revoked
 	UpdateRevokeCredentialSQL = `
 UPDATE credentials
 SET status='revoked', revoked_at=CURRENT_TIMESTAMP, reason=:reason
@@ -78,6 +89,10 @@ type CredDBAccessor interface {
 	GetCredentialsByID(id string) ([]CredRecord, error)
 	// GetRevokedCredentials returns revoked credentials
 	GetRevokedCredentials() ([]CredRecord, error)
+	// RevokeCredential executes UpdateRevokeACredentialSQL using the specified revocation handle and reason code
+	RevokeCredential(rh string, reasonCode int) error
+	// RevokeCredentialsByID executes UpdateRevokeCredentialSQL using the specified user and reason code
+	RevokeCredentialsByID(id string, reasonCode int) ([]CredRecord, error)
 }
 
 // CredentialAccessor implements IdemixCredDBAccessor interface
@@ -156,6 +171,52 @@ func (ac *CredentialAccessor) GetCredential(revocationHandle string) (*CredRecor
 	}
 
 	return cr, nil
+}
+
+// RevokeCredential updates a credential with a given revocation handle and marks it revoked.
+func (ac *CredentialAccessor) RevokeCredential(rh string, reasonCode int) error {
+	log.Debugf("DB: Revoke credential by revocation handle '%s'", rh)
+
+	err := ac.checkDB()
+	if err != nil {
+		return err
+	}
+
+	var record = new(CredRecord)
+	record.RevocationHandle = rh
+	record.Reason = reasonCode
+
+	_, err = ac.db.NamedExec(UpdateRevokeACredentialSQL, record)
+	if err != nil {
+		return err
+	}
+	return err
+}
+
+// RevokeCredentialsByID updates all credentials for a given ID and marks them revoked.
+func (ac *CredentialAccessor) RevokeCredentialsByID(id string, reasonCode int) (crs []CredRecord, err error) {
+	log.Debugf("DB: Revoke credentials by ID (%s)", id)
+
+	err = ac.checkDB()
+	if err != nil {
+		return nil, err
+	}
+
+	var record = new(CredRecord)
+	record.ID = id
+	record.Reason = reasonCode
+
+	err = ac.db.Select(&crs, fmt.Sprintf(ac.db.Rebind(SelectUnRevokedCredentialsByIDSQL), sqlstruct.Columns(CredRecord{})), id)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = ac.db.NamedExec(UpdateRevokeCredentialSQL, record)
+	if err != nil {
+		return nil, err
+	}
+
+	return crs, err
 }
 
 // GetRevokedCredentials returns revoked certificates

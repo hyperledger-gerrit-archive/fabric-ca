@@ -20,7 +20,7 @@ import (
 	"github.com/hyperledger/fabric-amcl/amcl"
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib/common"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
@@ -34,7 +34,8 @@ type Issuer interface {
 	Init(renew bool, db dbutil.FabricCADB, levels *dbutil.Levels) error
 	IssuerPublicKey() ([]byte, error)
 	RevocationPublicKey() ([]byte, error)
-	IssueCredential(ctx ServerRequestCtx) (*EnrollmentResponse, error)
+	IssueCredential(ctx ServerRequestCtx) (*idemixapi.EnrollmentResponse, error)
+	Revoke(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error)
 	GetCRI(ctx ServerRequestCtx) (*api.GetCRIResponse, error)
 	VerifyToken(authHdr string, body []byte) (string, error)
 }
@@ -59,6 +60,8 @@ type ServerRequestCtx interface {
 	BasicAuthentication() (string, error)
 	TokenAuthentication() (string, error)
 	GetCaller() (spi.User, error)
+	GetUser(user string) (spi.User, error)
+	CanRevoke(user spi.User) error
 	ReadBody(body interface{}) error
 }
 
@@ -157,7 +160,7 @@ func (i *issuer) RevocationPublicKey() ([]byte, error) {
 	return pemEncodedPubKey, nil
 }
 
-func (i *issuer) IssueCredential(ctx ServerRequestCtx) (*EnrollmentResponse, error) {
+func (i *issuer) IssueCredential(ctx ServerRequestCtx) (*idemixapi.EnrollmentResponse, error) {
 	if !i.isInitialized {
 		return nil, errors.New("Issuer is not initialized")
 	}
@@ -182,6 +185,35 @@ func (i *issuer) GetCRI(ctx ServerRequestCtx) (*api.GetCRIResponse, error) {
 	return handler.HandleRequest()
 }
 
+func (i *issuer) Revoke(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error) {
+	if !i.isInitialized {
+		return nil, errors.New("Issuer is not initialized")
+	}
+	handler := RevokeRequestHandler{
+		Ctx:    ctx,
+		Issuer: i,
+	}
+
+	rhs, err := handler.HandleRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	res := &idemixapi.RevocationResponse{RevokedHandles: rhs}
+	if len(rhs) > 0 {
+		cri, err := i.RevocationAuthority().CreateCRI()
+		if err != nil {
+			return nil, err
+		}
+		criBytes, err := marshalCRI(cri)
+		if err != nil {
+			return nil, err
+		}
+		res.CRI = util.B64Encode(criBytes)
+	}
+	return res, nil
+}
+
 func (i *issuer) VerifyToken(authHdr string, body []byte) (string, error) {
 	if !i.isInitialized {
 		return "", errors.New("Issuer is not initialized")
@@ -197,7 +229,7 @@ func (i *issuer) VerifyToken(authHdr string, body []byte) (string, error) {
 	if parts == nil {
 		return "", errors.New("Invalid Idemix token format; token format must be: 'idemix.<enrollment ID>.<base64 encoding of Idemix signature bytes>'")
 	}
-	if parts[1] != common.IdemixTokenVersion1 {
+	if parts[1] != TokenVersion1 {
 		return "", errors.New("Invalid version found in the Idemix token. Version must be 1")
 	}
 	enrollmentID := parts[2]

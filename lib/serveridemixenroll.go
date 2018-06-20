@@ -8,8 +8,8 @@ package lib
 
 import (
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/lib/common"
-	"github.com/hyperledger/fabric-ca/lib/server/idemix"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
+	infoapi "github.com/hyperledger/fabric-ca/lib/common/info/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 )
 
@@ -44,13 +44,12 @@ func handleIdemixEnrollReq(ctx *serverRequestContextImpl) (interface{}, error) {
 
 // newIdemixEnrollmentResponseNet returns an instance of IdemixEnrollmentResponseNet that is
 // constructed using the specified idemix.EnrollmentResponse object
-func newIdemixEnrollmentResponseNet(resp *idemix.EnrollmentResponse) common.IdemixEnrollmentResponseNet {
-	return common.IdemixEnrollmentResponseNet{
-		Nonce:      resp.Nonce,
-		Attrs:      resp.Attrs,
-		Credential: resp.Credential,
-		CRI:        resp.CRI,
-		CAInfo:     common.CAInfoResponseNet{}}
+func newIdemixEnrollmentResponseNet(resp *idemixapi.EnrollmentResponse) idemixapi.EnrollmentResponseNet {
+	respNet := idemixapi.EnrollmentResponseNet{
+		CAInfo: infoapi.CAInfoResponseNet{},
+	}
+	respNet.EnrollmentResponse = *resp
+	return respNet
 }
 
 // idemixServerCtx implements idemix.ServerRequestContext
@@ -73,4 +72,10 @@ func (c *idemixServerCtx) GetCaller() (spi.User, error) {
 }
 func (c *idemixServerCtx) ReadBody(body interface{}) error {
 	return c.srvCtx.ReadBody(body)
+}
+func (c *idemixServerCtx) GetUser(id string) (spi.User, error) {
+	return c.srvCtx.GetRegistry().GetUser(id, nil)
+}
+func (c *idemixServerCtx) CanRevoke(user spi.User) error {
+	return c.srvCtx.CanRevoke(user)
 }

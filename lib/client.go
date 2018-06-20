@@ -31,7 +31,9 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/client/credential"
 	idemixcred "github.com/hyperledger/fabric-ca/lib/client/credential/idemix"
 	x509cred "github.com/hyperledger/fabric-ca/lib/client/credential/x509"
-	"github.com/hyperledger/fabric-ca/lib/common"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
+	infoapi "github.com/hyperledger/fabric-ca/lib/common/info/api"
+	x509api "github.com/hyperledger/fabric-ca/lib/common/x509/api"
 	"github.com/hyperledger/fabric-ca/lib/streamer"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
@@ -58,25 +60,10 @@ type Client struct {
 	issuerPublicKey *idemix.IssuerPublicKey
 }
 
-// GetCAInfoResponse is the response from the GetCAInfo call
-type GetCAInfoResponse struct {
-	// CAName is the name of the CA
-	CAName string
-	// CAChain is the PEM-encoded bytes of the fabric-ca-server's CA chain.
-	// The 1st element of the chain is the root CA cert
-	CAChain []byte
-	// Idemix issuer public key of the CA
-	IssuerPublicKey []byte
-	// Idemix issuer revocation public key of the CA
-	IssuerRevocationPublicKey []byte
-	// Version of the server
-	Version string
-}
-
 // EnrollmentResponse is the response from Client.Enroll and Identity.Reenroll
 type EnrollmentResponse struct {
 	Identity *Identity
-	CAInfo   GetCAInfoResponse
+	CAInfo   infoapi.CAInfoResponse
 }
 
 // Init initializes the client
@@ -166,7 +153,7 @@ func (c *Client) initHTTPClient() error {
 }
 
 // GetCAInfo returns generic CA information
-func (c *Client) GetCAInfo(req *api.GetCAInfoRequest) (*GetCAInfoResponse, error) {
+func (c *Client) GetCAInfo(req *api.GetCAInfoRequest) (*infoapi.CAInfoResponse, error) {
 	err := c.Init()
 	if err != nil {
 		return nil, err
@@ -179,12 +166,12 @@ func (c *Client) GetCAInfo(req *api.GetCAInfoRequest) (*GetCAInfoResponse, error
 	if err != nil {
 		return nil, err
 	}
-	netSI := &common.CAInfoResponseNet{}
+	netSI := &infoapi.CAInfoResponseNet{}
 	err = c.SendReq(cainforeq, netSI)
 	if err != nil {
 		return nil, err
 	}
-	localSI := &GetCAInfoResponse{}
+	localSI := &infoapi.CAInfoResponse{}
 	err = c.net2LocalCAInfo(netSI, localSI)
 	if err != nil {
 		return nil, err
@@ -240,7 +227,7 @@ func (c *Client) Enroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error)
 }
 
 // Convert from network to local CA information
-func (c *Client) net2LocalCAInfo(net *common.CAInfoResponseNet, local *GetCAInfoResponse) error {
+func (c *Client) net2LocalCAInfo(net *infoapi.CAInfoResponseNet, local *infoapi.CAInfoResponse) error {
 	caChain, err := util.B64Decode(net.CAChain)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to decode CA chain")
@@ -295,7 +282,7 @@ func (c *Client) handleX509Enroll(req *api.EnrollmentRequest) (*EnrollmentRespon
 		return nil, err
 	}
 	post.SetBasicAuth(req.Name, req.Secret)
-	var result common.EnrollmentResponseNet
+	var result x509api.EnrollmentResponseNet
 	err = c.SendReq(post, &result)
 	if err != nil {
 		return nil, err
@@ -313,7 +300,7 @@ func (c *Client) handleX509Enroll(req *api.EnrollmentRequest) (*EnrollmentRespon
 //    /api/v1/idemix/credentail REST endpoint to get a credential
 func (c *Client) handleIdemixEnroll(req *api.EnrollmentRequest) (*EnrollmentResponse, error) {
 	log.Debugf("Getting nonce from CA %s", req.CAName)
-	reqNet := &api.IdemixEnrollmentRequestNet{
+	reqNet := &idemixapi.EnrollmentRequestNet{
 		CAName: req.CAName,
 	}
 	var identity *Identity
@@ -334,7 +321,7 @@ func (c *Client) handleIdemixEnroll(req *api.EnrollmentRequest) (*EnrollmentResp
 	}
 
 	// Send the request and process the response
-	var result common.IdemixEnrollmentResponseNet
+	var result idemixapi.EnrollmentResponseNet
 	err = c.SendReq(post, &result)
 	if err != nil {
 		return nil, err
@@ -380,7 +367,7 @@ func (c *Client) handleIdemixEnroll(req *api.EnrollmentRequest) (*EnrollmentResp
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("Successfully received Idemix credential from CA %s", req.CAName)
+	log.Infof("Successfully received Idemix credential from CA %s with revocation handle of '%s'", req.CAName, result.RevocationHandle)
 	return c.newIdemixEnrollmentResponse(identity, &result, sk, req.Name)
 }
 
@@ -417,7 +404,7 @@ func (c *Client) addAuthHeaderForIdemixEnroll(req *api.EnrollmentRequest, id *Id
 // @param result The result from server
 // @param id Name of identity being enrolled or reenrolled
 // @param key The private key which was used to sign the request
-func (c *Client) newEnrollmentResponse(result *common.EnrollmentResponseNet, id string, key bccsp.Key) (*EnrollmentResponse, error) {
+func (c *Client) newEnrollmentResponse(result *x509api.EnrollmentResponseNet, id string, key bccsp.Key) (*EnrollmentResponse, error) {
 	log.Debugf("newEnrollmentResponse %s", id)
 	certByte, err := util.B64Decode(result.Cert)
 	if err != nil {
@@ -443,7 +430,7 @@ func (c *Client) newEnrollmentResponse(result *common.EnrollmentResponseNet, id 
 }
 
 // newIdemixEnrollmentResponse creates a client idemix enrollment response from a network response
-func (c *Client) newIdemixEnrollmentResponse(identity *Identity, result *common.IdemixEnrollmentResponseNet,
+func (c *Client) newIdemixEnrollmentResponse(identity *Identity, result *idemixapi.EnrollmentResponseNet,
 	sk *fp256bn.BIG, id string) (*EnrollmentResponse, error) {
 	log.Debugf("newIdemixEnrollmentResponse %s", id)
 	credBytes, err := util.B64Decode(result.Credential)

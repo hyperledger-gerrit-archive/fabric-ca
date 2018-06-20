@@ -14,24 +14,12 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	proto "github.com/golang/protobuf/proto"
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
-	"github.com/hyperledger/fabric-ca/api"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/pkg/errors"
 )
-
-// EnrollmentResponse is the idemix enrollment response from the server
-type EnrollmentResponse struct {
-	// Base64 encoding of idemix Credential
-	Credential string
-	// Attribute name-value pairs
-	Attrs map[string]interface{}
-	// Base64 encoding of Credential Revocation information
-	CRI string
-	// Base64 encoding of the issuer nonce
-	Nonce string
-}
 
 // EnrollRequestHandler is the handler for Idemix enroll request
 type EnrollRequestHandler struct {
@@ -42,13 +30,13 @@ type EnrollRequestHandler struct {
 }
 
 // HandleRequest handles processing for Idemix enroll
-func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
+func (h *EnrollRequestHandler) HandleRequest() (*idemixapi.EnrollmentResponse, error) {
 	err := h.Authenticate()
 	if err != nil {
 		return nil, err
 	}
 
-	var req api.IdemixEnrollmentRequestNet
+	var req idemixapi.EnrollmentRequestNet
 	err = h.Ctx.ReadBody(&req)
 	if err != nil {
 		return nil, err
@@ -60,7 +48,7 @@ func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
 			return nil, errors.New("Failed to generate nonce")
 		}
 
-		resp := &EnrollmentResponse{
+		resp := &idemixapi.EnrollmentResponse{
 			Nonce: util.B64Encode(idemix.BigToBytes(nonce)),
 		}
 		return resp, nil
@@ -142,10 +130,11 @@ func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
 		return nil, errors.New("Failed to marshal CRI to bytes")
 	}
 	b64CriBytes := util.B64Encode(criBytes)
-	resp := &EnrollmentResponse{
-		Credential: b64CredBytes,
-		Attrs:      attrMap,
-		CRI:        b64CriBytes,
+	resp := &idemixapi.EnrollmentResponse{
+		Credential:       b64CredBytes,
+		Attrs:            attrMap,
+		CRI:              b64CriBytes,
+		RevocationHandle: rhstr,
 	}
 
 	if h.Ctx.IsBasicAuth() {

@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
-	"github.com/hyperledger/fabric-ca/lib/common"
+	infoapi "github.com/hyperledger/fabric-ca/lib/common/info/api"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 )
 
@@ -37,7 +37,7 @@ func cainfoHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	resp := &common.CAInfoResponseNet{}
+	resp := &infoapi.CAInfoResponseNet{}
 	err = ca.fillCAInfo(resp)
 	if err != nil {
 		return nil, err

@@ -14,6 +14,7 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
 	. "github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix/mocks"
 	"github.com/hyperledger/fabric-ca/util"
@@ -43,7 +44,7 @@ func TestIdemixEnrollBadReqBody(t *testing.T) {
 	ctx.On("BasicAuthentication").Return("foo", nil)
 	ctx.On("IsBasicAuth").Return(true)
 	handler := EnrollRequestHandler{Ctx: ctx}
-	req := api.IdemixEnrollmentRequestNet{}
+	req := idemixapi.EnrollmentRequestNet{}
 	req.CredRequest = nil
 	ctx.On("ReadBody", &req).Return(errors.New("Invalid request body"))
 	_, err := handler.HandleRequest()
@@ -62,7 +63,7 @@ func TestHandleIdemixEnrollForNonce(t *testing.T) {
 	idemixlib.On("GetRand").Return(rnd, nil)
 	idemixlib.On("RandModOrder", rnd).Return(rmo)
 	ctx.On("IsBasicAuth").Return(true)
-	req := api.IdemixEnrollmentRequestNet{}
+	req := idemixapi.EnrollmentRequestNet{}
 	req.CredRequest = nil
 	ctx.On("ReadBody", &req).Return(nil)
 
@@ -91,7 +92,7 @@ func TestHandleIdemixEnrollForNonceTokenAuth(t *testing.T) {
 
 	ctx.On("IsBasicAuth").Return(false)
 
-	req := api.IdemixEnrollmentRequestNet{}
+	req := idemixapi.EnrollmentRequestNet{}
 	req.CredRequest = nil
 	ctx.On("ReadBody", &req).Return(nil)
 	issuer := new(mocks.MyIssuer)
@@ -122,7 +123,7 @@ func TestHandleIdemixEnrollForNonceError(t *testing.T) {
 
 	ctx.On("IsBasicAuth").Return(false)
 
-	req := api.IdemixEnrollmentRequestNet{}
+	req := idemixapi.EnrollmentRequestNet{}
 	req.CredRequest = nil
 	ctx.On("ReadBody", &req).Return(nil)
 	issuer := new(mocks.MyIssuer)
@@ -167,7 +168,7 @@ func TestHandleIdemixEnrollForCredentialError(t *testing.T) {
 		t.Fatalf("Failed to create credential request: %s", err.Error())
 	}
 	f := getReadBodyFunc(t, credReq)
-	req := api.IdemixEnrollmentRequestNet{}
+	req := idemixapi.EnrollmentRequestNet{}
 	ctx.On("ReadBody", &req).Return(f)
 
 	_, err = handler.HandleRequest()
@@ -234,7 +235,7 @@ func TestHandleIdemixEnrollCheckNonceError(t *testing.T) {
 
 	ctx.On("BasicAuthentication").Return("foo", nil)
 	f := getReadBodyFunc(t, credReq)
-	ctx.On("ReadBody", &api.IdemixEnrollmentRequestNet{}).Return(f)
+	ctx.On("ReadBody", &idemixapi.EnrollmentRequestNet{}).Return(f)
 	ctx.On("GetCA").Return(issuer, nil)
 	ctx.On("GetCaller").Return(caller, nil)
 
@@ -299,7 +300,7 @@ func TestHandleIdemixEnrollNewCredError(t *testing.T) {
 
 	ctx.On("BasicAuthentication").Return("foo", nil)
 	f := getReadBodyFunc(t, credReq)
-	ctx.On("ReadBody", &api.IdemixEnrollmentRequestNet{}).Return(f)
+	ctx.On("ReadBody", &idemixapi.EnrollmentRequestNet{}).Return(f)
 	ctx.On("GetCA").Return(issuer, nil)
 	ctx.On("GetCaller").Return(caller, nil)
 
@@ -379,7 +380,7 @@ func TestHandleIdemixEnrollInsertCredError(t *testing.T) {
 
 	ctx.On("BasicAuthentication").Return("foo", nil)
 	f := getReadBodyFunc(t, credReq)
-	ctx.On("ReadBody", &api.IdemixEnrollmentRequestNet{}).Return(f)
+	ctx.On("ReadBody", &idemixapi.EnrollmentRequestNet{}).Return(f)
 	ctx.On("GetCA").Return(issuer, nil)
 	ctx.On("GetCaller").Return(caller, nil)
 
@@ -464,7 +465,7 @@ func TestHandleIdemixEnrollForCredentialSuccess(t *testing.T) {
 
 	ctx.On("BasicAuthentication").Return("foo", nil)
 	f := getReadBodyFunc(t, credReq)
-	ctx.On("ReadBody", &api.IdemixEnrollmentRequestNet{}).Return(f)
+	ctx.On("ReadBody", &idemixapi.EnrollmentRequestNet{}).Return(f)
 	ctx.On("GetCA").Return(issuer, nil)
 	ctx.On("GetCaller").Return(caller, nil)
 
@@ -518,7 +519,7 @@ func getB64EncodedCred(cred *idemix.Credential) (string, error) {
 
 func getReadBodyFunc(t *testing.T, credReq *idemix.CredRequest) func(body interface{}) error {
 	return func(body interface{}) error {
-		enrollReq, _ := body.(*api.IdemixEnrollmentRequestNet)
+		enrollReq, _ := body.(*idemixapi.EnrollmentRequestNet)
 		if credReq == nil {
 			return errors.New("Error reading the body")
 		}

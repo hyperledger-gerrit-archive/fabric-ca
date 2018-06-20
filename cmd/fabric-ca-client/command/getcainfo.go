@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2017 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package command
@@ -32,6 +22,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
+	infoapi "github.com/hyperledger/fabric-ca/lib/common/info/api"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
@@ -109,7 +100,7 @@ func (c *getCAInfoCmd) runGetCACert(cmd *cobra.Command, args []string) error {
 // Store the CAChain in the CACerts folder of MSP (Membership Service Provider)
 // The root cert in the chain goes into MSP 'cacerts' directory.
 // The others (if any) go into the MSP 'intermediatecerts' directory.
-func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
+func storeCAChain(config *lib.ClientConfig, si *infoapi.CAInfoResponse) error {
 	mspDir := config.MSPDir
 	// Get a unique name to use for filenames
 	serverURL, err := url.Parse(config.URL)
@@ -191,7 +182,7 @@ func storeCAChain(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
 	return nil
 }
 
-func storeIssuerPublicKey(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
+func storeIssuerPublicKey(config *lib.ClientConfig, si *infoapi.CAInfoResponse) error {
 	if len(si.IssuerPublicKey) > 0 {
 		err := storeToFile("Issuer public key", config.MSPDir, "IssuerPublicKey", si.IssuerPublicKey)
 		if err != nil {
@@ -201,7 +192,7 @@ func storeIssuerPublicKey(config *lib.ClientConfig, si *lib.GetCAInfoResponse) e
 	return nil
 }
 
-func storeIssuerRevocationPublicKey(config *lib.ClientConfig, si *lib.GetCAInfoResponse) error {
+func storeIssuerRevocationPublicKey(config *lib.ClientConfig, si *infoapi.CAInfoResponse) error {
 	if len(si.IssuerRevocationPublicKey) > 0 {
 		err := storeToFile("Issuer revocation public key", config.MSPDir, "IssuerRevocationPublicKey", si.IssuerRevocationPublicKey)
 		if err != nil {

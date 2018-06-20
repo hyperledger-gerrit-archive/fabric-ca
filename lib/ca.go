@@ -31,7 +31,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
-	"github.com/hyperledger/fabric-ca/lib/common"
+	infoapi "github.com/hyperledger/fabric-ca/lib/common/info/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
@@ -970,7 +970,7 @@ func (ca *CA) getUserAffiliation(username string) (string, error) {
 }
 
 // fillCAInfo fills the CA info structure appropriately
-func (ca *CA) fillCAInfo(info *common.CAInfoResponseNet) error {
+func (ca *CA) fillCAInfo(info *infoapi.CAInfoResponseNet) error {
 	caChain, err := ca.getCAChain()
 	if err != nil {
 		return err

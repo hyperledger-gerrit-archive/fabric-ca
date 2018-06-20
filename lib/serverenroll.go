@@ -19,7 +19,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
-	"github.com/hyperledger/fabric-ca/lib/common"
+	x509api "github.com/hyperledger/fabric-ca/lib/common/x509/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
@@ -149,7 +149,7 @@ func handleEnroll(ctx *serverRequestContextImpl, id string) (interface{}, error)
 		return nil, errors.WithMessage(err, "Certificate signing failure")
 	}
 	// Add server info to the response
-	resp := &common.EnrollmentResponseNet{
+	resp := &x509api.EnrollmentResponseNet{
 		Cert: util.B64Encode(cert),
 	}
 	err = ca.fillCAInfo(&resp.ServerInfo)

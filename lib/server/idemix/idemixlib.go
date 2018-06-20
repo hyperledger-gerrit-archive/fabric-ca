@@ -14,6 +14,11 @@ import (
 	"github.com/hyperledger/fabric/idemix"
 )
 
+const (
+	// TokenVersion1 represents version 1 of the authorization token created using Idemix credential
+	TokenVersion1 = "1"
+)
+
 // Lib represents idemix library
 type Lib interface {
 	NewIssuerKey(AttributeNames []string, rng *amcl.RAND) (*idemix.IssuerKey, error)

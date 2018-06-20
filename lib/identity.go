@@ -19,7 +19,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/client/credential"
 	"github.com/hyperledger/fabric-ca/lib/client/credential/idemix"
 	"github.com/hyperledger/fabric-ca/lib/client/credential/x509"
-	"github.com/hyperledger/fabric-ca/lib/common"
+	x509api "github.com/hyperledger/fabric-ca/lib/common/x509/api"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -126,6 +126,15 @@ func (i *Identity) Register(req *api.RegistrationRequest) (rr *api.RegistrationR
 
 // RegisterAndEnroll registers and enrolls an identity and returns the identity
 func (i *Identity) RegisterAndEnroll(req *api.RegistrationRequest) (*Identity, error) {
+	return i.registerAndEnroll(req, "x509")
+}
+
+// RegisterAndIdemixEnroll registers and gets an Idemix credential for the identity and returns the identity
+func (i *Identity) RegisterAndIdemixEnroll(req *api.RegistrationRequest) (*Identity, error) {
+	return i.registerAndEnroll(req, "idemix")
+}
+
+func (i *Identity) registerAndEnroll(req *api.RegistrationRequest, enrollmentType string) (*Identity, error) {
 	if i.client == nil {
 		return nil, errors.New("No client is associated with this identity")
 	}
@@ -136,6 +145,7 @@ func (i *Identity) RegisterAndEnroll(req *api.RegistrationRequest) (*Identity, e
 	eresp, err := i.client.Enroll(&api.EnrollmentRequest{
 		Name:   req.Name,
 		Secret: rresp.Secret,
+		Type:   enrollmentType,
 	})
 	if err != nil {
 		return nil, errors.WithMessage(err, fmt.Sprintf("Failed to enroll %s", req.Name))
@@ -170,7 +180,7 @@ func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, 
 	if err != nil {
 		return nil, err
 	}
-	var result common.EnrollmentResponseNet
+	var result x509api.EnrollmentResponseNet
 	err = i.Post("reenroll", body, &result, nil)
 	if err != nil {
 		return nil, err
