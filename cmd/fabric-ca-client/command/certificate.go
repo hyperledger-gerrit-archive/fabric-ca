@@ -73,11 +73,11 @@ func newListCertificateCommand(c *certificateCommand) *cobra.Command {
 }
 
 func (c *certificateCommand) preRunCertificate(cmd *cobra.Command, args []string) error {
-	log.Level = log.LevelWarning
 	err := c.command.ConfigInit()
 	if err != nil {
 		return err
 	}
+	util.SetDefaultLogLevel("warning", c.command.GetClientCfg().Debug)
 
 	log.Debugf("Client configuration settings: %+v", c.command.GetClientCfg())
 

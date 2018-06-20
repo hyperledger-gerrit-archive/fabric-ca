@@ -54,11 +54,11 @@ func (c *ClientCmd) newListIdentityCommand() *cobra.Command {
 		Short: "List identities",
 		Long:  "List identities visible to caller",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			log.Level = log.LevelWarning
 			err := c.ConfigInit()
 			if err != nil {
 				return err
 			}
+			util.SetDefaultLogLevel("warning", c.clientCfg.Debug)
 
 			log.Debugf("Client configuration settings: %+v", c.clientCfg)
 

@@ -109,8 +109,6 @@ type ClientCmd struct {
 	dynamicIdentity identityArgs
 	// Dynamically configuring affiliations
 	dynamicAffiliation affiliationArgs
-	// Enable debug level logging
-	debug bool
 }
 
 // NewCommand returns new ClientCmd ready for running
@@ -200,7 +198,6 @@ func (c *ClientCmd) registerFlags() {
 		"Hostname to include in the certificate signing request during enrollment")
 	pflags.StringSliceVarP(
 		&c.cfgCsrNames, "csr.names", "", nil, "A list of comma-separated CSR names of the form <name>=<value> (e.g. C=CA,O=Org1)")
-	pflags.BoolVarP(&c.debug, "debug", "d", false, "Enable debug level logging")
 
 	c.clientCfg = &lib.ClientConfig{}
 	tags := map[string]string{

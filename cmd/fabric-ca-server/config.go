@@ -457,6 +457,11 @@ func (s *ServerCmd) configInit() (err error) {
 		return err
 	}
 
+	s.myViper.AutomaticEnv() // read in environment variables that match
+	logLevel := s.myViper.GetString("loglevel")
+	debug := s.myViper.GetBool("debug")
+	util.SetLogLevel(logLevel, debug)
+
 	log.Debugf("Home directory: %s", s.homeDirectory)
 
 	// If the config file doesn't exist, create a default one
@@ -471,7 +476,6 @@ func (s *ServerCmd) configInit() (err error) {
 	}
 
 	// Read the config
-	s.myViper.AutomaticEnv() // read in environment variables that match
 	err = lib.UnmarshalConfig(s.cfg, s.myViper, s.cfgFileName, true)
 	if err != nil {
 		return err

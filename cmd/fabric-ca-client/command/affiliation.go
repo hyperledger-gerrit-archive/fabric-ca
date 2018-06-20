@@ -21,6 +21,7 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/util"
 	"github.com/spf13/cobra"
 )
 
@@ -50,11 +51,11 @@ func (c *ClientCmd) newListAffiliationCommand() *cobra.Command {
 		Short: "List affiliations",
 		Long:  "List affiliations visible to caller",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			log.Level = log.LevelWarning
 			err := c.ConfigInit()
 			if err != nil {
 				return err
 			}
+			util.SetDefaultLogLevel("warning", c.clientCfg.Debug)
 
 			log.Debugf("Client configuration settings: %+v", c.clientCfg)
 
