@@ -171,6 +171,85 @@ func TestGetRevokedCredentials(t *testing.T) {
 	assert.NoError(t, err)
 }
 
+func TestRevokeCredentialsNilDB(t *testing.T) {
+	var db *dmocks.FabricCADB
+	accessor := NewCredentialAccessor(db, 1)
+	err := accessor.RevokeCredential("1", 1)
+	assert.Error(t, err)
+	assert.Equal(t, "Database is not set", err.Error())
+}
+
+func TestRevokeCredential(t *testing.T) {
+	db := new(dmocks.FabricCADB)
+	cr := CredRecord{}
+	cr.RevocationHandle = "1"
+	cr.Reason = 1
+	db.On("NamedExec", UpdateRevokeACredentialSQL, &cr).Return(nil, nil)
+	accessor := NewCredentialAccessor(db, 1)
+	err := accessor.RevokeCredential("1", 1)
+	assert.NoError(t, err)
+}
+
+func TestRevokeCredentialExecError(t *testing.T) {
+	db := new(dmocks.FabricCADB)
+	cr := CredRecord{}
+	cr.RevocationHandle = "1"
+	cr.Reason = 1
+	db.On("NamedExec", UpdateRevokeACredentialSQL, &cr).Return(nil, errors.New("Exec failed"))
+	accessor := NewCredentialAccessor(db, 1)
+	err := accessor.RevokeCredential("1", 1)
+	assert.Error(t, err)
+}
+
+func TestRevokeCredentialsByIDNilDB(t *testing.T) {
+	var db *dmocks.FabricCADB
+	accessor := NewCredentialAccessor(db, 1)
+	_, err := accessor.RevokeCredentialsByID("foo", 1)
+	assert.Error(t, err)
+	assert.Equal(t, "Database is not set", err.Error())
+}
+
+func TestRevokeCredentialsByID(t *testing.T) {
+	db := new(dmocks.FabricCADB)
+	db.On("Rebind", SelectUnRevokedCredentialsByIDSQL).Return(SelectUnRevokedCredentialsByIDSQL)
+	q := fmt.Sprintf(SelectUnRevokedCredentialsByIDSQL, sqlstruct.Columns(CredRecord{}))
+	var crs []CredRecord
+	db.On("Select", &crs, q, "foo").Return(nil)
+	cr := CredRecord{}
+	cr.ID = "foo"
+	cr.Reason = 1
+	db.On("NamedExec", UpdateRevokeCredentialSQL, &cr).Return(nil, nil)
+	accessor := NewCredentialAccessor(db, 1)
+	_, err := accessor.RevokeCredentialsByID("foo", 1)
+	assert.NoError(t, err)
+}
+
+func TestRevokeCredentialsByIDSelectError(t *testing.T) {
+	db := new(dmocks.FabricCADB)
+	db.On("Rebind", SelectUnRevokedCredentialsByIDSQL).Return(SelectUnRevokedCredentialsByIDSQL)
+	q := fmt.Sprintf(SelectUnRevokedCredentialsByIDSQL, sqlstruct.Columns(CredRecord{}))
+	var crs []CredRecord
+	db.On("Select", &crs, q, "foo").Return(errors.New("No unrevoked credentials found"))
+	accessor := NewCredentialAccessor(db, 1)
+	_, err := accessor.RevokeCredentialsByID("foo", 1)
+	assert.Error(t, err)
+}
+
+func TestRevokeCredentialsByIDExecError(t *testing.T) {
+	db := new(dmocks.FabricCADB)
+	db.On("Rebind", SelectUnRevokedCredentialsByIDSQL).Return(SelectUnRevokedCredentialsByIDSQL)
+	q := fmt.Sprintf(SelectUnRevokedCredentialsByIDSQL, sqlstruct.Columns(CredRecord{}))
+	var crs []CredRecord
+	db.On("Select", &crs, q, "foo").Return(nil)
+	cr := CredRecord{}
+	cr.ID = "foo"
+	cr.Reason = 1
+	db.On("NamedExec", UpdateRevokeCredentialSQL, &cr).Return(nil, errors.New("Failed to update db"))
+	accessor := NewCredentialAccessor(db, 1)
+	_, err := accessor.RevokeCredentialsByID("foo", 1)
+	assert.Error(t, err)
+}
+
 func getCredSelectFunc(t *testing.T, isError bool) func(interface{}, string, ...interface{}) error {
 	return func(dest interface{}, query string, args ...interface{}) error {
 		crs := dest.(*[]CredRecord)

@@ -143,6 +143,26 @@ func (i *Identity) RegisterAndEnroll(req *api.RegistrationRequest) (*Identity, e
 	return eresp.Identity, nil
 }
 
+// RegisterAndIdemixEnroll registers and gets an Idemix credential for the identity and returns the identity
+func (i *Identity) RegisterAndIdemixEnroll(req *api.RegistrationRequest) (*Identity, error) {
+	if i.client == nil {
+		return nil, errors.New("No client is associated with this identity")
+	}
+	rresp, err := i.Register(req)
+	if err != nil {
+		return nil, errors.WithMessage(err, fmt.Sprintf("Failed to register %s", req.Name))
+	}
+	eresp, err := i.client.Enroll(&api.EnrollmentRequest{
+		Name:   req.Name,
+		Secret: rresp.Secret,
+		Type:   "idemix",
+	})
+	if err != nil {
+		return nil, errors.WithMessage(err, fmt.Sprintf("Failed to enroll %s", req.Name))
+	}
+	return eresp.Identity, nil
+}
+
 // Reenroll reenrolls an existing Identity and returns a new Identity
 // @param req The reenrollment request
 func (i *Identity) Reenroll(req *api.ReenrollmentRequest) (*EnrollmentResponse, error) {
