@@ -38,10 +38,12 @@ MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 ifneq ($(IS_RELEASE),true)
 EXTRA_VERSION ?= snapshot-$(shell git rev-parse --short HEAD)
 PROJECT_VERSION=$(BASE_VERSION)-$(EXTRA_VERSION)
-FABRIC_TAG ?= $(ARCH)-$(PREV_VERSION)
+FABRIC_TAG ?= $(ARCH)-$(BASE_VERSION)
+STABLE_TAG ?= $(ARCH)-1.2.0-stable
 else
 PROJECT_VERSION=$(BASE_VERSION)
-FABRIC_TAG ?= $(ARCH)-$(BASE_VERSION)
+STABLE_TAG ?= $(ARCH)-1.2.0-stable
+FABRIC_TAG ?= $(ARCH)-$(PREV_VERSION)
 endif
 
 ifeq ($(ARCH),s390x)
@@ -131,8 +133,10 @@ build/image/%/$(DUMMY): Makefile build/image/%/payload
 	@cat images/$(TARGET)/Dockerfile.in \
 		| sed -e 's|_BASE_NS_|$(BASE_DOCKER_NS)|g' \
 		| sed -e 's|_NS_|$(DOCKER_NS)|g' \
+		| sed -e 's|_NEXUS_REPO_|$(NEXUS_URL)|g' \
 		| sed -e 's|_BASE_TAG_|$(BASE_DOCKER_TAG)|g' \
 		| sed -e 's|_FABRIC_TAG_|$(FABRIC_TAG)|g' \
+		| sed -e 's|_STABLE_TAG_|$(STABLE_TAG)|g' \
 		| sed -e 's|_TAG_|$(DOCKER_TAG)|g' \
 		| sed -e 's|_PGVER_|$(PGVER)|g' \
 		> $(@D)/Dockerfile
