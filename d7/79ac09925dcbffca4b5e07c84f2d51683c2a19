@@ -1,0 +1,8 @@
+Code-Review+2: David Enyeart <enyeart@us.ibm.com>
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-by: Christopher Ferris <chris.ferris@gmail.com>
+Submitted-at: Mon, 02 Jul 2018 12:34:28 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/23861
+Project: fabric-ca
+Branch: refs/heads/release-1.2
