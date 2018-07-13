@@ -141,6 +141,20 @@ function generateCertificateCLI {
     cat certificate_cmd.rst >> clientcli.rst
 }
 
+function generateRevokeCLI {
+    echo "Generating Revoke Command CLI..."
+
+    echo -e "\Revoke Command" >> clientcli.rst
+    echo -e "=====================\n" >> clientcli.rst
+    echo -e "::\n" >> clientcli.rst
+
+    fabric-ca-client revoke -h >> revoke_cmd.rst
+    sed -i -e '/Global Flags:/,$d' revoke_cmd.rst
+
+    sed -i -e 's/^/    /' revoke_cmd.rst
+    cat revoke_cmd.rst >> clientcli.rst
+}
+
 
 fabric_ca=$GOPATH/src/github.com/hyperledger/fabric-ca
 docsdir=$fabric_ca/docs/source
@@ -155,6 +169,7 @@ generateGlobalCLI
 generateIdentityCLI
 generateAffiliationCLI
 generateCertificateCLI
+generateRevokeCLI
 
 mv servercli.rst $docsdir/servercli.rst
 mv clientcli.rst $docsdir/clientcli.rst

@@ -124,7 +124,7 @@ func TestGetCredentialSelectError(t *testing.T) {
 	db.On("Rebind", SelectCredentialSQL).Return(SelectCredentialSQL)
 	cr := CredRecord{}
 	q := fmt.Sprintf(SelectCredentialSQL, sqlstruct.Columns(CredRecord{}))
-	db.On("Select", &cr, q, "1").Return(errors.New("Select error"))
+	db.On("Get", &cr, q, "1").Return(errors.New("Get error"))
 	accessor := NewCredentialAccessor(db, 1)
 	_, err := accessor.GetCredential("1")
 	assert.Error(t, err)
@@ -135,7 +135,7 @@ func TestGetCredential(t *testing.T) {
 	db.On("Rebind", SelectCredentialSQL).Return(SelectCredentialSQL)
 	cr := CredRecord{}
 	q := fmt.Sprintf(SelectCredentialSQL, sqlstruct.Columns(CredRecord{}))
-	db.On("Select", &cr, q, "1").Return(nil)
+	db.On("Get", &cr, q, "1").Return(nil)
 	accessor := NewCredentialAccessor(db, 1)
 	_, err := accessor.GetCredential("1")
 	assert.NoError(t, err)
