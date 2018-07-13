@@ -42,10 +42,6 @@ Fabric-CA Client's CLI
           --id.type string                 Type of identity being registered (e.g. 'peer, app, user') (default "client")
       -M, --mspdir string                  Membership Service Provider directory (default "msp")
       -m, --myhost string                  Hostname to include in the certificate signing request during enrollment (default "$HOSTNAME")
-      -a, --revoke.aki string              AKI (Authority Key Identifier) of the certificate to be revoked
-      -e, --revoke.name string             Identity whose certificates should be revoked
-      -r, --revoke.reason string           Reason for revocation
-      -s, --revoke.serial string           Serial number of the certificate to be revoked
           --tls.certfiles stringSlice      A list of comma-separated PEM-encoded trusted certificate files (e.g. root1.pem,root2.pem)
           --tls.client.certfile string     PEM-encoded certificate file when mutual authenticate is enabled
           --tls.client.keyfile string      PEM-encoded key file when mutual authentication is enabled
@@ -221,4 +217,25 @@ Certificate Command
           --revocation string   Get certificates that were revoked between the UTC timestamp (RFC3339 format) or duration specified (e.g. <begin_time>::<end_time>)
           --serial string       Get certificates for this serial number
           --store string        Store requested certificates in this location
+    
+\Revoke Command
+=====================
+
+::
+
+    Revoke an identity with Fabric CA server
+    
+    Usage:
+      fabric-ca-client revoke [flags]
+      fabric-ca-client revoke [command]
+    
+    Available Commands:
+      idemix      Revoke idemix credentials
+    
+    Flags:
+          --aki string      AKI (Authority Key Identifier) of the certificate to be revoked
+          --gencrl          Generates a CRL that contains all revoked certificates
+          --name string     Identity whose certificates should be revoked
+          --reason string   Reason for revocation
+          --serial string   Serial number of the certificate to be revoked
     

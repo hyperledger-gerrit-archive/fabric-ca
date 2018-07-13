@@ -248,6 +248,26 @@ func (i *Identity) GenCRL(req *api.GenCRLRequest) (*api.GenCRLResponse, error) {
 	return &api.GenCRLResponse{CRL: crl}, nil
 }
 
+// RevokeIdemix revokes idemix credential
+func (i *Identity) RevokeIdemix(req *api.IdemixRevocationRequest) (*api.IdemixRevocationResponse, error) {
+	log.Debugf("Entering identity.RevokeIdemix %+v", req)
+	reqBody, err := util.Marshal(req, "IdemixRevocationRequest")
+	if err != nil {
+		return nil, err
+	}
+	var result api.IdemixRevocationResponseNet
+	err = i.Post("idemix/revocation", reqBody, &result, nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("Successfully revoked idemix credential(s): %+v", req)
+	cri, err := util.B64Decode(result.CRI)
+	if err != nil {
+		return nil, err
+	}
+	return &api.IdemixRevocationResponse{RevokedHandles: result.RevokedHandles, CRI: string(cri)}, nil
+}
+
 // GetCRI gets Idemix credential revocation information (CRI)
 func (i *Identity) GetCRI(req *api.GetCRIRequest) (*api.GetCRIResponse, error) {
 	log.Debugf("Entering identity.GetCRI %+v", req)

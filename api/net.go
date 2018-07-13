@@ -68,6 +68,12 @@ type RevocationRequestNet struct {
 	RevocationRequest
 }
 
+// IdemixRevocationResponseNet is the response of an Idemix revocation request which flows
+// back from the fabric-ca server
+type IdemixRevocationResponseNet struct {
+	IdemixRevocationResponse
+}
+
 // GetTCertBatchRequestNet is a network request for a batch of transaction certificates
 type GetTCertBatchRequestNet struct {
 	GetTCertBatchRequest
