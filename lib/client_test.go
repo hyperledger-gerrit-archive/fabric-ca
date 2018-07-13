@@ -763,27 +763,37 @@ func testRevocation(c *Client, t *testing.T, user string, withPriv, ecertOnly bo
 		return
 	}
 	id := eresp.Identity
-	var revResp *api.RevocationResponse
+	var x509RevResp *api.RevocationResponse
+	var allRevResp *api.AllRevocationResponse
 	if ecertOnly {
 		x509Cred := id.GetX509Credential()
-		revResp, err = x509Cred.RevokeSelf()
+		x509RevResp, err = x509Cred.RevokeSelf()
+
+		// Assert that the cert serial in the revocation response is same as that of user certificate
+		cert := id.GetECert().GetX509Cert()
+		if cert == nil {
+			t.Fatalf("Failed to get certificate for the enrolled user %s: %s", user, err)
+		}
+		assert.Equal(t, 1, len(x509RevResp.RevokedCerts), "Expected 1 certificate to be revoked")
+		assert.Equal(t, util.GetSerialAsHex(cert.SerialNumber), x509RevResp.RevokedCerts[0].Serial,
+			"Cert serial in revocation response does match serial number of the cert that was revoked")
 	} else {
-		revResp, err = id.RevokeSelf()
+		allRevResp, err = id.RevokeSelf()
+
+		// Assert that the cert serial in the revocation response is same as that of user certificate
+		cert := id.GetECert().GetX509Cert()
+		if cert == nil {
+			t.Fatalf("Failed to get certificate for the enrolled user %s: %s", user, err)
+		}
+		assert.Equal(t, 1, len(allRevResp.X509Revocation.RevokedCerts), "Expected 1 certificate to be revoked")
+		assert.Equal(t, util.GetSerialAsHex(cert.SerialNumber), allRevResp.X509Revocation.RevokedCerts[0].Serial,
+			"Cert serial in revocation response does match serial number of the cert that was revoked")
 	}
 	// Assert that there is no error revoking user/Ecert
 	ar := assert.NoError(t, err, "Revocation failed for user %s", user)
 	if !ar {
 		return
 	}
-
-	// Assert that the cert serial in the revocation response is same as that of user certificate
-	cert := id.GetECert().GetX509Cert()
-	if cert == nil {
-		t.Fatalf("Failed to get certificate for the enrolled user %s: %s", user, err)
-	}
-	assert.Equal(t, 1, len(revResp.RevokedCerts), "Expected 1 certificate to be revoked")
-	assert.Equal(t, util.GetSerialAsHex(cert.SerialNumber), revResp.RevokedCerts[0].Serial,
-		"Cert serial in revocation response does match serial number of the cert that was revoked")
 
 	eresp, err = id.Reenroll(&api.ReenrollmentRequest{})
 	assert.Errorf(t, err, "Enrollment of a revoked user %s cert succeeded but should have failed", user)
