@@ -28,51 +28,69 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	// RevokeCmdUsage is the usage text for revoke command
+	RevokeCmdUsage = "revoke"
+	// RevokeCmdShortDesc is the short description for revoke command
+	RevokeCmdShortDesc = "Revoke an identity"
+	// RevokeCmdLongDesc is the long description for revoke command
+	RevokeCmdLongDesc = "Revoke an identity with Fabric CA server"
+)
+
 var errInput = errors.New("Invalid usage; either --revoke.name and/or both --revoke.serial and --revoke.aki are required")
 
-func (c *ClientCmd) newRevokeCommand() *cobra.Command {
-	revokeCmd := &cobra.Command{
-		Use:   "revoke",
-		Short: "Revoke an identity",
-		Long:  "Revoke an identity with Fabric CA server",
-		// PreRunE block for this command will check to make sure enrollment
-		// information exists before running the command
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 0 {
-				return errors.Errorf(extraArgsError, args, cmd.UsageString())
-			}
+type revokeArgs struct {
+	// GenCRL specifies whether to generate a CRL
+	GenCRL bool   `def:"false" json:"gencrl,omitempty" help:"Generates a CRL that contains all revoked certificates"`
+	Type   string `def:"x509" help:"The type of revocation request: 'x509' or 'idemix'"`
+}
 
-			err := c.ConfigInit()
-			if err != nil {
-				return err
-			}
+type revokeCmd struct {
+	Command
+	revokeParams revokeArgs
+}
 
-			log.Debugf("Client configuration settings: %+v", c.clientCfg)
+func newRevokeCmd(c Command) *revokeCmd {
+	revCmd := &revokeCmd{c, revokeArgs{}}
+	return revCmd
+}
 
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			err := c.runRevoke(cmd)
-			if err != nil {
-				return err
-			}
-
-			return nil
-		},
+func (c *revokeCmd) getCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     RevokeCmdUsage,
+		Short:   RevokeCmdShortDesc,
+		Long:    RevokeCmdLongDesc,
+		PreRunE: c.preRunRevoke,
+		RunE:    c.runRevoke,
 	}
-	util.RegisterFlags(c.myViper, revokeCmd.Flags(), &c.revokeParams, nil)
-	return revokeCmd
+	util.RegisterFlags(c.GetViper(), cmd.Flags(), &c.revokeParams, nil)
+	return cmd
+}
+
+func (c *revokeCmd) preRunRevoke(cmd *cobra.Command, args []string) error {
+	if len(args) > 0 {
+		return errors.Errorf(extraArgsError, args, cmd.UsageString())
+	}
+
+	err := c.ConfigInit()
+	if err != nil {
+		return err
+	}
+
+	log.Debugf("Client configuration settings: %+v", c.GetClientCfg())
+
+	return nil
 }
 
 // The client revoke main logic
-func (c *ClientCmd) runRevoke(cmd *cobra.Command) error {
+func (c *revokeCmd) runRevoke(cmd *cobra.Command, args []string) error {
 	log.Debug("Entered runRevoke")
 
 	var err error
-
+	clientCfg := c.GetClientCfg()
 	client := lib.Client{
-		HomeDir: filepath.Dir(c.cfgFileName),
-		Config:  c.clientCfg,
+		HomeDir: filepath.Dir(c.GetCfgFileName()),
+		Config:  clientCfg,
 	}
 
 	id, err := client.LoadMyIdentity()
@@ -80,34 +98,39 @@ func (c *ClientCmd) runRevoke(cmd *cobra.Command) error {
 		return err
 	}
 
-	// aki and serial # are required to revoke a certificate. The enrollment ID
-	// is required to revoke an identity. So, either aki and serial must be
-	// specified OR enrollment ID must be specified, else return an error.
-	// Note that all three can be specified, in which case server will revoke
-	// certificate associated with the specified aki, serial number.
-	if (c.clientCfg.Revoke.Name == "") && (c.clientCfg.Revoke.AKI == "" ||
-		c.clientCfg.Revoke.Serial == "") {
-		cmd.Usage()
-		return errInput
+	if c.revokeParams.Type == "Idemix" {
+
+	} else {
+		// aki and serial # are required to revoke a certificate. The enrollment ID
+		// is required to revoke an identity. So, either aki and serial must be
+		// specified OR enrollment ID must be specified, else return an error.
+		// Note that all three can be specified, in which case server will revoke
+		// certificate associated with the specified aki, serial number.
+		if (clientCfg.Revoke.Name == "") && (clientCfg.Revoke.AKI == "" ||
+			clientCfg.Revoke.Serial == "") {
+			cmd.Usage()
+			return errInput
+		}
+
+		req := &api.RevocationRequest{
+			Name:   clientCfg.Revoke.Name,
+			Serial: clientCfg.Revoke.Serial,
+			AKI:    clientCfg.Revoke.AKI,
+			Reason: clientCfg.Revoke.Reason,
+			GenCRL: c.revokeParams.GenCRL,
+			CAName: clientCfg.CAName,
+		}
+		result, err := id.Revoke(req)
+
+		if err != nil {
+			return err
+		}
+		log.Infof("Sucessfully revoked certificates: %+v", result.RevokedCerts)
+
+		if req.GenCRL {
+			return storeCRL(clientCfg, result.CRL)
+		}
 	}
 
-	req := &api.RevocationRequest{
-		Name:   c.clientCfg.Revoke.Name,
-		Serial: c.clientCfg.Revoke.Serial,
-		AKI:    c.clientCfg.Revoke.AKI,
-		Reason: c.clientCfg.Revoke.Reason,
-		GenCRL: c.revokeParams.GenCRL,
-		CAName: c.clientCfg.CAName,
-	}
-	result, err := id.Revoke(req)
-
-	if err != nil {
-		return err
-	}
-	log.Infof("Sucessfully revoked certificates: %+v", result.RevokedCerts)
-
-	if req.GenCRL {
-		return storeCRL(c.clientCfg, result.CRL)
-	}
 	return nil
 }
