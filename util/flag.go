@@ -99,7 +99,7 @@ func (fr *flagRegistrar) Register(f *Field) (err error) {
 			return errors.Errorf("Field is missing a help tag: %s", f.Path)
 		}
 		var intDef int
-		if def != "" {
+		if def != "" && !hide {
 			intDef, err = strconv.Atoi(def)
 			if err != nil {
 				return errors.Errorf("Invalid integer value in 'def' tag of %s field", f.Path)

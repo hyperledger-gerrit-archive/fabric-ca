@@ -53,6 +53,23 @@ func (_m *FabricCADB) Exec(query string, args ...interface{}) (sql.Result, error
 	return r0, r1
 }
 
+// Get provides a mock function with given fields: dest, query, args
+func (_m *FabricCADB) Get(dest interface{}, query string, args ...interface{}) error {
+	var _ca []interface{}
+	_ca = append(_ca, dest, query)
+	_ca = append(_ca, args...)
+	ret := _m.Called(_ca...)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(interface{}, string, ...interface{}) error); ok {
+		r0 = rf(dest, query, args...)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
 // IsInitialized provides a mock function with given fields:
 func (_m *FabricCADB) IsInitialized() bool {
 	ret := _m.Called()

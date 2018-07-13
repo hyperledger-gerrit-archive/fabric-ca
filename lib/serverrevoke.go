@@ -16,11 +16,6 @@ import (
 	"github.com/hyperledger/fabric-ca/util"
 )
 
-type revocationResponseNet struct {
-	RevokedCerts []api.RevokedCert
-	CRL          string
-}
-
 // CertificateStatus represents status of an enrollment certificate
 type CertificateStatus string
 
@@ -65,7 +60,7 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 	registry := ca.registry
 	reason := util.RevocationReasonCodes[req.Reason]
 
-	result := &revocationResponseNet{}
+	result := &api.RevocationResponseNet{}
 	if req.Serial != "" && req.AKI != "" {
 		certificate, err := certDBAccessor.GetCertificateWithID(req.Serial, req.AKI)
 		if err != nil {
@@ -133,8 +128,6 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 		return nil, caerrors.NewHTTPErr(400, caerrors.ErrMissingRevokeArgs, "Either Name or Serial and AKI are required for a revoke request")
 	}
 
-	log.Debugf("Revoke was successful: %+v", req)
-
 	if req.GenCRL && len(result.RevokedCerts) > 0 {
 		log.Debugf("Generating CRL")
 		crl, err := genCRL(ca, api.GenCRLRequest{CAName: ca.Config.CA.Name})
@@ -143,6 +136,26 @@ func revokeHandler(ctx *serverRequestContextImpl) (interface{}, error) {
 		}
 		result.CRL = util.B64Encode(crl)
 	}
+
+	log.Debugf("X509 revoke was successful: %+v", req)
+
+	// If type is not specified, both x509 certificates and idemix credentials should be revoked
+	if req.Type == "" {
+		allResult := &api.AllRevocationResponseNet{}
+		// Only need to revokey by revocation handle because revocation by name has already been handled above
+		if req.IdemixRH != "" {
+			idemixRevokeResp, err := ca.issuer.RevokeByRH(&idemixServerCtx{ctx})
+			if err != nil {
+				log.Errorf("Error processing the /idemix/revocation request: %s", err.Error())
+				return nil, err
+			}
+			log.Debugf("Idemix revoke was successful: %+v", req)
+			allResult.IdemixRevocation = *idemixRevokeResp
+			allResult.X509Revocation = result.RevocationResponse
+			return allResult, nil
+		}
+	}
+
 	return result, nil
 }
 

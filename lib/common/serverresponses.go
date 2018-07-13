@@ -43,6 +43,8 @@ type IdemixEnrollmentResponseNet struct {
 	CRI string
 	// Base64 encoding of the issuer nonce
 	Nonce string
+	// Revocation Handle of Idemix credential
+	RevocationHandle string
 	// The CA information
 	CAInfo CAInfoResponseNet
 }
