@@ -165,7 +165,7 @@ func (ac *CredentialAccessor) GetCredential(revocationHandle string) (*CredRecor
 		return nil, err
 	}
 	cr := &CredRecord{}
-	err = ac.db.Select(cr, fmt.Sprintf(ac.db.Rebind(SelectCredentialSQL), sqlstruct.Columns(CredRecord{})), revocationHandle)
+	err = ac.db.Get(cr, fmt.Sprintf(ac.db.Rebind(SelectCredentialSQL), sqlstruct.Columns(CredRecord{})), revocationHandle)
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to get credential associated with revocation handle '%s' from datastore", revocationHandle)
 	}

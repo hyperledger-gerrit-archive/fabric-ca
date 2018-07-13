@@ -51,6 +51,16 @@ type RevocationRequestNet struct {
 	RevocationRequest
 }
 
+// RevocationResponseNet is the response from a revocation
+type RevocationResponseNet struct {
+	RevocationResponse `mapstructure:",squash"`
+}
+
+// AllRevocationResponseNet is the response from a revocation both x509 and Idemix
+type AllRevocationResponseNet struct {
+	AllRevocationResponse `mapstructure:",squash"`
+}
+
 // GetTCertBatchRequestNet is a network request for a batch of transaction certificates
 type GetTCertBatchRequestNet struct {
 	GetTCertBatchRequest

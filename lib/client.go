@@ -346,7 +346,7 @@ func (c *Client) handleIdemixEnroll(req *api.EnrollmentRequest) (*EnrollmentResp
 		return nil, errors.WithMessage(err, "Failed to create an Idemix credential request")
 	}
 	reqNet.CredRequest = credReq
-	log.Info("Successfully created an Idemix credential request")
+	log.Info("Successfully created an Idemix credential request with revocation handle: '%s'", result.RevocationHandle)
 
 	body, err = util.Marshal(reqNet, "CredentialRequest")
 	if err != nil {

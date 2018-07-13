@@ -8,13 +8,11 @@ package idemix_test
 import (
 	"testing"
 
-	"github.com/hyperledger/fabric-ca/lib/spi"
-
+	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
-
-	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
 	. "github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix/mocks"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
@@ -33,7 +31,7 @@ func TestIdemixRevokeBadReqBody(t *testing.T) {
 	ctx.On("TokenAuthentication").Return("foo", nil)
 	ctx.On("IsBasicAuth").Return(false)
 	handler := RevokeRequestHandler{Ctx: ctx}
-	req := idemixapi.RevocationRequest{}
+	req := api.RevocationRequest{}
 	ctx.On("ReadBody", &req).Return(errors.New("Invalid request body"))
 	_, err := handler.HandleRequest()
 	assert.Error(t, err, "Idemix revoke should return error if reading body fails")
@@ -245,7 +243,6 @@ func TestIdemixRevokeRH(t *testing.T) {
 }
 
 func TestIdemixRevokeInvalidReq(t *testing.T) {
-	req := idemixapi.RevocationRequest{}
 	ctx, handler, req := setup(nil)
 	f := getReadRevokeBodyFunc(t, "", "")
 	ctx.On("ReadBody", &req).Return(f)
@@ -255,17 +252,17 @@ func TestIdemixRevokeInvalidReq(t *testing.T) {
 
 func getReadRevokeBodyFunc(t *testing.T, id, rh string) func(body interface{}) error {
 	return func(body interface{}) error {
-		revokeReq, _ := body.(*idemixapi.RevocationRequest)
+		revokeReq, _ := body.(*api.RevocationRequest)
 		revokeReq.Name = id
 		if rh != "" {
-			revokeReq.RevocationHandle = "1"
+			revokeReq.IdemixRH = "1"
 		}
 		revokeReq.Reason = "keycompromise"
 		return nil
 	}
 }
 
-func setup(issuer *mocks.MyIssuer) (*mocks.ServerRequestCtx, RevokeRequestHandler, idemixapi.RevocationRequest) {
+func setup(issuer *mocks.MyIssuer) (*mocks.ServerRequestCtx, RevokeRequestHandler, api.RevocationRequest) {
 	ctx := new(mocks.ServerRequestCtx)
 	ctx.On("TokenAuthentication").Return("foo", nil)
 	ctx.On("IsBasicAuth").Return(false)
@@ -273,6 +270,6 @@ func setup(issuer *mocks.MyIssuer) (*mocks.ServerRequestCtx, RevokeRequestHandle
 	if issuer != nil {
 		handler = RevokeRequestHandler{Ctx: ctx, Issuer: issuer}
 	}
-	req := idemixapi.RevocationRequest{}
+	req := api.RevocationRequest{}
 	return ctx, handler, req
 }
