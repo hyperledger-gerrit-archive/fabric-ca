@@ -36,6 +36,8 @@ type Issuer interface {
 	RevocationPublicKey() ([]byte, error)
 	IssueCredential(ctx ServerRequestCtx) (*idemixapi.EnrollmentResponse, error)
 	Revoke(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error)
+	RevokeByRH(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error)
+	RevokeByName(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error)
 	GetCRI(ctx ServerRequestCtx) (*api.GetCRIResponse, error)
 	VerifyToken(authHdr string, body []byte) (string, error)
 }
@@ -195,6 +197,76 @@ func (i *issuer) Revoke(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, er
 	}
 
 	rhs, err := handler.HandleRequest()
+	if err != nil {
+		return nil, err
+	}
+
+	res := &idemixapi.RevocationResponse{RevokedHandles: rhs}
+	if len(rhs) > 0 {
+		cri, err := i.RevocationAuthority().CreateCRI()
+		if err != nil {
+			return nil, err
+		}
+		criBytes, err := marshalCRI(cri)
+		if err != nil {
+			return nil, err
+		}
+		res.CRI = util.B64Encode(criBytes)
+	}
+	return res, nil
+}
+
+func (i *issuer) RevokeByRH(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error) {
+	if !i.isInitialized {
+		return nil, errors.New("Issuer is not initialized")
+	}
+	handler := RevokeRequestHandler{
+		Ctx:    ctx,
+		Issuer: i,
+	}
+
+	var req api.RevocationRequest
+	err := handler.Ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	rhs, err := handler.RevokeByRH(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	res := &idemixapi.RevocationResponse{RevokedHandles: rhs}
+	if len(rhs) > 0 {
+		cri, err := i.RevocationAuthority().CreateCRI()
+		if err != nil {
+			return nil, err
+		}
+		criBytes, err := marshalCRI(cri)
+		if err != nil {
+			return nil, err
+		}
+		res.CRI = util.B64Encode(criBytes)
+	}
+	return res, nil
+}
+
+func (i *issuer) RevokeByName(ctx ServerRequestCtx) (*idemixapi.RevocationResponse, error) {
+	if !i.isInitialized {
+		return nil, errors.New("Issuer is not initialized")
+	}
+	handler := RevokeRequestHandler{
+		Ctx:    ctx,
+		Issuer: i,
+	}
+
+	var req api.RevocationRequest
+	err := handler.Ctx.ReadBody(&req)
+	if err != nil {
+		return nil, err
+	}
+
+	rhs, err := handler.RevokeByName(&req)
 	if err != nil {
 		return nil, err
 	}

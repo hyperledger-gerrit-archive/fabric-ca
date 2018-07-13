@@ -19,6 +19,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/client/credential"
 	"github.com/hyperledger/fabric-ca/lib/client/credential/idemix"
 	"github.com/hyperledger/fabric-ca/lib/client/credential/x509"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
 	x509api "github.com/hyperledger/fabric-ca/lib/common/x509/api"
 	"github.com/hyperledger/fabric-ca/util"
 )
@@ -195,27 +196,27 @@ func (i *Identity) Revoke(req *api.RevocationRequest) (*api.RevocationResponse, 
 	if err != nil {
 		return nil, err
 	}
-	var result revocationResponseNet
+	var result api.RevocationResponseNet
 	err = i.Post("revoke", reqBody, &result, nil)
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("Successfully revoked certificates: %+v", req)
 	crl, err := util.B64Decode(result.CRL)
 	if err != nil {
 		return nil, err
 	}
-	return &api.RevocationResponse{RevokedCerts: result.RevokedCerts, CRL: crl}, nil
+	log.Debugf("Successfully revoked certificates: %+v", req)
+	return &api.RevocationResponse{RevokedCerts: result.RevokedCerts, CRL: string(crl)}, nil
 }
 
 // RevokeSelf revokes the current identity and all certificates
-func (i *Identity) RevokeSelf() (*api.RevocationResponse, error) {
+func (i *Identity) RevokeSelf() (*api.AllRevocationResponse, error) {
 	name := i.GetName()
 	log.Debugf("RevokeSelf %s", name)
 	req := &api.RevocationRequest{
 		Name: name,
 	}
-	return i.Revoke(req)
+	return i.RevokeAll(req)
 }
 
 // GenCRL generates CRL
@@ -236,6 +237,47 @@ func (i *Identity) GenCRL(req *api.GenCRLRequest) (*api.GenCRLResponse, error) {
 		return nil, err
 	}
 	return &api.GenCRLResponse{CRL: crl}, nil
+}
+
+// RevokeIdemix revokes idemix credential
+func (i *Identity) RevokeIdemix(req *api.RevocationRequest) (*idemixapi.RevocationResponse, error) {
+	log.Debugf("Entering identity.RevokeIdemix %+v", req)
+	reqBody, err := util.Marshal(req, "IdemixRevocationRequest")
+	if err != nil {
+		return nil, err
+	}
+	var result idemixapi.RevocationResponseNet
+	err = i.Post("idemix/revocation", reqBody, &result, nil)
+	if err != nil {
+		return nil, err
+	}
+	log.Debugf("Successfully revoked idemix credential(s): %+v", req)
+	cri, err := util.B64Decode(result.CRI)
+	if err != nil {
+		return nil, err
+	}
+	return &idemixapi.RevocationResponse{RevokedHandles: result.RevokedHandles, CRI: string(cri)}, nil
+}
+
+// RevokeAll revokes both X509 certificates and Idemix credentials
+func (i *Identity) RevokeAll(req *api.RevocationRequest) (*api.AllRevocationResponse, error) {
+	log.Debugf("Entering identity.Revoke %+v", req)
+	reqBody, err := util.Marshal(req, "RevocationRequest")
+	if err != nil {
+		return nil, err
+	}
+	var result api.AllRevocationResponseNet
+	err = i.Post("revoke", reqBody, &result, nil)
+	if err != nil {
+		return nil, err
+	}
+	crl, err := util.B64Decode(result.RevocationResponse.CRL)
+	if err != nil {
+		return nil, err
+	}
+	result.RevocationResponse.CRL = string(crl)
+	log.Debugf("Successfully revoked certificates: %+v", req)
+	return &api.AllRevocationResponse{RevocationResponse: result.RevocationResponse, IdemixRevocation: result.IdemixRevocation}, nil
 }
 
 // GetCRI gets Idemix credential revocation information (CRI)

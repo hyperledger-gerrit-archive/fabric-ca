@@ -211,6 +211,7 @@ func TestRevokeSelf(t *testing.T) {
 	req := &api.RevocationRequest{
 		Serial: serial,
 		AKI:    aki,
+		Type:   "x509",
 	}
 	id.On("Revoke", req).Return(&api.RevocationResponse{}, nil)
 

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/csr"
+	idemixapi "github.com/hyperledger/fabric-ca/lib/common/idemix/api"
 	"github.com/hyperledger/fabric-ca/util"
 )
 
@@ -98,19 +99,24 @@ type ReenrollmentRequest struct {
 type RevocationRequest struct {
 	// Name of the identity whose certificates should be revoked
 	// If this field is omitted, then Serial and AKI must be specified.
-	Name string `json:"id,omitempty" opt:"e" help:"Identity whose certificates should be revoked"`
+	Name string `json:"id,omitempty" help:"Identity whose certificates should be revoked"`
 	// Serial number of the certificate to be revoked
 	// If this is omitted, then Name must be specified
-	Serial string `json:"serial,omitempty" opt:"s" help:"Serial number of the certificate to be revoked"`
+	Serial string `json:"serial,omitempty" help:"Serial number of the certificate to be revoked"`
 	// AKI (Authority Key Identifier) of the certificate to be revoked
-	AKI string `json:"aki,omitempty" opt:"a" help:"AKI (Authority Key Identifier) of the certificate to be revoked"`
+	AKI string `json:"aki,omitempty" help:"AKI (Authority Key Identifier) of the certificate to be revoked"`
 	// Reason is the reason for revocation.  See https://godoc.org/golang.org/x/crypto/ocsp for
 	// valid values.  The default value is 0 (ocsp.Unspecified).
-	Reason string `json:"reason,omitempty" opt:"r" help:"Reason for revocation"`
+	Reason string `json:"reason,omitempty" help:"Reason for revocation"`
 	// CAName is the name of the CA to connect to
 	CAName string `json:"caname,omitempty" skip:"true"`
 	// GenCRL specifies whether to generate a CRL
-	GenCRL bool `def:"false" skip:"true" json:"gencrl,omitempty"`
+	GenCRL bool `def:"false" json:"gencrl,omitempty" help:"Generates a CRL that contains all revoked certificates"`
+	// Type specifies if x509 certificate, idemix credential, or both should be revoked
+	Type string `json:"type,omitempty" def:"all" help:"Allows specification of what is to be revoked. Supported types x509, idemix, all"`
+	// Revocation handle of the credential to be revoked
+	// If this is omitted, then Name must be specified
+	IdemixRH string `json:"idemixrh,omitempty" help:"Base64 encoding of the revocation handle of the Idemix credential to be revoked"`
 }
 
 // RevocationResponse represents response from the server for a revocation request
@@ -118,7 +124,7 @@ type RevocationResponse struct {
 	// RevokedCerts is an array of certificates that were revoked
 	RevokedCerts []RevokedCert
 	// CRL is PEM-encoded certificate revocation list (CRL) that contains all unexpired revoked certificates
-	CRL []byte
+	CRL string
 }
 
 // RevokedCert represents a revoked certificate
@@ -127,6 +133,12 @@ type RevokedCert struct {
 	Serial string
 	// AKI of the revoked certificate
 	AKI string
+}
+
+// AllRevocationResponse contains the reponses from revocation of both X509 and Idemix
+type AllRevocationResponse struct {
+	RevocationResponse `mapstructure:",squash"`
+	IdemixRevocation   idemixapi.RevocationResponse
 }
 
 // GetTCertBatchRequest is input provided to identity.GetTCertBatch

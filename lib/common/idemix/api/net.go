@@ -22,3 +22,9 @@ type EnrollmentResponseNet struct {
 	EnrollmentResponse `mapstructure:",squash"`
 	CAInfo             infoapi.CAInfoResponseNet
 }
+
+// RevocationResponseNet is the response of an Idemix revocation request which flows
+// back from the fabric-ca server
+type RevocationResponseNet struct {
+	RevocationResponse `mapstructure:",squash"`
+}

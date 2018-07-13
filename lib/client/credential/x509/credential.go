@@ -139,6 +139,7 @@ func (cred *Credential) RevokeSelf() (*api.RevocationResponse, error) {
 	req := &api.RevocationRequest{
 		Serial: serial,
 		AKI:    aki,
+		Type:   "x509",
 	}
 
 	id := cred.client.NewX509Identity(name, []credential.Credential{cred})
