@@ -30,6 +30,7 @@ var (
 // object that are used by Fabric CA server
 type FabricCADB interface {
 	IsInitialized() bool
+	Get(dest interface{}, query string, args ...interface{}) error
 	Select(dest interface{}, query string, args ...interface{}) error
 	NamedExec(query string, arg interface{}) (sql.Result, error)
 	Rebind(query string) string

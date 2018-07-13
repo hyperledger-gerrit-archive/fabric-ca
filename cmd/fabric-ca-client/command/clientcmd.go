@@ -64,11 +64,6 @@ type crlArgs struct {
 	ExpireBefore string `help:"Generate CRL with certificates that expire before this UTC timestamp (in RFC3339 format)"`
 }
 
-type revokeArgs struct {
-	// GenCRL specifies whether to generate a CRL
-	GenCRL bool `def:"false" json:"gencrl,omitempty" opt:"" help:"Generates a CRL that contains all revoked certificates"`
-}
-
 // ClientCmd encapsulates cobra command that provides command line interface
 // for the Fabric CA client and the configuration used by the Fabric CA client
 type ClientCmd struct {
@@ -97,8 +92,6 @@ type ClientCmd struct {
 	csrCommonName string
 	// gencrl command argument values
 	crlParams crlArgs
-	// revoke command argument values
-	revokeParams revokeArgs
 	// profileMode is the profiling mode, cpu or mem or empty
 	profileMode string
 	// profileInst is the profiling instance object
@@ -154,7 +147,7 @@ func (c *ClientCmd) init() {
 	c.rootCmd.AddCommand(c.newRegisterCommand(),
 		newEnrollCmd(c).getCommand(),
 		c.newReenrollCommand(),
-		c.newRevokeCommand(),
+		newRevokeCmd(c).getCommand(),
 		newGetCAInfoCmd(c).getCommand(),
 		c.newGenCsrCommand(),
 		c.newGenCRLCommand(),
@@ -207,6 +200,10 @@ func (c *ClientCmd) registerFlags() {
 		"help.csr.cn":           "The common name field of the certificate signing request",
 		"help.csr.serialnumber": "The serial number in a certificate signing request",
 		"help.csr.hosts":        "A list of space-separated host names in a certificate signing request",
+		"opt.revoke.name":       "e",
+		"opt.revoke.serial":     "s",
+		"opt.revoke.aki":        "a",
+		"opt.revoke.reason":     "r",
 	}
 	err = util.RegisterFlags(c.myViper, pflags, c.clientCfg, tags)
 	if err != nil {

@@ -37,7 +37,7 @@ type ClientConfig struct {
 	Enrollment api.EnrollmentRequest
 	CSR        api.CSRInfo
 	ID         api.RegistrationRequest
-	Revoke     api.RevocationRequest
+	Revoke     api.RevocationRequest `hide:"true"`
 	CAInfo     api.GetCAInfoRequest
 	CAName     string               `help:"Name of CA"`
 	CSP        *factory.FactoryOpts `mapstructure:"bccsp"`
