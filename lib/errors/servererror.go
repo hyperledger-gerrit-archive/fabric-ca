@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package lib
+package caerrors
 
 import (
 	"encoding/json"
@@ -20,155 +20,155 @@ import (
 // Error codes
 const (
 	// Unknown error code
-	ErrUnknown = 0
+	ErrUnknown = iota
 	// HTTP method not allowed
-	ErrMethodNotAllowed = 1
+	ErrMethodNotAllowed
 	// No authorization header was found in request
-	ErrNoAuthHdr = 2
+	ErrNoAuthHdr
 	// Failed reading the HTTP request body
-	ErrReadingReqBody = 3
+	ErrReadingReqBody
 	// HTTP request body was empty but should not have been
-	ErrEmptyReqBody = 4
+	ErrEmptyReqBody
 	// HTTP request body was of the wrong format
-	ErrBadReqBody = 5
+	ErrBadReqBody
 	// The token in the authorization header was invalid
-	ErrBadReqToken = 6
+	ErrBadReqToken
 	// The caller does not have the "hf.Revoker" attibute
-	ErrNotRevoker = 7
+	ErrNotRevoker
 	// Certificate to be revoked was not found
-	ErrRevCertNotFound = 8
+	ErrRevCertNotFound
 	// Certificate to be revoked is not owned by expected user
-	ErrCertWrongOwner = 9
+	ErrCertWrongOwner
 	// Identity of certificate to be revoked was not found
-	ErrRevokeIDNotFound = 10
+	ErrRevokeIDNotFound
 	// User info was not found for issuee of revoked certificate
-	ErrRevokeUserInfoNotFound = 11
+	ErrRevokeUserInfoNotFound
 	// Certificate revocation failed for another reason
-	ErrRevokeFailure = 12
+	ErrRevokeFailure
 	// Failed to update user info when revoking identity
-	ErrRevokeUpdateUser = 13
+	ErrRevokeUpdateUser
 	// Failed to revoke any certificates by identity
-	ErrNoCertsRevoked = 14
+	ErrNoCertsRevoked
 	// Missing fields in the revocation request
-	ErrMissingRevokeArgs = 15
+	ErrMissingRevokeArgs
 	// Failed to get user's affiliation
-	ErrGettingAffiliation = 16
+	ErrGettingAffiliation
 	// Revoker's affiliation not equal to or above revokee's affiliation
-	ErrRevokerNotAffiliated = 17
+	ErrRevokerNotAffiliated
 	// Failed to send an HTTP response
-	ErrSendingResponse = 18
+	ErrSendingResponse
 	// The CA (Certificate Authority) name was not found
-	ErrCANotFound = 19
+	ErrCANotFound
 	// Authorization failure
-	ErrAuthenticationFailure = 20
+	ErrAuthenticationFailure
 	// No username and password were in the authorization header
-	ErrNoUserPass = 21
+	ErrNoUserPass
 	// Enrollment is currently disabled for the server
-	ErrEnrollDisabled = 22
+	ErrEnrollDisabled
 	// Invalid user name
-	ErrInvalidUser = 23
+	ErrInvalidUser
 	// Invalid password
-	ErrInvalidPass = 24
+	ErrInvalidPass
 	// Invalid token in authorization header
-	ErrInvalidToken = 25
+	ErrInvalidToken
 	// Certificate was not issued by a trusted authority
-	ErrUntrustedCertificate = 26
+	ErrUntrustedCertificate
 	// Certificate has expired
-	ErrCertExpired = 27
+	ErrCertExpired
 	// Certificate has been revoked
-	ErrCertRevoked = 28
+	ErrCertRevoked
 	// Failed trying to check if certificate is revoked
-	ErrCertRevokeCheckFailure = 29
+	ErrCertRevokeCheckFailure
 	// Certificate was not found
-	ErrCertNotFound = 30
+	ErrCertNotFound
 	// Bad certificate signing request
-	ErrBadCSR = 31
+	ErrBadCSR
 	// Failed to get identity's prekey
-	ErrNoPreKey = 32
+	ErrNoPreKey
 	// The caller was not authenticated
-	ErrCallerIsNotAuthenticated = 33
+	ErrCallerIsNotAuthenticated
 	// Invalid configuration setting
-	ErrConfig = 34
+	ErrConfig
 	// The caller does not have authority to generate a CRL
-	ErrNoGenCRLAuth = 35
+	ErrNoGenCRLAuth
 	// Invalid RevokedAfter value in the GenCRL request
-	ErrInvalidRevokedAfter = 36
+	ErrInvalidRevokedAfter
 	// Invalid ExpiredAfter value in the GenCRL request
-	ErrInvalidExpiredAfter = 37
+	ErrInvalidExpiredAfter
 	// Failed to get revoked certs from the database
-	ErrRevokedCertsFromDB = 38
+	ErrRevokedCertsFromDB
 	// Failed to get CA cert
-	ErrGetCACert = 39
+	ErrGetCACert
 	// Failed to get CA signer
-	ErrGetCASigner = 40
+	ErrGetCASigner
 	// Failed to generate CRL
-	ErrGenCRL = 41
+	ErrGenCRL
 	// Registrar does not have the authority to register an attribute
-	ErrRegAttrAuth = 42
+	ErrRegAttrAuth
 	// Registrar does not own 'hf.Registrar.Attributes'
-	ErrMissingRegAttr = 43
+	ErrMissingRegAttr
 	// Caller does not have appropriate affiliation to perform requested action
-	ErrCallerNotAffiliated = 44
+	ErrCallerNotAffiliated
 	// Failed to verify if caller has appropriate type
-	ErrGettingType = 45
+	ErrGettingType
 	// CA cert does not have 'crl sign' usage
-	ErrNoCrlSignAuth = 46
+	ErrNoCrlSignAuth
 	// Incorrect level of database
-	ErrDBLevel = 47
+	ErrDBLevel
 	// Incorrect level of configuration file
-	ErrConfigFileLevel = 48
+	ErrConfigFileLevel
 	// Failed to get user from database
-	ErrGettingUser = 49
+	ErrGettingUser
 	// Error processing HTTP request
-	ErrHTTPRequest = 50
+	ErrHTTPRequest
 	// Error connecting to database
-	ErrConnectingDB = 51
+	ErrConnectingDB
 	// Failed to add identity
-	ErrAddIdentity = 52
+	ErrAddIdentity
 	// Unauthorized to perform update action
-	ErrUpdateConfigAuth = 53
+	ErrUpdateConfigAuth
 	// Registrar not authorized to act on type
-	ErrRegistrarInvalidType = 54
+	ErrRegistrarInvalidType
 	// Registrar not authorized to act on affiliation
-	ErrRegistrarNotAffiliated = 55
+	ErrRegistrarNotAffiliated
 	// Failed to remove identity
-	ErrRemoveIdentity = 56
+	ErrRemoveIdentity
 	// Failed to get boolean query parameter
-	ErrGettingBoolQueryParm = 57
+	ErrGettingBoolQueryParm
 	// Failed to modify identity
-	ErrModifyingIdentity = 58
+	ErrModifyingIdentity
 	// Caller does not have the appropriate role
-	ErrMissingRole = 59
+	ErrMissingRole
 	// Failed to add new affiliation
-	ErrUpdateConfigAddAff = 60
+	ErrUpdateConfigAddAff
 	// Failed to remove affiliation
-	ErrUpdateConfigRemoveAff = 61
+	ErrUpdateConfigRemoveAff
 	// Error occured while removing affiliation in database
-	ErrRemoveAffDB = 62
+	ErrRemoveAffDB
 	// Error occured when making a Get request to database
-	ErrDBGet = 63
+	ErrDBGet
 	// Failed to modiy affiliation
-	ErrUpdateConfigModifyAff = 64
+	ErrUpdateConfigModifyAff
 	// Error occured while deleting user
-	ErrDBDeleteUser = 65
+	ErrDBDeleteUser
 	// Certificate that is being revoked has already been revoked
-	ErrCertAlreadyRevoked = 66
+	ErrCertAlreadyRevoked
 	// Failed to get requested certificate(s)
-	ErrGettingCert = 67
+	ErrGettingCert
 	// Error occurred parsing variable as an integer
-	ErrParsingIntEnvVar = 68
+	ErrParsingIntEnvVar
 	// CA certificate file is not found warning message
-	ErrCACertFileNotFound = 69
+	ErrCACertFileNotFound
 	// Error occurs when invoking a request revoked enrollment ID
-	ErrRevokedID = 70
+	ErrRevokedID
 	// Authorization failure
-	ErrAuthorizationFailure = 71
+	ErrAuthorizationFailure
 )
 
-// Construct a new HTTP error.
-func createHTTPErr(scode, code int, format string, args ...interface{}) *httpErr {
+// CreateHTTPErr constructs a new HTTP error.
+func CreateHTTPErr(scode, code int, format string, args ...interface{}) *HTTPErr {
 	msg := fmt.Sprintf(format, args...)
-	return &httpErr{
+	return &HTTPErr{
 		scode: scode,
 		lcode: code,
 		lmsg:  msg,
@@ -177,36 +177,36 @@ func createHTTPErr(scode, code int, format string, args ...interface{}) *httpErr
 	}
 }
 
-// Construct a new HTTP error wrappered with pkg/errors error.
-func newHTTPErr(scode, code int, format string, args ...interface{}) error {
-	return errors.Wrap(createHTTPErr(scode, code, format, args...), "")
+// NewHTTPErr constructs a new HTTP error wrappered with pkg/errors error.
+func NewHTTPErr(scode, code int, format string, args ...interface{}) error {
+	return errors.Wrap(CreateHTTPErr(scode, code, format, args...), "")
 }
 
-// Construct an HTTP error specifically indicating an authentication failure.
+// NewAuthenticationErr constructs an HTTP error specifically indicating an authentication failure.
 // The local code and message is specific, but the remote code and message is generic
 // for security reasons.
-func newAuthenticationErr(code int, format string, args ...interface{}) error {
-	he := createHTTPErr(401, code, format, args...)
+func NewAuthenticationErr(code int, format string, args ...interface{}) error {
+	he := CreateHTTPErr(401, code, format, args...)
 	he.Remote(ErrAuthenticationFailure, "Authentication failure")
 	return errors.Wrap(he, "")
 }
 
-// Construct an HTTP error specifically indicating an authorization failure.
+// NewAuthorizationErr constructs an HTTP error specifically indicating an authorization failure.
 // The local code and message is specific, but the remote code and message is generic
 // for security reasons.
-func newAuthorizationErr(code int, format string, args ...interface{}) error {
-	he := createHTTPErr(403, code, format, args...)
+func NewAuthorizationErr(code int, format string, args ...interface{}) error {
+	he := CreateHTTPErr(403, code, format, args...)
 	he.Remote(ErrAuthorizationFailure, "Authorization failure")
 	return errors.Wrap(he, "")
 }
 
-// httpErr is an HTTP error.
+// HTTPErr is an HTTP error.
 // "local" refers to errors as logged in the server (local to the server).
 // "remote" refers to errors as returned to the client (remote to the server).
 // This allows us to log a more specific error in the server logs while
 // returning a more generic error to the client, as is done for authorization
 // failures.
-type httpErr struct {
+type HTTPErr struct {
 	scode int    // HTTP status code
 	lcode int    // local error code
 	lmsg  string // local error message
@@ -215,12 +215,12 @@ type httpErr struct {
 }
 
 // Error returns the string representation
-func (he *httpErr) Error() string {
+func (he *HTTPErr) Error() string {
 	return he.String()
 }
 
 // String returns a string representation of this augmented error
-func (he *httpErr) String() string {
+func (he *HTTPErr) String() string {
 	if he.lcode == he.rcode && he.lmsg == he.rmsg {
 		return fmt.Sprintf("scode: %d, code: %d, msg: %s", he.scode, he.lcode, he.lmsg)
 	}
@@ -228,15 +228,19 @@ func (he *httpErr) String() string {
 		he.scode, he.lcode, he.lmsg, he.rcode, he.rmsg)
 }
 
-// Set the remote code and message to something different from that of the local code and message
-func (he *httpErr) Remote(code int, format string, args ...interface{}) *httpErr {
+// Remote sets the remote code and message to something different from that of the local code and message
+func (he *HTTPErr) Remote(code int, format string, args ...interface{}) *HTTPErr {
 	he.rcode = code
 	he.rmsg = fmt.Sprintf(format, args...)
 	return he
 }
 
+type errorWriter interface {
+	http.ResponseWriter
+}
+
 // Write the server's HTTP error response
-func (he *httpErr) writeResponse(w http.ResponseWriter) error {
+func (he *HTTPErr) writeResponse(w errorWriter) error {
 	response := cfsslapi.NewErrorResponse(he.rmsg, he.rcode)
 	jsonMessage, err := json.Marshal(response)
 	if err != nil {
@@ -248,42 +252,72 @@ func (he *httpErr) writeResponse(w http.ResponseWriter) error {
 	return nil
 }
 
-type serverErr struct {
+// GetRemoteCode returns the remote error code
+func (he *HTTPErr) GetRemoteCode() int {
+	return he.rcode
+}
+
+// GetLocalCode returns the local error code
+func (he *HTTPErr) GetLocalCode() int {
+	return he.lcode
+}
+
+// GetStatusCode returns the HTTP status code
+func (he *HTTPErr) GetStatusCode() int {
+	return he.scode
+}
+
+// GetRemoteMsg returns the remote error message
+func (he *HTTPErr) GetRemoteMsg() string {
+	return he.rmsg
+}
+
+// GetLocalMsg returns the remote error message
+func (he *HTTPErr) GetLocalMsg() string {
+	return he.lmsg
+}
+
+// ServerErr contains error message with corresponding CA error code
+type ServerErr struct {
 	code int
 	msg  string
 }
 
-type fatalErr struct {
-	serverErr
+// FatalErr is a server error that is will prevent the server/CA from continuing to operate
+type FatalErr struct {
+	ServerErr
 }
 
-func newServerError(code int, format string, args ...interface{}) *serverErr {
+// NewServerError constructs a server error
+func NewServerError(code int, format string, args ...interface{}) *ServerErr {
 	msg := fmt.Sprintf(format, args...)
-	return &serverErr{
+	return &ServerErr{
 		code: code,
 		msg:  msg,
 	}
 }
 
-func newFatalError(code int, format string, args ...interface{}) *fatalErr {
+// NewFatalError constructs a fatal error
+func NewFatalError(code int, format string, args ...interface{}) *FatalErr {
 	msg := fmt.Sprintf(format, args...)
-	return &fatalErr{
-		serverErr{
+	return &FatalErr{
+		ServerErr{
 			code: code,
 			msg:  msg,
 		},
 	}
 }
 
-func (fe *fatalErr) Error() string {
+func (fe *FatalErr) Error() string {
 	return fe.String()
 }
 
-func (fe *fatalErr) String() string {
+func (fe *FatalErr) String() string {
 	return fmt.Sprintf("Code: %d - %s", fe.code, fe.msg)
 }
 
-func isFatalError(err error) bool {
+// IsFatalError return true if the error is of type 'FatalErr'
+func IsFatalError(err error) bool {
 	causeErr := errors.Cause(err)
 	typ := reflect.TypeOf(causeErr)
 	// If a pointer to a struct is passe, get the type of the dereferenced object
@@ -291,7 +325,7 @@ func isFatalError(err error) bool {
 		typ = typ.Elem()
 	}
 
-	if typ == reflect.TypeOf(fatalErr{}) {
+	if typ == reflect.TypeOf(FatalErr{}) {
 		return true
 	}
 	return false

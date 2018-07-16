@@ -19,6 +19,7 @@ import (
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/common"
+	"github.com/hyperledger/fabric-ca/lib/errors"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
@@ -232,9 +233,9 @@ func isRequestForCASigningCert(csrReq *x509.CertificateRequest, ca *CA, profile 
 			var rest []byte
 			var err error
 			if rest, err = asn1.Unmarshal(val.Value, &constraints); err != nil {
-				return false, newHTTPErr(400, ErrBadCSR, "Failed parsing CSR constraints: %s", err)
+				return false, caerrors.NewHTTPErr(400, caerrors.ErrBadCSR, "Failed parsing CSR constraints: %s", err)
 			} else if len(rest) != 0 {
-				return false, newHTTPErr(400, ErrBadCSR, "Trailing data after X.509 BasicConstraints")
+				return false, caerrors.NewHTTPErr(400, caerrors.ErrBadCSR, "Trailing data after X.509 BasicConstraints")
 			}
 			if constraints.IsCA {
 				log.Debug("Request is for a CA signing certificate as indicated in the CSR")

@@ -19,6 +19,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/errors"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/crypto/ocsp"
@@ -209,7 +210,7 @@ func (d *Accessor) deleteUserTx(tx *sqlx.Tx, args ...interface{}) (interface{}, 
 
 	_, err = tx.Exec(tx.Rebind(deleteUser), id)
 	if err != nil {
-		return nil, newHTTPErr(500, ErrDBDeleteUser, "Error deleting identity '%s': %s", id, err)
+		return nil, caerrors.NewHTTPErr(500, caerrors.ErrDBDeleteUser, "Error deleting identity '%s': %s", id, err)
 	}
 
 	record := &CertRecord{
@@ -219,7 +220,7 @@ func (d *Accessor) deleteUserTx(tx *sqlx.Tx, args ...interface{}) (interface{}, 
 
 	_, err = tx.NamedExec(tx.Rebind(updateRevokeSQL), record)
 	if err != nil {
-		return nil, newHTTPErr(500, ErrDBDeleteUser, "Error encountered while revoking certificates for identity '%s' that is being deleted: %s", id, err)
+		return nil, caerrors.NewHTTPErr(500, caerrors.ErrDBDeleteUser, "Error encountered while revoking certificates for identity '%s' that is being deleted: %s", id, err)
 	}
 
 	return &userRec, nil
@@ -366,7 +367,7 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	ids := []UserRecord{}
 	err = tx.Select(&ids, tx.Rebind(query), name, subAffName)
 	if err != nil {
-		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to select users with sub-affiliation of '%s': %s", name, err)
+		return nil, caerrors.NewHTTPErr(500, caerrors.ErrRemoveAffDB, "Failed to select users with sub-affiliation of '%s': %s", name, err)
 	}
 
 	idNames := []string{}
@@ -378,14 +379,14 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	// First check that all settings are correct
 	if len(ids) > 0 {
 		if !isRegistar {
-			return nil, newAuthorizationErr(ErrUpdateConfigRemoveAff, "Removing affiliation affects identities, but caller is not a registrar")
+			return nil, caerrors.NewAuthorizationErr(caerrors.ErrUpdateConfigRemoveAff, "Removing affiliation affects identities, but caller is not a registrar")
 		}
 		if !identityRemoval {
-			return nil, newAuthorizationErr(ErrUpdateConfigRemoveAff, "Identity removal is not allowed on server")
+			return nil, caerrors.NewAuthorizationErr(caerrors.ErrUpdateConfigRemoveAff, "Identity removal is not allowed on server")
 		}
 		if !force {
 			// If force option is not specified, only delete affiliation if there are no identities that have that affiliation
-			return nil, newAuthorizationErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following identities associated: %s. Need to use 'force' to remove identities and affiliation", name, idNamesStr)
+			return nil, caerrors.NewAuthorizationErr(caerrors.ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following identities associated: %s. Need to use 'force' to remove identities and affiliation", name, idNamesStr)
 		}
 	}
 
@@ -404,7 +405,7 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	if len(allAffs) > 1 {
 		if !force {
 			// If force option is not specified, only delete affiliation if there are no sub-affiliations
-			return nil, newAuthorizationErr(ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following sub-affiliations: %s. Need to use 'force' to remove affiliation and sub-affiliations", name, affNamesStr)
+			return nil, caerrors.NewAuthorizationErr(caerrors.ErrUpdateConfigRemoveAff, "Cannot delete affiliation '%s'. The affiliation has the following sub-affiliations: %s. Need to use 'force' to remove affiliation and sub-affiliations", name, affNamesStr)
 		}
 	}
 
@@ -418,22 +419,22 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 		query := "DELETE FROM users WHERE (id IN (?))"
 		inQuery, args, err := sqlx.In(query, idNames)
 		if err != nil {
-			return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to construct query '%s': %s", query, err)
+			return nil, caerrors.NewHTTPErr(500, caerrors.ErrRemoveAffDB, "Failed to construct query '%s': %s", query, err)
 		}
 		_, err = tx.Exec(tx.Rebind(inQuery), args...)
 		if err != nil {
-			return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to execute query '%s' for multiple identity removal: %s", query, err)
+			return nil, caerrors.NewHTTPErr(500, caerrors.ErrRemoveAffDB, "Failed to execute query '%s' for multiple identity removal: %s", query, err)
 		}
 
 		// Revoke all the certificates associated with the removed identities above with reason of "affiliationchange" (3)
 		query = "UPDATE certificates SET status='revoked', revoked_at=CURRENT_TIMESTAMP, reason = ? WHERE (id IN (?) AND status != 'revoked')"
 		inQuery, args, err = sqlx.In(query, ocsp.AffiliationChanged, idNames)
 		if err != nil {
-			return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to construct query '%s': %s", query, err)
+			return nil, caerrors.NewHTTPErr(500, caerrors.ErrRemoveAffDB, "Failed to construct query '%s': %s", query, err)
 		}
 		_, err = tx.Exec(tx.Rebind(inQuery), args...)
 		if err != nil {
-			return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to execute query '%s' for multiple certificate removal: %s", query, err)
+			return nil, caerrors.NewHTTPErr(500, caerrors.ErrRemoveAffDB, "Failed to execute query '%s' for multiple certificate removal: %s", query, err)
 		}
 	}
 
@@ -442,7 +443,7 @@ func (d *Accessor) deleteAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	// Delete the requested affiliation and it's subaffiliations
 	_, err = tx.Exec(tx.Rebind(deleteAffAndSubAff), name, subAffName)
 	if err != nil {
-		return nil, newHTTPErr(500, ErrRemoveAffDB, "Failed to delete affiliation '%s': %s", name, err)
+		return nil, caerrors.NewHTTPErr(500, caerrors.ErrRemoveAffDB, "Failed to delete affiliation '%s': %s", name, err)
 	}
 
 	// Return the identities and affiliations that were removed
@@ -507,12 +508,12 @@ func (d *Accessor) getAffiliationTreeTx(tx *sqlx.Tx, args ...interface{}) (inter
 	if name == "" { // Requesting all affiliations
 		err = tx.Select(&allAffs, tx.Rebind("SELECT * FROM affiliations"))
 		if err != nil {
-			return nil, newHTTPErr(500, ErrGettingAffiliation, "Failed to get affiliation tree for '%s': %s", name, err)
+			return nil, caerrors.NewHTTPErr(500, caerrors.ErrGettingAffiliation, "Failed to get affiliation tree for '%s': %s", name, err)
 		}
 	} else {
 		err = tx.Select(&allAffs, tx.Rebind("Select * FROM affiliations where (name LIKE ?) OR (name = ?)"), name+".%", name)
 		if err != nil {
-			return nil, newHTTPErr(500, ErrGettingAffiliation, "Failed to get affiliation tree for '%s': %s", name, err)
+			return nil, caerrors.NewHTTPErr(500, caerrors.ErrGettingAffiliation, "Failed to get affiliation tree for '%s': %s", name, err)
 		}
 	}
 
@@ -680,7 +681,7 @@ func (d *Accessor) ModifyAffiliation(oldAffiliation, newAffiliation string, forc
 	// Check to see if the new affiliation being requested exists in the affiliation table
 	_, err = d.GetAffiliation(newAffiliation)
 	if err == nil {
-		return nil, newHTTPErr(400, ErrUpdateConfigModifyAff, "Affiliation '%s' already exists", newAffiliation)
+		return nil, caerrors.NewHTTPErr(400, caerrors.ErrUpdateConfigModifyAff, "Affiliation '%s' already exists", newAffiliation)
 	}
 
 	result, err := d.doTransaction(d.modifyAffiliationTx, oldAffiliation, newAffiliation, force, isRegistrar)
@@ -725,7 +726,7 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 		}
 		if len(idsWithOldAff) > 0 {
 			if !isRegistar {
-				return nil, newAuthorizationErr(ErrMissingRegAttr, "Modifying affiliation affects identities, but caller is not a registrar")
+				return nil, caerrors.NewAuthorizationErr(caerrors.ErrMissingRegAttr, "Modifying affiliation affects identities, but caller is not a registrar")
 			}
 			// Get the list of names of the identities that need to be updated to use new affiliation
 			ids := []string{}
@@ -788,7 +789,7 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 			} else {
 				// If force option is not specified, can only modify affiliation if there are no identities that have that affiliation
 				idNamesStr := strings.Join(ids, ",")
-				return nil, newHTTPErr(400, ErrUpdateConfigModifyAff, "The request to modify affiliation '%s' has the following identities associated: %s. Need to use 'force' to remove identities and affiliation", oldAffiliation, idNamesStr)
+				return nil, caerrors.NewHTTPErr(400, caerrors.ErrUpdateConfigModifyAff, "The request to modify affiliation '%s' has the following identities associated: %s. Need to use 'force' to remove identities and affiliation", oldAffiliation, idNamesStr)
 			}
 
 			idsUpdated = append(idsUpdated, ids...)
@@ -822,7 +823,7 @@ func (d *Accessor) modifyAffiliationTx(tx *sqlx.Tx, args ...interface{}) (interf
 	allNewAffs := []AffiliationRecord{}
 	err = tx.Select(&allNewAffs, tx.Rebind("Select * FROM affiliations where (name LIKE ?) OR (name = ?)"), newAffiliation+".%", newAffiliation)
 	if err != nil {
-		return nil, newHTTPErr(500, ErrGettingAffiliation, "Failed to get affiliation tree for '%s': %s", newAffiliation, err)
+		return nil, caerrors.NewHTTPErr(500, caerrors.ErrGettingAffiliation, "Failed to get affiliation tree for '%s': %s", newAffiliation, err)
 	}
 
 	// Return the identities and affiliations that were modified
@@ -1137,7 +1138,7 @@ func (u *DBUser) ModifyAttributes(newAttrs []api.Attribute) error {
 
 func getError(err error, getType string) error {
 	if err.Error() == "sql: no rows in result set" {
-		return newHTTPErr(404, ErrDBGet, "Failed to get %s: %s", getType, err)
+		return caerrors.NewHTTPErr(404, caerrors.ErrDBGet, "Failed to get %s: %s", getType, err)
 	}
-	return newHTTPErr(504, ErrConnectingDB, "Failed to process database request: %s", err)
+	return caerrors.NewHTTPErr(504, caerrors.ErrConnectingDB, "Failed to process database request: %s", err)
 }
