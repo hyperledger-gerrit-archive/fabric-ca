@@ -95,12 +95,22 @@ function testRHPool() {
     test $? -eq 0 || ErrorMsg "Failed to complete 'register' command"
 }
 
+function checkExpirationSQLExec() {
+    sleep 2 # Give some time for the expiration timeout to occur
+    grep "Cleaning up expired nonces for CA" /tmp/serverlog.txt # Check to make sure that cleaning up has actually started
+    test $? -ne 0 && ErrorMsg "Cleaning up expired nonces never triggered"
+    grep "Failed to remove expired nonces" /tmp/serverlog.txt # Check that bad sql error is not seen
+    test $? -ne 1 && ErrorMsg "Failed to remove expired nonces, the SQL query failed to execute"
+}
+
 RHPOOLSIZE=10
 export FABRIC_CA_SERVER_IDEMIX_RHPOOLSIZE=$RHPOOLSIZE
+export FABRIC_CA_SERVER_IDEMIX_NONCEEXPIRATION=2s
+export FABRIC_CA_SERVER_IDEMIX_NONCESWEEPINTERVAL=4s
 
 for driver in postgres mysql; do
     ##### Start Fabric CA Server with #####
-    $SCRIPTDIR/fabric-ca_setup.sh -I -S -X -D -d $driver
+    $SCRIPTDIR/fabric-ca_setup.sh -I -S -X -D -d $driver 2>&1 | tee /tmp/serverlog.txt &
     pollFabricCa
 
     setTLS
@@ -118,6 +128,9 @@ for driver in postgres mysql; do
 
     ###### Use up the RH Pool with idemix enrollments ######
     testRHPool
+
+    ###### Test that no sql errors seen related to deleting expired nonces #######
+    checkExpirationSQLExec
 
     $SCRIPTDIR/fabric-ca_setup.sh -K
     idemixCleanUp $driver
