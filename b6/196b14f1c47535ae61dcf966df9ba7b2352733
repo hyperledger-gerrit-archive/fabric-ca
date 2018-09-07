@@ -1,0 +1,9 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+1: Saad Karim <skarim@us.ibm.com>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Submitted-by: Gari Singh <gari.r.singh@gmail.com>
+Submitted-at: Fri, 07 Sep 2018 09:56:06 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/25938
+Project: fabric-ca
+Branch: refs/heads/master
