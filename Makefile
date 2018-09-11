@@ -38,7 +38,7 @@ MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 ifneq ($(IS_RELEASE),true)
 EXTRA_VERSION ?= snapshot-$(shell git rev-parse --short HEAD)
 PROJECT_VERSION=$(BASE_VERSION)-$(EXTRA_VERSION)
-FABRIC_TAG ?= $(ARCH)-$(PREV_VERSION)
+FABRIC_TAG ?= $(ARCH)-latest
 else
 PROJECT_VERSION=$(BASE_VERSION)
 FABRIC_TAG ?= $(ARCH)-$(BASE_VERSION)
