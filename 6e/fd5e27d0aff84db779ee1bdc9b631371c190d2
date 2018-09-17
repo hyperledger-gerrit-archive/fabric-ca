@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: David Enyeart <enyeart@us.ibm.com>
+Code-Review+2: Keith Smith <keithsmithlfid@gmail.com>
+Submitted-by: Keith Smith <keithsmithlfid@gmail.com>
+Submitted-at: Mon, 17 Sep 2018 20:23:51 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/26310
+Project: fabric-ca
+Branch: refs/heads/master
