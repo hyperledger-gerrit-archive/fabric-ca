@@ -8,6 +8,7 @@ package lib
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/rsa"
@@ -24,7 +25,6 @@ import (
 
 	"github.com/cloudflare/cfssl/config"
 	cfcsr "github.com/cloudflare/cfssl/csr"
-	"github.com/cloudflare/cfssl/initca"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/signer"
 	cflocalsigner "github.com/cloudflare/cfssl/signer/local"
@@ -271,6 +271,41 @@ func (ca *CA) initKeyMaterial(renew bool) error {
 	return nil
 }
 
+// NewFromSigner creates a new root certificate from a crypto.Signer.
+func NewFromSigner(req *cfcsr.CertificateRequest, priv crypto.Signer, policy *config.Signing) (cert, csrPEM []byte, err error) {
+	if req.CA != nil {
+		if req.CA.Expiry != "" {
+			policy.Profiles["tls"].ExpiryString = req.CA.Expiry
+			policy.Profiles["tls"].Expiry, err = time.ParseDuration(req.CA.Expiry)
+			if err != nil {
+				return nil, nil, err
+			}
+		}
+
+		policy.Profiles["tls"].CAConstraint.MaxPathLen = req.CA.PathLength
+		if req.CA.PathLength != 0 && req.CA.PathLenZero == true {
+			log.Infof("ignore invalid 'pathlenzero' value")
+		} else {
+			policy.Profiles["tls"].CAConstraint.MaxPathLenZero = req.CA.PathLenZero
+		}
+	}
+
+	csrPEM, err = cfcsr.Generate(priv, req)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	s, err := cflocalsigner.NewSigner(priv, nil, signer.DefaultSigAlgo(priv), policy)
+	if err != nil {
+		log.Errorf("failed to create signer: %v", err)
+		return
+	}
+
+	signReq := signer.SignRequest{Request: string(csrPEM), Profile: "tls"}
+	cert, err = s.Sign(signReq)
+	return
+}
+
 // Get the CA certificate for this CA
 func (ca *CA) getCACert() (cert []byte, err error) {
 	if ca.Config.Intermediate.ParentServer.URL != "" {
@@ -353,6 +388,16 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 			CA:           csr.CA,
 			SerialNumber: csr.SerialNumber,
 		}
+		policy := &config.Signing{
+			Profiles: map[string]*config.SigningProfile{
+				"tls": ca.Config.Signing.Profiles["tls"],
+			},
+			Default: ca.Config.Signing.Profiles["ca"], // Default is ca profile from config
+		}
+
+		// force tls profile to be ca
+		policy.Profiles["tls"].CAConstraint = config.CAConstraint{IsCA: true}
+
 		log.Debugf("Root CA certificate request: %+v", req)
 		// Generate the key/signer
 		_, cspSigner, err := util.BCCSPKeyRequestGenerate(&req, ca.csp)
@@ -360,7 +405,7 @@ func (ca *CA) getCACert() (cert []byte, err error) {
 			return nil, err
 		}
 		// Call CFSSL to initialize the CA
-		cert, _, err = initca.NewFromSigner(&req, cspSigner)
+		cert, _, err = NewFromSigner(&req, cspSigner, policy)
 		if err != nil {
 			return nil, errors.WithMessage(err, "Failed to create new CA certificate")
 		}
