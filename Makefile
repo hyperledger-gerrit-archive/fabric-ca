@@ -61,7 +61,7 @@ GO_SOURCE := $(shell find . -name '*.go')
 GO_LDFLAGS = $(patsubst %,-X $(PKGNAME)/lib/metadata.%,$(METADATA_VAR))
 export GO_LDFLAGS
 
-IMAGES = $(PROJECT_NAME) $(PROJECT_NAME)-orderer $(PROJECT_NAME)-peer $(PROJECT_NAME)-tools
+IMAGES = $(PROJECT_NAME)
 FVTIMAGE = $(PROJECT_NAME)-fvt
 
 RELEASE_PLATFORMS = linux-amd64 darwin-amd64 linux-ppc64le linux-s390x windows-amd64
@@ -152,12 +152,6 @@ build/image/fabric-ca-fvt/payload: \
 	build/docker/bin/fabric-ca-client \
 	build/docker/bin/fabric-ca-server \
 	build/fabric-ca-fvt.tar.bz2
-build/image/fabric-ca-orderer/payload: \
-	build/docker/bin/fabric-ca-client
-build/image/fabric-ca-peer/payload: \
-	build/docker/bin/fabric-ca-client
-build/image/fabric-ca-tools/payload: \
-	build/docker/bin/fabric-ca-client
 build/image/%/payload:
 	@echo "Copying $^ to $@"
 	mkdir -p $@
@@ -177,6 +171,8 @@ all-tests: checks fabric-ca-server fabric-ca-client
 
 unit-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_unit_tests
+
+unit-test: unit-tests
 
 int-tests: checks fabric-ca-server fabric-ca-client
 	@scripts/run_integration_tests
