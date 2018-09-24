@@ -40,7 +40,7 @@ DELETE FROM users
 
 	updateUser = `
 UPDATE users
-	SET token = :token, type = :type, affiliation = :affiliation, attributes = :attributes, state = :state, max_enrollments = :max_enrollments, level = :level
+SET token = :token, type = :type, affiliation = :affiliation, attributes = :attributes, state = :state, max_enrollments = :max_enrollments, level = :level, incorrect_password_attempts = :incorrect_password_attempts
 	WHERE (id = :id);`
 
 	getUser = `
@@ -248,6 +248,7 @@ func (d *Accessor) UpdateUser(user *spi.UserInfo, updatePass bool) error {
 		State:          user.State,
 		MaxEnrollments: user.MaxEnrollments,
 		Level:          user.Level,
+		IncorrectPasswordAttempts: user.IncorrectPasswordAttempts,
 	})
 
 	if err != nil {
