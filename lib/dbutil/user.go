@@ -20,14 +20,15 @@ import (
 
 // UserRecord defines the properties of a user
 type UserRecord struct {
-	Name           string `db:"id"`
-	Pass           []byte `db:"token"`
-	Type           string `db:"type"`
-	Affiliation    string `db:"affiliation"`
-	Attributes     string `db:"attributes"`
-	State          int    `db:"state"`
-	MaxEnrollments int    `db:"max_enrollments"`
-	Level          int    `db:"level"`
+	Name                      string `db:"id"`
+	Pass                      []byte `db:"token"`
+	Type                      string `db:"type"`
+	Affiliation               string `db:"affiliation"`
+	Attributes                string `db:"attributes"`
+	State                     int    `db:"state"`
+	MaxEnrollments            int    `db:"max_enrollments"`
+	Level                     int    `db:"level"`
+	IncorrectPasswordAttempts int    `db:"incorrect_password_attempts"`
 }
 
 // User is the databases representation of a user
@@ -48,6 +49,7 @@ func NewDBUser(userRec *UserRecord, db *DB) *User {
 	user.Affiliation = userRec.Affiliation
 	user.Type = userRec.Type
 	user.Level = userRec.Level
+	user.IncorrectPasswordAttempts = userRec.IncorrectPasswordAttempts
 
 	var attrs []api.Attribute
 	json.Unmarshal([]byte(userRec.Attributes), &attrs)
@@ -139,6 +141,10 @@ func (u *User) Login(pass string, caMaxEnrollments int) error {
 	// Check the password by comparing to stored hash
 	err := bcrypt.CompareHashAndPassword(u.pass, []byte(pass))
 	if err != nil {
+		err2 := u.IncorrectPassword()
+		if err2 != nil {
+			return errors.Wrap(err2, "Failed to mark incorrect password attempt")
+		}
 		return errors.Wrap(err, "Password mismatch")
 	}
 
@@ -359,4 +365,33 @@ func GetNewAttributes(modifyAttrs, newAttrs []api.Attribute) []api.Attribute {
 		}
 	}
 	return modifyAttrs
+}
+
+// IncorrectPassword updates the incorrect password count of user
+func (u *User) IncorrectPassword() error {
+	log.Debugf("Incorrect password entered by user '%s'", u.GetName())
+	query := "UPDATE users SET incorrect_password_attempts = incorrect_password_attempts + 1 where (id = ?)"
+	id := u.GetName()
+	res, err := u.db.Exec(u.db.Rebind(query), id)
+	if err != nil {
+		return err
+	}
+	numRowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "Failed to get number of rows affected")
+	}
+
+	if numRowsAffected == 0 {
+		return errors.Errorf("No rows were affected when updating the state of identity %s", id)
+	}
+
+	if numRowsAffected != 1 {
+		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, id)
+	}
+	return nil
+}
+
+// GetPasswordAttempts returns the number of times the user has entered an incorrect password
+func (u *User) GetPasswordAttempts() int {
+	return u.IncorrectPasswordAttempts
 }
