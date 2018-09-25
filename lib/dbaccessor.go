@@ -31,8 +31,8 @@ func init() {
 
 const (
 	insertUser = `
-INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments, level)
-	VALUES (:id, :token, :type, :affiliation, :attributes, :state, :max_enrollments, :level);`
+INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments, level, incorrect_password_attempts)
+VALUES (:id, :token, :type, :affiliation, :attributes, :state, :max_enrollments, :level, :incorrect_password_attempts);`
 
 	deleteUser = `
 DELETE FROM users
@@ -40,7 +40,7 @@ DELETE FROM users
 
 	updateUser = `
 UPDATE users
-	SET token = :token, type = :type, affiliation = :affiliation, attributes = :attributes, state = :state, max_enrollments = :max_enrollments, level = :level
+SET token = :token, type = :type, affiliation = :affiliation, attributes = :attributes, state = :state, max_enrollments = :max_enrollments, level = :level, incorrect_password_attempts = :incorrect_password_attempts
 	WHERE (id = :id);`
 
 	getUser = `
@@ -143,6 +143,7 @@ func (d *Accessor) InsertUser(user *spi.UserInfo) error {
 		State:          user.State,
 		MaxEnrollments: user.MaxEnrollments,
 		Level:          user.Level,
+		IncorrectPasswordAttempts: 0,
 	})
 
 	if err != nil {
@@ -247,6 +248,7 @@ func (d *Accessor) UpdateUser(user *spi.UserInfo, updatePass bool) error {
 		State:          user.State,
 		MaxEnrollments: user.MaxEnrollments,
 		Level:          user.Level,
+		IncorrectPasswordAttempts: user.IncorrectPasswordAttempts,
 	})
 
 	if err != nil {
