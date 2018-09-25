@@ -436,3 +436,15 @@ Fabric-CA Server's Configuration File
         client:
           certfile:
           keyfile:
+    
+    #############################################################################
+    # CA configuration section
+    #
+    # Configure the number of incorrect password attempts are allowed for
+    # identities. By default, the value of 'passwordattempts' is 0, which
+    # means that unlimited password attempts can be made before an identity get locked
+    # out.
+    #############################################################################
+    cfg:
+      identities:
+        passwordattempts: 0

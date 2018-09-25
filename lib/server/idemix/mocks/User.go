@@ -113,6 +113,20 @@ func (_m *User) GetName() string {
 	return r0
 }
 
+// GetPasswordAttempts provides a mock function with given fields:
+func (_m *User) GetPasswordAttempts() int {
+	ret := _m.Called()
+
+	var r0 int
+	if rf, ok := ret.Get(0).(func() int); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+
+	return r0
+}
+
 // GetType provides a mock function with given fields:
 func (_m *User) GetType() string {
 	ret := _m.Called()
@@ -122,6 +136,20 @@ func (_m *User) GetType() string {
 		r0 = rf()
 	} else {
 		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
+// IncorrectPassword provides a mock function with given fields:
+func (_m *User) IncorrectPassword() error {
+	ret := _m.Called()
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Error(0)
 	}
 
 	return r0
