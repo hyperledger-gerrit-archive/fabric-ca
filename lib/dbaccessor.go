@@ -31,8 +31,8 @@ func init() {
 
 const (
 	insertUser = `
-INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments, level)
-	VALUES (:id, :token, :type, :affiliation, :attributes, :state, :max_enrollments, :level);`
+INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments, level, incorrect_password_attempts)
+VALUES (:id, :token, :type, :affiliation, :attributes, :state, :max_enrollments, :level, :incorrect_password_attempts);`
 
 	deleteUser = `
 DELETE FROM users
@@ -143,6 +143,7 @@ func (d *Accessor) InsertUser(user *spi.UserInfo) error {
 		State:          user.State,
 		MaxEnrollments: user.MaxEnrollments,
 		Level:          user.Level,
+		IncorrectPasswordAttempts: 0,
 	})
 
 	if err != nil {
