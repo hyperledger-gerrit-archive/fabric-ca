@@ -30,7 +30,7 @@
 
 PROJECT_NAME = fabric-ca
 BASE_VERSION = 1.4.0
-PREV_VERSION = 1.3.0
+PREV_VERSION = $(shell git tag -l | tail -1)
 IS_RELEASE = false
 
 ARCH=$(shell go env GOARCH)
