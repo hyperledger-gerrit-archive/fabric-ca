@@ -46,21 +46,22 @@ Table of Contents
    6. `Setting up multiple CAs`_
    7. `Enrolling an intermediate CA`_
    8. `Upgrading the server`_
+   9. `Rotating the root CA's signing certificate`_
 
 5. `Fabric CA Client`_
 
    1. `Enrolling the bootstrap identity`_
    2. `Registering a new identity`_
    3. `Enrolling a peer identity`_
-   5. `Getting Identity Mixer credential for a user`_
-   6. `Getting Idemix CRI`_
-   7. `Reenrolling an identity`_
-   8. `Revoking a certificate or identity`_
-   9. `Generating a CRL (Certificate Revocation List)`_
-   10. `Attribute-Based Access Control`_
-   11. `Dynamic Server Configuration Update`_
-   12. `Enabling TLS`_
-   13. `Contact specific CA instance`_
+   4. `Getting Identity Mixer credential for a user`_
+   5. `Getting Idemix CRI (Certificate Revocation Information)`_
+   6. `Reenrolling an identity`_
+   7. `Revoking a certificate or identity`_
+   8. `Generating a CRL (Certificate Revocation List)`_
+   9. `Attribute-Based Access Control`_
+   10. `Dynamic Server Configuration Update`_
+   11. `Enabling TLS`_
+   12. `Contact specific CA instance`_
 
 6. `HSM`_
 
@@ -1115,7 +1116,96 @@ To display summary information from the haproxy "show stat" command, the followi
 
 `Back to Top`_
 
+Rotating the root CA's signing certificate
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Certificates have expiration dates and eventually expire someday. The steps below describe
+the process to update the CA signing certificate without causing disruption or outage to the
+network. The default expiration time for Fabric CA signing certificates is as follows:
+
+| Root CA certificate: 15 years
+| Intermediate CA certificate: 5 years
+
+Whether the CA signing cert is issued by Fabric CA or third party entities like Verisign,
+we need a way to update CA certs before they expire without any disruption/outage to the network.
+
+The steps are as follow:
+
+1) Generate or get new CA signing certificate and private key
+2) Add new CA signing certificate to local MSP of all the nodes (peers or orderers) and to the
+   channel MSP of all the channels that organization is a member
+3) Re-issue certificates with the new CA signing certificate or wait for the expiration of all certs
+   signed by the old CA certificate
+4) Remove old CA signing certificate from all the nodes and channels
+
+If Fabric CA is used as the Certificate Authority, one can generate new root/intermediate CA
+signing certificate and private key, the following way:
+
+1) Copy server configuration to a temporary config directory
+
+2) Run ``fabric-ca-server init`` using the temporary config directory
+
+    Root CA::
+
+      fabric-ca-server init –c <temp config directory>/<server config file name> --ca.name <CA Name>
+
+    Intermediate CA::
+
+      fabric-ca-server init –c <temp config directory>/<server config file name> -u http://<id>:<pass>@<root_ca_address>:<root_ca_port>ectory>/<server config file name> -u http://<id>:<pass>@<root_ca_address>:<root_ca_port>
+
+3) Copy CA cert and private key from <temp config directory> to the running Fabric CA server’s CA
+   config directory. Rename the new certificate to match the name that matches the certificate name
+   in the fabric-ca-server-config.yaml file (default ca-cert.pem).
+
+Identities with valid ECerts will not be able to perform any Fabric CA
+requests as soon as new CA cert/key is copied into Fabric CA server’s configuration directory. Such
+identities, will have to use basic authorization (username/password) to enroll again to get a
+new ECert that is signed with the new CA key.
+
+**Rotating in a cluster environment - No HSM:**
+
+1) Pick a cluster member and copy server configuration to a temporary config directory
+2) Run ``fabric-ca-server init`` using the temporary config directory to generate a new CA certificate key
+   pair on the stopped cluster memmber
+
+    Root CA::
+
+      fabric-ca-server init –c <temp config directory>/<server config file name> --ca.name <CA Name>
+
+    Intermediate CA::
+
+      fabric-ca-server init –c <temp config directory>/<server config file name> -u http://<id>:<pass>@<root_ca_address>:<root_ca_port>ectory>/<server config file name> -u http://<id>:<pass>@<root_ca_address>:<root_ca_port>
+
+3) Copy CA cert and private key from <temp config directory> to the Fabric CA server’s CA
+   config directory. Rename the new certificate to match the name that matches the certificate name
+   in the fabric-ca-server-config.yaml file (default ca-cert.pem).
+4) On all remaing cluster members, copy new CA cert and private key generated in step 2 to all the
+   other cluster member’s config directory (cert goes into CA config directory and key goes into
+   <CA config dir>/msp/keystore)
+
+**Rotating in a cluster environment - HSM:**
+
+1) Pick a cluster member and copy server configuration to a temporary config directory
+2) Run ``fabric-ca-server init`` using the temporary config directory to generate a new CA certificate key
+   pair on the stopped cluster memmber
+
+    Root CA::
+
+      fabric-ca-server init –c <temp config directory>/<server config file name> --ca.name <CA Name>
+
+    Intermediate CA::
+
+      fabric-ca-server init –c <temp config directory>/<server config file name> -u http://<id>:<pass>@<root_ca_address>:<root_ca_port>ectory>/<server config file name> -u http://<id>:<pass>@<root_ca_address>:<root_ca_port>
+
+3) Copy CA cert and private key from <temp config directory> to the Fabric CA server’s CA
+   config directory. Rename the new certificate to match the name that matches the certificate name
+   in the fabric-ca-server-config.yaml file (default ca-cert.pem).
+4) On all remaing cluster members, copy server configuration to a temporary config directory
+5) Copy the contents of the new CA cert generated in step 2 to all the other cluster member’s chainfile in
+   the config directory
+6) Repeat steps 2 - 5 for all cluster members
+
+`Back to Top`_
 
 .. _client:
 
@@ -1482,7 +1572,7 @@ for peer and orderer identities. As before, applications can use a Fabric SDK to
 associated with creating authorization header and request payload, and with processing the response.
 
 Getting Idemix CRI (Certificate Revocation Information)
------------------------------------------------
+--------------------------------------------------------
 An Idemix CRI (Credential Revocation Information) is similar in purpose to an X509 CRL (Certificate Revocation List):
 to revoke what was previously issued.  However, there are some differences.
 
