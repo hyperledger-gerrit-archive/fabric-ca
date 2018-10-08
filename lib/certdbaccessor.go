@@ -29,7 +29,7 @@ import (
 	certsql "github.com/cloudflare/cfssl/certdb/sql"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
-	"github.com/hyperledger/fabric-ca/lib/server"
+	cr "github.com/hyperledger/fabric-ca/lib/server/certificaterequest"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/kisielk/sqlstruct"
 )
@@ -307,7 +307,7 @@ func (d *CertDBAccessor) UpsertOCSP(serial, aki, body string, expiry time.Time) 
 }
 
 // GetCertificates returns based on filter parameters certificates
-func (d *CertDBAccessor) GetCertificates(req server.CertificateRequest, callersAffiliation string) (*sqlx.Rows, error) {
+func (d *CertDBAccessor) GetCertificates(req cr.CertificateRequest, callersAffiliation string) (*sqlx.Rows, error) {
 	log.Debugf("DB: Get Certificates")
 
 	err := d.checkDB()
