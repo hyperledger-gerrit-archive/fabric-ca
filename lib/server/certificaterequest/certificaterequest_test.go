@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package certificaterequest
 
 import (
 	//	"bytes"
@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib/server/mocks"
+	"github.com/hyperledger/fabric-ca/lib/server/certificaterequest/mocks"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )

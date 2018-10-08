@@ -23,7 +23,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/mocks"
-	"github.com/hyperledger/fabric-ca/lib/server"
+	cr "github.com/hyperledger/fabric-ca/lib/server/certificaterequest"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -233,7 +233,7 @@ func TestServerGetCertificates(t *testing.T) {
 	}, "testCertificate", ca)
 	util.FatalError(t, err, "Failed to insert certificate with serial/AKI")
 
-	err = getCertificates(ctx, &server.CertificateRequestImpl{})
+	err = getCertificates(ctx, &cr.CertificateRequestImpl{})
 	assert.NoError(t, err, "Should not have returned error, failed to process GET certificate request")
 
 	mockCtx := new(mocks.ServerRequestContext)
@@ -246,7 +246,7 @@ func TestServerGetCertificates(t *testing.T) {
 	mockCtx = new(mocks.ServerRequestContext)
 	mockCtx.On("GetResp").Return(nil)
 	mockCtx.On("GetCaller").Return(testUser, nil)
-	mockCtx.On("GetCertificates", (*server.CertificateRequestImpl)(nil), "").Return(nil, errors.New("failed to get certificates"))
+	mockCtx.On("GetCertificates", (*cr.CertificateRequestImpl)(nil), "").Return(nil, errors.New("failed to get certificates"))
 	err = getCertificates(mockCtx, nil)
 	util.ErrorContains(t, err, "failed to get certificates", "did not get correct error response")
 }
