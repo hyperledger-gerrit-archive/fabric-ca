@@ -165,6 +165,20 @@ const (
 	ErrAuthorizationFailure = 71
 	// Action is not allowed when using LDAP
 	ErrInvalidLDAPAction = 72
+	// Registering multiple identities with same name
+	ErrDupIdentityReg = 73
+	// Error occured registering identity
+	ErrRegisteringIdentity = 74
+	// Registrat does not have authority to register identity
+	ErrRegistrarRegAuth = 75
+	// Common name does not match username during enroll
+	ErrCNInvalidEnroll = 76
+	// Invoker does not have required attribute to perform function
+	ErrInvokerMissAttr = 77
+	// Invalid boolean value for attribute
+	ErrInvalidBool = 78
+	// Input validation failed on CSR
+	ErrInputValidCSR = 79
 )
 
 // CreateHTTPErr constructs a new HTTP error.
@@ -182,6 +196,37 @@ func CreateHTTPErr(scode, code int, format string, args ...interface{}) *HTTPErr
 // NewHTTPErr constructs a new HTTP error wrappered with pkg/errors error.
 func NewHTTPErr(scode, code int, format string, args ...interface{}) error {
 	return errors.Wrap(CreateHTTPErr(scode, code, format, args...), "")
+}
+
+// NewHTTPErr2 constructs a new HTTP error. It accepts an error as the first parameter,
+// if error passed in as of type HTTPErr then the original remote error code is preserved
+// and only the messages are updated to include any wrapper error messaging. If error
+// is not type HTTPErr a new HTTPErr is constructed using the passed in values.
+func NewHTTPErr2(err error, scode, code int, msg string, args ...interface{}) error {
+	if err != nil {
+		curErr := GetCause(err)
+		if curErr != nil {
+			msg = fmt.Sprintf(msg, args...)
+			curErr.withMessage(msg)
+			return curErr
+		}
+	}
+	return errors.Wrap(createHTTPErr(err, scode, code, msg, args...), "")
+}
+
+// createHTTPErr constructs a new HTTP error.
+func createHTTPErr(err error, scode, code int, format string, args ...interface{}) *HTTPErr {
+	msg := fmt.Sprintf(format, args...)
+	if err != nil {
+		msg = fmt.Sprintf("%s: %s", msg, err)
+	}
+	return &HTTPErr{
+		scode: scode,
+		lcode: code,
+		lmsg:  msg,
+		rcode: code,
+		rmsg:  msg,
+	}
 }
 
 // NewAuthenticationErr constructs an HTTP error specifically indicating an authentication failure.
@@ -274,9 +319,14 @@ func (he *HTTPErr) GetRemoteMsg() string {
 	return he.rmsg
 }
 
-// GetLocalMsg returns the remote error message
+// GetLocalMsg returns the local error message
 func (he *HTTPErr) GetLocalMsg() string {
 	return he.lmsg
+}
+
+func (he *HTTPErr) withMessage(msg string) {
+	he.lmsg = fmt.Sprintf("%s: %s", msg, he.lmsg)
+	he.rmsg = fmt.Sprintf("%s: %s", msg, he.rmsg)
 }
 
 // ServerErr contains error message with corresponding CA error code
@@ -331,4 +381,39 @@ func IsFatalError(err error) bool {
 		return true
 	}
 	return false
+}
+
+type causer interface {
+	Cause() error
+}
+
+// WithMessage determines if error is of type HTTPErr, if so it will add the message
+// to the internal message (lmsg and rmsg) so the message can get propagated back to
+// client
+func WithMessage(err error, msg string, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
+	msg = fmt.Sprintf(msg, args...)
+	curErr := GetCause(err)
+	if curErr != nil {
+		curErr.withMessage(msg)
+		return curErr
+	}
+	return errors.WithMessage(err, msg)
+}
+
+// GetCause gets the root cause of the error
+func GetCause(err error) *HTTPErr {
+	for err != nil {
+		switch err.(type) {
+		case *HTTPErr:
+			return err.(*HTTPErr)
+		case causer:
+			err = err.(causer).Cause()
+		default:
+			return nil
+		}
+	}
+	return nil
 }

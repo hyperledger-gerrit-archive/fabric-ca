@@ -343,7 +343,7 @@ func processPostRequest(ctx *serverRequestContextImpl, caname string) (*api.Iden
 
 	pass, err := registerUser(addReq, callerID, ctx.ca, ctx)
 	if err != nil {
-		return nil, caerrors.NewHTTPErr(400, caerrors.ErrAddIdentity, "Failed to add identity: %s", err)
+		return nil, caerrors.NewHTTPErr(500, caerrors.ErrAddIdentity, "Failed to add identity: %s", err)
 
 	}
 
@@ -396,7 +396,7 @@ func processPutRequest(ctx *serverRequestContextImpl, caname string) (*api.Ident
 		if newAff != "." { // Only need to check if not requesting root affiliation
 			aff, _ := registry.GetAffiliation(newAff)
 			if aff == nil {
-				return nil, caerrors.NewHTTPErr(400, caerrors.ErrModifyingIdentity, "Affiliation '%s' is not supported", newAff)
+				return nil, caerrors.NewHTTPErr(404, caerrors.ErrModifyingIdentity, "Affiliation '%s' is not supported", newAff)
 			}
 		}
 		checkAff = true

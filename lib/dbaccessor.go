@@ -678,7 +678,7 @@ func (d *Accessor) ModifyAffiliation(oldAffiliation, newAffiliation string, forc
 	// Check to see if the new affiliation being requested exists in the affiliation table
 	_, err = d.GetAffiliation(newAffiliation)
 	if err == nil {
-		return nil, caerrors.NewHTTPErr(400, caerrors.ErrUpdateConfigModifyAff, "Affiliation '%s' already exists", newAffiliation)
+		return nil, caerrors.NewHTTPErr(409, caerrors.ErrUpdateConfigModifyAff, "Affiliation '%s' already exists", newAffiliation)
 	}
 
 	result, err := d.doTransaction(d.modifyAffiliationTx, oldAffiliation, newAffiliation, force, isRegistrar)

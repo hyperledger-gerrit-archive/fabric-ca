@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,6 +20,15 @@ func TestErrorString(t *testing.T) {
 	err := NewHTTPErr(400, ErrMethodNotAllowed, "%s", msg)
 	errMsg := err.Error()
 	assert.Contains(t, errMsg, msg)
+
+	err2 := NewHTTPErr2(err, 401, ErrMethodNotAllowed, "error occured")
+	errMsg = err2.Error()
+	assert.Contains(t, errMsg, "error occured: message")
+
+	msg = "error occured: %s"
+	err2 = NewHTTPErr2(errors.New("test http err 2"), 401, ErrMethodNotAllowed, msg, "failure")
+	errMsg = err2.Error()
+	assert.Contains(t, errMsg, "error occured: failure: test http err 2")
 }
 
 func TestHTTPErr(t *testing.T) {
@@ -78,6 +88,17 @@ func TestIsFatalError(t *testing.T) {
 
 	err := NewAuthorizationErr(25, "%s", "auth error")
 	assert.Equal(t, IsFatalError(err), false)
+}
+
+func TestWithMessage(t *testing.T) {
+	err := WithMessage(nil, "add new message: %s", "failure")
+	assert.Nil(t, err)
+
+	err = NewHTTPErr(400, ErrMethodNotAllowed, "testing with message")
+
+	err = WithMessage(err, "add new message: %s", "failure")
+	expected := "add new message: failure: testing with message"
+	assert.Contains(t, err.Error(), expected)
 }
 
 type mockHTTPWriter struct {
