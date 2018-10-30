@@ -15,6 +15,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
 	"github.com/hyperledger/fabric-ca/lib/server/certificaterequest"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
 
@@ -48,13 +49,6 @@ func processCertificateRequest(ctx ServerRequestContext) error {
 
 	// Authenticate
 	_, err = ctx.TokenAuthentication()
-	if err != nil {
-		return err
-	}
-
-	// Perform authority checks to make sure that caller has the correct
-	// set of attributes to manage certificates
-	err = authChecks(ctx)
 	if err != nil {
 		return err
 	}
@@ -110,7 +104,7 @@ func processGetCertificateRequest(ctx ServerRequestContext) error {
 }
 
 // getCertificates executes the DB query and streams the results to client
-func getCertificates(ctx ServerRequestContext, req *certificaterequest.Impl) error {
+func getCertificates(ctx ServerRequestContext, req certificaterequest.CertificateRequest) error {
 	w := ctx.GetResp()
 	flusher, _ := w.(http.Flusher)
 
@@ -119,10 +113,29 @@ func getCertificates(ctx ServerRequestContext, req *certificaterequest.Impl) err
 		return err
 	}
 
+	if req == nil {
+		return caerrors.NewHTTPErr(400, caerrors.ErrGettingCert, "Invalid request")
+	}
+
 	// Execute DB query
-	rows, err := ctx.GetCertificates(req, GetUserAffiliation(caller))
-	if err != nil {
-		return err
+	var rows *sqlx.Rows
+	if (req.GetSerial() != "" || req.GetAKI() != "") && req.GetID() == "" {
+		rows, err = ctx.GetCertificates(req, "")
+		if err != nil {
+			return err
+		}
+	} else {
+		// Perform authority checks to make sure that caller has the correct
+		// set of attributes to manage certificates
+		err = authChecks(ctx)
+		if err != nil {
+			return err
+		}
+
+		rows, err = ctx.GetCertificates(req, GetUserAffiliation(caller))
+		if err != nil {
+			return err
+		}
 	}
 	defer rows.Close()
 
