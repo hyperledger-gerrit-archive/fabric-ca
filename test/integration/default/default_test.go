@@ -41,6 +41,7 @@ const (
 var (
 	defaultServer          *lib.Server
 	defaultServerPort      = 7054
+	defaultServerURL       = fmt.Sprintf("http://localhost:%d", defaultServerPort)
 	defaultServerEnrollURL = fmt.Sprintf("http://admin:adminpw@localhost:%d", defaultServerPort)
 	defaultServerHomeDir   = "defaultServerDir"
 	storeCertsDir          = "/tmp/testCerts"
@@ -253,6 +254,23 @@ func TestListCertificateCmdPositive(t *testing.T) {
 	assert.Equal(t, true, util.FileExists(filepath.Join(storeCertsDir, "expire1-2.pem")))
 	assert.Contains(t, result, "Serial Number: 1121")
 	assert.Contains(t, result, "Serial Number: 1124")
+
+	// Register a user that with an affiliation that will be used for subsequent certificate commands
+	err = command.RunMain([]string{cmdName, "register", "-u", defaultServerURL, "--id.name", "user1", "--id.secret", "user1pw", "--id.affiliation", "org1", "--id.attrs", "hf.Revoker=true"})
+	util.FatalError(t, err, "Failed to register user")
+	// Enroll a user that will be used for subsequent certificate commands
+	err = command.RunMain([]string{cmdName, "enroll", "-u", "http://user1:user1pw@localhost:7054", "-d"})
+	util.FatalError(t, err, "Failed to enroll user")
+
+	// Try to request a certificate for an id which is not associated with invoker's affiliation, this should not return any results
+	result, err = captureCLICertificatesOutput(command.RunMain, []string{cmdName, "certificate", "list", "--id", "testCertificate3"})
+	assert.NoError(t, err)
+	assert.Contains(t, result, "No results returned")
+
+	// Request the same certificate, but this time using the certificate's serial should return back the requested certificate
+	result, err = captureCLICertificatesOutput(command.RunMain, []string{cmdName, "certificate", "list", "--serial", "1113"})
+	assert.NoError(t, err)
+	assert.Contains(t, result, "Serial Number: 1113")
 }
 
 func populateCertificatesTable(t *testing.T, srv *lib.Server) {
