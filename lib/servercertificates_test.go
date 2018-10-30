@@ -107,21 +107,12 @@ func TestProcessCertificateRequest(t *testing.T) {
 	err := processCertificateRequest(ctx)
 	util.ErrorContains(t, err, "Token Auth Failed", "Should have failed token auth")
 
-	ctx = new(mocks.ServerRequestContext)
-	ctx.On("TokenAuthentication").Return("", nil)
-	ctx.On("HasRole", "hf.Revoker").Return(errors.New("Does not have attribute"))
 	attr, err := util.Marshal([]api.Attribute{}, "attributes")
 	util.FatalError(t, err, "Failed to marshal attributes")
 	user := &UserRecord{
 		Name:       "NotRevoker",
 		Attributes: string(attr),
 	}
-	ctx.On("GetCaller").Return(newDBUser(user, nil), nil)
-
-	err = processCertificateRequest(ctx)
-	t.Log("Error: ", err)
-	util.ErrorContains(t, err, fmt.Sprintf("%d", caerrors.ErrAuthorizationFailure), "Should have failed to due improper permissions")
-
 	ctx = new(mocks.ServerRequestContext)
 	ctx.On("TokenAuthentication").Return("", nil)
 	ctx.On("HasRole", "hf.Revoker").Return(nil)
@@ -245,9 +236,29 @@ func TestServerGetCertificates(t *testing.T) {
 	mockCtx = new(mocks.ServerRequestContext)
 	mockCtx.On("GetResp").Return(nil)
 	mockCtx.On("GetCaller").Return(testUser, nil)
-	mockCtx.On("GetCertificates", (*certificaterequest.Impl)(nil), "").Return(nil, errors.New("failed to get certificates"))
 	err = getCertificates(mockCtx, nil)
+	util.ErrorContains(t, err, "Invalid request", "did not get correct error response")
+
+	mockCtx.On("GetCertificates", &certificaterequest.Impl{}, "").Return(nil, errors.New("failed to get certificates"))
+	err = getCertificates(mockCtx, &certificaterequest.Impl{})
 	util.ErrorContains(t, err, "failed to get certificates", "did not get correct error response")
+
+	mockCtx = new(mocks.ServerRequestContext)
+	mockCtx.On("GetResp").Return(nil)
+	mockCtx.On("HasRole", "hf.Revoker").Return(errors.New("Does not have attribute"))
+	attr, err := util.Marshal([]api.Attribute{}, "attributes")
+	util.FatalError(t, err, "Failed to marshal attributes")
+	user = &UserRecord{
+		Name:       "NotRegistrar",
+		Attributes: string(attr),
+	}
+	mockCtx.On("GetCaller").Return(newDBUser(user, nil), nil)
+
+	err = getCertificates(mockCtx, &certificaterequest.Impl{
+		ID: "userid",
+	})
+	util.ErrorContains(t, err, fmt.Sprintf("%d", caerrors.ErrAuthorizationFailure), "Should have failed to due improper permissions")
+
 }
 
 func TestStoreCert(t *testing.T) {
