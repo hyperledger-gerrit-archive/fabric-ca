@@ -33,6 +33,7 @@ BASE_VERSION = 1.4.0
 PREV_VERSION = 1.3.0
 IS_RELEASE = false
 
+
 ARCH=$(shell go env GOARCH)
 MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 STABLE_TAG ?= $(ARCH)-$(BASE_VERSION)-stable
