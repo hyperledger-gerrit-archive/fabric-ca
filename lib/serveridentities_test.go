@@ -17,6 +17,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
@@ -34,18 +35,16 @@ func TestGetAllIDs(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	// Register several users
 	admin := resp.Identity
+	admin2secret := password.Default().Generate()
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:        "admin2",
-		Secret:      "admin2pw",
+		Secret:      admin2secret,
 		Type:        "peer",
 		Affiliation: "org2",
 		Attributes: []api.Attribute{
@@ -96,7 +95,7 @@ func TestGetAllIDs(t *testing.T) {
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin2'")
 
@@ -143,18 +142,16 @@ func TestGetID(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	// Register several users
+	admin2secret := password.Default().Generate()
 	admin := resp.Identity
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:        "admin2",
-		Secret:      "admin2pw",
+		Secret:      admin2secret,
 		Type:        "peer",
 		Affiliation: "org2",
 		Attributes: []api.Attribute{
@@ -199,7 +196,7 @@ func TestGetID(t *testing.T) {
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin2'")
 
@@ -247,11 +244,8 @@ func TestDynamicAddIdentity(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
@@ -300,11 +294,8 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
@@ -325,9 +316,10 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 
 	// Register and enroll a registrar that is has limited ability
 	// to act on identities
+	admin2secret := password.Default().Generate()
 	regResp, err = admin.Register(&api.RegistrationRequest{
 		Name:        "admin2",
-		Secret:      "admin2pw",
+		Secret:      admin2secret,
 		Type:        "peer",
 		Affiliation: "org2",
 		Attributes: []api.Attribute{
@@ -339,7 +331,7 @@ func TestDynamicRemoveIdentity(t *testing.T) {
 	})
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin2'")
 	admin2 := resp.Identity
@@ -406,32 +398,30 @@ func TestDynamicModifyIdentity(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "hyperledger")
+	srv.RegisterBootstrapUser("admin2", admin2secret, "hyperledger")
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin2'")
 
 	admin2 := resp.Identity
 
+	admin3secret := password.Default().Generate()
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:           "admin3",
 		Type:           "client",
-		Secret:         "admin3pw",
+		Secret:         admin3secret,
 		MaxEnrollments: 10,
 		Attributes: []api.Attribute{
 			api.Attribute{
@@ -456,16 +446,17 @@ func TestDynamicModifyIdentity(t *testing.T) {
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin3",
-		Secret: "admin3pw",
+		Secret: admin3secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin3'")
 
 	admin3 := resp.Identity
 
+	testuserSecret := password.Default().Generate()
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:           "testuser",
 		Type:           "peer",
-		Secret:         "testuserpw",
+		Secret:         testuserSecret,
 		MaxEnrollments: 10,
 		Affiliation:    "org2",
 		Attributes: []api.Attribute{
@@ -480,7 +471,7 @@ func TestDynamicModifyIdentity(t *testing.T) {
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:           "testuser2",
 		Type:           "client",
-		Secret:         "testuserpw",
+		Secret:         testuserSecret,
 		MaxEnrollments: 10,
 		Affiliation:    "hyperledger",
 		Attributes: []api.Attribute{
@@ -781,10 +772,10 @@ func TestDynamicWithMultCA(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
+	client := TestGetClient(rootPort, testdataDir)
 	resp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 		CAName: "rootca2",
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
@@ -841,11 +832,8 @@ func TestBootstrapUserAddingRoles(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity

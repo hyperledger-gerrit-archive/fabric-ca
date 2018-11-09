@@ -27,7 +27,7 @@ func (p *Password) Generate() string {
 			passwordBuffer.WriteString(string(char))
 		}
 
-		err := p.Validate(passwordBuffer.String())
+		err := p.validate(passwordBuffer.String())
 		if err == nil {
 			return passwordBuffer.String()
 		}
