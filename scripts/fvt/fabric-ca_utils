@@ -41,6 +41,10 @@ export LDAPAUTH="-D "cn=$LDAPUSER,dc=example,dc=com" -w $LDAPPASWD"
 export LDAPBASE="-b "dc=example,dc=com""
 export LDAPUSERBASE="-b ou=users,ou=fabric,dc=hyperledeger,dc=example,dc=com"
 export DEFAULT_RUN_CONFIG_FILE_NAME="runFabricCaFvt.yaml"
+export FABRIC_CA_SERVER_PASSWORD_MIX_UPPER_LOWER="false"
+export FABRIC_CA_SERVER_PASSWORD_MIX_ALPHA_NUM="false"
+export FABRIC_CA_SERVER_PASSWORD_MIN_SPECIAL_CHARS="0"
+export FABRIC_CA_SERVER_PASSWORD_MIN_LENGTH="4"
 
 DATE='date +%Y-%m-%d'
 TIME='date +%I:%M:%S%p'

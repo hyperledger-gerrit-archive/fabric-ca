@@ -102,7 +102,7 @@ registry:
   # Contains identity information which is used when LDAP is disabled
   identities:
      - name: a
-       pass: b
+       pass: pass
        type: client
        affiliation: ""
        maxenrollments: -1
@@ -124,7 +124,7 @@ EOF
    cp $MYSQLSERVERCONFIG $MYSQLSERVERCONFIG2
    sed -i '/hf.IntermediateCA:/a\
      - name: c\
-       pass: d\
+       pass: pass\
        type: client\
        affiliation: ""\
        maxenrollments: -1\
@@ -285,7 +285,7 @@ $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $PGSQLSERVERCONFIG2 | tee $SERVERLOG 2>&1
 pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 
 # Enroll with a server that does not have a DB initialized, should expect to get back error
-enroll a b 2>&1 | grep "Failed to create user registry for PostgreSQL"
+enroll a pass 2>&1 | grep "Failed to create user registry for PostgreSQL"
 if [ $? != 0 ]; then
     ErrorMsg "Enroll request should have failed due to uninitialized postgres database"
 fi
@@ -296,7 +296,7 @@ pollPostgres # Wait for postgres to start
 sleep 5 # Postgres port is available but sometimes get back 'pq: the database system is starting up' error. Putting in sleep to allow for start up to complete
 
 # Enroll again, this time the server should try to reinitialize the DB before processing enroll request and this should succeed
-enroll a b 2>&1 | grep "Stored client certificate"
+enroll a pass 2>&1 | grep "Stored client certificate"
 if [ $? != 0 ]; then
     ErrorMsg "Enroll request should have passed"
 fi
@@ -314,7 +314,7 @@ $SCRIPTDIR/fabric-ca_setup.sh -S -X -g $MYSQLSERVERCONFIG2 | tee $SERVERLOG 2>&1
 pollLogForMsg "Listening on https*://0.0.0.0:$CA_DEFAULT_PORT" $SERVERLOG || ErrorExit "Failed to log CA startup message"
 
 # Enroll with a server that does not have a DB initialized, should expect to get back error
-enroll a b 2>&1 | grep "Failed to create user registry for MySQL"
+enroll a pass 2>&1 | grep "Failed to create user registry for MySQL"
 if [ $? != 0 ]; then
     ErrorMsg "Enroll request should have failed due to uninitialized mysql database"
 fi
@@ -324,7 +324,7 @@ fi
 pollMySql # Wait for MySQL to start
 
 # Enroll again, this time the server should try to reinitialize the DB before processing enroll request and this should succeed
-enroll a b 2>&1 | grep "Stored client certificate"
+enroll a pass 2>&1 | grep "Stored client certificate"
 if [ $? != 0 ]; then
     ErrorMsg "Enroll request should have passed"
 fi
