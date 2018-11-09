@@ -46,8 +46,8 @@ registry:
 
   # Contains user information which is used when LDAP is disabled
   identities:
-     - name: adminca1
-       pass: adminca1pw
+     - name: admin
+       pass: adm1nPW!!
        type: client
        affiliation: ""
        maxenrollments: -1

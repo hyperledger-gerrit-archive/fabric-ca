@@ -37,6 +37,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	idemix "github.com/hyperledger/fabric-ca/lib/server/idemix"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/lib/tcert"
 	"github.com/hyperledger/fabric-ca/lib/tls"
@@ -741,9 +742,21 @@ func (ca *CA) initEnrollmentSigner() (err error) {
 func (ca *CA) loadUsersTable() error {
 	log.Debug("Loading identity table")
 	registry := &ca.Config.Registry
+	var pass *password.Password
+	if ca.Config.Password == nil {
+		pass = password.Default()
+	} else {
+		pass = password.New(ca.Config.Password)
+	}
+
 	for _, id := range registry.Identities {
 		log.Debugf("Loading identity '%s'", id.Name)
-		err := ca.addIdentity(&id, false)
+		err := pass.Validate(id.Pass)
+		if err != nil {
+			return caerrors.NewFatalError(caerrors.ErrPasswordReq, "Loading user '%s' failed: %s", id.Name, err)
+		}
+
+		err = ca.addIdentity(&id, false)
 		if err != nil {
 			return errors.WithMessage(err, "Failed to load identity table")
 		}

@@ -14,8 +14,8 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/lib/spi"
-	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 )
 
@@ -135,8 +135,20 @@ func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 	log.Debugf("Registering user id: %s\n", req.Name)
 	var err error
 
+	var pass *password.Password
+	if ca.Config.Password == nil {
+		pass = password.Default()
+	} else {
+		pass = password.New(ca.Config.Password)
+	}
+
 	if req.Secret == "" {
-		req.Secret = util.RandomString(12)
+		req.Secret = pass.Generate()
+	} else {
+		err := pass.Validate(req.Secret)
+		if err != nil {
+			return "", caerrors.NewHTTPErr(400, caerrors.ErrPasswordReq, "Registration of user '%s' failed: %s", req.Name, err)
+		}
 	}
 
 	req.MaxEnrollments, err = getMaxEnrollments(req.MaxEnrollments, ca.Config.Registry.MaxEnrollments)
