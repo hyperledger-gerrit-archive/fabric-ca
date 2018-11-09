@@ -18,6 +18,7 @@ import (
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -511,8 +512,9 @@ func TestCAloadAffiliationsTableR(t *testing.T) {
 func TestCAloadUsersTable(t *testing.T) {
 	testDirClean(t)
 	cfg = CAConfig{}
-	u := &CAConfigIdentity{Name: "a", MaxEnrollments: -10}
+	u := &CAConfigIdentity{Name: "a", Pass: password.Generate(), MaxEnrollments: -10}
 	cfg.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
+	srv.levels = &dbutil.Levels{}
 	ca, err := newCA(configFile, &cfg, &srv, false)
 	t.Log("ca.newCA error: ", err)
 	if err == nil {
@@ -530,14 +532,13 @@ func TestCAloadUsersTable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Remove failed: %s", err)
 	}
-	u = &CAConfigIdentity{Name: "a", MaxEnrollments: 10}
+	u = &CAConfigIdentity{Name: "a", Pass: password.Generate(), MaxEnrollments: 10}
 	cfg.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
 	ca, err = newCA(configFile, &cfg, &srv, false)
 	if err != nil {
 		t.Fatal("newCA FAILED", err)
 	}
 
-	u = &CAConfigIdentity{Name: "a", MaxEnrollments: 10}
 	ca.Config.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
 	err = ca.loadUsersTable()
 	if err != nil {
@@ -545,7 +546,6 @@ func TestCAloadUsersTable(t *testing.T) {
 	}
 
 	// Duplicate resgistration, non-error
-	u = &CAConfigIdentity{Name: "a", MaxEnrollments: 10}
 	ca.Config.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
 	err = ca.loadUsersTable()
 	if err != nil {
@@ -553,7 +553,7 @@ func TestCAloadUsersTable(t *testing.T) {
 	}
 
 	// Database error (db is closed)
-	u = &CAConfigIdentity{Name: "b", MaxEnrollments: 10}
+	u = &CAConfigIdentity{Name: "b", Pass: password.Generate(), MaxEnrollments: 10}
 	ca.Config.Registry = CAConfigRegistry{Identities: []CAConfigIdentity{*u}, MaxEnrollments: 10}
 	err = ca.closeDB()
 	if err != nil {
@@ -651,7 +651,7 @@ func TestServerMigration(t *testing.T) {
 	_, err = db.Exec("INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments, level) VALUES ('notregistrar', '', 'user', 'org2', '[{\"name\":\"hf.Revoker\",\"value\":\"true\"}]', '0', '-1', '0')")
 	assert.NoError(t, err, "Failed to insert user 'notregistrar' into database")
 
-	server := TestGetServer2(false, rootPort, dir, "", -1, t)
+	server := TestGetServerActiveDir(rootPort, dir, "", -1, t)
 	if server == nil {
 		return
 	}
