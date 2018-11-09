@@ -510,6 +510,20 @@
 			"revisionTime": "2016-10-20T16:18:36Z"
 		},
 		{
+			"checksumSHA1": "6YS3aGjasz4kagyrLqWDhj1BfsQ=",
+			"path": "github.com/onsi/ginkgo/ginkgo",
+			"revision": "0d4f08024c0112cfde4b94bc45e25777eedb4561",
+			"revisionTime": "2018-11-05T17:39:48Z",
+			"tree": true
+		},
+		{
+			"checksumSHA1": "MCtMCYXkr586bCwlkrBTRPUP+KY=",
+			"path": "github.com/onsi/gomega",
+			"revision": "9078de543588a442b7e49ae2e887db64812d77ce",
+			"revisionTime": "2018-11-05T18:03:18Z",
+			"tree": true
+		},
+		{
 			"checksumSHA1": "BoXdUBWB8UnSlFlbnuTQaPqfCGk=",
 			"path": "github.com/op/go-logging",
 			"revision": "970db520ece77730c7e4724c61121037378659d9",
