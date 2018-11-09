@@ -31,8 +31,6 @@ import (
 
 const (
 	whitePort            = 7058
-	user                 = "admin"
-	pass                 = "adminpw"
 	serversDir           = "testservers"
 	testTLSClientAuthDir = "testTLSClientAuthDir"
 )
@@ -40,7 +38,7 @@ const (
 var clientConfig = path.Join(testdataDir, "client-config.json")
 
 func TestCWBClient1(t *testing.T) {
-	server := getServer(whitePort, path.Join(serversDir, "c1"), "", 1, t)
+	server := TestGetServer(whitePort, path.Join(serversDir, "c1"), "", 1, t)
 	if server == nil {
 		t.Fatal("Failed to get server")
 	}
@@ -73,7 +71,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 	// 1) Test over HTTP to get a standard ECert
 	//
 	// Start server
-	server := getServer(whitePort, path.Join(testTLSClientAuthDir, "server"), "", 2, t)
+	server := TestGetServer(whitePort, path.Join(testTLSClientAuthDir, "server"), "", 2, t)
 	if server == nil {
 		return
 	}
@@ -91,7 +89,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 		HomeDir: path.Join(testTLSClientAuthDir, "client"),
 	}
 
-	eresp, err := client.Enroll(&api.EnrollmentRequest{Name: user, Secret: pass})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		server.Stop()
 		t.Fatalf("Failed to enroll admin: %s", err)
@@ -210,7 +208,7 @@ func TestCWBTLSClientAuth(t *testing.T) {
 }
 
 func testInvalidAuthEnrollment(t *testing.T) {
-	c := getTestClient(whitePort)
+	c := TestGetClient(whitePort, testdataDir)
 	err := c.Init()
 	if err != nil {
 		t.Fatalf("Failed to initialize client: %s", err)
@@ -357,8 +355,8 @@ func testMasqueradeReenroll(t *testing.T, c *Client, id *Identity) {
 
 func getEnrollmentPayload(t *testing.T, c *Client) ([]byte, error) {
 	req := &api.EnrollmentRequest{
-		Name:   user,
-		Secret: pass,
+		Name:   "admin",
+		Secret: Bootstrapadminpw,
 	}
 
 	// Generate the CSR
@@ -376,85 +374,6 @@ func getEnrollmentPayload(t *testing.T, c *Client) ([]byte, error) {
 	}
 
 	return util.Marshal(sreq, "SignRequest")
-}
-
-func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *Server {
-	if home != testdataDir {
-		err := os.RemoveAll(home)
-		if err != nil {
-			t.Errorf("RemoveAll failed: %s", err)
-		}
-	}
-	srv, err := createServer(port, home, parentURL, maxEnroll)
-	if err != nil {
-		t.Errorf("failed to register bootstrap user: %s", err)
-		return nil
-	}
-	return srv
-}
-
-func getServerForBenchmark(port int, home, parentURL string, maxEnroll int, b *testing.B) *Server {
-	if home != testdataDir {
-		err := os.RemoveAll(home)
-		if err != nil {
-			b.Errorf("RemoveAll failed: %s", err)
-		}
-	}
-	srv, err := createServer(port, home, parentURL, maxEnroll)
-	if err != nil {
-		b.Errorf("failed to register bootstrap user: %s", err)
-		return nil
-	}
-	return srv
-}
-
-func createServer(port int, home, parentURL string, maxEnroll int) (*Server, error) {
-	affiliations := map[string]interface{}{
-		"hyperledger": map[string]interface{}{
-			"fabric":    []string{"ledger", "orderer", "security"},
-			"fabric-ca": nil,
-			"sdk":       nil,
-		},
-		"org2": nil,
-	}
-	affiliations[affiliationName] = map[string]interface{}{
-		"department1": nil,
-		"department2": nil,
-	}
-	srv := &Server{
-		Config: &ServerConfig{
-			Port:  port,
-			Debug: true,
-		},
-		CA: CA{
-			Config: &CAConfig{
-				Intermediate: IntermediateCA{
-					ParentServer: ParentServer{
-						URL: parentURL,
-					},
-				},
-				Affiliations: affiliations,
-				Registry: CAConfigRegistry{
-					MaxEnrollments: maxEnroll,
-				},
-			},
-		},
-		HomeDir: home,
-	}
-	// The bootstrap user's affiliation is the empty string, which
-	// means the user is at the affiliation root
-	err := srv.RegisterBootstrapUser(user, pass, "")
-	if err != nil {
-		return nil, err
-	}
-	return srv, nil
-}
-
-func getTestClient(port int) *Client {
-	return &Client{
-		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", port)},
-		HomeDir: testdataDir,
-	}
 }
 
 func TestCWBCAConfig(t *testing.T) {
