@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -34,25 +35,23 @@ func TestIdemixCredRevokedUser(t *testing.T) {
 	defer os.RemoveAll(rootClientDir)
 
 	c := TestGetRootClient()
-	req := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	}
-
-	enrollResp, err := c.Enroll(req)
+	enrollResp, err := EnrollDefaultTestBootstrapAdmin(c)
 	util.FatalError(t, err, "Failed to enroll 'admin'")
 	admin := enrollResp.Identity
 
+	secret := password.Default().Generate()
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:   "user1",
-		Secret: "user1pw",
+		Secret: secret,
 	})
 	util.FatalError(t, err, "Failed to register 'user1' by 'admin' user")
 
 	// Enroll a user to get back Idemix credential
-	req.Name = "user1"
-	req.Secret = "user1pw"
-	req.Type = "idemix"
+	req := &api.EnrollmentRequest{
+		Name:   "user1",
+		Secret: secret,
+		Type:   "idemix",
+	}
 
 	enrollIdmixResp, err := c.Enroll(req)
 	util.FatalError(t, err, "Failed to enroll 'user1'")
@@ -85,7 +84,7 @@ func TestUpdatingRevocationHandleQuery(t *testing.T) {
 	c := TestGetRootClient()
 	req := &api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 		Type:   "idemix",
 	}
 
@@ -105,16 +104,13 @@ func TestRevokeSelf(t *testing.T) {
 	defer os.RemoveAll("rootDir")
 	defer os.RemoveAll("../testdata/msp")
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
 	name := "testuser"
-	password := "password"
+	password := password.Default().Generate()
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:   name,
 		Secret: password,

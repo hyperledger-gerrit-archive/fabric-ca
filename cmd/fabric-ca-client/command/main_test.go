@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/common/attrmgr"
@@ -111,16 +112,19 @@ const jsonConfig = `{
 }`
 
 var (
-	defYaml       string
-	fabricCADB    = path.Join(tdDir, db)
-	srv           *lib.Server
-	serverURL     = fmt.Sprintf("http://localhost:%d", serverPort)
-	enrollURL     = fmt.Sprintf("http://admin:adminpw@localhost:%d", serverPort)
-	enrollURL1    = fmt.Sprintf("http://admin2:adminpw2@localhost:%d", serverPort)
-	tlsServerURL  = fmt.Sprintf("https://localhost:%d", serverPort)
-	tlsEnrollURL  = fmt.Sprintf("https://admin:adminpw@localhost:%d", serverPort)
-	tlsEnrollURL1 = fmt.Sprintf("https://admin2:adminpw2@localhost:%d", serverPort)
-	testYaml      = path.Join(tdDir, "test.yaml")
+	defYaml           string
+	fabricCADB        = path.Join(tdDir, db)
+	srv               *lib.Server
+	admin2secret      = password.Default().Generate()
+	admin3secret      = password.Default().Generate()
+	serverURL         = fmt.Sprintf("http://localhost:%d", serverPort)
+	adminEnrollURL    = lib.GetEnrollmentURL(serverPort)
+	admin2EnrollURL   = fmt.Sprintf("http://admin2:%s@localhost:%d", admin2secret, serverPort)
+	admin3EnrollURL   = fmt.Sprintf("http://admin3:%s@localhost:%d", admin3secret, serverPort)
+	adminEnrollTLSURL = lib.GetSecureEnrollmentURL(serverPort)
+	tlsServerURL      = fmt.Sprintf("https://localhost:%d", serverPort)
+	tlsEnrollURL1     = fmt.Sprintf("https://admin2:adminpw2@localhost:%d", serverPort)
+	testYaml          = path.Join(tdDir, "test.yaml")
 )
 
 type TestData struct {
@@ -157,7 +161,7 @@ func TestCreateDefaultConfigFile(t *testing.T) {
 	defYaml = util.GetDefaultConfigFile("fabric-ca-client")
 	os.Remove(defYaml)
 
-	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-m", myhost})
+	err := RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-m", myhost})
 	if err == nil {
 		t.Errorf("No server running, should have failed")
 	}
@@ -187,17 +191,18 @@ func TestClientCommandsNoTLS(t *testing.T) {
 	srv.HomeDir = tdDir
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
+	adminSecret := password.Default().Generate()
+	err := srv.RegisterBootstrapUser("admin", adminSecret, "")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
 
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "hyperledger")
+	err = srv.RegisterBootstrapUser("admin2", admin2secret, "hyperledger")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
 
-	err = srv.RegisterBootstrapUser("admin3", "adminpw3", "company1")
+	err = srv.RegisterBootstrapUser("admin3", admin3secret, "company1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -251,7 +256,7 @@ func TestEnroll(t *testing.T) {
 	defer stopAndCleanupServer(t, srv)
 
 	// Enroll with -u parameter. Value of the -u parameter is used as server URL
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL, "-H", adminHome})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", adminEnrollURL, "-H", adminHome})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -273,7 +278,7 @@ func TestEnroll(t *testing.T) {
 	// Enroll without -u parameter but with FABRIC_CA_CLIENT_URL env variable
 	// Default client configuration file will be generated. Value of the
 	// FABRIC_CA_CLIENT_URL env variable is used as server URL
-	os.Setenv("FABRIC_CA_CLIENT_URL", enrollURL1)
+	os.Setenv("FABRIC_CA_CLIENT_URL", admin2EnrollURL)
 	defer os.Unsetenv("FABRIC_CA_CLIENT_URL")
 	err = RunMain([]string{cmdName, "enroll", "-d", "-H", adminHome})
 	if err != nil {
@@ -308,7 +313,7 @@ func TestEnrollmentCertExpiry(t *testing.T) {
 	defer os.RemoveAll(adminHome)
 
 	// Enroll admin identity
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL, "-H", adminHome})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", adminEnrollURL, "-H", adminHome})
 	if err != nil {
 		t.Errorf("Enrollment of admin failed: %s", err)
 	}
@@ -480,7 +485,7 @@ func TestRBAC(t *testing.T) {
 	}
 	testDir := path.Join(curDir, "testDir")
 	testUser := "testUser"
-	testPass := "testUserpw"
+	testPass := "testUserpw1!"
 	adminUserHome := path.Join(testDir, "adminUser")
 	adminUserConfig := path.Join(adminUserHome, "config.yaml")
 	testUserHome := path.Join(testDir, "testUser")
@@ -491,7 +496,7 @@ func TestRBAC(t *testing.T) {
 	defer os.RemoveAll(testDir)
 
 	// Start the server
-	server := startServer(testDir, 7054, "", t)
+	server := startServer(testDir, serverPort, "", t)
 	defer server.Stop()
 
 	// Negative test case to try to enroll with an badly formatted attribute request
@@ -499,7 +504,7 @@ func TestRBAC(t *testing.T) {
 		cmdName, "enroll",
 		"--enrollment.attrs", "foo,bar:zoo",
 		"-c", adminUserConfig,
-		"-u", "http://admin:adminpw@localhost:7054"})
+		"-u", adminEnrollURL})
 	if err == nil {
 		t.Error("enrollment with badly formatted attribute requests should fail")
 	}
@@ -508,7 +513,7 @@ func TestRBAC(t *testing.T) {
 	err = RunMain([]string{
 		cmdName, "enroll",
 		"-c", adminUserConfig,
-		"-u", "http://admin:adminpw@localhost:7054"})
+		"-u", adminEnrollURL})
 	if err != nil {
 		t.Fatalf("client enroll -u failed: %s", err)
 	}
@@ -541,10 +546,11 @@ func TestRBAC(t *testing.T) {
 
 	// Enroll the test user with no attribute requests and make sure the
 	// resulting ecert has the default attributes and no extra
+	enrollURL := fmt.Sprintf("http://%s:%s@localhost:%d", testUser, testPass, serverPort)
 	err = RunMain([]string{
 		cmdName, "enroll", "-d",
 		"-c", testUserConfig,
-		"-u", fmt.Sprintf("http://%s:%s@localhost:7054", testUser, testPass)})
+		"-u", enrollURL})
 	if err != nil {
 		t.Fatalf("client enroll of test user failed: %s", err)
 	}
@@ -556,7 +562,7 @@ func TestRBAC(t *testing.T) {
 		cmdName, "enroll", "-d",
 		"--enrollment.attrs", "foo,unknown:opt",
 		"-c", testUserConfig,
-		"-u", fmt.Sprintf("http://%s:%s@localhost:7054", testUser, testPass)})
+		"-u", enrollURL})
 	if err != nil {
 		t.Fatalf("client enroll of test user failed: %s", err)
 	}
@@ -567,7 +573,7 @@ func TestRBAC(t *testing.T) {
 		cmdName, "enroll", "-d",
 		"--enrollment.attrs", "unknown",
 		"-c", testUserConfig,
-		"-u", fmt.Sprintf("http://%s:%s@localhost:7054", testUser, testPass)})
+		"-u", enrollURL})
 	if err == nil {
 		t.Error("enrollment request with unknown required attribute should fail")
 	}
@@ -582,7 +588,7 @@ func TestRBAC(t *testing.T) {
 func TestIdentityCmd(t *testing.T) {
 	idWithNoAttrs := lib.CAConfigIdentity{
 		Name:           "userWithNoAttrs",
-		Pass:           "userWithNoAttrs",
+		Pass:           password.Default().Generate(),
 		Affiliation:    "org1",
 		MaxEnrollments: 10,
 		Type:           "client",
@@ -590,7 +596,7 @@ func TestIdentityCmd(t *testing.T) {
 	server := setupIdentityCmdTest(t, idWithNoAttrs)
 	defer stopAndCleanupServer(t, server)
 
-	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err := RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
 	err = RunMain([]string{cmdName, "register", "--id.name", "test user"})
@@ -669,25 +675,25 @@ func TestIdentityCmd(t *testing.T) {
 
 	// Add user using JSON
 	err = RunMain([]string{
-		cmdName, "identity", "add", "-d", "testuser1", "--json", `{"secret": "user1pw", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name": "hf.Revoker", "value": "false"},{"name": "hf.IntermediateCA", "value": "false"}]}`})
+		cmdName, "identity", "add", "-d", "testuser1", "--json", `{"secret": "User1pw!@", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name": "hf.Revoker", "value": "false"},{"name": "hf.IntermediateCA", "value": "false"}]}`})
 	assert.NoError(t, err, "Failed to add user 'testuser1'")
 
 	err = RunMain([]string{
-		cmdName, "identity", "add", "testuser1", "--json", `{"secret": "user1pw", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name:": "hf.Revoker", "value": "false"}]}`})
+		cmdName, "identity", "add", "testuser1", "--json", `{"secret": "User1pw!@", "type": "user", "affiliation": "org1", "max_enrollments": 1, "attrs": [{"name:": "hf.Revoker", "value": "false"}]}`})
 	assert.Error(t, err, "Should have failed to add same user twice")
 
 	// Check that the secret got correctly configured
 	err = RunMain([]string{
-		cmdName, "enroll", "-u", "http://testuser1:user1pw@localhost:7090", "-d"})
+		cmdName, "enroll", "-u", "http://testuser1:User1pw!@@localhost:7090", "-d"})
 	assert.NoError(t, err, "Failed to enroll user 'testuser2'")
 
 	// Enroll admin back to use it credentials for next commands
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
 	// Add user using flags
 	err = RunMain([]string{
-		cmdName, "identity", "add", "testuser2", "--secret", "user2pw", "--type", "client", "--affiliation", ".", "--maxenrollments", "45", "--attrs", "hf.Revoker=true"})
+		cmdName, "identity", "add", "testuser2", "--secret", "User2pw!@", "--type", "client", "--affiliation", ".", "--maxenrollments", "45", "--attrs", "hf.Revoker=true"})
 	assert.NoError(t, err, "Failed to add user 'testuser2'")
 
 	server.CA.Config.Registry.MaxEnrollments = 50
@@ -698,11 +704,11 @@ func TestIdentityCmd(t *testing.T) {
 
 	// Check that the secret got correctly configured
 	err = RunMain([]string{
-		cmdName, "enroll", "-u", "http://testuser2:user2pw@localhost:7090", "-d"})
+		cmdName, "enroll", "-u", "http://testuser2:User2pw!@@localhost:7090", "-d"})
 	assert.NoError(t, err, "Failed to enroll user 'testuser2'")
 
 	// Enroll admin back to use it credentials for next commands
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
 	// modify user secret using flags
@@ -750,7 +756,7 @@ func TestIdentityCmd(t *testing.T) {
 	assert.NoError(t, err, "Failed to enroll user 'testuser2'")
 
 	// Enroll admin back to use it credentials for next commands
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
 	registry := server.CA.DBAccessor()
@@ -810,14 +816,15 @@ func TestAffiliationCmd(t *testing.T) {
 	var err error
 
 	// Start with a clean test dir
-	os.RemoveAll("affiliation")
-	defer os.RemoveAll("affiliation")
+	srvHome := filepath.Join(tdDir, "affCmdTestHome")
+	os.RemoveAll(srvHome)
+	defer os.RemoveAll(srvHome)
 
 	// Start the server
-	server := startServer("affiliation", 7090, "", t)
+	server := setupAffCmdTest(t, srvHome)
 	defer server.Stop()
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
 	result, err := captureOutput(RunMain, []string{cmdName, "affiliation", "list"})
@@ -899,6 +906,11 @@ func TestAffiliationCmd(t *testing.T) {
 			cmdName, "affiliation", "remove", "org4", "--force"})
 		assert.NoError(t, err, "Failed to remove affiliation with force argument")
 	}
+
+	err = os.RemoveAll("affCmdTestHome")
+	if err != nil {
+		t.Fatal("remove err: ", err)
+	}
 }
 
 // Verify the certificate has attribute 'name' with a value of 'val'
@@ -950,14 +962,14 @@ func testConfigFileTypes(t *testing.T) {
 	// these file types are suitable to represent fabric-ca
 	// client/server config properties -- for example, props/prop/properties
 	// file type
-	err := RunMain([]string{cmdName, "enroll", "-u", enrollURL,
+	err := RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL,
 		"-c", "config/client-config.txt"})
 	if err == nil {
 		t.Errorf("Enroll command invoked with -c config/client-config.txt should have failed: %v",
 			err.Error())
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL,
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL,
 		"-c", "config/client-config.mf"})
 	if err == nil {
 		t.Errorf("Enroll command invoked with -c config/client-config.mf should have failed: %v",
@@ -977,7 +989,7 @@ func testConfigFileTypes(t *testing.T) {
 	t.Logf("Wrote %d bytes to %s", nb, fName)
 	w.Flush()
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL,
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL,
 		"-c", fName})
 	if err != nil {
 		t.Errorf("Enroll command invoked with -c %s failed: %v",
@@ -1028,13 +1040,13 @@ func testEnroll(t *testing.T) {
 		t.Errorf("No username/password provided, should have errored")
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.keyrequest.algo", "badalgo"})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", adminEnrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.keyrequest.algo", "badalgo"})
 	assert.Error(t, err, "Incorrect key algo value, should fail")
 
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.keyrequest.algo", "ecdsa", "--csr.keyrequest.size", "1234"})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", adminEnrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.keyrequest.algo", "ecdsa", "--csr.keyrequest.size", "1234"})
 	assert.Error(t, err, "Incorrect key size value, should fail")
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.keyrequest.algo", "ecdsa", "--csr.keyrequest.size", "256"})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-M", filepath.Join(filepath.Dir(defYaml), "msp"), "--csr.keyrequest.algo", "ecdsa", "--csr.keyrequest.size", "256"})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -1184,7 +1196,7 @@ func TestDifferentKeySizeAlgos(t *testing.T) {
 	defer stopAndCleanupServer(t, srv)
 
 	// Enroll admin
-	err = RunMain([]string{cmdName, "enroll", "-H", homeDir, "-u", "http://admin:adminpw@localhost:7090"})
+	err = RunMain([]string{cmdName, "enroll", "-H", homeDir, "-u", adminEnrollURL})
 	if err != nil {
 		t.Fatalf("Failed to enroll admin: %s", err)
 	}
@@ -1215,7 +1227,7 @@ func TestMOption(t *testing.T) {
 		return
 	}
 	defer rootServer.Stop()
-	rootCAURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", rootCAPort)
+	rootCAURL := fmt.Sprintf("http://admin:%s@localhost:%d", lib.Bootstrapadminpw, rootCAPort)
 	intCAPort := 7174
 	intServer := startServer(path.Join(moptionDir, "intServer"), intCAPort, rootCAURL, t)
 	if intServer == nil {
@@ -1226,7 +1238,7 @@ func TestMOption(t *testing.T) {
 	mspdir := "msp2" // relative to homedir
 	err := RunMain([]string{
 		cmdName, "enroll",
-		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCAPort),
+		"-u", fmt.Sprintf("http://admin:%s@localhost:%d", lib.Bootstrapadminpw, intCAPort),
 		"-c", path.Join(homedir, "config.yaml"),
 		"-M", mspdir, "-d"})
 	if err != nil {
@@ -1245,7 +1257,7 @@ func TestMOption(t *testing.T) {
 	mspdir = "msp3" // relative to homedir
 	err = RunMain([]string{
 		cmdName, "enroll",
-		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCAPort),
+		"-u", fmt.Sprintf("http://admin:%s@localhost:%d", lib.Bootstrapadminpw, intCAPort),
 		"-c", path.Join(homedir, "config.yaml"),
 		"-M", mspdir, "--enrollment.profile", "tls", "-d"})
 	if err != nil {
@@ -1269,7 +1281,7 @@ func TestMOption(t *testing.T) {
 	defer os.RemoveAll(homedir)
 	err = RunMain([]string{
 		cmdName, "enroll",
-		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCAPort),
+		"-u", fmt.Sprintf("http://admin:%s@localhost:%d", lib.Bootstrapadminpw, intCAPort),
 		"-H", homedir,
 		"-M", mspdir, "-d"})
 	if err != nil {
@@ -1373,7 +1385,7 @@ func testThreeCAHierarchy(t *testing.T) {
 	defer rootServer.Stop()
 
 	// Create and start the Intermediate CA server
-	rootCAURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", rootCAPort)
+	rootCAURL := fmt.Sprintf("http://admin:%s@localhost:%d", lib.Bootstrapadminpw, rootCAPort)
 	intCAPort := 7174
 	intServer := startServer(path.Join(multiIntCATestDir, "intServer"), intCAPort, rootCAURL, t)
 	defer intServer.Stop()
@@ -1387,7 +1399,8 @@ func testThreeCAHierarchy(t *testing.T) {
 	// Register an identity for Issuing CA with the Intermediate CA, this identity will be used by the Issuing
 	// CA to get it's CA certificate
 	intCA1Admin := "int-ca1-admin"
-	err = intServer.RegisterBootstrapUser(intCA1Admin, "adminpw", "")
+	pass := password.Default().Generate()
+	err = intServer.RegisterBootstrapUser(intCA1Admin, pass, "")
 	if err != nil {
 		t.Fatal("Failed to register identity for the Issuing CA server")
 	}
@@ -1399,7 +1412,7 @@ func testThreeCAHierarchy(t *testing.T) {
 	}
 
 	// Create and start the Issuing CA server
-	intCAURL := fmt.Sprintf("http://%s:adminpw@localhost:%d", intCA1Admin, intCAPort)
+	intCAURL := fmt.Sprintf("http://%s:%s@localhost:%d", intCA1Admin, pass, intCAPort)
 	intCA1Port := 7175
 	intServer1 := startServer(path.Join(multiIntCATestDir, "intServer1"), intCA1Port, intCAURL, t)
 	defer intServer1.Stop()
@@ -1409,7 +1422,7 @@ func testThreeCAHierarchy(t *testing.T) {
 	mspdir := "msp" // relative to homedir
 	err = RunMain([]string{
 		cmdName, "enroll",
-		"-u", fmt.Sprintf("http://admin:adminpw@localhost:%d", intCA1Port),
+		"-u", fmt.Sprintf("http://admin:%s@localhost:%d", lib.Bootstrapadminpw, intCA1Port),
 		"-c", path.Join(homedir, "config.yaml"),
 		"-M", mspdir, "-d"})
 	if err != nil {
@@ -1450,7 +1463,7 @@ func testRegisterConfigFile(t *testing.T) {
 	t.Log("Testing Register command using config file")
 
 	err := RunMain([]string{cmdName, "enroll", "-d", "-c",
-		"../../../testdata/fabric-ca-client-config.yaml", "-u", enrollURL1})
+		"../../../testdata/fabric-ca-client-config.yaml", "-u", admin2EnrollURL})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -1520,7 +1533,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	}
 
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", "testRegister4",
-		"--id.secret", "testRegister4", "--id.affiliation", "hyperledger.org2", "--id.type", "user"})
+		"--id.secret", "testRegister4!", "--id.affiliation", "hyperledger.org2", "--id.type", "user"})
 	if err != nil {
 		t.Errorf("client register failed: %s", err)
 	}
@@ -1529,7 +1542,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 	// The identity type is set to default type "client"
 	userName := "testRegister5"
 	err = RunMain([]string{cmdName, "register", "-d", "--id.name", userName,
-		"--id.secret", "testRegister5", "--id.affiliation", "hyperledger.org1"})
+		"--id.secret", "testRegister5!", "--id.affiliation", "hyperledger.org1"})
 	assert.NoError(t, err, "Failed to register identity "+userName)
 	user, err = db.GetUser(userName, nil)
 	assert.NoError(t, err)
@@ -1625,7 +1638,7 @@ func testRevoke(t *testing.T) {
 	testRegister4Home := filepath.Join(os.TempDir(), "testregister4Home")
 	defer os.RemoveAll(testRegister4Home)
 	err = RunMain([]string{cmdName, "enroll", "-u",
-		fmt.Sprintf("http://testRegister4:testRegister4@localhost:%d", serverPort)})
+		fmt.Sprintf("http://testRegister4:testRegister4!@localhost:%d", serverPort)})
 	if err != nil {
 		t.Fatalf("Failed to enroll testRegister4 user: %s", err)
 	}
@@ -1638,7 +1651,7 @@ func testRevoke(t *testing.T) {
 	}
 
 	// Enroll admin with root affiliation and test revoking with root
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	if err != nil {
 		t.Fatalf("client enroll -u failed: %s", err)
 	}
@@ -1665,7 +1678,7 @@ func testRevoke(t *testing.T) {
 	testRegister5Home := filepath.Join(os.TempDir(), "testregister5Home")
 	defer os.RemoveAll(testRegister5Home)
 	err = RunMain([]string{cmdName, "enroll", "-u",
-		fmt.Sprintf("http://testRegister5:testRegister5@localhost:%d", serverPort), "-H", testRegister5Home})
+		fmt.Sprintf("http://testRegister5:testRegister5!@localhost:%d", serverPort), "-H", testRegister5Home})
 	if err != nil {
 		t.Fatalf("Failed to enroll testRegister5 user: %s", err)
 	}
@@ -1692,7 +1705,7 @@ func testRevoke(t *testing.T) {
 		t.Error("Revoke of testRegister5's certificate should have failed as it was already revoked")
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", "http://admin3:adminpw3@localhost:7090"})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", admin3EnrollURL})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -1730,7 +1743,7 @@ func testAffiliation(t *testing.T) {
 	var err error
 
 	// admin2 has affiliation of 'hyperledger'
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL1})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", admin2EnrollURL})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -1742,7 +1755,7 @@ func testAffiliation(t *testing.T) {
 	}
 
 	// admin has affiliation of ""
-	err = RunMain([]string{cmdName, "enroll", "-d", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-d", "-u", adminEnrollURL})
 	if err != nil {
 		t.Errorf("client enroll -u failed: %s", err)
 	}
@@ -1821,7 +1834,7 @@ func testBogus(t *testing.T) {
 }
 
 func TestGetCACert(t *testing.T) {
-	srv = getServer()
+	srv = lib.TestServerWithCustomConfig(serverPort, ".", "", -1, getServerConfig(), getCAConfig(), t)
 	srv.Config.Debug = true
 
 	// Configure TLS settings on server
@@ -1858,24 +1871,19 @@ func TestClientCommandsUsingConfigFile(t *testing.T) {
 	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "org1")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
 	srv.HomeDir = tdDir
 	srv.Config.TLS.Enabled = true
 	srv.Config.TLS.CertFile = tlsCertFile
 	srv.Config.TLS.KeyFile = tlsKeyFile
 
-	err = srv.Start()
+	err := srv.Start()
 	if err != nil {
 		t.Errorf("Server start failed: %s", err)
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c",
 		filepath.Join(tdDir, "fabric-ca-client-config.yaml"), "-u",
-		tlsEnrollURL, "-d"})
+		adminEnrollTLSURL, "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
@@ -1892,7 +1900,7 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
+	err := srv.RegisterBootstrapUser("admin2", admin2secret, "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -1912,7 +1920,7 @@ func TestClientCommandsTLSEnvVar(t *testing.T) {
 	os.Setenv(clientCertEnvVar, tlsClientCertFile)
 
 	err = RunMain([]string{cmdName, "enroll", "-d", "-c", testYaml,
-		"-u", tlsEnrollURL, "-d"})
+		"-u", adminEnrollTLSURL, "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
@@ -1933,7 +1941,7 @@ func TestClientCommandsTLS(t *testing.T) {
 	srv = lib.TestGetServer(serverPort, testdataDir, "", -1, t)
 	srv.Config.Debug = true
 
-	err := srv.RegisterBootstrapUser("admin2", "adminpw2", "org1")
+	err := srv.RegisterBootstrapUser("admin2", admin2secret, "org1")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -1950,14 +1958,14 @@ func TestClientCommandsTLS(t *testing.T) {
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
 		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
-		tlsClientCertFile, "-u", tlsEnrollURL, "-d"})
+		tlsClientCertFile, "-u", adminEnrollTLSURL, "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "--tls.certfiles",
 		rootCert, "--tls.client.keyfile", tlsClientKeyFile, "--tls.client.certfile",
-		tlsClientCertExpired, "-u", tlsEnrollURL, "-d"})
+		tlsClientCertExpired, "-u", adminEnrollTLSURL, "-d"})
 	if err == nil {
 		t.Errorf("Expired certificate used for TLS connection, should have failed")
 	}
@@ -1979,24 +1987,19 @@ func TestMultiCA(t *testing.T) {
 	srv.CA.Config.CSR.Hosts = []string{"hostname"}
 	t.Logf("Server configuration: %+v\n", srv.Config)
 
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
 	srv.BlockingStart = false
-	err = srv.Start()
+	err := srv.Start()
 	if err != nil {
 		t.Fatal("Failed to start server:", err)
 	}
 
 	// Test going to default CA if no caname provided in client request
-	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", enrollURL, "-d"})
+	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", adminEnrollURL, "-d"})
 	if err != nil {
 		t.Errorf("client enroll -c -u failed: %s", err)
 	}
 
-	enrURL := fmt.Sprintf("http://adminca1:adminca1pw@localhost:%d", serverPort)
+	enrURL := fmt.Sprintf("http://admin:adm1nPW!!@localhost:%d", serverPort)
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u", enrURL, "-d",
 		"--caname", "rootca1"})
 	if err != nil {
@@ -2016,7 +2019,7 @@ func TestMultiCA(t *testing.T) {
 	}
 
 	err = RunMain([]string{cmdName, "revoke", "-c", testYaml, "-d",
-		"--revoke.name", "adminca1", "--caname", "rootca1"})
+		"--revoke.name", "admin", "--caname", "rootca1"})
 	if err != nil {
 		t.Errorf("client revoke failed: %s", err)
 	}
@@ -2028,7 +2031,7 @@ func TestMultiCA(t *testing.T) {
 	}
 
 	err = RunMain([]string{cmdName, "enroll", "-c", testYaml, "-u",
-		enrollURL, "-d", "--caname", "rootca2"})
+		adminEnrollURL, "-d", "--caname", "rootca2"})
 	if err != nil {
 		t.Errorf("client enroll failed: %s", err)
 	}
@@ -2073,36 +2076,36 @@ func TestHomeDirectory(t *testing.T) {
 	os.RemoveAll(dir)
 	defer os.RemoveAll(dir)
 
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-c", ""})
+	RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-c", ""})
 	if !util.FileExists(configFilePath) {
 		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
 	}
 
 	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
 
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", ""})
+	RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-H", ""})
 	if !util.FileExists(configFilePath) {
 		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
 	}
 
 	os.RemoveAll(defaultClientConfigDir) // Remove default directory before testing another default case
 
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	if !util.FileExists(configFilePath) {
 		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config) in the default home directory")
 	}
 
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", filepath.Join(tdDir, "testhome/testclientcmd")})
+	RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-H", filepath.Join(tdDir, "testhome/testclientcmd")})
 	if !util.FileExists(filepath.Join(tdDir, "testhome/testclientcmd", defaultClientConfigFile)) {
 		t.Errorf("Failed to correctly created the default config (fabric-ca-client-config.yaml) in the '../../../testdata/testhome/testclientcmd' directory")
 	}
 
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-c", filepath.Join(tdDir, "testhome/testclientcmd2/testconfig2.yaml")})
+	RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-d", "-c", filepath.Join(tdDir, "testhome/testclientcmd2/testconfig2.yaml")})
 	if !util.FileExists(filepath.Join(tdDir, "testhome/testclientcmd2/testconfig2.yaml")) {
 		t.Errorf("Failed to correctly created the config (testconfig2.yaml) in the '../../../testdata/testhome/testclientcmd2' directory")
 	}
 
-	RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-d", "-H", filepath.Join(tdDir, "testclientcmd3"), "-c", filepath.Join(tdDir, "testhome/testclientcmd3/testconfig3.yaml")})
+	RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-d", "-H", filepath.Join(tdDir, "testclientcmd3"), "-c", filepath.Join(tdDir, "testhome/testclientcmd3/testconfig3.yaml")})
 	if !util.FileExists(filepath.Join(tdDir, "testhome/testclientcmd3/testconfig3.yaml")) {
 		t.Errorf("Failed to correctly created the config (testconfig3.yaml) in the '../../../testdata/testhome/testclientcmd3' directory")
 	}
@@ -2118,7 +2121,7 @@ func TestDebugSetting(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL})
 	util.FatalError(t, err, "Failed to enroll user")
 
 	err = RunMain([]string{cmdName, "affiliation", "list"})
@@ -2268,16 +2271,6 @@ func captureOutput(f func(args []string) error, args []string) (string, error) {
 	return buf.String(), nil
 }
 
-func getServer() *lib.Server {
-	return &lib.Server{
-		HomeDir: ".",
-		Config:  getServerConfig(),
-		CA: lib.CA{
-			Config: getCAConfig(),
-		},
-	}
-}
-
 func getServerConfig() *lib.ServerConfig {
 	return &lib.ServerConfig{
 		Debug: true,
@@ -2308,6 +2301,29 @@ func setupIdentityCmdTest(t *testing.T, id lib.CAConfigIdentity) *lib.Server {
 	if err != nil {
 		t.Fatalf("Failed to remove home directory %s: %s", srvHome, err)
 	}
+
+	srv := getSimpleServerConfig(srvHome)
+	srv.CA.Config.Registry.Identities = append(srv.CA.Config.Registry.Identities, id)
+
+	srv = lib.BootstrapTestIdentities(srv, t)
+	err = srv.Start()
+	if err != nil {
+		t.Fatalf("Failed to start server: %s", err)
+	}
+	return srv
+}
+
+func setupAffCmdTest(t *testing.T, srvHome string) *lib.Server {
+	srv := getSimpleServerConfig(srvHome)
+	srv = lib.BootstrapTestIdentities(srv, t)
+	err := srv.Start()
+	if err != nil {
+		t.Fatalf("Failed to start server: %s", err)
+	}
+	return srv
+}
+
+func getSimpleServerConfig(srvHome string) *lib.Server {
 	affiliations := map[string]interface{}{"org1": nil}
 	srv := &lib.Server{
 		HomeDir: srvHome,
@@ -2323,16 +2339,6 @@ func setupIdentityCmdTest(t *testing.T, id lib.CAConfigIdentity) *lib.Server {
 				},
 			},
 		},
-	}
-	srv.CA.Config.Registry.Identities = append(srv.CA.Config.Registry.Identities, id)
-
-	err = srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Fatalf("Failed to register bootstrap user: %s", err)
-	}
-	err = srv.Start()
-	if err != nil {
-		t.Fatalf("Failed to start server: %s", err)
 	}
 	return srv
 }
@@ -2380,14 +2386,8 @@ func setupEnrollTest(t *testing.T) *lib.Server {
 		t.Fatalf("Failed to remove home directory %s: %s", srvHome, err)
 	}
 	srv = lib.TestGetServer(serverPort, srvHome, "", -1, t)
-	srv.Config.Debug = true
 
-	err = srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Errorf("Failed to register bootstrap user: %s", err)
-	}
-
-	err = srv.RegisterBootstrapUser("admin2", "adminpw2", "hyperledger")
+	err = srv.RegisterBootstrapUser("admin2", admin2secret, "hyperledger")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
@@ -2419,19 +2419,12 @@ func setupGenCRLTest(t *testing.T, adminHome string) *lib.Server {
 	d, _ := time.ParseDuration("2h")
 	srv.CA.Config.Signing.Default.Expiry = d
 
-	adminName := "admin"
-	adminPass := "adminpw"
-	err = srv.RegisterBootstrapUser(adminName, adminPass, "")
-	if err != nil {
-		t.Fatalf("Failed to register bootstrap user: %s", err)
-	}
-
 	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", adminHome})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-H", adminHome})
 	if err != nil {
 		t.Fatalf("Failed to enroll admin: %s", err)
 	}
@@ -2546,19 +2539,12 @@ func setupGenCSRTest(t *testing.T, adminHome string) *lib.Server {
 	srv.Config.Debug = true
 	srv.CA.Config.CSR.KeyRequest = &api.BasicKeyRequest{Algo: "ecdsa", Size: 384}
 
-	adminName := "admin"
-	adminPass := "adminpw"
-	err = srv.RegisterBootstrapUser(adminName, adminPass, "")
-	if err != nil {
-		t.Fatalf("Failed to register bootstrap user: %s", err)
-	}
-
 	err = srv.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
 	}
 
-	err = RunMain([]string{cmdName, "enroll", "-u", enrollURL, "-H", adminHome})
+	err = RunMain([]string{cmdName, "enroll", "-u", adminEnrollURL, "-H", adminHome})
 	if err != nil {
 		t.Fatalf("Failed to enroll admin: %s", err)
 	}
@@ -2589,30 +2575,8 @@ func assertFilesInDir(dir string, numFiles int, t *testing.T) {
 }
 
 func startServer(home string, port int, parentURL string, t *testing.T) *lib.Server {
-	affiliations := map[string]interface{}{"org1": nil}
-	srv := &lib.Server{
-		HomeDir: home,
-		Config: &lib.ServerConfig{
-			Debug: true,
-			Port:  port,
-		},
-		CA: lib.CA{
-			Config: &lib.CAConfig{
-				Affiliations: affiliations,
-				Registry: lib.CAConfigRegistry{
-					MaxEnrollments: -1,
-				},
-			},
-		},
-	}
-	if parentURL != "" {
-		srv.CA.Config.Intermediate.ParentServer.URL = parentURL
-	}
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Fatalf("Failed to register bootstrap user: %s", err)
-	}
-	err = srv.Start()
+	srv := lib.TestGetServer(port, home, parentURL, -1, t)
+	err := srv.Start()
 	if err != nil {
 		t.Fatalf("Failed to start server: %s", err)
 	}
@@ -2653,11 +2617,8 @@ func startServerWithCustomExpiry(home string, port int, certExpiry string, t *te
 			},
 		},
 	}
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
-	if err != nil {
-		t.Fatalf("Failed to register bootstrap user: %s", err)
-	}
-	err = srv.Start()
+	srv = lib.BootstrapTestIdentities(srv, t)
+	err := srv.Start()
 	if err != nil {
 		t.Fatalf("Failed to start server: %s", err)
 	}

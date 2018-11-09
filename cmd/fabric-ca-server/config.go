@@ -156,7 +156,7 @@ registry:
   # Contains identity information which is used when LDAP is disabled
   identities:
      - name: <<<ADMIN>>>
-       pass: <<<ADMINPW>>>
+       pass: "<<<ADMINPW>>>"
        type: client
        affiliation: ""
        attrs:
