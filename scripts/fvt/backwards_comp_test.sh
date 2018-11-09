@@ -49,7 +49,7 @@ registry:
   # Contains identity information which is used when LDAP is disabled
   identities:
      - name: a
-       pass: b
+       pass: pass
        type: client
        affiliation: ""
        maxenrollments: -1
