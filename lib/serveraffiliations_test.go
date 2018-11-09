@@ -1,18 +1,9 @@
 /*
-Copyright IBM Corp. 2017 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
+
 package lib
 
 import (
@@ -32,22 +23,19 @@ func TestGetAllAffiliations(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "org2")
+	srv.RegisterBootstrapUser("admin2", admin2secret, "org2")
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(7075, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 
 	admin2 := resp.Identity
@@ -94,11 +82,8 @@ func TestGetAllAffiliations(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client = getTestClient(7075)
-	resp, err = client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client = TestGetClient(7075, testdataDir)
+	resp, err = EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 	admin = resp.Identity
 
@@ -113,23 +98,20 @@ func TestGetAffiliation(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "org2")
+	srv.RegisterBootstrapUser("admin2", admin2secret, "org2")
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(7075, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 
 	admin2 := resp.Identity
@@ -168,16 +150,13 @@ func TestDynamicAddAffiliation(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "org2")
+	srv.RegisterBootstrapUser("admin2", admin2secret, "org2")
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(7075, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
@@ -195,7 +174,7 @@ func TestDynamicAddAffiliation(t *testing.T) {
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
@@ -249,23 +228,20 @@ func TestDynamicRemoveAffiliation(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "org2")
+	srv.RegisterBootstrapUser("admin2", admin2secret, "org2")
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(7075, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity
 
 	resp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll user 'admin2'")
 
@@ -378,16 +354,13 @@ func TestDynamicModifyAffiliation(t *testing.T) {
 	var err error
 
 	srv := TestGetRootServer(t)
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "hyperledger")
+	srv.RegisterBootstrapUser("admin2", admin2secret, "hyperledger")
 	err = srv.Start()
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(7075)
-	resp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(7075, testdataDir)
+	resp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll user 'admin'")
 
 	admin := resp.Identity

@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-		 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package lib_test
@@ -25,6 +15,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
@@ -148,7 +139,7 @@ func testWithExistingDbAndTablesAndUser(t *testing.T) {
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(64), token bytea, type VARCHAR(64), affiliation VARCHAR(64), attributes VARCHAR(256), state INTEGER,  max_enrollments INTEGER, level INTEGER DEFAULT 0)")
 	assert.NoError(t, err, "Error creating users table")
 
-	srv := TestGetServer2(false, rootPort, rootDir, "", -1, t)
+	srv := TestGetServerActiveDir(rootPort, rootDir, "", -1, t)
 	srv.CA.Config.DB.Datasource = "fabric_ca.db"
 
 	err = srv.Start()
@@ -158,10 +149,13 @@ func testWithExistingDbAndTablesAndUser(t *testing.T) {
 	assert.NoError(t, err, "Failed to stop server")
 
 	// Add additional user to registry and start server and confirm that it correctly get added
-	srv.RegisterBootstrapUser("admin2", "admin2pw", "")
+	srv.RegisterBootstrapUser("admin2", password.Default().Generate(), "")
+	assert.NoError(t, err, "Failed to register user 'admin2'")
 
 	err = srv.Start()
 	assert.NoError(t, err, "Failed to start server")
+
+	_, acc = createSQLiteDB(rootDB, t)
 
 	_, err = acc.Accessor.GetUser("admin2", nil)
 	assert.NoError(t, err, "Failed to correctly insert 'admin2' during second server bootstrap")
@@ -183,7 +177,7 @@ func testWithExistingDbAndTable(t *testing.T) {
 	}
 	db, acc := createSQLiteDB(rootDB, t)
 
-	srv := TestGetServer2(false, rootPort, rootDir, "", -1, t)
+	srv := TestGetServerActiveDir(rootPort, rootDir, "", -1, t)
 	srv.CA.Config.DB.Datasource = "fabric_ca.db"
 
 	_, err = db.Exec("CREATE TABLE IF NOT EXISTS users (id VARCHAR(64), token bytea, type VARCHAR(64), affiliation VARCHAR(64), attributes VARCHAR(256), state INTEGER,  max_enrollments INTEGER, level INTEGER DEFAULT 0)")
@@ -212,7 +206,7 @@ func testWithExistingDb(t *testing.T) {
 	}
 	db, acc := createSQLiteDB(rootDB, t)
 
-	srv := TestGetServer2(false, rootPort, rootDir, "", -1, t)
+	srv := TestGetServer(rootPort, rootDir, "", -1, t)
 	srv.CA.Config.DB.Datasource = "fabric_ca.db"
 
 	err = srv.Start()

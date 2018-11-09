@@ -14,6 +14,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -95,6 +96,7 @@ type CAConfig struct {
 	Intermediate IntermediateCA
 	CRL          CRLConfig
 	Idemix       idemix.Config
+	Password     *password.Config `hide:"true"`
 }
 
 // CfgOptions is a CA configuration that allows for setting different options
