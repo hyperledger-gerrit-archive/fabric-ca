@@ -74,7 +74,7 @@ registry:
   # Contains identity information which is used when LDAP is disabled
   identities:
      - name: a
-       pass: b
+       pass: pass
        type: client
        affiliation: ""
        maxenrollments: -1
@@ -124,7 +124,7 @@ psql -d testdb -c "ALTER DATABASE template1_temp RENAME TO template1"
 psql -d testdb -c "ALTER USER testuser WITH CREATEDB"
 
 # Enroll should try to reinitialize the DB before processing enroll request and should succeed
-enroll a b 2>&1 | grep "Stored client certificate"
+enroll a pass 2>&1 | grep "Stored client certificate"
 if [ $? != 0 ]; then
     ErrorMsg "Enroll request should have passed"
 fi

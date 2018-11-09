@@ -15,6 +15,9 @@ import (
 )
 
 var _ = Describe("password", func() {
+	BeforeEach(func() {
+		os.Setenv("FABRIC_CA_SERVER_PASSWORD_SKIP_VALIDATION", "false")
+	})
 
 	Context("when a password that meets all requirements is used", func() {
 		It("passes all requirements validation", func() {

@@ -21,6 +21,10 @@ import (
 
 // Validate validates that the password meets all requirements
 func Validate(pass string) error {
+	if checkBoolEnv("FABRIC_CA_SERVER_PASSWORD_SKIP_VALIDATION", true) {
+		return nil
+	}
+
 	err := validate(pass)
 	if err != nil {
 		return caerrors.NewHTTPErr(400, caerrors.ErrPasswordReq, "Password validation failed: %s", err)
@@ -54,7 +58,7 @@ func validate(pass string) error {
 }
 
 func meetsUpperLowerReq(pass string) error {
-	if !checkBoolEnv("FABRIC_CA_SERVER_PASSWORD_MIX_UPPER_LOWER") {
+	if !checkBoolEnv("FABRIC_CA_SERVER_PASSWORD_MIX_UPPER_LOWER", true) {
 		return nil
 	}
 
@@ -78,7 +82,7 @@ func meetsUpperLowerReq(pass string) error {
 }
 
 func meetsNumberReq(pass string) error {
-	if !checkBoolEnv("FABRIC_CA_SERVER_PASSWORD_MIX_ALPHA_NUM") {
+	if !checkBoolEnv("FABRIC_CA_SERVER_PASSWORD_MIX_ALPHA_NUM", true) {
 		return nil
 	}
 
@@ -164,7 +168,7 @@ func generateForbiddenCharRegExp(chars string) string {
 	return fCharsBuffer.String()
 }
 
-func checkBoolEnv(envVar string) bool {
+func checkBoolEnv(envVar string, defaultVal bool) bool {
 	val := os.Getenv(envVar)
 
 	if val != "" {
@@ -174,7 +178,7 @@ func checkBoolEnv(envVar string) bool {
 		return false
 	}
 
-	return true
+	return defaultVal
 }
 
 func checkNumEnv(envVar string, defaultVal int) (int, error) {

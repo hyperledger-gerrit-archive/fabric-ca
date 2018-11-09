@@ -1301,6 +1301,42 @@ Note: When registering an identity, you specify an array of attribute names and 
 specifies multiple array elements with the same name, only the last element is currently used. In other words,
 multi-valued attributes are not currently supported.
 
+
+Password Requirements:
+=======================
+
+By default password validation against the below set of requirements is currently disabled. To enable
+password validation, the following environment variable should be set
+
+.. code:: bash
+
+   export FABRIC_CA_SERVER_PASSWORD_SKIP_VALIDATION=false
+
+If pasword validation is enabled, a certain set of requirements for passwords must be met when registering an identity. The default requirments
+are listed below:
+
+1. At least 8 characters
+2. A mixture of both uppercase and lowercase letters
+3. A mixture of letters and numbers
+4. Inclusion of at least one special character (e.g. $ ! -)
+5. Cannot include the following speical characters: #,?,%,^,/,:,{,},[,]
+
+These requirments can all be configured by using the following environment variables
+
++---------------------------------------------+------------+------------------------------------------------------------------------------------------------------------+
+| Name                                        | Type       | Description                                                                                                |
++=============================================+============+============================================================================================================+
+| FABRIC_CA_SERVER_PASSWORD_MIX_UPPER_LOWER   | Boolean    | If set to true, requires both uppercase and lowercase letters in password                                  |
++---------------------------------------------+------------+------------------------------------------------------------------------------------------------------------+
+| FABRIC_CA_SERVER_PASSWORD_MIX_ALPHA_NUM     | Boolean    | If set to true, requires both numbers and letters in password                                              |
++---------------------------------------------+------------+------------------------------------------------------------------------------------------------------------+
+| FABRIC_CA_SERVER_PASSWORD_LENGTH            | Integer    | The minimum number of characters required in the password                                                  |
++---------------------------------------------+------------+------------------------------------------------------------------------------------------------------------+
+| FABRIC_CA_SERVER_PASSWORD_MIN_SPECIAL_CHARS | Integer    | The minimum number of special characters required in the password                                          |
++---------------------------------------------+------------+------------------------------------------------------------------------------------------------------------+
+| FABRIC_CA_SERVER_PASSWORD_FORBIDDEN_CHARS   | List       | List of comma separated characters to extend the list in item 5 above that are forbidden in the password   |
++---------------------------------------------+------------+------------------------------------------------------------------------------------------------------------+
+
 The following command uses the **admin** identity's credentials to register a new
 user with an enrollment id of "admin2", an affiliation of
 "org1.department1", an attribute named "hf.Revoker" with a value of "true", and

@@ -28,6 +28,7 @@ import (
 	. "github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	libtls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"
@@ -182,10 +183,7 @@ func TestSRVRootServer(t *testing.T) {
 
 	// Enroll request
 	client := getRootClient()
-	eresp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		t.Fatalf("Failed to enroll admin2/admin2pw: %s", err)
 	}
@@ -328,7 +326,7 @@ func TestSRVRootServer(t *testing.T) {
 func TestSRVSpecialPassword(t *testing.T) {
 
 	user := "admin2"
-	pwd := "034e220796"
+	pwd := password.Generate()
 
 	// Start the server
 	server := TestGetRootServer(t)
@@ -579,7 +577,7 @@ func TestSRVIntermediateServerWithTLS(t *testing.T) {
 	if err != nil {
 		t.Fatal("Root server start failed")
 	}
-	parentURL := fmt.Sprintf("https://admin:adminpw@localhost:%d", rootPort)
+	parentURL := GetSecureEnrollmentURL(rootPort)
 	intermediateServer := TestGetServer(intermediatePort, intermediateDir, parentURL, -1, t)
 	if intermediateServer == nil {
 		return
@@ -682,7 +680,7 @@ func TestSRVRunningTLSServer(t *testing.T) {
 		},
 	}
 
-	rawURL := fmt.Sprintf("https://admin:adminpw@localhost:%d", rootPort)
+	rawURL := GetSecureEnrollmentURL(rootPort)
 
 	_, err = clientConfig.Enroll(rawURL, testdataDir)
 	if err != nil {
@@ -897,7 +895,7 @@ func perEndpointNegativeTests(endpoint string, authType string, t *testing.T) {
 	switch authType {
 	case "none":
 	case "basic":
-		req.SetBasicAuth("admin", "adminpw")
+		req.SetBasicAuth("admin", Bootstrapadminpw)
 	case "token":
 		addTokenAuthHeader(req, t)
 	default:
@@ -919,7 +917,7 @@ func invalidBasicAuthorization(t *testing.T) {
 		t.Error(err)
 	}
 
-	req.SetBasicAuth("admin", "adminpw")
+	req.SetBasicAuth("admin", Bootstrapadminpw)
 
 	err = client.SendReq(req, nil)
 	if err == nil {
@@ -1093,7 +1091,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	clientCA := getRootClient()
 	_, err = clientCA.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 		CAName: "rootca3",
 	})
 	if err == nil {
@@ -1103,8 +1101,8 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	//Send enroll request to specific CA
 	clientCA1 := getRootClient()
 	_, err = clientCA1.Enroll(&api.EnrollmentRequest{
-		Name:   "adminca1",
-		Secret: "adminca1pw",
+		Name:   "admin",
+		Secret: "adm1nPW!!",
 		CAName: "rootca1",
 	})
 	if err != nil {
@@ -1114,7 +1112,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 	clientCA2 := getRootClient()
 	resp, err := clientCA2.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: "@dminPW1",
 		CAName: "rootca2",
 	})
 	if err != nil {
@@ -1138,10 +1136,7 @@ func TestSRVMultiCAConfigs(t *testing.T) {
 
 	// No ca name specified should sent to default CA 'ca'
 	clientCA3 := getRootClient()
-	_, err = clientCA3.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	_, err = EnrollDefaultTestBootstrapAdmin(clientCA3)
 	if err != nil {
 		t.Error("Failed to enroll, error: ", err)
 	}
@@ -1209,7 +1204,7 @@ func TestSRVDefaultCAWithSetCAName(t *testing.T) {
 	client := getRootClient()
 	_, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 	})
 	if err != nil {
 		t.Error("Failed to enroll, error: ", err)
@@ -1263,7 +1258,7 @@ func TestSRVMultiCAWithIntermediate(t *testing.T) {
 
 	intermediatesrv := TestGetServer(intermediatePort, testdataDir, "", -1, t)
 	intermediatesrv.Config.CAcount = 2
-	intermediatesrv.Config.CAcfg.Intermediate.ParentServer.URL = fmt.Sprintf("http://adminca1:adminca1pw@localhost:%d", rootPort)
+	intermediatesrv.Config.CAcfg.Intermediate.ParentServer.URL = fmt.Sprintf("http://adminca1:adminCA1pw!@localhost:%d", rootPort)
 	intermediatesrv.CA.Config.CSR.Hosts = []string{"hostname"}
 
 	err = intermediatesrv.Start()
@@ -1339,7 +1334,7 @@ func TestSRVDefaultMultiCA(t *testing.T) {
 	clientCA1 := getRootClient()
 	_, err = clientCA1.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 		CAName: "ca4",
 	})
 	if err != nil {
@@ -1377,7 +1372,7 @@ func TestSRVMultiCAIntermediates(t *testing.T) {
 		t.Fatalf("Failed to start root CA: %s", err)
 	}
 	home := path.Join(myTestDir, "intermediate")
-	parentURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", rootPort)
+	parentURL := GetEnrollmentURL(rootPort)
 	intServer := TestGetServer(0, home, parentURL, -1, t)
 	intServer.Config.CAfiles = []string{"ca1/ca1.yaml", "ca2/ca2.yaml"}
 	ca1home := filepath.Join(home, "ca1")
@@ -1473,10 +1468,7 @@ func TestSRVMaxEnrollmentInfinite(t *testing.T) {
 		}
 	}()
 	client := getRootClient()
-	id, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	id, err := EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		t.Error("Enrollment failed, error: ", err)
 	}
@@ -1557,10 +1549,7 @@ func TestSRVMaxEnrollmentDisabled(t *testing.T) {
 		}
 	}()
 	client := getRootClient()
-	id, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	id, err := EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		t.Errorf("Enrollment failed: %s", err)
 	}
@@ -1575,10 +1564,7 @@ func TestSRVMaxEnrollmentDisabled(t *testing.T) {
 	if err == nil {
 		t.Error("Registration should have failed but didn't")
 	}
-	_, err = client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	id, err = EnrollDefaultTestBootstrapAdmin(client)
 	if err == nil {
 		t.Error("Enrollment should have failed but didn't")
 	}
@@ -1614,18 +1600,12 @@ func TestSRVMaxEnrollmentLimited(t *testing.T) {
 		}
 	}()
 	client := getRootClient()
-	id, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	id, err := EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		t.Fatalf("Enrollment failed, error: %s", err)
 	}
 	id.Identity.Store()
-	_, err = client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	_, err = EnrollDefaultTestBootstrapAdmin(client)
 	if err == nil {
 		t.Error("Enrollments should have been limited to 1 but allowed 2")
 	}
@@ -1712,7 +1692,7 @@ func TestTLSCertIssuance(t *testing.T) {
 	}
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:    "admin",
-		Secret:  "adminpw",
+		Secret:  Bootstrapadminpw,
 		Profile: "tls",
 		CSR:     &api.CSRInfo{Hosts: []string{"localhost"}},
 	})
@@ -1742,6 +1722,7 @@ func TestTLSCertIssuance(t *testing.T) {
 	if !clientAuth || !serverAuth {
 		t.Fatal("Certificate does not have correct extended key usage. Should have ExtKeyUsageServerAuth and ExtKeyUsageClientAuth")
 	}
+	fmt.Println("SANs - hostnames: ", cert.DNSNames)
 
 	stopserver = false
 	err = srv.Stop()
@@ -1749,7 +1730,7 @@ func TestTLSCertIssuance(t *testing.T) {
 		t.Fatalf("Failed to stop server: %s", err)
 	}
 
-	// Write the TLS certificate to disk
+	//	 Write the TLS certificate to disk
 	os.MkdirAll(testDir, 0755)
 	tlsCertFile := path.Join(testDir, "tls-cert.pem")
 	err = util.WriteFile(tlsCertFile, tlsCertBytes, 0644)
@@ -1757,7 +1738,7 @@ func TestTLSCertIssuance(t *testing.T) {
 		t.Fatalf("Failed to write TLS certificate file: %s", err)
 	}
 	// Get a new server with TLS enabled
-	srv = TestGetServer2(false, rootPort, testDir, "", -1, t)
+	srv = TestGetServerActiveDir(rootPort, testDir, "", -1, t)
 	srv.Config.TLS.Enabled = true
 	srv.Config.TLS.CertFile = "tls-cert.pem"
 	// Start the server
@@ -1771,10 +1752,7 @@ func TestTLSCertIssuance(t *testing.T) {
 	cfg.TLS.Enabled = true
 	cfg.TLS.CertFiles = []string{"ca-cert.pem"}
 	client = &Client{Config: cfg, HomeDir: testDir}
-	eresp, err = client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	eresp, err = EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		t.Fatalf("Failed to enroll over TLS: %s", err)
 	}
@@ -1797,7 +1775,7 @@ func testNoClientCert(t *testing.T) {
 		},
 	}
 
-	rawURL := fmt.Sprintf("https://admin:adminpw@localhost:%d", rootPort)
+	rawURL := GetSecureEnrollmentURL(rootPort)
 
 	_, err = clientConfig.Enroll(rawURL, testdataDir)
 	if err != nil {
@@ -1860,7 +1838,7 @@ func testClientAuth(t *testing.T) {
 		},
 	}
 
-	rawURL := fmt.Sprintf("https://admin:adminpw@localhost:%d", rootPort)
+	rawURL := GetSecureEnrollmentURL(rootPort)
 
 	// Enrolling without any client certificate and key information set
 	_, err = clientConfig.Enroll(rawURL, testdataDir)
@@ -1923,7 +1901,7 @@ func testIntermediateServer(idx int, t *testing.T) {
 	}()
 	// Test enroll against intermediate (covering basic auth)
 	c := getTestClient(intermediateServer.Config.Port)
-	resp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: "adminpw"})
+	resp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: Bootstrapadminpw})
 	if err != nil {
 		t.Fatalf("Failed to enroll with intermediate server: %s", err)
 	}
@@ -1982,10 +1960,7 @@ func TestSRVSqliteLocking(t *testing.T) {
 
 	// Enroll bootstrap user
 	client := getRootClient()
-	eresp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(client)
 	if err != nil {
 		t.Fatalf("Failed to enroll bootstrap user: %s", err)
 	}
@@ -2102,13 +2077,15 @@ func TestCSRInputLengthCheck(t *testing.T) {
 		return
 	}
 	longCN := randSeq(65)
-	err = server.RegisterBootstrapUser(longCN, "pass", "")
+	pass := password.Generate()
+	err = server.RegisterBootstrapUser(longCN, pass, "")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 	}
 	err = server.Start()
 	if err != nil {
 		t.Fatalf("Server start failed: %s", err)
+
 	}
 	defer func() {
 		err = server.Stop()
@@ -2137,7 +2114,7 @@ func TestCSRInputLengthCheck(t *testing.T) {
 	}
 	_, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 		CSR:    &csr1,
 	})
 	if err != nil {
@@ -2150,7 +2127,7 @@ func TestCSRInputLengthCheck(t *testing.T) {
 	}
 	_, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   longCN,
-		Secret: "pass",
+		Secret: pass,
 		CSR:    badCSR,
 	})
 	if assert.Error(t, err, fmt.Sprint("Number of characters for CN is greater than the maximum limit, should have resulted in an error")) {
@@ -2202,7 +2179,7 @@ func TestCSRInputLengthCheck(t *testing.T) {
 	for name, badCSR := range badCSRs {
 		_, err = client.Enroll(&api.EnrollmentRequest{
 			Name:   "admin",
-			Secret: "adminpw",
+			Secret: Bootstrapadminpw,
 			CSR:    badCSR,
 		})
 		if assert.Error(t, err, fmt.Sprintf("Number of characters for '%s' is greater than the maximum limit, should have resulted in an error", name)) {
@@ -2267,11 +2244,7 @@ func TestAutoTLSCertificateGeneration(t *testing.T) {
 
 	// Test enrolling with with client using TLS
 	client := getTLSTestClient(7075, trustedTLSCerts)
-	enrollReq := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	}
-	_, err = client.Enroll(enrollReq)
+	_, err = EnrollDefaultTestBootstrapAdmin(client)
 	assert.NoError(t, err, "Error occured during enrollment on TLS enabled fabric-ca server")
 
 	err = srv.Stop()
@@ -2292,7 +2265,8 @@ func TestRegistrationAffiliation(t *testing.T) {
 	if server == nil {
 		return
 	}
-	server.RegisterBootstrapUser("admin2", "admin2pw", "hyperledger")
+	admin2secret := password.Generate()
+	server.RegisterBootstrapUser("admin2", admin2secret, "hyperledger")
 	err := server.Start()
 	assert.NoError(t, err, "Server start failed")
 	defer func() {
@@ -2312,10 +2286,7 @@ func TestRegistrationAffiliation(t *testing.T) {
 
 	// Enroll bootstrap user
 	client := getRootClient()
-	eresp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(client)
 	assert.NoError(t, err, "Failed to enroll bootstrap user")
 	admin := eresp.Identity
 
@@ -2353,7 +2324,7 @@ func TestRegistrationAffiliation(t *testing.T) {
 
 	eresp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	assert.NoError(t, err, "Failed to enroll bootstrap user")
 	admin2 := eresp.Identity // admin2 has an affiliation of 'hyperledger'
@@ -2420,10 +2391,6 @@ func cleanMultiCADir(t *testing.T) {
 	}
 }
 
-func getRootServerURL() string {
-	return fmt.Sprintf("http://admin:adminpw@localhost:%d", rootPort)
-}
-
 func getRootServer(t *testing.T) *Server {
 	return getServer(rootPort, rootDir, "", -1, t)
 }
@@ -2432,7 +2399,7 @@ func getIntermediateServer(idx int, t *testing.T) *Server {
 	return getServer(
 		intermediatePort,
 		path.Join(intermediateDir, strconv.Itoa(idx)),
-		getRootServerURL(),
+		GetEnrollmentURL(rootPort),
 		-1,
 		t)
 }
@@ -2475,7 +2442,7 @@ func getServer(port int, home, parentURL string, maxEnroll int, t *testing.T) *S
 	}
 	// The bootstrap user's affiliation is the empty string, which
 	// means the user is at the affiliation root
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
+	err := srv.RegisterBootstrapUser("admin", Bootstrapadminpw, "")
 	if err != nil {
 		t.Errorf("Failed to register bootstrap user: %s", err)
 		return nil
@@ -2607,9 +2574,9 @@ ca:
    name: %s
 intermediate:
    parentserver:
-      url: http://admin:adminpw@localhost:%d
+      url: http://admin:%s@localhost:%d
       caname: %s
-`, name, port, parentcaname)
+`, name, Bootstrapadminpw, port, parentcaname)
 	os.MkdirAll(home, 0755)
 	fpath := path.Join(home, fmt.Sprintf("%s.yaml", filename))
 	err := ioutil.WriteFile(fpath, []byte(contents), 0644)
