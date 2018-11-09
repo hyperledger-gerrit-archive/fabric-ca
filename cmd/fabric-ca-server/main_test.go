@@ -31,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -107,21 +108,21 @@ func TestErrors(t *testing.T) {
 	os.Unsetenv(homeEnvVar)
 	_ = ioutil.WriteFile(badSyntaxYaml, []byte("signing: true\n"), 0644)
 
+	pass := password.Default().Generate()
 	errorCases := []TestData{
 		{[]string{cmdName, "init", "-c", initYaml}, "option is required"},
-		{[]string{cmdName, "init", "-c", initYaml, "-n", "acme.com", "-b", "user::"}, "Failed to read"},
-		{[]string{cmdName, "init", "-b", "user:pass", "-n", "acme.com", "ca.key"}, "Unrecognized arguments found"},
-		{[]string{cmdName, "init", "-c", badSyntaxYaml, "-b", "user:pass"}, "Incorrect format"},
+		{[]string{cmdName, "init", "-b", fmt.Sprintf("user:%s", pass), "-n", "acme.com", "ca.key"}, "Unrecognized arguments found"},
+		{[]string{cmdName, "init", "-c", badSyntaxYaml, "-b", fmt.Sprintf("user:%s", pass)}, "Incorrect format"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", fmt.Sprintf("%s:foo", longUserName)}, "than 1024 characters"},
-		{[]string{cmdName, "init", "-c", fmt.Sprintf("/tmp/%s.yaml", longFileName), "-b", "user:pass"}, "file name too long"},
-		{[]string{cmdName, "init", "-b", "user:pass", "-c", unsupportedFileType}, "Unsupported Config Type"},
+		{[]string{cmdName, "init", "-c", fmt.Sprintf("/tmp/%s.yaml", longFileName), "-b", fmt.Sprintf("user:%s", pass)}, "file name too long"},
+		{[]string{cmdName, "init", "-b", fmt.Sprintf("user:%s", pass), "-c", unsupportedFileType}, "Unsupported Config Type"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", "user"}, "missing a colon"},
 		{[]string{cmdName, "init", "-c", initYaml, "-b", "user:"}, "empty password"},
-		{[]string{cmdName, "bogus", "-c", initYaml, "-b", "user:pass"}, "unknown command"},
+		{[]string{cmdName, "bogus", "-c", initYaml, "-b", fmt.Sprintf("user:%s", pass)}, "unknown command"},
 		{[]string{cmdName, "start", "-c"}, "needs an argument:"},
 		{[]string{cmdName, "start", "--csr.keyrequest.algo", "fakeAlgo"}, "Invalid algorithm: fakeAlgo"},
 		{[]string{cmdName, "start", "--csr.keyrequest.algo", "ecdsa", "--csr.keyrequest.size", "12345"}, "Invalid ECDSA key size: 12345"},
-		{[]string{cmdName, "start", "-c", startYaml, "-b", "user:pass", "ca.key"}, "Unrecognized arguments found"},
+		{[]string{cmdName, "start", "-c", startYaml, "-b", fmt.Sprintf("user:%s", pass), "ca.key"}, "Unrecognized arguments found"},
 	}
 
 	for _, e := range errorCases {
@@ -135,7 +136,8 @@ func TestOneTimePass(t *testing.T) {
 	os.RemoveAll(testDir)
 	defer os.RemoveAll(testDir)
 	// Test with "-b" option
-	err := RunMain([]string{cmdName, "init", "-b", "admin:adminpw", "--registry.maxenrollments", "1", "-H", testDir})
+	bflag := fmt.Sprintf("admin:%s", password.Default().Generate())
+	err := RunMain([]string{cmdName, "init", "-b", bflag, "--registry.maxenrollments", "1", "-H", testDir})
 	if err != nil {
 		t.Fatalf("Failed to init server with one time passwords: %s", err)
 	}
@@ -163,11 +165,13 @@ func TestValid(t *testing.T) {
 	os.Unsetenv(homeEnvVar)
 	blockingStart = false
 
+	bFlagInput := fmt.Sprintf("admin:%s", password.Default().Generate())
+
 	os.Setenv("CA_CFG_PATH", ".")
 	validCases := []TestData{
-		{[]string{cmdName, "init", "-b", "admin:a:d:m:i:n:p:w"}, ""},
+		{[]string{cmdName, "init", "-d", "-b", bFlagInput}, ""},
 		{[]string{cmdName, "init", "-d"}, ""},
-		{[]string{cmdName, "start", "-c", startYaml, "-b", "admin:admin"}, ""},
+		{[]string{cmdName, "start", "-c", startYaml, "-b", bFlagInput}, ""},
 	}
 
 	for _, v := range validCases {
@@ -185,10 +189,11 @@ func TestDBLocation(t *testing.T) {
 		os.Unsetenv(env)
 	}
 
+	bFlagInput := fmt.Sprintf("admin:%s", password.Default().Generate())
 	// Invoke server with -c arg set to serverConfig/config.yml (relative path)
 	cfgFile := "serverConfig/config.yml"
 	dsFile := "serverConfig/fabric-ca-server.db"
-	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7091"}, ""}
+	args := TestData{[]string{cmdName, "start", "-b", bFlagInput, "-c", cfgFile, "-p", "7091"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll("serverConfig")
 
@@ -197,7 +202,7 @@ func TestDBLocation(t *testing.T) {
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", "fabric-ca-srv.db")
 	cfgFile = "serverConfig1/config.yml"
 	dsFile = "serverConfig1/fabric-ca-srv.db"
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7092"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", bFlagInput, "-c", cfgFile, "-p", "7092"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll("serverConfig1")
 
@@ -206,7 +211,7 @@ func TestDBLocation(t *testing.T) {
 	cfgFile = "serverConfig2/config.yml"
 	dsFile = os.TempDir() + "/fabric-ca-srv.db"
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", dsFile)
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7093"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", bFlagInput, "-c", cfgFile, "-p", "7093"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll("serverConfig2")
 	os.Remove(dsFile)
@@ -217,7 +222,7 @@ func TestDBLocation(t *testing.T) {
 	cfgFile = cfgDir + "config.yml"
 	dsFile = "fabric-ca-srv.db"
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", dsFile)
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7094"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", bFlagInput, "-c", cfgFile, "-p", "7094"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, cfgDir+dsFile)
 	os.RemoveAll(os.TempDir() + "/config")
 
@@ -226,7 +231,7 @@ func TestDBLocation(t *testing.T) {
 	cfgFile = os.TempDir() + "/config/config.yml"
 	dsFile = os.TempDir() + "/fabric-ca-srv.db"
 	os.Setenv("FABRIC_CA_SERVER_DB_DATASOURCE", dsFile)
-	args = TestData{[]string{cmdName, "start", "-b", "admin:admin", "-c", cfgFile, "-p", "7095"}, ""}
+	args = TestData{[]string{cmdName, "start", "-b", bFlagInput, "-c", cfgFile, "-p", "7095"}, ""}
 	checkConfigAndDBLoc(t, args, cfgFile, dsFile)
 	os.RemoveAll(os.TempDir() + "/config")
 	os.Remove(dsFile)
@@ -235,8 +240,11 @@ func TestDBLocation(t *testing.T) {
 
 func TestDefaultMultiCAs(t *testing.T) {
 	blockingStart = false
+	os.Setenv("CA_CFG_PATH", "/tmp/testMultiCA")
+	defer os.Unsetenv("CA_CFG_PATH")
 
-	err := RunMain([]string{cmdName, "start", "-p", "7055", "-c", startYaml, "-d", "-b", "user:pass", "--cacount", "4"})
+	bFlagInput := fmt.Sprintf("user:%s", password.Default().Generate())
+	err := RunMain([]string{cmdName, "start", "-p", "7055", "-c", startYaml, "-d", "-b", bFlagInput, "--cacount", "4"})
 	if err != nil {
 		t.Error("Failed to start server with multiple default CAs using the --cacount flag from command line: ", err)
 	}
@@ -252,7 +260,8 @@ func TestCACountWithAbsPath(t *testing.T) {
 	testDir := "myTestDir"
 	defer os.RemoveAll(testDir)
 	// Run init to create the ca-cert.pem
-	err := RunMain([]string{cmdName, "init", "-H", testDir, "-b", "user:pass"})
+	bflag := fmt.Sprintf("admin:%s", password.Default().Generate())
+	err := RunMain([]string{cmdName, "init", "-H", testDir, "-b", bflag})
 	if err != nil {
 		t.Fatalf("Failed to init CA: %s", err)
 	}
@@ -275,7 +284,8 @@ func TestMultiCA(t *testing.T) {
 	cleanUpMultiCAFiles()
 	defer cleanUpMultiCAFiles()
 
-	err := RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", "user:pass", "--cafiles", "ca/rootca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/rootca/ca2/fabric-ca-server-config.yaml"})
+	bFlagInput := fmt.Sprintf("user:%s", password.Default().Generate())
+	err := RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", bFlagInput, "--cafiles", "ca/rootca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/rootca/ca2/fabric-ca-server-config.yaml"})
 	if err != nil {
 		t.Error("Failed to start server with multiple CAs using the --cafiles flag from command line: ", err)
 	}
@@ -284,7 +294,7 @@ func TestMultiCA(t *testing.T) {
 		t.Error("Failed to create 2 CA instances")
 	}
 
-	err = RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", "user:pass", "--cacount", "1", "--cafiles", "ca/rootca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/rootca/ca2/fabric-ca-server-config.yaml"})
+	err = RunMain([]string{cmdName, "start", "-d", "-p", "7056", "-c", "../../testdata/test.yaml", "-b", bFlagInput, "--cacount", "1", "--cafiles", "ca/rootca/ca1/fabric-ca-server-config.yaml", "--cafiles", "ca/rootca/ca2/fabric-ca-server-config.yaml"})
 	if err == nil {
 		t.Error("Should have failed to start server, can't specify values for both --cacount and --cafiles")
 	}
@@ -300,7 +310,9 @@ func TestRegistrarAttribute(t *testing.T) {
 		t.Fatal("Failed to set environment variable")
 	}
 
-	args := TestData{[]string{cmdName, "start", "-b", "admin:admin", "-p", "7096", "-d"}, ""}
+	pass := password.Default().Generate()
+	bFlagInput := fmt.Sprintf("admin:%s", pass)
+	args := TestData{[]string{cmdName, "start", "-b", bFlagInput, "-p", "7096", "-d"}, ""}
 	os.Args = args.input
 	scmd := NewCommand(args.input[1], blockingStart)
 	// Execute the command
@@ -313,7 +325,7 @@ func TestRegistrarAttribute(t *testing.T) {
 
 	resp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "admin",
+		Secret: pass,
 	})
 	if !assert.NoError(t, err, "Failed to enroll 'admin'") {
 		t.Fatal("Failed to enroll 'admin'")
@@ -353,13 +365,14 @@ func TestTLSEnabledButCertfileNotSpecified(t *testing.T) {
 	}
 	defer os.RemoveAll(rootHomeDir)
 
-	err = RunMain([]string{cmdName, "start", "-p", "7100", "-H", rootHomeDir, "-d", "-b", "admin:admin", "--tls.enabled"})
+	bFlagInput := fmt.Sprintf("admin:%s", password.Default().Generate())
+	err = RunMain([]string{cmdName, "start", "-p", "7100", "-H", rootHomeDir, "-d", "-b", bFlagInput, "--tls.enabled"})
 	if err != nil {
 		t.Error("Server should not have failed to start when TLS is enabled and TLS cert file name is not specified...it should have used default TLS cert file name 'tls-cert.pem'", err)
 	}
 
 	// start the root server with TLS enabled
-	err = RunMain([]string{cmdName, "start", "-p", "7101", "-H", rootHomeDir, "-d", "-b", "admin:admin", "--tls.enabled",
+	err = RunMain([]string{cmdName, "start", "-p", "7101", "-H", rootHomeDir, "-d", "-b", bFlagInput, "--tls.enabled",
 		"--tls.certfile", "tls-cert.pem"})
 	if err != nil {
 		t.Error("Server should not have failed to start when TLS is enabled and TLS cert file name is specified.", err)
