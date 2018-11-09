@@ -14,7 +14,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"fmt"
 	"io"
 	"math/big"
 	"os"
@@ -41,7 +40,7 @@ const (
 var (
 	defaultServer          *lib.Server
 	defaultServerPort      = 7054
-	defaultServerEnrollURL = fmt.Sprintf("http://admin:adminpw@localhost:%d", defaultServerPort)
+	defaultServerEnrollURL = lib.GetEnrollmentURL(defaultServerPort)
 	defaultServerHomeDir   = "defaultServerDir"
 	storeCertsDir          = "/tmp/testCerts"
 )
@@ -440,7 +439,7 @@ func getDefaultServer() (*lib.Server, error) {
 	}
 	// The bootstrap user's affiliation is the empty string, which
 	// means the user is at the affiliation root
-	err := srv.RegisterBootstrapUser("admin", "adminpw", "")
+	err := srv.RegisterBootstrapUser("admin", lib.Bootstrapadminpw, "")
 	if err != nil {
 		return nil, err
 	}
