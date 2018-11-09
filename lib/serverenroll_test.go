@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -26,11 +27,8 @@ func TestStateUpdate(t *testing.T) {
 	err = srv.Start()
 	assert.NoError(t, err, "Failed to start server")
 
-	client := getTestClient(rootPort)
-	_, err = client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	_, err = EnrollDefaultTestBootstrapAdmin(client)
 	assert.NoError(t, err, "Failed to enroll 'admin' user")
 
 	registry := srv.CA.DBAccessor()
@@ -50,7 +48,7 @@ func TestStateUpdate(t *testing.T) {
 	// Send the CSR to the fabric-ca server with basic auth header
 	post, err := client.newPost("enroll", body)
 	assert.NoError(t, err, "Failed to create post request")
-	post.SetBasicAuth("admin", "adminpw")
+	post.SetBasicAuth("admin", Bootstrapadminpw)
 	err = client.SendReq(post, nil)
 	if assert.Error(t, err, "Should have failed due to bad csr") {
 		assert.Contains(t, err.Error(), "CSR Decode failed")
@@ -91,17 +89,15 @@ func TestPasswordLimit(t *testing.T) {
 	util.FatalError(t, err, "Failed to start server")
 	defer srv.Stop()
 
-	client := getTestClient(rootPort)
-	enrollResp, err := client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	client := TestGetClient(rootPort, testdataDir)
+	enrollResp, err := EnrollDefaultTestBootstrapAdmin(client)
 	util.FatalError(t, err, "Failed to enroll 'admin' user")
 	admin := enrollResp.Identity
 
+	user1secret := password.Generate()
 	_, err = admin.Register(&api.RegistrationRequest{
 		Name:   "user1",
-		Secret: "user1pw",
+		Secret: user1secret,
 	})
 	util.FatalError(t, err, "Failed to register 'user1' user")
 
@@ -132,7 +128,7 @@ func TestPasswordLimit(t *testing.T) {
 
 	_, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "user1",
-		Secret: "user1pw",
+		Secret: user1secret,
 	})
 	assert.Error(t, err, "Should failed to enroll")
 

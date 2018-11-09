@@ -14,8 +14,15 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
 	"github.com/hyperledger/fabric-ca/lib/mocks"
+	"github.com/hyperledger/fabric-ca/lib/server/password"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
+)
+
+var (
+	admin2secret = password.Generate()
+	admin3secret = password.Generate()
+	admin4secret = password.Generate()
 )
 
 func TestRegistrarAttribute(t *testing.T) {
@@ -32,7 +39,7 @@ func TestRegistrarAttribute(t *testing.T) {
 	// admin2 own attributes but does not have 'hf.Registrar.Attributes' attribute
 	id := CAConfigIdentity{
 		Name:           "admin2",
-		Pass:           "admin2pw",
+		Pass:           admin2secret,
 		Type:           "user",
 		Affiliation:    "org2",
 		MaxEnrollments: -1,
@@ -47,7 +54,7 @@ func TestRegistrarAttribute(t *testing.T) {
 	// admin3 has 'hf.Registrar.Attributes' attribute
 	id = CAConfigIdentity{
 		Name:           "admin3",
-		Pass:           "admin3pw",
+		Pass:           admin3secret,
 		Type:           "user",
 		Affiliation:    "org2",
 		MaxEnrollments: -1,
@@ -64,7 +71,7 @@ func TestRegistrarAttribute(t *testing.T) {
 	// admin4 has 'hf.Registrar.Attributes' attribute but can only register 'hf.' attributes
 	id = CAConfigIdentity{
 		Name:           "admin4",
-		Pass:           "admin4pw",
+		Pass:           admin4secret,
 		Type:           "user",
 		Affiliation:    "org2",
 		MaxEnrollments: -1,
@@ -81,7 +88,7 @@ func TestRegistrarAttribute(t *testing.T) {
 	defer srv.Stop()
 
 	// Enroll admin2
-	client := getTestClient(rootPort)
+	client := TestGetClient(rootPort, testdataDir)
 
 	negativeCases(t, client)
 	positiveCases(t, client)
@@ -90,7 +97,7 @@ func TestRegistrarAttribute(t *testing.T) {
 func negativeCases(t *testing.T, client *Client) {
 	enrollResp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	util.FatalError(t, err, "Failed to enroll 'admin2' user")
 	registrar := enrollResp.Identity
@@ -99,7 +106,7 @@ func negativeCases(t *testing.T, client *Client) {
 
 	enrollResp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin4",
-		Secret: "admin4pw",
+		Secret: admin4secret,
 	})
 	util.FatalError(t, err, "Failed to enroll 'admin4' user")
 	registrar = enrollResp.Identity
@@ -109,7 +116,7 @@ func negativeCases(t *testing.T, client *Client) {
 	// Enroll request for admin3
 	enrollResp, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin3",
-		Secret: "admin3pw",
+		Secret: admin3secret,
 	})
 	assert.NoError(t, err, "Failed to enroll 'admin3' user")
 	registrar = enrollResp.Identity
@@ -311,7 +318,7 @@ func invalidHfRegistrarAttrRequest(t *testing.T, registrar *Identity) {
 func positiveCases(t *testing.T, client *Client) {
 	enrollResp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin3",
-		Secret: "admin3pw",
+		Secret: admin3secret,
 	})
 	assert.NoError(t, err, "Failed to enroll 'admin' user")
 
@@ -321,10 +328,7 @@ func positiveCases(t *testing.T, client *Client) {
 	registerHfRegistrarAttr(t, registrar)
 
 	// Enroll request for admin
-	enrollResp, err = client.Enroll(&api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	})
+	enrollResp, err = EnrollDefaultTestBootstrapAdmin(client)
 	assert.NoError(t, err, "Failed to enroll 'admin' user")
 
 	registrar = enrollResp.Identity
@@ -465,9 +469,10 @@ func TestAffiliationAndTypeCheck(t *testing.T) {
 	registry := &srv.CA.Config.Registry
 
 	// admin2 own attributes but does not have 'hf.Registrar.Attributes' attribute
+	admin2secret := password.Generate()
 	id := CAConfigIdentity{
 		Name:           "admin2",
-		Pass:           "admin2pw",
+		Pass:           admin2secret,
 		Type:           "user",
 		Affiliation:    "org2",
 		MaxEnrollments: -1,
@@ -483,10 +488,10 @@ func TestAffiliationAndTypeCheck(t *testing.T) {
 	}
 
 	// Enroll admin2
-	client := getTestClient(rootPort)
+	client := TestGetClient(rootPort, testdataDir)
 	enrollResp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin2",
-		Secret: "admin2pw",
+		Secret: admin2secret,
 	})
 	assert.NoError(t, err, "Failed to enroll 'admin' user")
 

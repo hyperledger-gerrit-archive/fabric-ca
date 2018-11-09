@@ -197,10 +197,10 @@ func TestIdemixEnroll(t *testing.T) {
 	assert.Error(t, err, "Idemix enroll should have failed as no user id and secret are not specified in the enrollment request")
 
 	req.Name = "admin"
-	req.Secret = "adminpw1"
+	req.Secret = Bootstrapadminpw + "foo"
 	assert.Error(t, err, "Idemix enroll should have failed as secret is incorrect in the enrollment request")
 
-	req.Secret = "adminpw"
+	req.Secret = Bootstrapadminpw
 	idemixEnrollRes, err := client.Enroll(req)
 	assert.NoError(t, err, "Idemix enroll should not have failed with valid userid/password")
 	idemixCred := idemixEnrollRes.Identity.GetIdemixCredential()
@@ -294,7 +294,7 @@ func TestGetCRIUsingIdemixToken(t *testing.T) {
 	req := &api.EnrollmentRequest{
 		Type:   "idemix",
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 	}
 
 	enrollRes, err := client.Enroll(req)
@@ -356,7 +356,7 @@ func TestGetCRIUsingX509Token(t *testing.T) {
 	req := &api.EnrollmentRequest{
 		Type:   "x509",
 		Name:   "admin",
-		Secret: "adminpw",
+		Secret: Bootstrapadminpw,
 	}
 
 	enrollRes, err := client.Enroll(req)
@@ -460,19 +460,13 @@ func testGetCAInfo(c *Client, t *testing.T) {
 }
 
 func testRegister(c *Client, t *testing.T) {
-
-	// Enroll admin
-	enrollReq := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	}
-
 	err := c.CheckEnrollment()
 	if err == nil {
 		t.Fatalf("testRegister check enrollment should have failed - client not enrolled")
 	}
 
-	eresp, err := c.Enroll(enrollReq)
+	// Enroll admin
+	eresp, err := EnrollDefaultTestBootstrapAdmin(c)
 	if err != nil {
 		t.Fatalf("testRegister enroll of admin failed: %s", err)
 	}
@@ -1011,7 +1005,7 @@ func testTooManyEnrollments(t *testing.T) {
 		URL: fmt.Sprintf("http://localhost:%d", ctport2),
 	}
 
-	rawURL := fmt.Sprintf("http://admin:adminpw@localhost:%d", ctport2)
+	rawURL := GetEnrollmentURL(ctport2)
 
 	_, err := clientConfig.Enroll(rawURL, testdataDir)
 	if err != nil {
@@ -1199,9 +1193,7 @@ func setupGenCRLWithIntServerTest(t *testing.T, rootCAHome, intCAHome, clientHom
 	}
 
 	// Start the intermediate CA server
-	intCASrv := TestGetServer(intCAPort, intCAHome,
-		fmt.Sprintf("http://admin:adminpw@localhost:%d", ctport1),
-		-1, t)
+	intCASrv := TestGetServer(intCAPort, intCAHome, GetEnrollmentURL(ctport1), -1, t)
 	if intCASrv == nil {
 		t.Fatalf("Failed to get server")
 	}
@@ -1219,7 +1211,7 @@ func setupGenCRLWithIntServerTest(t *testing.T, rootCAHome, intCAHome, clientHom
 		Config:  &ClientConfig{URL: fmt.Sprintf("http://localhost:%d", intCAPort)},
 		HomeDir: clientHome,
 	}
-	eresp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: "adminpw"})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(c)
 	if err != nil {
 		t.Fatalf("Failed to enroll admin: %s", err)
 	}
@@ -1271,7 +1263,7 @@ func setupGenCRLTest(t *testing.T, serverHome, clientHome string) (*Server, *Ide
 	}
 
 	// Enroll admin
-	eresp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: "adminpw"})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(c)
 	if err != nil {
 		t.Fatalf("Failed to enroll admin: %s", err)
 	}
@@ -1463,12 +1455,7 @@ func TestRevokedIdentity(t *testing.T) {
 		HomeDir: filepath.Join(testHome, "admin"),
 	}
 
-	enrollReq := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	}
-
-	eresp, err := c.Enroll(enrollReq)
+	eresp, err := EnrollDefaultTestBootstrapAdmin(c)
 	if err != nil {
 		t.Fatalf("Enrollment of admin failed: %s", err)
 	}
@@ -1494,7 +1481,7 @@ func TestRevokedIdentity(t *testing.T) {
 		HomeDir: filepath.Join(testHome, "TestUserClient"),
 	}
 
-	enrollReq = &api.EnrollmentRequest{
+	enrollReq := &api.EnrollmentRequest{
 		Name:   "TestUser",
 		Secret: resp.Secret,
 	}
@@ -1703,7 +1690,7 @@ func setupGetCertTest(t *testing.T, serverHome, clientHome string) (*Server, *Id
 	}
 
 	// Enroll admin
-	eresp, err := c.Enroll(&api.EnrollmentRequest{Name: "admin", Secret: "adminpw"})
+	eresp, err := EnrollDefaultTestBootstrapAdmin(c)
 	if err != nil {
 		t.Fatalf("Failed to enroll admin: %s", err)
 	}
@@ -1712,11 +1699,7 @@ func setupGetCertTest(t *testing.T, serverHome, clientHome string) (*Server, *Id
 }
 
 func testWhenServerIsDown(c *Client, t *testing.T) {
-	enrollReq := &api.EnrollmentRequest{
-		Name:   "admin",
-		Secret: "adminpw",
-	}
-	_, err := c.Enroll(enrollReq)
+	_, err := EnrollDefaultTestBootstrapAdmin(c)
 	if err == nil {
 		t.Error("Enroll while server is down should have failed")
 	}

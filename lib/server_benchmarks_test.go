@@ -1,18 +1,9 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-                 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
+
 package lib
 
 import (
@@ -58,7 +49,7 @@ func BenchmarkGetCACert(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	infoSE := newCAInfoEndpoint(srv)
 	for i := 0; i < b.N; i++ {
 		req, err := createGetCACertRequest(client)
@@ -88,7 +79,7 @@ func BenchmarkRegister(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -125,7 +116,7 @@ func BenchmarkEnroll(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -171,7 +162,7 @@ func BenchmarkReenrollOneUser(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -217,7 +208,7 @@ func BenchmarkReenroll(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -279,7 +270,7 @@ func BenchmarkGenCRL(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -335,7 +326,7 @@ func invokeRevokeBenchmark(b *testing.B) {
 	}
 	defer cleanup(srv)
 
-	client := getTestClient(serverbPort)
+	client := TestGetClient(serverPort, testdataDir)
 	eresp, err := client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
 		Secret: "adminpw",
@@ -520,4 +511,58 @@ func createGenCRLRequest(user *Identity) (*http.Request, error) {
 		return nil, err
 	}
 	return req, nil
+}
+
+func getServerForBenchmark(port int, home, parentURL string, maxEnroll int, b *testing.B) *Server {
+	if home != testdataDir {
+		err := os.RemoveAll(home)
+		if err != nil {
+			b.Errorf("RemoveAll failed: %s", err)
+		}
+	}
+	srvCfg := &ServerConfig{
+		Port:  port,
+		Debug: true,
+	}
+
+	affiliations := map[string]interface{}{
+		"hyperledger": map[string]interface{}{
+			"fabric":    []string{"ledger", "orderer", "security"},
+			"fabric-ca": nil,
+			"sdk":       nil,
+		},
+		"org2": nil,
+	}
+	affiliations[affiliationName] = map[string]interface{}{
+		"department1": nil,
+		"department2": nil,
+	}
+	caCfg := &CAConfig{
+		Intermediate: IntermediateCA{
+			ParentServer: ParentServer{
+				URL: parentURL,
+			},
+		},
+		Affiliations: affiliations,
+		Registry: CAConfigRegistry{
+			MaxEnrollments: maxEnroll,
+		},
+	}
+
+	srv := &Server{
+		Config: srvCfg,
+		CA: CA{
+			Config: caCfg,
+		},
+		HomeDir: home,
+	}
+
+	// The bootstrap user's affiliation is the empty string, which
+	// means the user is at the affiliation root
+	err := srv.RegisterBootstrapUser("admin", Bootstrapadminpw, "")
+	if err != nil {
+		b.Errorf("failed to register bootstrap user: %s", err)
+		return nil
+	}
+	return srv
 }
