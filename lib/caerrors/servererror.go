@@ -167,6 +167,8 @@ const (
 	ErrInvalidLDAPAction = 72
 	// Incorrect password limit reached
 	ErrPasswordAttempts = 73
+	// Password does not meet requirments
+	ErrPasswordReq = 74
 )
 
 // CreateHTTPErr constructs a new HTTP error.
