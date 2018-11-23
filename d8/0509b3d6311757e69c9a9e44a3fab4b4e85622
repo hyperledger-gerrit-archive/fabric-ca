@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Jonathan Levi (HACERA) <jonathan@hacera.com>
+Code-Review+2: Alessandro Sorniotti <ale.linux@sopit.net>
+Submitted-by: Alessandro Sorniotti <ale.linux@sopit.net>
+Submitted-at: Fri, 23 Nov 2018 11:59:52 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/27281
+Project: fabric-ca
+Branch: refs/heads/master
