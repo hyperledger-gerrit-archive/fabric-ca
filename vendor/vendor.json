@@ -383,10 +383,10 @@
 			"revisionTime": "2016-10-19T17:07:01Z"
 		},
 		{
-			"checksumSHA1": "nulySUSurX3c7DAUThJCKNI/Dds=",
+			"checksumSHA1": "17O2+RrVS14NqdTxZNvXv1UYSdc=",
 			"path": "github.com/hyperledger/fabric-amcl/amcl",
-			"revision": "600b0c45a024131b326a41096da0559a9a7461fd",
-			"revisionTime": "2018-03-16T15:29:36Z"
+			"revision": "6b78f7a22d950103fb2669aabb969f56d42d283b",
+			"revisionTime": "2018-08-31T13:45:07Z"
 		},
 		{
 			"checksumSHA1": "8jFGbc+tZmzRV5v1a4FdKN//mdM=",
@@ -395,10 +395,10 @@
 			"revisionTime": "2018-03-16T15:29:36Z"
 		},
 		{
-			"checksumSHA1": "S0hEPC6nm2AwSsGQsEP1LRQOfFg=",
+			"checksumSHA1": "nfz8vNuiCDHpfWMVpaX/iTYCBe0=",
 			"path": "github.com/hyperledger/fabric/bccsp",
-			"revision": "e01301116758fbabc54c688b461cb72fbc84862d",
-			"revisionTime": "2018-08-10T18:42:28Z",
+			"revision": "bfe01e4d1561ba20d8e6e2c7bc93302db9900044",
+			"revisionTime": "2018-12-04T16:52:14Z",
 			"tree": true
 		},
 		{
@@ -426,10 +426,11 @@
 			"revisionTime": "2018-08-10T18:42:28Z"
 		},
 		{
-			"checksumSHA1": "xIdsmorF1r6jym6Tz5UmzAvxhN8=",
+			"checksumSHA1": "2yAevVDXm12dUpE3LfOH7nA2Tm0=",
 			"path": "github.com/hyperledger/fabric/idemix",
-			"revision": "4db57a3e5205a096e54bfbc5f5f07d6bd678220f",
-			"revisionTime": "2018-05-31T12:12:45Z"
+			"revision": "bfe01e4d1561ba20d8e6e2c7bc93302db9900044",
+			"revisionTime": "2018-12-04T16:52:14Z",
+			"tree": true
 		},
 		{
 			"checksumSHA1": "40vJyUB4ezQSn/NSadsKEOrudMc=",
