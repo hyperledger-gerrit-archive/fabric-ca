@@ -1,0 +1,179 @@
+// Copyright IBM Corp All Rights Reserved
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+timeout(60) {
+node ('hyp-z') { // trigger build on s390x node
+ timestamps {
+    try {
+     def ROOTDIR = pwd() // workspace dir (/w/workspace/<job_name>)
+     env.PROJECT_DIR = "gopath/src/github.com/hyperledger"
+     env.NODE_VER = "8.11.3"
+     env.GO_VER = sh(returnStdout: true, script: 'curl -O https://raw.githubusercontent.com/hyperledger/fabric/master/ci.properties && cat ci.properties | grep "GO_VER" | cut -d "=" -f2').trim()
+     env.ARCH = "s390x"
+     env.GOROOT = "/opt/go/go${GO_VER}.linux.${ARCH}"
+     env.GOPATH = "$WORKSPACE/gopath"
+     env.PATH = "$GOROOT/bin:$GOPATH/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:~/npm/bin:/home/jenkins/.nvm/versions/node/v${NODE_VER}/bin:$PATH"
+     def failure_stage = "none"
+      // delete working directory
+     deleteDir()
+      stage("Fetch Patchset") { // fetch gerrit refspec on latest commit
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                    try {
+                        dir("${ROOTDIR}"){
+                        sh '''
+                              [ -e gopath/src/github.com/hyperledger/fabric-ca ] || mkdir -p $PROJECT_DIR
+                              	cd $PROJECT_DIR
+				if(env.GERRIT_REFSPEC && env.GERRIT_PATCHSET_REVISION) {
+				println "$GERRIT_REFSPEC"
+				checkout([$class: 'GitSCM', branches: [[name: "$GERRIT_PATCHSET_REVISION"]], doGenerateSubmoduleConfigurations: false, extensions: [], submoduleCfg: [], userRemoteConfigs: [[credentialsId: ‘hyperledger-jobbuilder’, name: "", refspec: "$GERRIT_REFSPEC", url: 'git://cloud.hyperledger.org/mirror/fabric.git']]])
+				} else {
+                             	# clone fabric-ca repository
+				git url: 'git://cloud.hyperledger.org', credentialsId: ‘hyperledger-jobbuilder’
+                        '''
+                        	}
+                    }
+                  }
+                    catch (err) {
+                        failure_stage = "Fetch patchset"
+                        currentBuild.result = 'FAILURE'
+                        throw err
+                    }
+                }
+        }
+
+     // clean environment and get env data
+      stage("Clean Environment - Get Env Info") {
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                try {
+                        dir("${ROOTDIR}/$PROJECT_DIR/fabric-ca/scripts/Jenkins_Scripts") {
+                            sh './CI_Script.sh --clean_Environment --env_Info'
+                        }
+                }
+                    catch (err) {
+                        failure_stage = "Clean Environment - Get Env Info"
+                        currentBuild.result = 'FAILURE'
+                        throw err
+                    }
+            }
+      }
+
+if (env.JOB_NAME == "fabric-ca-end-2-end-merge-s390x" || env.JOB_NAME == "fabric-ca-end-2-end-verify-s390x") {
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+					// Clone fabric and Build Docker Images
+					fabricBuild()
+					// Clone fabric-ca and Build Docker Images
+					fabricCABuild()
+					// Run SDK NODE IntegrationTests
+					sdkNodeBuild()
+            }
+}
+
+// Trigger only on unit-tests jobs
+if (env.JOB_NAME == "fabric-ca-unit-tests-verify-s390x" || env.JOB_NAME == "fabric-ca-unit-tests-merge-s390x") {
+      unitTests()
+}
+   } finally {
+            archiveArtifacts allowEmptyArchive: true, artifacts: '**/*.log'
+            if(env.JOB_NAME == "fabric-ca-unit-tests-merge-s390x" || env.JOB_NAME == "fabric-ca-end-2-end-merge-s390x") {
+                  if (currentBuild.result == 'FAILURE') { // Other values: SUCCESS, UNSTABLE
+                        rocketSend message: "Build Notification - STATUS: *${currentBuild.result}* - BRANCH: *${env.GERRIT_BRANCH}* - PROJECT: *${env.PROJECT}* - BUILD_URL:  (<${env.BUILD_URL}|Open>)"
+                  }
+            }
+      } // finally block end here
+  } // timestamps end here
+} // node block end here
+} // timeout block end here
+
+def unitTests() {
+// unit-tests
+      stage("UnitTests") {
+      def ROOTDIR = pwd()
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                try {
+                    dir("${ROOTDIR}/$PROJECT_DIR/fabric-ca") {
+                        // Run Unit-Tests
+                        sh 'make all-tests docs'
+                        // Delete /tmp/fabric-shim directory which has root permissions set(FAB-12847)
+                        sh 'docker run -v /tmp:/tmp library/alpine rm -rf /tmp/fabric-shim || true'
+                        }
+                }
+                catch (err) {
+                    failure_stage = "UnitTests"
+                    currentBuild.result = 'FAILURE'
+                    throw err
+                }
+            }
+      }
+}
+
+def fabricBuild() {
+// Pull fabric
+      stage("Build fabric Docker Images") {
+      def ROOTDIR = pwd()
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                try {
+                    dir("${ROOTDIR}/$PROJECT_DIR") {
+                        sh '''
+                            # Clone fabric repository
+                            git clone --single-branch -b $GERRIT_BRANCH --depth 2 git://cloud.hyperledger.org/mirror/fabric
+                            echo -e "\033[32m Cloned fabric repository" "\033[0m"
+                            cd fabric
+                            # Print last two commits
+                            echo
+                            git log -n2 --pretty=oneline --abbrev-commit
+                            echo
+                            # Build fabric Docker Images
+                            make docker
+                        '''
+                    }
+                }
+                catch (err) {
+                    failure_stage = "build fabric"
+		            currentBuild.result = 'FAILURE'
+		            throw err
+                }
+            }
+      }
+}
+
+def fabricCABuild() {
+// Pull fabric-ca
+      stage("Build fabric-ca Docker Images") {
+      def ROOTDIR = pwd()
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                try {
+                    dir("${ROOTDIR}/$PROJECT_DIR/fabric-ca") {
+						sh '''
+							# Build fabric-ca Docker Images
+							make docker-fabric-ca
+						'''
+                    }
+                }
+                catch (err) {
+                    failure_stage = "build fabric-ca"
+                    currentBuild.result = 'FAILURE'
+                    throw err
+                }
+            }
+      }
+}
+
+def sdkNodeBuild() {
+// Run gulp tests (IntegrationTests)
+      stage("SDK NODE E2E Tests") {
+      def ROOTDIR = pwd()
+            wrap([$class: 'AnsiColorBuildWrapper', 'colorMapName': 'xterm']) {
+                try {
+                    dir("${ROOTDIR}/$PROJECT_DIR/fabric-ca/scripts/Jenkins_Scripts") {
+                        sh './CI_Script.sh --pullJavaEnv --node_E2e_Tests'
+                    }
+                }
+                catch (err) {
+                    failure_stage = "node_E2e_Tests"
+                    currentBuild.result = 'FAILURE'
+                    throw err
+                }
+            }
+      }
+}
