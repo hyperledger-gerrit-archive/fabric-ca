@@ -12,9 +12,10 @@ import (
 	"fmt"
 
 	"github.com/cloudflare/cfssl/log"
-	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
+	"github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -38,7 +39,7 @@ const (
 type RevocationAuthority interface {
 	// GetNewRevocationHandle returns new revocation handle, which is required to
 	// create a new Idemix credential
-	GetNewRevocationHandle() (*fp256bn.BIG, error)
+	GetNewRevocationHandle() (int, error)
 	// CreateCRI returns latest credential revocation information (CRI). CRI contains
 	// information that allows a prover to create a proof that the revocation handle associated
 	// with his credential is not revoked and by the verifier to verify the non-revocation
@@ -166,8 +167,8 @@ func (ra *revocationAuthority) CreateCRI() (*idemix.CredentialRevocationInformat
 
 	unrevokedHandles := ra.getUnRevokedHandles(info, revokedCreds)
 
-	alg := idemix.ALG_NO_REVOCATION
-	cri, err := ra.issuer.IdemixLib().CreateCRI(ra.key.GetKey(), unrevokedHandles, info.Epoch, alg, ra.issuer.IdemixRand())
+	alg := bccsp.AlgNoRevocation
+	cri, err := ra.issuer.IdemixLib().CreateCRI(ra.key.GetKey(), unrevokedHandles, info.Epoch, alg)
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +177,12 @@ func (ra *revocationAuthority) CreateCRI() (*idemix.CredentialRevocationInformat
 }
 
 // GetNewRevocationHandle returns a new revocation handle
-func (ra *revocationAuthority) GetNewRevocationHandle() (*fp256bn.BIG, error) {
+func (ra *revocationAuthority) GetNewRevocationHandle() (int, error) {
 	h, err := ra.getNextRevocationHandle()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	rh := fp256bn.NewBIGint(h)
-	return rh, err
+	return h, nil
 }
 
 // Epoch returns epoch value of the latest CRI
@@ -199,25 +199,26 @@ func (ra *revocationAuthority) PublicKey() *ecdsa.PublicKey {
 	return &ra.key.GetKey().PublicKey
 }
 
-func (ra *revocationAuthority) getUnRevokedHandles(info *RevocationAuthorityInfo, revokedCreds []CredRecord) []*fp256bn.BIG {
+func (ra *revocationAuthority) getUnRevokedHandles(info *RevocationAuthorityInfo, revokedCreds []CredRecord) [][]byte {
 	log.Debugf("RA '%s' is getting revoked revocation handles for epoch %d", ra.issuer.Name(), info.Epoch)
-	isRevokedHandle := func(rh *fp256bn.BIG) bool {
+	isRevokedHandle := func(rhBytes []byte) bool {
 		for i := 0; i <= len(revokedCreds)-1; i++ {
 			rrhBytes, err := util.B64Decode(revokedCreds[i].RevocationHandle)
 			if err != nil {
 				log.Debugf("Failed to Base64 decode revocation handle '%s': %s", revokedCreds[i].RevocationHandle, err.Error())
 				return false
 			}
-			rhBytes := idemix.BigToBytes(rh)
 			if bytes.Compare(rhBytes, rrhBytes) == 0 {
 				return true
 			}
 		}
 		return false
 	}
-	validHandles := []*fp256bn.BIG{}
+	validHandles := [][]byte{}
 	for i := 1; i <= info.LastHandleInPool; i = i + 1 {
-		validHandles = append(validHandles, fp256bn.NewBIGint(i))
+		b := make([]byte, 32)
+		FP256BN.NewBIGint(i).ToBytes(b)
+		validHandles = append(validHandles, b)
 	}
 	for i := len(validHandles) - 1; i >= 0; i-- {
 		isrevoked := isRevokedHandle(validHandles[i])

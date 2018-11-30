@@ -12,13 +12,11 @@ import (
 	"net/http"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/golang/protobuf/proto"
-	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
-	idemix "github.com/hyperledger/fabric/idemix"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/pkg/errors"
 )
 
@@ -29,7 +27,7 @@ const (
 
 // Client represents a client that will load/store an Idemix credential
 type Client interface {
-	GetIssuerPubKey() (*idemix.IssuerPublicKey, error)
+	GetIssuerPubKey() (*bridge.IssuerPublicKey, error)
 	GetCSP() bccsp.BCCSP
 }
 
@@ -120,12 +118,6 @@ func (cred *Credential) CreateToken(req *http.Request, reqBody []byte) (string, 
 	if err != nil {
 		return "", err
 	}
-	rng, err := idemix.GetRand()
-	if err != nil {
-		return "", errors.WithMessage(err, "Failed to get a random number while creating token")
-	}
-	// Get user's secret key
-	sk := fp256bn.FromBytes(cred.val.GetSk())
 
 	// Get issuer public key
 	ipk, err := cred.client.GetIssuerPubKey()
@@ -134,7 +126,17 @@ func (cred *Credential) CreateToken(req *http.Request, reqBody []byte) (string, 
 	}
 
 	// Generate a fresh Pseudonym (and a corresponding randomness)
-	nym, randNym := idemix.MakeNym(sk, ipk, rng)
+	user := &bridge.User{
+		NewRand: bridge.NewRandOrPanic,
+	}
+	sk, err := user.NewKeyFromBytes(cred.val.GetSk())
+	if err != nil {
+		return "", err
+	}
+	nym, randNym, err := user.MakeNym(sk, ipk)
+	if err != nil {
+		return "", err
+	}
 
 	b64body := util.B64Encode(reqBody)
 	b64uri := util.B64Encode([]byte(req.URL.RequestURI()))
@@ -145,25 +147,15 @@ func (cred *Credential) CreateToken(req *http.Request, reqBody []byte) (string, 
 		return "", errors.WithMessage(digestError, fmt.Sprintf("Failed to create token '%s'", msg))
 	}
 
-	// A disclosure vector is formed (indicating that only enrollment ID from the credential is revealed)
-	disclosure := []byte{0, 0, 1, 0}
+	discloseAttr := []bccsp.IdemixAttribute{bccsp.IdemixAttribute{Type: bccsp.IdemixHiddenAttribute}, bccsp.IdemixAttribute{Type: bccsp.IdemixHiddenAttribute}, bccsp.IdemixAttribute{Type: bccsp.IdemixBytesAttribute}, bccsp.IdemixAttribute{Type: bccsp.IdemixHiddenAttribute}}
 
-	credential := idemix.Credential{}
-	err = proto.Unmarshal(cred.val.GetCred(), &credential)
-	if err != nil {
-		return "", errors.Wrapf(err, "Failed to unmarshal Idemix credential while creating token")
+	sigScheme := &bridge.SignatureScheme{
+		NewRand: bridge.NewRandOrPanic,
 	}
-	cri := idemix.CredentialRevocationInformation{}
-	err = proto.Unmarshal(cred.val.GetCredentialRevocationInformation(), &cri)
-	if err != nil {
-		return "", errors.Wrapf(err, "Failed to unmarshal Idemix CRI while creating token")
-	}
-
-	sig, err := idemix.NewSignature(&credential, sk, nym, randNym, ipk, disclosure, digest, 3, &cri, rng)
+	sigBytes, err := sigScheme.Sign(cred.val.GetCred(), sk, nym, randNym, ipk, discloseAttr, digest, 3, cred.val.GetCredentialRevocationInformation())
 	if err != nil {
 		return "", errors.Wrapf(err, "Failed to create signature while creating token")
 	}
-	sigBytes, err := proto.Marshal(sig)
 	token := "idemix." + common.IdemixTokenVersion1 + "." + enrollmentID + "." + util.B64Encode(sigBytes)
 	return token, nil
 }
