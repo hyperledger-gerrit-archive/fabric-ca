@@ -23,6 +23,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/idemix/mocks"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/kisielk/sqlstruct"
 	"github.com/pkg/errors"
@@ -130,6 +131,7 @@ func TestInitExistingIssuerCredential(t *testing.T) {
 	err = issuer.Init(false, db, &dbutil.Levels{Credential: 1, RAInfo: 1, Nonce: 1})
 	assert.NoError(t, err)
 }
+
 func TestInitRenewTrue(t *testing.T) {
 	testdir, err := ioutil.TempDir(".", "issuerinittest")
 	if err != nil {
@@ -138,9 +140,6 @@ func TestInitRenewTrue(t *testing.T) {
 	defer os.RemoveAll(testdir)
 	db, issuer := getIssuer(t, testdir, true, false)
 	assert.NotNil(t, issuer)
-
-	err = issuer.Init(true, db, &dbutil.Levels{Credential: 1, RAInfo: 1, Nonce: 1})
-	assert.Error(t, err, "Init should fail if it fails to generate random number")
 
 	db, issuer = getIssuer(t, testdir, false, true)
 	assert.NotNil(t, issuer)
@@ -395,20 +394,19 @@ func getIssuer(t *testing.T, testDir string, getranderror, newIssuerKeyerror boo
 	if err != nil {
 		t.Fatalf("Failed to get random number: %s", err.Error())
 	}
-	ik, err := idemix.NewIssuerKey(GetAttributeNames(), rnd)
+	lib.On("GetRand").Return(rnd, nil)
+
+	iss := bridge.Issuer{
+		NewRand: bridge.NewRandOrPanic,
+	}
+	ik, err := iss.NewKey(GetAttributeNames())
 	if err != nil {
 		t.Fatalf("Failed to generate issuer key: %s", err.Error())
 	}
-	if getranderror {
-		lib.On("GetRand").Return(nil, errors.New("Failed to generate random number"))
-	} else {
-		lib.On("GetRand").Return(rnd, nil)
-	}
-
 	if newIssuerKeyerror {
-		lib.On("NewIssuerKey", GetAttributeNames(), rnd).Return(nil, errors.New("Failed to generate new issuer key"))
+		lib.On("NewIssuerKey", GetAttributeNames()).Return(nil, errors.New("Failed to generate new issuer key"))
 	} else {
-		lib.On("NewIssuerKey", GetAttributeNames(), rnd).Return(ik, nil)
+		lib.On("NewIssuerKey", GetAttributeNames()).Return(ik, nil)
 	}
 
 	key, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)

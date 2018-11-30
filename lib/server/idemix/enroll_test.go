@@ -17,6 +17,7 @@ import (
 	. "github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix/mocks"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -262,7 +263,7 @@ func TestHandleIdemixEnrollNewCredError(t *testing.T) {
 	}
 	ik, _ := issuerCred.GetIssuerKey()
 
-	rh := fp256bn.NewBIGint(1)
+	rh := 1
 	ra := new(mocks.RevocationAuthority)
 	ra.On("GetNewRevocationHandle").Return(rh, nil)
 
@@ -290,12 +291,13 @@ func TestHandleIdemixEnrollNewCredError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test credential request")
 	}
-	_, attrs, err := handler.GetAttributeValues(caller, ik.Ipk, rh)
+	pk := ik.Public().(*bridge.IssuerPublicKey)
+	_, attrs, err := handler.GetAttributeValues(caller, pk.PK, rh)
 	if err != nil {
 		t.Fatalf("Failed to get attributes")
 	}
 
-	idemixlib.On("NewCredential", ik, credReq, attrs, rnd).Return(nil, errors.New("Failed to create credential"))
+	idemixlib.On("NewCredential", ik, credReq, attrs).Return(nil, errors.New("Failed to create credential"))
 
 	ctx.On("BasicAuthentication").Return("foo", nil)
 	f := getReadBodyFunc(t, credReq)
@@ -311,23 +313,20 @@ func TestHandleIdemixEnrollNewCredError(t *testing.T) {
 func TestHandleIdemixEnrollInsertCredError(t *testing.T) {
 	ctx := new(mocks.ServerRequestCtx)
 	idemixlib := new(mocks.Lib)
-	rnd, err := idemix.GetRand()
-	if err != nil {
-		t.Fatalf("Error generating a random number")
-	}
+	rnd := bridge.NewRandOrPanic()
 	rmo := idemix.RandModOrder(rnd)
 	idemixlib.On("GetRand").Return(rnd, nil)
 	idemixlib.On("RandModOrder", rnd).Return(rmo)
 
 	issuerCred := NewIssuerCredential(testPublicKeyFile,
 		testSecretKeyFile, idemixlib)
-	err = issuerCred.Load()
+	err := issuerCred.Load()
 	if err != nil {
 		t.Fatalf("Failed to load issuer credential")
 	}
 	ik, _ := issuerCred.GetIssuerKey()
 
-	rh := fp256bn.NewBIGint(1)
+	rh := 1
 	ra := new(mocks.RevocationAuthority)
 	ra.On("GetNewRevocationHandle").Return(rh, nil)
 
@@ -354,17 +353,29 @@ func TestHandleIdemixEnrollInsertCredError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test credential request")
 	}
-	_, attrs, err := handler.GetAttributeValues(caller, ik.Ipk, rh)
+	_, attrs, err := handler.GetAttributeValues(caller, ik.SK.Ipk, rh)
 	if err != nil {
 		t.Fatalf("Failed to get attributes")
 	}
-	cred, err := idemix.NewCredential(ik, credReq, attrs, rnd)
+	c := bridge.Credential{
+		NewRand: bridge.NewRandOrPanic,
+	}
+	req, err := proto.Marshal(credReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal")
+	}
+	cred, err := c.Sign(ik, req, attrs)
 	if err != nil {
 		t.Fatalf("Failed to create credential")
 	}
-	idemixlib.On("NewCredential", ik, credReq, attrs, rnd).Return(cred, nil)
 
-	b64CredBytes, err := getB64EncodedCred(cred)
+	idemixCred := &idemix.Credential{}
+	err = proto.Unmarshal(cred, idemixCred)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal")
+	}
+	idemixlib.On("NewCredential", ik, credReq, attrs).Return(idemixCred, nil)
+	b64CredBytes, err := getB64EncodedCred(idemixCred)
 	if err != nil {
 		t.Fatalf("Failed to base64 encode credential")
 	}
@@ -407,7 +418,7 @@ func TestHandleIdemixEnrollForCredentialSuccess(t *testing.T) {
 	}
 	ik, _ := issuerCred.GetIssuerKey()
 
-	rh := fp256bn.NewBIGint(1)
+	rh := 1
 	ra := new(mocks.RevocationAuthority)
 	ra.On("GetNewRevocationHandle").Return(rh, nil)
 
@@ -434,17 +445,29 @@ func TestHandleIdemixEnrollForCredentialSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create test credential request")
 	}
-	_, attrs, err := handler.GetAttributeValues(caller, ik.Ipk, rh)
+	_, attrs, err := handler.GetAttributeValues(caller, ik.SK.Ipk, rh)
 	if err != nil {
 		t.Fatalf("Failed to get attributes")
 	}
-	cred, err := idemix.NewCredential(ik, credReq, attrs, rnd)
+	c := bridge.Credential{
+		NewRand: bridge.NewRandOrPanic,
+	}
+	req, err := proto.Marshal(credReq)
+	if err != nil {
+		t.Fatalf("Failed to marshal")
+	}
+	cred, err := c.Sign(ik, req, attrs)
 	if err != nil {
 		t.Fatalf("Failed to create credential")
 	}
-	idemixlib.On("NewCredential", ik, credReq, attrs, rnd).Return(cred, nil)
 
-	b64CredBytes, err := getB64EncodedCred(cred)
+	idemixCred := &idemix.Credential{}
+	err = proto.Unmarshal(cred, idemixCred)
+	if err != nil {
+		t.Fatalf("Failed to unmarshal")
+	}
+	idemixlib.On("NewCredential", ik, credReq, attrs).Return(idemixCred, nil)
+	b64CredBytes, err := getB64EncodedCred(idemixCred)
 	if err != nil {
 		t.Fatalf("Failed to base64 encode credential")
 	}
@@ -486,7 +509,7 @@ func TestGetAttributeValues(t *testing.T) {
 	caller.On("GetAttribute", "type").Return(&api.Attribute{Name: "type", Value: "client"}, nil)
 	caller.On("LoginComplete").Return(nil)
 
-	rh := fp256bn.NewBIGint(1)
+	rh := 1
 
 	attrNames := GetAttributeNames()
 	attrNames = append(attrNames, "type")
@@ -543,6 +566,5 @@ func newIdemixCredentialRequest(t *testing.T, nonce *fp256bn.BIG) (*idemix.CredR
 		return nil, nil, err
 	}
 	sk := idemix.RandModOrder(rng)
-	nonceBytes := idemix.BigToBytes(nonce)
-	return idemix.NewCredRequest(sk, nonceBytes, ik.Ipk, rng), sk, nil
+	return idemix.NewCredRequest(sk, idemix.BigToBytes(nonce), ik.SK.Ipk, rng), sk, nil
 }

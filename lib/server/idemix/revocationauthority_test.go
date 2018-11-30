@@ -7,18 +7,20 @@ SPDX-License-Identifier: Apache-2.0
 package idemix_test
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"io/ioutil"
 	"os"
 	"path"
 	"testing"
 
+	proto "github.com/golang/protobuf/proto"
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	dmocks "github.com/hyperledger/fabric-ca/lib/dbutil/mocks"
 	. "github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix/mocks"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -459,7 +461,7 @@ func TestGetNewRevocationHandle(t *testing.T) {
 	db.On("BeginTx").Return(tx)
 	rh, err := rc.GetNewRevocationHandle()
 	assert.NoError(t, err)
-	assert.Equal(t, 0, bytes.Compare(idemix.BigToBytes(fp256bn.NewBIGint(1)), idemix.BigToBytes(rh)), "Expected next revocation handle to be 1")
+	assert.Equal(t, 1, rh, "Expected next revocation handle to be 1")
 }
 
 func TestGetNewRevocationHandleLastHandle(t *testing.T) {
@@ -485,10 +487,7 @@ func TestGetNewRevocationHandleLastHandle(t *testing.T) {
 	db.On("BeginTx").Return(tx)
 	rh, err := ra.GetNewRevocationHandle()
 	assert.NoError(t, err)
-	assert.Equal(t, 0, bytes.Compare(idemix.BigToBytes(fp256bn.NewBIGint(100)), idemix.BigToBytes(rh)),
-		"Expected next revocation handle to be 100")
-	assert.Equal(t, util.B64Encode(idemix.BigToBytes(fp256bn.NewBIGint(100))), util.B64Encode(idemix.BigToBytes(rh)),
-		"Expected next revocation handle to be 100")
+	assert.Equal(t, 100, rh, "Expected next revocation handle to be 100")
 }
 
 func TestGetEpoch(t *testing.T) {
@@ -698,19 +697,28 @@ func getRevocationAuthority(t *testing.T, homeDir string, db *dmocks.FabricCADB,
 
 	issuer.On("CredDBAccessor").Return(credDBAccessor)
 
-	validHandles := []*fp256bn.BIG{}
+	validHandles := [][]byte{}
 	for i := 1; i <= 100; i = i + 1 {
-		validHandles = append(validHandles, fp256bn.NewBIGint(i))
+		b := make([]byte, 32)
+		fp256bn.NewBIGint(i).ToBytes(b)
+		validHandles = append(validHandles, b)
 	}
-	alg := idemix.ALG_NO_REVOCATION
+	alg := bccsp.AlgNoRevocation
+
 	if idemixCreateCRIError {
-		lib.On("CreateCRI", revocationKey, validHandles, 1, alg, rnd).Return(nil, errors.New("Idemix lib create CRI error"))
+		lib.On("CreateCRI", revocationKey, validHandles, 1, alg).Return(nil, errors.New("Idemix lib create CRI error"))
 	} else {
-		cri, err := idemix.CreateCRI(revocationKey, validHandles, 1, alg, rnd)
+		revocation := bridge.Revocation{}
+		res, err := revocation.Sign(revocationKey, validHandles, 1, alg)
 		if err != nil {
 			t.Fatalf("Failed to create CRI: %s", err.Error())
 		}
-		lib.On("CreateCRI", revocationKey, validHandles, 1, alg, rnd).Return(cri, nil)
+		cri := &idemix.CredentialRevocationInformation{}
+		err = proto.Unmarshal(res, cri)
+		if err != nil {
+			t.Fatalf("Failed to unmarshal")
+		}
+		lib.On("CreateCRI", revocationKey, validHandles, 1, alg).Return(cri, nil)
 	}
 
 	ra, err := NewRevocationAuthority(issuer, 1)

@@ -34,6 +34,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/mitchellh/mapstructure"
 	"github.com/pkg/errors"
@@ -54,7 +55,7 @@ type Client struct {
 	// HTTP client associated with this Fabric CA client
 	httpClient *http.Client
 	// Public key of Idemix issuer
-	issuerPublicKey *idemix.IssuerPublicKey
+	issuerPublicKey *bridge.IssuerPublicKey
 }
 
 // GetCAInfoResponse is the response from the GetCAInfo call
@@ -522,21 +523,36 @@ func (c *Client) newCertificateRequest(req *api.CSRInfo) *csr.CertificateRequest
 // newIdemixCredentialRequest returns CredentialRequest object, a secret key, and a random number used in
 // the creation of credential request.
 func (c *Client) newIdemixCredentialRequest(nonce *fp256bn.BIG, ipkBytes []byte) (*idemix.CredRequest, *fp256bn.BIG, error) {
-	rng, err := idemix.GetRand()
-	if err != nil {
-		return nil, nil, err
+	rng := bridge.NewRandOrPanic()
+	skBig := idemix.RandModOrder(rng)
+	sk := &bridge.Big{
+		E: skBig,
 	}
-	sk := idemix.RandModOrder(rng)
 
 	issuerPubKey, err := c.getIssuerPubKey(ipkBytes)
 	if err != nil {
 		return nil, nil, err
 	}
-	nonceBytes := idemix.BigToBytes(nonce)
-	return idemix.NewCredRequest(sk, nonceBytes, issuerPubKey, rng), sk, nil
+
+	bridgeCredRequest := &bridge.CredRequest{
+		NewRand: bridge.NewRandOrPanic,
+	}
+
+	res, err := bridgeCredRequest.Sign(sk, issuerPubKey, idemix.BigToBytes(nonce))
+	if err != nil {
+		return nil, nil, err
+	}
+
+	credRequest := &idemix.CredRequest{}
+	err = proto.Unmarshal(res, credRequest)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return credRequest, skBig, nil
 }
 
-func (c *Client) getIssuerPubKey(ipkBytes []byte) (*idemix.IssuerPublicKey, error) {
+func (c *Client) getIssuerPubKey(ipkBytes []byte) (*bridge.IssuerPublicKey, error) {
 	var err error
 	if ipkBytes == nil || len(ipkBytes) == 0 {
 		ipkBytes, err = ioutil.ReadFile(c.ipkFile)
@@ -544,12 +560,16 @@ func (c *Client) getIssuerPubKey(ipkBytes []byte) (*idemix.IssuerPublicKey, erro
 			return nil, errors.Wrapf(err, "Error reading CA's Idemix public key at '%s'", c.ipkFile)
 		}
 	}
+
 	pubKey := &idemix.IssuerPublicKey{}
 	err = proto.Unmarshal(ipkBytes, pubKey)
 	if err != nil {
 		return nil, err
 	}
-	c.issuerPublicKey = pubKey
+	issuerPubKey := &bridge.IssuerPublicKey{
+		PK: pubKey,
+	}
+	c.issuerPublicKey = issuerPubKey
 	return c.issuerPublicKey, nil
 }
 
@@ -654,7 +674,7 @@ func (c *Client) GetCSP() bccsp.BCCSP {
 }
 
 // GetIssuerPubKey returns issuer public key associated with this client
-func (c *Client) GetIssuerPubKey() (*idemix.IssuerPublicKey, error) {
+func (c *Client) GetIssuerPubKey() (*bridge.IssuerPublicKey, error) {
 	if c.issuerPublicKey == nil {
 		return c.getIssuerPubKey(nil)
 	}
@@ -889,15 +909,15 @@ func (c *Client) verifyIdemixCredential() error {
 		return errors.Wrapf(err, "Failed to unmarshal signer config from %s", c.idemixCredFile)
 	}
 
-	cred := new(idemix.Credential)
-	err = proto.Unmarshal(signerConfig.GetCred(), cred)
+	user := &bridge.User{}
+	sk, err := user.NewKeyFromBytes(signerConfig.GetSk())
 	if err != nil {
-		return errors.Wrap(err, "Failed to unmarshal Idemix credential from signer config")
+		return err
 	}
-	sk := fp256bn.FromBytes(signerConfig.GetSk())
 
 	// Verify that the credential is cryptographically valid
-	err = cred.Ver(sk, ipk)
+	cred := &bridge.Credential{}
+	err = cred.Verify(sk, ipk, signerConfig.GetCred(), []bccsp.IdemixAttribute{})
 	if err != nil {
 		return errors.Wrap(err, "Idemix credential is not cryptographically valid")
 	}
