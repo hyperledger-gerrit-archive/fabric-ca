@@ -17,6 +17,8 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/bccsp"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/pkg/errors"
 )
@@ -86,7 +88,8 @@ func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
 	}
 
 	// Check the if credential request is valid
-	err = req.CredRequest.Check(ik.GetIpk())
+	pk := ik.Public().(*bridge.IssuerPublicKey)
+	err = req.CredRequest.Check(pk.PK)
 	if err != nil {
 		log.Errorf("Invalid Idemix credential request: %s", err.Error())
 		return nil, errors.WithMessage(err, "Invalid Idemix credential request")
@@ -99,12 +102,12 @@ func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
 	}
 
 	// Get attributes for the identity
-	attrMap, attrs, err := h.GetAttributeValues(caller, ik.GetIpk(), rh)
+	attrMap, attrs, err := h.GetAttributeValues(caller, pk.PK, rh)
 	if err != nil {
 		return nil, err
 	}
 
-	cred, err := h.IdmxLib.NewCredential(ik, req.CredRequest, attrs, h.Issuer.IdemixRand())
+	cred, err := h.IdmxLib.NewCredential(ik, req.CredRequest, attrs)
 	if err != nil {
 		log.Errorf("Issuer '%s' failed to create new Idemix credential for identity '%s': %s",
 			h.Issuer.Name(), h.EnrollmentID, err.Error())
@@ -116,7 +119,8 @@ func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
 	}
 	b64CredBytes := util.B64Encode(credBytes)
 
-	rhstr := util.B64Encode(idemix.BigToBytes(rh))
+	rhBig := fp256bn.NewBIGint(rh)
+	rhstr := util.B64Encode(idemix.BigToBytes(rhBig))
 
 	// Store the credential in the database
 	err = h.Issuer.CredDBAccessor().InsertCredential(CredRecord{
@@ -183,13 +187,16 @@ func (h *EnrollRequestHandler) GenerateNonce() *fp256bn.BIG {
 
 // GetAttributeValues returns attribute values of the caller of Idemix enroll request
 func (h *EnrollRequestHandler) GetAttributeValues(caller spi.User, ipk *idemix.IssuerPublicKey,
-	rh *fp256bn.BIG) (map[string]interface{}, []*fp256bn.BIG, error) {
-	rc := []*fp256bn.BIG{}
+	rh int) (map[string]interface{}, []bccsp.IdemixAttribute, error) {
+	rc := []bccsp.IdemixAttribute{}
 	attrMap := make(map[string]interface{})
 	for _, attrName := range ipk.AttributeNames {
 		if attrName == AttrEnrollmentID {
-			idBytes := []byte(caller.GetName())
-			rc = append(rc, idemix.HashModOrder(idBytes))
+			attr := bccsp.IdemixAttribute{
+				Type:  bccsp.IdemixBytesAttribute,
+				Value: []byte(caller.GetName()),
+			}
+			rc = append(rc, attr)
 			attrMap[attrName] = caller.GetName()
 		} else if attrName == AttrOU {
 			ou := []string{}
@@ -197,12 +204,19 @@ func (h *EnrollRequestHandler) GetAttributeValues(caller spi.User, ipk *idemix.I
 				ou = append(ou, aff)
 			}
 			ouVal := strings.Join(ou, ".")
-			ouBytes := []byte(ouVal)
-			rc = append(rc, idemix.HashModOrder(ouBytes))
+			attr := bccsp.IdemixAttribute{
+				Type:  bccsp.IdemixBytesAttribute,
+				Value: []byte(ouVal),
+			}
+			rc = append(rc, attr)
 			attrMap[attrName] = ouVal
 		} else if attrName == AttrRevocationHandle {
-			rc = append(rc, rh)
-			attrMap[attrName] = util.B64Encode(idemix.BigToBytes(rh))
+			attr := bccsp.IdemixAttribute{
+				Type:  bccsp.IdemixIntAttribute,
+				Value: rh,
+			}
+			rc = append(rc, attr)
+			attrMap[attrName] = rh
 		} else if attrName == AttrRole {
 			role := MEMBER.getValue()
 			attrObj, err := caller.GetAttribute("role")
@@ -212,15 +226,22 @@ func (h *EnrollRequestHandler) GetAttributeValues(caller spi.User, ipk *idemix.I
 					log.Debugf("role attribute of user %s must be a integer value", caller.GetName())
 				}
 			}
-			rc = append(rc, fp256bn.NewBIGint(role))
+			attr := bccsp.IdemixAttribute{
+				Type:  bccsp.IdemixIntAttribute,
+				Value: role,
+			}
+			rc = append(rc, attr)
 			attrMap[attrName] = role
 		} else {
 			attrObj, err := caller.GetAttribute(attrName)
 			if err != nil {
 				log.Errorf("Failed to get attribute %s for user %s: %s", attrName, caller.GetName(), err.Error())
 			} else {
-				attrBytes := []byte(attrObj.GetValue())
-				rc = append(rc, idemix.HashModOrder(attrBytes))
+				attr := bccsp.IdemixAttribute{
+					Type:  bccsp.IdemixBytesAttribute,
+					Value: []byte(attrObj.GetValue()),
+				}
+				rc = append(rc, attr)
 				attrMap[attrName] = attrObj.GetValue()
 			}
 		}

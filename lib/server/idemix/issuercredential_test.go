@@ -16,6 +16,7 @@ import (
 	proto "github.com/golang/protobuf/proto"
 	. "github.com/hyperledger/fabric-ca/lib/server/idemix"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix/mocks"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/hyperledger/fabric/idemix"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -129,7 +130,9 @@ func TestStoreNilIssuerKey(t *testing.T) {
 func TestStoreNilIdemixPublicKey(t *testing.T) {
 	idemixLib := new(mocks.Lib)
 	ik := NewIssuerCredential(testPublicKeyFile, testSecretKeyFile, idemixLib)
-	ik.SetIssuerKey(&idemix.IssuerKey{})
+	ik.SetIssuerKey(&bridge.IssuerSecretKey{
+		SK: &idemix.IssuerKey{},
+	})
 	err := ik.Store()
 	assert.Error(t, err, "Should fail if store is called with empty issuer public key byte array")
 	if err != nil {
@@ -164,7 +167,13 @@ func TestStoreReadonlyPublicKeyFilePath(t *testing.T) {
 		t.Fatalf("Failed to create read only directory: %s", err.Error())
 	}
 	ik := NewIssuerCredential(pubkeyfile, testSecretKeyFile, idemixLib)
-	ik.SetIssuerKey(&idemix.IssuerKey{Ipk: pubKey})
+
+	isk := &bridge.IssuerSecretKey{
+		SK: &idemix.IssuerKey{
+			Ipk: pubKey,
+		},
+	}
+	ik.SetIssuerKey(isk)
 	err = ik.Store()
 	assert.Error(t, err, "Should fail if issuer public key is being stored to readonly directory")
 	if err != nil {
@@ -199,7 +208,12 @@ func TestStoreReadonlySecretKeyFilePath(t *testing.T) {
 		t.Fatalf("Failed to create read only directory: %s", err.Error())
 	}
 	ik := NewIssuerCredential(testPublicKeyFile, privkeyfile, idemixLib)
-	ik.SetIssuerKey(&idemix.IssuerKey{Ipk: pubKey})
+	isk := &bridge.IssuerSecretKey{
+		SK: &idemix.IssuerKey{
+			Ipk: pubKey,
+		},
+	}
+	ik.SetIssuerKey(isk)
 	err = ik.Store()
 	assert.Error(t, err, "Should fail if issuer secret key is being stored to read-only directory")
 	if err != nil {
@@ -225,7 +239,7 @@ func TestGetIssuerKey(t *testing.T) {
 
 func TestNewIssuerKeyGetRandError(t *testing.T) {
 	idemixLib := new(mocks.Lib)
-	idemixLib.On("GetRand").Return(nil, errors.New("Failed to generate random number"))
+	idemixLib.On("NewIssuerKey", GetAttributeNames()).Return(nil, errors.New("Error creating new issuer key"))
 	ic := NewIssuerCredential(testPublicKeyFile, testSecretKeyFile, idemixLib)
 	_, err := ic.NewIssuerKey()
 	assert.Error(t, err)
@@ -234,31 +248,21 @@ func TestNewIssuerKeyGetRandError(t *testing.T) {
 
 func TestNewIssuerKeyError(t *testing.T) {
 	idemixLib := new(mocks.Lib)
-	rnd, err := NewLib().GetRand()
-	if err != nil {
-		t.Fatalf("Failed to generate a random number: %s", err.Error())
-	}
-	idemixLib.On("GetRand").Return(rnd, nil)
-	idemixLib.On("NewIssuerKey", GetAttributeNames(), rnd).Return(nil, errors.New("Failed to create new issuer key"))
+	idemixLib.On("NewIssuerKey", GetAttributeNames()).Return(nil, errors.New("Failed to create new issuer key"))
 	ic := NewIssuerCredential(testPublicKeyFile, testSecretKeyFile, idemixLib)
-	_, err = ic.NewIssuerKey()
+	_, err := ic.NewIssuerKey()
 	assert.Error(t, err)
 }
 
 func TestNewIssuerKey(t *testing.T) {
 	idemixLib := new(mocks.Lib)
 	idemix := NewLib()
-	rnd, err := idemix.GetRand()
-	if err != nil {
-		t.Fatalf("Failed to generate a random number: %s", err.Error())
-	}
 	attrNames := GetAttributeNames()
-	ik, err := idemix.NewIssuerKey(attrNames, rnd)
+	ik, err := idemix.NewIssuerKey(attrNames)
 	if err != nil {
 		t.Fatalf("Failed to create new issuer key: %s", err.Error())
 	}
-	idemixLib.On("GetRand").Return(rnd, nil)
-	idemixLib.On("NewIssuerKey", attrNames, rnd).Return(ik, nil)
+	idemixLib.On("NewIssuerKey", attrNames).Return(ik, nil)
 	ic := NewIssuerCredential(testPublicKeyFile, testSecretKeyFile, idemixLib)
 	_, err = ic.NewIssuerKey()
 	assert.NoError(t, err)

@@ -16,16 +16,14 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
-	proto "github.com/golang/protobuf/proto"
 	"github.com/hyperledger/fabric-amcl/amcl"
-	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/common"
 	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
-	"github.com/hyperledger/fabric/idemix"
+	"github.com/hyperledger/fabric/bccsp/idemix/bridge"
 	"github.com/pkg/errors"
 )
 
@@ -137,7 +135,8 @@ func (i *issuer) IssuerPublicKey() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	ipkBytes, err := proto.Marshal(ik.Ipk)
+
+	ipkBytes, err := ik.Public().Bytes()
 	if err != nil {
 		return nil, err
 	}
@@ -186,13 +185,7 @@ func (i *issuer) VerifyToken(authHdr, method, uri string, body []byte) (string, 
 	if !i.isInitialized {
 		return "", errors.New("Issuer is not initialized")
 	}
-	// Disclosure array indicates which attributes are disclosed. 1 means disclosed. Currently four attributes are
-	// supported: OU, role, enrollmentID and revocationHandle. Third element of disclosure array is set to 1
-	// to indicate that the server expects enrollmentID to be disclosed in the signature sent in the authorization token.
-	// EnrollmentID is disclosed to check if the signature was infact created using credential of a user whose
-	// enrollment ID is the one specified in the token. So, enrollment ID in the token is used to check if the user
-	// is valid and has a credential (by checking the DB) and it is used to verify zero knowledge proof.
-	disclosure := []byte{0, 0, 1, 0}
+
 	parts := getTokenParts(authHdr)
 	if parts == nil {
 		return "", errors.New("Invalid Idemix token format; token format must be: 'idemix.<enrollment ID>.<base64 encoding of Idemix signature bytes>'")
@@ -209,7 +202,27 @@ func (i *issuer) VerifyToken(authHdr, method, uri string, body []byte) (string, 
 		return "", errors.Errorf("Enrollment ID '%s' does not have any Idemix credentials", enrollmentID)
 	}
 	idBytes := []byte(enrollmentID)
-	attrs := []*fp256bn.BIG{nil, nil, idemix.HashModOrder(idBytes), nil}
+
+	// Currently four attributes are supported: OU, role, enrollmentID and revocationHandle. Third element of disclosure array is set to 1
+	// to indicate that the server expects enrollmentID to be disclosed in the signature sent in the authorization token.
+	// EnrollmentID is disclosed to check if the signature was infact created using credential of a user whose
+	// enrollment ID is the one specified in the token. So, enrollment ID in the token is used to check if the user
+	// is valid and has a credential (by checking the DB) and it is used to verify zero knowledge proof.
+	attrs := []bccsp.IdemixAttribute{
+		bccsp.IdemixAttribute{
+			Type: bccsp.IdemixHiddenAttribute,
+		},
+		bccsp.IdemixAttribute{
+			Type: bccsp.IdemixHiddenAttribute,
+		},
+		bccsp.IdemixAttribute{
+			Type:  bccsp.IdemixBytesAttribute,
+			Value: idBytes,
+		},
+		bccsp.IdemixAttribute{
+			Type: bccsp.IdemixHiddenAttribute,
+		},
+	}
 	b64body := util.B64Encode(body)
 	b64uri := util.B64Encode([]byte(uri))
 	msg := method + "." + b64uri + "." + b64body
@@ -232,12 +245,8 @@ func (i *issuer) VerifyToken(authHdr, method, uri string, body []byte) (string, 
 	if err != nil {
 		return "", errors.WithMessage(err, "Failed to base64 decode signature specified in the token")
 	}
-	sig := &idemix.Signature{}
-	err = proto.Unmarshal(sigBytes, sig)
-	if err != nil {
-		return "", errors.WithMessage(err, "Failed to unmarshal signature bytes specified in the token")
-	}
-	err = sig.Ver(disclosure, issuerKey.Ipk, digest, attrs, 3, ra.PublicKey(), epoch)
+	sig := bridge.SignatureScheme{}
+	err = sig.Verify(issuerKey.Public(), sigBytes, digest, attrs, 3, ra.PublicKey(), epoch)
 	if err != nil {
 		return "", errors.WithMessage(err, "Failed to verify the token")
 	}
@@ -299,11 +308,7 @@ func (i *issuer) CredDBAccessor() CredDBAccessor {
 func (i *issuer) initKeyMaterial(renew bool) error {
 	//log.Debug("Initialize Idemix issuer key material")
 
-	rng, err := i.idemixLib.GetRand()
-	if err != nil {
-		return errors.Wrapf(err, "Error generating random number")
-	}
-	i.idemixRand = rng
+	i.idemixRand = i.idemixLib.GetRand()
 
 	idemixPubKey := i.cfg.IssuerPublicKeyfile
 	idemixSecretKey := i.cfg.IssuerSecretKeyfile
