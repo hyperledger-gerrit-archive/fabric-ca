@@ -1,0 +1,36 @@
+v1.4.0 Release Notes - 12/05/18
+---------------------------------------------
+
+What's New in Hyperledger Fabric CA v1.4
+----------------------------------------
+
+The token generation/authentication mechanism was improved to prevent token reuse.
+In 1.4, a more secure token is used. To enable authentication of both the old and new
+token, the following environment variable should be set to true:
+
+FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1.3=true
+
+Fabric CA client and the JAVA SDK have been updated to generate the more secure token.
+To prevent other CA clients from breaking until they start generating the more
+secure token, the compatibility should remain set to 'true'. Once all the
+clients are generating the more secure token, the above environment variable should
+be set to 'false'.
+
+Known Vulnerabilities
+---------------------
+[FABC-174] Many commands can be manipulated to delete identities or affiliations
+This vulnerability has a low severity because to exploit it, one would need to
+access the authorization header of the requests. Using HTTPS (TLS) eliminates this
+potential.
+
+Resolved Vulnerabilities
+------------------------
+https://jira.hyperledger.org/browse/FABC-174
+
+Other improvements and fixes
+----------------------------
+Updated to Go version 1.11.1
+Updated baseimage version to 0.4.14
+
+For the full list of improvements and fixes, refer to the release change log:
+https://github.com/hyperledger/fabric-ca/blob/master/CHANGELOG.md#v140
