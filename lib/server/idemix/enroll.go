@@ -105,6 +105,7 @@ func (h *EnrollRequestHandler) HandleRequest() (*EnrollmentResponse, error) {
 	}
 
 	cred, err := h.IdmxLib.NewCredential(ik, req.CredRequest, attrs, h.Issuer.IdemixRand())
+
 	if err != nil {
 		log.Errorf("Issuer '%s' failed to create new Idemix credential for identity '%s': %s",
 			h.Issuer.Name(), h.EnrollmentID, err.Error())
@@ -177,7 +178,7 @@ func (h *EnrollRequestHandler) Authenticate() error {
 }
 
 // GenerateNonce generates a nonce for an Idemix enroll request
-func (h *EnrollRequestHandler) GenerateNonce() *fp256bn.BIG {
+func (h *EnrollRequestHandler) GenerateNonce() (*fp256bn.BIG, error) {
 	return h.IdmxLib.RandModOrder(h.Issuer.IdemixRand())
 }
 
