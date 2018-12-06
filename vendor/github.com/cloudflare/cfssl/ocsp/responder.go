@@ -20,6 +20,8 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/certdb"
+	"github.com/cloudflare/cfssl/certdb/dbconf"
+	"github.com/cloudflare/cfssl/certdb/sql"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/jmhodges/clock"
 	"golang.org/x/crypto/ocsp"
@@ -158,18 +160,42 @@ func NewSourceFromFile(responseFile string) (Source, error) {
 	return src, nil
 }
 
+// NewSourceFromDB reads the given database configuration file
+// and creates a database data source for use with the OCSP responder
+func NewSourceFromDB(DBConfigFile string) (Source, error) {
+	// Load DB from cofiguration file
+	db, err := dbconf.DBFromConfig(DBConfigFile)
+
+	if err != nil {
+		return nil, err
+	}
+	// Create accesor
+	accessor := sql.NewAccessor(db)
+	src := NewDBSource(accessor)
+
+	return src, nil
+}
+
+// Stats is a basic interface that allows users to record information
+// about returned responses
+type Stats interface {
+	ResponseStatus(ocsp.ResponseStatus)
+}
+
 // A Responder object provides the HTTP logic to expose a
 // Source of OCSP responses.
 type Responder struct {
 	Source Source
+	stats  Stats
 	clk    clock.Clock
 }
 
 // NewResponder instantiates a Responder with the give Source.
-func NewResponder(source Source) *Responder {
+func NewResponder(source Source, stats Stats) *Responder {
 	return &Responder{
 		Source: source,
-		clk:    clock.Default(),
+		stats:  stats,
+		clk:    clock.New(),
 	}
 }
 
@@ -209,7 +235,7 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 	case "GET":
 		base64Request, err := url.QueryUnescape(request.URL.Path)
 		if err != nil {
-			log.Infof("Error decoding URL: %s", request.URL.Path)
+			log.Debugf("Error decoding URL: %s", request.URL.Path)
 			response.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -232,7 +258,7 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 		}
 		requestBody, err = base64.StdEncoding.DecodeString(string(base64RequestBytes))
 		if err != nil {
-			log.Infof("Error decoding base64 from URL: %s", string(base64RequestBytes))
+			log.Debugf("Error decoding base64 from URL: %s", string(base64RequestBytes))
 			response.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -261,9 +287,12 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 	//      should return unauthorizedRequest instead of malformed.
 	ocspRequest, err := ocsp.ParseRequest(requestBody)
 	if err != nil {
-		log.Infof("Error decoding request body: %s", b64Body)
+		log.Debugf("Error decoding request body: %s", b64Body)
 		response.WriteHeader(http.StatusBadRequest)
 		response.Write(malformedRequestErrorResponse)
+		if rs.stats != nil {
+			rs.stats.ResponseStatus(ocsp.Malformed)
+		}
 		return
 	}
 
@@ -274,12 +303,18 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 			log.Infof("No response found for request: serial %x, request body %s",
 				ocspRequest.SerialNumber, b64Body)
 			response.Write(unauthorizedErrorResponse)
+			if rs.stats != nil {
+				rs.stats.ResponseStatus(ocsp.Unauthorized)
+			}
 			return
 		}
 		log.Infof("Error retrieving response for request: serial %x, request body %s, error: %s",
 			ocspRequest.SerialNumber, b64Body, err)
 		response.WriteHeader(http.StatusInternalServerError)
 		response.Write(internalErrorErrorResponse)
+		if rs.stats != nil {
+			rs.stats.ResponseStatus(ocsp.InternalError)
+		}
 		return
 	}
 
@@ -287,7 +322,10 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 	if err != nil {
 		log.Errorf("Error parsing response for serial %x: %s",
 			ocspRequest.SerialNumber, err)
-		response.Write(unauthorizedErrorResponse)
+		response.Write(internalErrorErrorResponse)
+		if rs.stats != nil {
+			rs.stats.ResponseStatus(ocsp.InternalError)
+		}
 		return
 	}
 
@@ -328,4 +366,7 @@ func (rs Responder) ServeHTTP(response http.ResponseWriter, request *http.Reques
 	}
 	response.WriteHeader(http.StatusOK)
 	response.Write(ocspResponse)
+	if rs.stats != nil {
+		rs.stats.ResponseStatus(ocsp.Success)
+	}
 }

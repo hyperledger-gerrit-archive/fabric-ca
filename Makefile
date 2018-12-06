@@ -12,6 +12,7 @@
 #   - fabric-ca-client - builds the fabric-ca-client executable
 #   - unit-tests - Performs checks first and runs the go-test based unit tests
 #   - checks - runs all check conditions (license, format, imports, lint and vet)
+#   - check-deps - check for vendored dependencies that are no longer used
 #   - docker[-clean] - ensures all docker images are available[/cleaned]
 #   - docker-fabric-ca - build the fabric-ca docker image
 #   - bench - Runs benchmarks in all the packages and stores the results in /tmp/bench.results
@@ -90,7 +91,10 @@ docker-fvt: $(patsubst %,build/image/%/$(DUMMY), $(FVTIMAGE))
 changelog:
 	./scripts/changelog.sh v$(PREV_VERSION) HEAD v$(BASE_VERSION)
 
-checks: license vet lint format imports
+checks: license vet lint format imports check-deps
+
+check-deps:
+	@scripts/check_deps.sh
 
 license: .FORCE
 	@scripts/check_license
