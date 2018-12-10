@@ -26,11 +26,22 @@ type Lib interface {
 }
 
 // libImpl is adapter for idemix library. It implements Lib interface
-type libImpl struct{}
+type libImpl struct {
+	idemix Lib
+}
 
 // NewLib returns an instance of an object that implements Lib interface
 func NewLib() Lib {
-	return &libImpl{}
+	return &libImpl{
+		idemix: &idemixWrapper{},
+	}
+}
+
+// NewLibProvider returns an instance of an object that implements Lib interface
+func NewLibProvider(idemix Lib) Lib {
+	return &libImpl{
+		idemix: idemix,
+	}
 }
 
 func (i *libImpl) GetRand() (rand *amcl.RAND, err error) {
@@ -40,7 +51,7 @@ func (i *libImpl) GetRand() (rand *amcl.RAND, err error) {
 			err = errors.Errorf("failure: %s", r)
 		}
 	}()
-	return idemix.GetRand()
+	return i.idemix.GetRand()
 }
 func (i *libImpl) NewCredential(key *idemix.IssuerKey, m *idemix.CredRequest, attrs []*fp256bn.BIG, rng *amcl.RAND) (cred *idemix.Credential, err error) {
 	defer func() {
@@ -49,7 +60,7 @@ func (i *libImpl) NewCredential(key *idemix.IssuerKey, m *idemix.CredRequest, at
 			err = errors.Errorf("failure: %s", r)
 		}
 	}()
-	return idemix.NewCredential(key, m, attrs, rng)
+	return i.idemix.NewCredential(key, m, attrs, rng)
 }
 func (i *libImpl) RandModOrder(rng *amcl.RAND) (big *fp256bn.BIG, err error) {
 	defer func() {
@@ -58,7 +69,7 @@ func (i *libImpl) RandModOrder(rng *amcl.RAND) (big *fp256bn.BIG, err error) {
 			err = errors.Errorf("failure: %s", r)
 		}
 	}()
-	return idemix.RandModOrder(rng), nil
+	return i.idemix.RandModOrder(rng)
 }
 func (i *libImpl) NewIssuerKey(AttributeNames []string, rng *amcl.RAND) (ik *idemix.IssuerKey, err error) {
 	defer func() {
@@ -67,7 +78,7 @@ func (i *libImpl) NewIssuerKey(AttributeNames []string, rng *amcl.RAND) (ik *ide
 			err = errors.Errorf("failure: %s", r)
 		}
 	}()
-	return idemix.NewIssuerKey(AttributeNames, rng)
+	return i.idemix.NewIssuerKey(AttributeNames, rng)
 }
 func (i *libImpl) CreateCRI(key *ecdsa.PrivateKey, unrevokedHandles []*fp256bn.BIG, epoch int, alg idemix.RevocationAlgorithm, rng *amcl.RAND) (cri *idemix.CredentialRevocationInformation, err error) {
 	defer func() {
@@ -76,7 +87,7 @@ func (i *libImpl) CreateCRI(key *ecdsa.PrivateKey, unrevokedHandles []*fp256bn.B
 			err = errors.Errorf("failure: %s", r)
 		}
 	}()
-	return idemix.CreateCRI(key, unrevokedHandles, epoch, alg, rng)
+	return i.idemix.CreateCRI(key, unrevokedHandles, epoch, alg, rng)
 }
 func (i *libImpl) GenerateLongTermRevocationKey() (pk *ecdsa.PrivateKey, err error) {
 	defer func() {
@@ -85,5 +96,26 @@ func (i *libImpl) GenerateLongTermRevocationKey() (pk *ecdsa.PrivateKey, err err
 			err = errors.Errorf("failure: %s", r)
 		}
 	}()
+	return i.idemix.GenerateLongTermRevocationKey()
+}
+
+type idemixWrapper struct{}
+
+func (i *idemixWrapper) GetRand() (rand *amcl.RAND, err error) {
+	return idemix.GetRand()
+}
+func (i *idemixWrapper) NewCredential(key *idemix.IssuerKey, m *idemix.CredRequest, attrs []*fp256bn.BIG, rng *amcl.RAND) (cred *idemix.Credential, err error) {
+	return idemix.NewCredential(key, m, attrs, rng)
+}
+func (i *idemixWrapper) RandModOrder(rng *amcl.RAND) (big *fp256bn.BIG, err error) {
+	return idemix.RandModOrder(rng), nil
+}
+func (i *idemixWrapper) NewIssuerKey(AttributeNames []string, rng *amcl.RAND) (ik *idemix.IssuerKey, err error) {
+	return idemix.NewIssuerKey(AttributeNames, rng)
+}
+func (i *idemixWrapper) CreateCRI(key *ecdsa.PrivateKey, unrevokedHandles []*fp256bn.BIG, epoch int, alg idemix.RevocationAlgorithm, rng *amcl.RAND) (cri *idemix.CredentialRevocationInformation, err error) {
+	return idemix.CreateCRI(key, unrevokedHandles, epoch, alg, rng)
+}
+func (i *idemixWrapper) GenerateLongTermRevocationKey() (pk *ecdsa.PrivateKey, err error) {
 	return idemix.GenerateLongTermRevocationKey()
 }
