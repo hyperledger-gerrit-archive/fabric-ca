@@ -37,6 +37,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -289,8 +290,15 @@ func VerifyToken(csp bccsp.BCCSP, token string, method, uri string, body []byte)
 		return nil, errors.New("Public Key Cannot be imported into BCCSP")
 	}
 
-	compMode := os.Getenv("FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1.3")
-	compMode = "true" // TODO: Remove this default setting once all the SDKs have been updated to use the new authorization header
+	compModeStr := os.Getenv("FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1_3")
+	if compModeStr == "" {
+		compModeStr = "true" // TODO: Change default to false once all clients have been updated to use the new authorization header
+	}
+
+	compMode, err := strconv.ParseBool(compModeStr)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Invalid value for boolean environment variable 'FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1_3'")
+	}
 
 	//bccsp.X509PublicKeyImportOpts
 	//Using default hash algo
@@ -300,7 +308,7 @@ func VerifyToken(csp bccsp.BCCSP, token string, method, uri string, body []byte)
 	}
 
 	valid, validErr := csp.Verify(pk2, sig, digest, nil)
-	if strings.ToLower(compMode) == "true" && !valid {
+	if compMode && !valid {
 		log.Debugf("Failed to verify token based on new authentication header requirements: %s", err)
 		sigString := b64Body + "." + b64Cert
 		digest, digestError := csp.Hash([]byte(sigString), &bccsp.SHAOpts{})

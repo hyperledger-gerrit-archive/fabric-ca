@@ -71,6 +71,12 @@ func TestECCreateToken(t *testing.T) {
 		t.Fatalf("CreatToken failed: %s", err)
 	}
 
+	// Test with invalid boolean value for env var and confirm that it returns appropriate error
+	os.Setenv("FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1_3", "badValue") // Test new token
+	_, err = VerifyToken(bccsp, ECtoken, "GET", "/enroll", body)
+	ErrorContains(t, err, "parsing \"badValue\": invalid syntax", "Should error if using an invalid boolean value")
+
+	os.Setenv("FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1_3", "false") // Test new token
 	_, err = VerifyToken(bccsp, ECtoken, "GET", "/enroll", body)
 	if err != nil {
 		t.Fatalf("VerifyToken failed: %s", err)
@@ -117,12 +123,16 @@ func TestECCreateToken(t *testing.T) {
 		t.Fatal("CreatToken should have failed as certificate passed is not correct")
 	}
 
-	os.Setenv("FABRIC_CA_SERVER_AUTHHDR_COMPATIBILITY", "true")
-	defer os.Unsetenv("FABRIC_CA_SERVER_AUTHHDR_COMPATIBILITY")
+	// With comptability mode disabled, using old token should fail
 	b64Cert := B64Encode(cert)
 	payload := B64Encode(body) + "." + b64Cert
 	oldToken, err := genECDSAToken(bccsp, privKey, b64Cert, payload)
 	FatalError(t, err, "Failed to create token")
+	_, err = VerifyToken(bccsp, oldToken, "GET", "/enroll", body)
+	assert.Error(t, err)
+
+	// Test that by default with no environment variable set, the old token is considered valid
+	os.Unsetenv("FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1_3")
 	_, err = VerifyToken(bccsp, oldToken, "GET", "/enroll", body)
 	assert.NoError(t, err, "Failed to verify token using old token type")
 }

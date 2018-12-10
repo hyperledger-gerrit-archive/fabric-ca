@@ -1029,7 +1029,7 @@ The token authentication mechanism was improved to prevent token reuse. After up
 to 1.4, a more secure authentication method is used. To enable both the old and new authentication
 mechanism, the following environment should be set to true::
 
- FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1.3=true
+ FABRIC_CA_SERVER_COMPATIBILITY_MODE_V1_3=true
 
 All clients should be updated to release 1.4, clients in 1.4 version will generate tokens
 that are more secure. Once all the clients have been updated, the above environment variable should
