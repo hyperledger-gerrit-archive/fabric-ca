@@ -14,7 +14,9 @@ import (
 	"testing"
 
 	"github.com/cloudflare/cfssl/api"
+	"github.com/gorilla/mux"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
+	"github.com/hyperledger/fabric/common/metrics/metricsfakes"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -37,6 +39,20 @@ func testEndpoint(t *testing.T, method, url string, scode, rcode int) {
 	se := &serverEndpoint{
 		Methods: []string{"GET", "POST", "HEAD"},
 		Handler: testEndpointHandler,
+	}
+
+	errCounter := &metricsfakes.Counter{}
+	errCounter.WithReturns(errCounter)
+	se.Server = &Server{
+		CA: CA{
+			Config: &CAConfig{
+				CA: CAInfo{},
+			},
+		},
+		Metrics: Metrics{
+			APIErrorCounter: errCounter,
+		},
+		mux: mux.NewRouter(),
 	}
 	r, err := http.NewRequest(method, url, nil)
 	assert.NoError(t, err)
