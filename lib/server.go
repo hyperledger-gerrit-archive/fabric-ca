@@ -33,6 +33,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/common/metrics/disabled"
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
@@ -53,6 +54,8 @@ type Server struct {
 	BlockingStart bool
 	// The server's configuration
 	Config *ServerConfig
+	// Metrics are the metrics that the server tracks
+	Metrics Metrics
 	// The server mux
 	mux *gmux.Router
 	// The current listener for this server
@@ -107,8 +110,16 @@ func (s *Server) init(renew bool) (err error) {
 	if err != nil {
 		return err
 	}
+	s.initMetrics()
 	// Successful initialization
 	return nil
+}
+
+func (s *Server) initMetrics() {
+	provider := disabled.Provider{} // This is temporary, will eventually be replaced by actual provider
+	s.Metrics.APICounter = provider.NewCounter(apiCounterOpts)
+	s.Metrics.APIErrorCounter = provider.NewCounter(apiErrorCounterOpts)
+	s.Metrics.APIDuration = provider.NewHistogram(apiDurationOpts)
 }
 
 // Start the fabric-ca server
@@ -489,8 +500,29 @@ func (s *Server) registerHandler(se *serverEndpoint) {
 
 func (s *Server) middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiName := s.getAPIName(r)
+		caName := s.getCAName()
+		s.Metrics.APICounter.With("ca_name", caName, "api_name", apiName).Add(1)
+		defer s.recordAPIDuration(time.Now(), caName, apiName)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (s *Server) getAPIName(r *http.Request) string {
+	var apiName string
+	var match gmux.RouteMatch
+	if s.mux.Match(r, &match) {
+		apiName = match.Route.GetName()
+	}
+	return apiName
+}
+
+func (s *Server) getCAName() string {
+	return s.CA.Config.CA.Name
+}
+
+func (s *Server) recordAPIDuration(startTime time.Time, caName, apiName string) {
+	s.Metrics.APIDuration.With("ca_name", caName, "api_name", apiName).Observe(time.Since(startTime).Seconds())
 }
 
 // Starting listening and serving

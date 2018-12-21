@@ -137,7 +137,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d2820039c7a6b897ea4c6e2d4bee86dbdbab4d15ebba16c2d5fc18180459899b"
+  digest = "1:a642e2ab04ab06613b41749305338de6057004b2ae4b6826ee80f4acd63b9b2a"
   name = "github.com/hyperledger/fabric"
   packages = [
     "bccsp",
@@ -149,6 +149,9 @@
     "common/attrmgr",
     "common/flogging",
     "common/flogging/fabenc",
+    "common/metrics",
+    "common/metrics/disabled",
+    "common/metrics/metricsfakes",
     "idemix",
   ]
   pruneopts = "UT"
@@ -546,6 +549,9 @@
     "github.com/hyperledger/fabric/bccsp/signer",
     "github.com/hyperledger/fabric/bccsp/utils",
     "github.com/hyperledger/fabric/common/attrmgr",
+    "github.com/hyperledger/fabric/common/metrics",
+    "github.com/hyperledger/fabric/common/metrics/disabled",
+    "github.com/hyperledger/fabric/common/metrics/metricsfakes",
     "github.com/hyperledger/fabric/idemix",
     "github.com/jmoiron/sqlx",
     "github.com/kisielk/sqlstruct",
