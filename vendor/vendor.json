@@ -456,6 +456,24 @@
 			"revisionTime": "2018-08-10T18:42:28Z"
 		},
 		{
+			"checksumSHA1": "WOLMxJCYaKYleZvmGEClhuhM3BE=",
+			"path": "github.com/hyperledger/fabric/common/metrics",
+			"revision": "46a6b0e6b2ffd772e8ddf949af4f685b9fd413ee",
+			"revisionTime": "2019-01-03T18:48:40Z"
+		},
+		{
+			"checksumSHA1": "G1kPTyG6AIFY3EE7QnJTMSQe4Yk=",
+			"path": "github.com/hyperledger/fabric/common/metrics/disabled",
+			"revision": "46a6b0e6b2ffd772e8ddf949af4f685b9fd413ee",
+			"revisionTime": "2019-01-03T18:48:40Z"
+		},
+		{
+			"checksumSHA1": "sxoQ5f6L9yyicIDIvLNM0BGldSE=",
+			"path": "github.com/hyperledger/fabric/common/metrics/metricsfakes",
+			"revision": "46a6b0e6b2ffd772e8ddf949af4f685b9fd413ee",
+			"revisionTime": "2019-01-03T18:48:40Z"
+		},
+		{
 			"checksumSHA1": "PZEB7eAHAev0KuBWBfDvfGGIO9c=",
 			"path": "github.com/hyperledger/fabric/idemix",
 			"revision": "5b2b5616d49538ace14aa9e08a482b9089c78df8",

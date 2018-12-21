@@ -9,6 +9,7 @@ package lib
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/cloudflare/cfssl/api"
 	"github.com/cloudflare/cfssl/log"
@@ -46,8 +47,12 @@ func (se *serverEndpoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	he := getHTTPErr(err)
 	if he != nil {
+		errorCode := he.GetStatusCode()
+		apiName := se.Server.getAPIName(r)
+		caName := se.Server.getCAName()
+		se.Server.Metrics.APIErrorCounter.With("ca_name", caName, "api_name", apiName, "error_code", strconv.Itoa(errorCode)).Add(1)
 		// An error occurred
-		w.WriteHeader(he.GetStatusCode())
+		w.WriteHeader(errorCode)
 		log.Infof(`%s %s %s %d %d "%s"`, r.RemoteAddr, r.Method, r.URL, he.GetStatusCode(), he.GetLocalCode(), he.GetLocalMsg())
 	} else {
 		// No error occurred
