@@ -25,6 +25,7 @@ import (
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
 	"github.com/cloudflare/cfssl/signer"
+	kitstatsd "github.com/go-kit/kit/metrics/statsd"
 	gmux "github.com/gorilla/mux"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
@@ -33,8 +34,12 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	stls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/hyperledger/fabric/common/metrics/disabled"
+	"github.com/hyperledger/fabric/common/metrics/prometheus"
+	"github.com/hyperledger/fabric/common/metrics/statsd"
 	"github.com/pkg/errors"
+	prom "github.com/prometheus/client_golang/prometheus"
 	"github.com/spf13/viper"
 )
 
@@ -56,6 +61,8 @@ type Server struct {
 	Config *ServerConfig
 	// Metrics are the metrics that the server tracks
 	Metrics Metrics
+	// MetricsProvider is the configured metrics provider
+	MetricsProvider metrics.Provider
 	// The server mux
 	mux *gmux.Router
 	// The current listener for this server
@@ -74,6 +81,8 @@ type Server struct {
 	mutex sync.Mutex
 	// The server's current levels
 	levels *dbutil.Levels
+	// statsd object to create metrics
+	statsd *kitstatsd.Statsd
 }
 
 // Init initializes a fabric-ca server
@@ -100,6 +109,7 @@ func (s *Server) init(renew bool) (err error) {
 	}
 	log.Infof("Server Levels: %+v", s.levels)
 
+	s.mux = gmux.NewRouter()
 	// Initialize the config
 	err = s.initConfig()
 	if err != nil {
@@ -110,16 +120,67 @@ func (s *Server) init(renew bool) (err error) {
 	if err != nil {
 		return err
 	}
+	s.initMetricsProvider()
 	s.initMetrics()
+	err = s.startMetricsTickers()
+	if err != nil {
+		return err
+	}
 	// Successful initialization
 	return nil
 }
 
+func (s *Server) initMetricsProvider() {
+	m := s.Config.Metrics
+	providerType := m.Provider
+	switch providerType {
+	case "statsd":
+		prefix := m.Statsd.Prefix
+		if prefix != "" && !strings.HasSuffix(prefix, ".") {
+			prefix = prefix + "."
+		}
+
+		ks := kitstatsd.New(prefix, s)
+		s.MetricsProvider = &statsd.Provider{Statsd: ks}
+		s.statsd = ks
+
+	case "prometheus":
+		s.MetricsProvider = &prometheus.Provider{}
+		s.mux.Handle("/metrics", prom.Handler())
+
+	default:
+		if providerType != "disabled" {
+			log.Warningf("Unknown provider type: %s; metrics disabled", providerType)
+		}
+
+		s.MetricsProvider = &disabled.Provider{}
+	}
+}
+
 func (s *Server) initMetrics() {
-	provider := disabled.Provider{} // This is temporary, will eventually be replaced by actual provider
-	s.Metrics.APICounter = provider.NewCounter(apiCounterOpts)
-	s.Metrics.APIErrorCounter = provider.NewCounter(apiErrorCounterOpts)
-	s.Metrics.APIDuration = provider.NewHistogram(apiDurationOpts)
+	s.Metrics.APICounter = s.MetricsProvider.NewCounter(apiCounterOpts)
+	s.Metrics.APIErrorCounter = s.MetricsProvider.NewCounter(apiErrorCounterOpts)
+	s.Metrics.APIDuration = s.MetricsProvider.NewHistogram(apiDurationOpts)
+}
+
+func (s *Server) startMetricsTickers() error {
+	m := s.Config.Metrics
+	if s.statsd != nil {
+		network := m.Statsd.Network
+		address := m.Statsd.Address
+		c, err := net.Dial(network, address)
+		if err != nil {
+			return err
+		}
+		c.Close()
+
+		writeInterval := s.Config.Metrics.Statsd.WriteInterval
+
+		sendTicker := time.NewTicker(writeInterval)
+		go s.statsd.SendLoop(sendTicker.C, network, address)
+	}
+
+	return nil
 }
 
 // Start the fabric-ca server
@@ -474,7 +535,6 @@ func (s *Server) GetCA(name string) (*CA, error) {
 
 // Register all endpoint handlers
 func (s *Server) registerHandlers() {
-	s.mux = gmux.NewRouter()
 	s.mux.Use(s.middleware)
 	s.registerHandler(newCAInfoEndpoint(s))
 	s.registerHandler(newRegisterEndpoint(s))
@@ -807,6 +867,12 @@ func (s *Server) autoGenerateTLSCertificateKey() error {
 	c := s.Config
 	log.Debugf("Generated TLS Certificate: %s", c.TLS.CertFile)
 
+	return nil
+}
+
+// Log is a function required to meet the interface required by statsd
+func (s *Server) Log(keyvals ...interface{}) error {
+	log.Warning(keyvals...)
 	return nil
 }
 
