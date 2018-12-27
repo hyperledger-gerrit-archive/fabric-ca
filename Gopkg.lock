@@ -247,6 +247,27 @@
   revision = "f3009df150dadf309fdee4a54ed65c124afad715"
 
 [[projects]]
+  digest = "1:7a137fb7718928e473b7d805434ae563ec41790d3d227cdc64e8b14d1cab8a1f"
+  name = "github.com/onsi/gomega"
+  packages = [
+    ".",
+    "format",
+    "internal/assertion",
+    "internal/asyncassertion",
+    "internal/oraclematcher",
+    "internal/testingtsupport",
+    "matchers",
+    "matchers/support/goraph/bipartitegraph",
+    "matchers/support/goraph/edge",
+    "matchers/support/goraph/node",
+    "matchers/support/goraph/util",
+    "types",
+  ]
+  pruneopts = "UT"
+  revision = "65fb64232476ad9046e57c26cd0bff3d3a8dc6cd"
+  version = "v1.4.3"
+
+[[projects]]
   branch = "master"
   digest = "1:41f3b549dbb8216e490c27926c09dc055aa509b3476e7cbc3317103990b13aeb"
   name = "github.com/op/go-logging"
@@ -412,11 +433,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:f8b491a7c25030a895a0e579742d07136e6958e77ef2d46e769db8eec4e58fcd"
+  digest = "1:302d2c4338fa5b4bfd2d495aef2622961d38e8be7d599446b3cfeb03c07d0c9c"
   name = "golang.org/x/net"
   packages = [
     "context",
     "context/ctxhttp",
+    "html",
+    "html/atom",
+    "html/charset",
   ]
   pruneopts = "UT"
   revision = "351d144fa1fc0bd934e2408202be0c29f25e35a0"
@@ -430,12 +454,28 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:6347a2dff55cc3aebda787bb01f588766fbf2c95537d6d54e73c124f4feef4f1"
+  digest = "1:57c454c228fe055726851a66d5ae6f417a821f74380b572f6beb54acd1cda76f"
   name = "golang.org/x/text"
   packages = [
+    "encoding",
+    "encoding/charmap",
+    "encoding/htmlindex",
+    "encoding/internal",
+    "encoding/internal/identifier",
+    "encoding/japanese",
+    "encoding/korean",
+    "encoding/simplifiedchinese",
+    "encoding/traditionalchinese",
+    "encoding/unicode",
     "internal/gen",
+    "internal/language",
+    "internal/language/compact",
+    "internal/tag",
     "internal/triegen",
     "internal/ucd",
+    "internal/utf8internal",
+    "language",
+    "runes",
     "transform",
     "unicode/cldr",
     "unicode/norm",
@@ -512,6 +552,7 @@
     "github.com/lib/pq",
     "github.com/mattn/go-sqlite3",
     "github.com/mitchellh/mapstructure",
+    "github.com/onsi/gomega",
     "github.com/op/go-logging",
     "github.com/pkg/errors",
     "github.com/pkg/profile",
