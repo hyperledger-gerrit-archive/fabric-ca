@@ -10,6 +10,14 @@
 
 [[projects]]
   branch = "master"
+  digest = "1:d6afaeed1502aa28e80a4ed0981d570ad91b2579193404256ce672ed0a609e0d"
+  name = "github.com/beorn7/perks"
+  packages = ["quantile"]
+  pruneopts = "UT"
+  revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
+
+[[projects]]
+  branch = "master"
   digest = "1:b1176bec8ae47fe06dc87aa4383a06feb79dff69b18ec559246f17089d2854af"
   name = "github.com/cloudflare/cfssl"
   packages = [
@@ -57,11 +65,43 @@
   revision = "fd9ec7deca8bf46ecd2a795baaacf2b3a9be1197"
 
 [[projects]]
+  digest = "1:928d7aa53b9685451f97fd2af59bff2234870469700684ec313cc966e470bb7c"
+  name = "github.com/go-kit/kit"
+  packages = [
+    "log",
+    "metrics",
+    "metrics/internal/lv",
+    "metrics/internal/ratemap",
+    "metrics/prometheus",
+    "metrics/statsd",
+    "util/conn",
+  ]
+  pruneopts = "UT"
+  revision = "ca4112baa34cb55091301bdc13b1420a122b1b9e"
+  version = "v0.7.0"
+
+[[projects]]
+  digest = "1:4062bc6de62d73e2be342243cf138cf499b34d558876db8d9430e2149388a4d8"
+  name = "github.com/go-logfmt/logfmt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "07c9b44f60d7ffdfb7d8efe1ad539965737836dc"
+  version = "v0.4.0"
+
+[[projects]]
   digest = "1:a60715b2df01e01c323cf331185f091f866b3c34630e9853a4fd53bd1dc16fb2"
   name = "github.com/go-sql-driver/mysql"
   packages = ["."]
   pruneopts = "UT"
   revision = "2a6c6079c7eff49a7e9d641e109d922f124a3e4c"
+
+[[projects]]
+  digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
+  name = "github.com/go-stack/stack"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a"
+  version = "v1.8.0"
 
 [[projects]]
   digest = "1:bbadccf3d3317ea03c0dac0b45b673b4b397c8f91a1d2eff550a3c51c4ad770e"
@@ -137,7 +177,7 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:a642e2ab04ab06613b41749305338de6057004b2ae4b6826ee80f4acd63b9b2a"
+  digest = "1:2ae19d1797e49acf8197b8a0878224dcaddbc0c57794313439cf95d9dc979569"
   name = "github.com/hyperledger/fabric"
   packages = [
     "bccsp",
@@ -151,7 +191,10 @@
     "common/flogging/fabenc",
     "common/metrics",
     "common/metrics/disabled",
+    "common/metrics/internal/namer",
     "common/metrics/metricsfakes",
+    "common/metrics/prometheus",
+    "common/metrics/statsd",
     "idemix",
   ]
   pruneopts = "UT"
@@ -211,6 +254,14 @@
   revision = "2788f0dbd16903de03cb8186e5c7d97b69ad387b"
 
 [[projects]]
+  branch = "master"
+  digest = "1:a64e323dc06b73892e5bb5d040ced475c4645d456038333883f58934abbf6f72"
+  name = "github.com/kr/logfmt"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "b84e30acd515aadc4b783ad4ff83aff3299bdfe0"
+
+[[projects]]
   digest = "1:d699ccf8a2d2cc8bae47229db760e685605624c57de6d27b87c78017691d3372"
   name = "github.com/lib/pq"
   packages = [
@@ -235,6 +286,14 @@
   revision = "86681de00adef4f8040947b7d35f97000fc5a230"
 
 [[projects]]
+  digest = "1:ff5ebae34cfbf047d505ee150de27e60570e8c394b3b8fdbb720ff6ac71985fc"
+  name = "github.com/matttproud/golang_protobuf_extensions"
+  packages = ["pbutil"]
+  pruneopts = "UT"
+  revision = "c12348ce28de40eed0136aa2b644d0ee0650e56c"
+  version = "v1.0.1"
+
+[[projects]]
   branch = "master"
   digest = "1:5ae265eb6d780f3560f0f937fa6eb1b6488c58217e632be45d0c30da2832a90e"
   name = "github.com/miekg/pkcs11"
@@ -250,11 +309,12 @@
   revision = "f3009df150dadf309fdee4a54ed65c124afad715"
 
 [[projects]]
-  digest = "1:7a137fb7718928e473b7d805434ae563ec41790d3d227cdc64e8b14d1cab8a1f"
+  digest = "1:5a52ee2374f9d6582665cf84195058888faff1007302aa7f07abee1fda39bb54"
   name = "github.com/onsi/gomega"
   packages = [
     ".",
     "format",
+    "gbytes",
     "internal/assertion",
     "internal/asyncassertion",
     "internal/oraclematcher",
@@ -314,6 +374,50 @@
   pruneopts = "UT"
   revision = "792786c7400a136282c1664665ae0a8db921c6c2"
   version = "v1.0.0"
+
+[[projects]]
+  digest = "1:75d51eeab0df85a3cea9e1297ccd3183b20a10cb4b48c753d8ec8d113cc14250"
+  name = "github.com/prometheus/client_golang"
+  packages = [
+    "prometheus",
+    "prometheus/internal",
+  ]
+  pruneopts = "UT"
+  revision = "505eaef017263e299324067d40ca2c48f6a2cf50"
+  version = "v0.9.2"
+
+[[projects]]
+  branch = "master"
+  digest = "1:2d5cd61daa5565187e1d96bae64dbbc6080dacf741448e9629c64fd93203b0d4"
+  name = "github.com/prometheus/client_model"
+  packages = ["go"]
+  pruneopts = "UT"
+  revision = "5c3871d89910bfb32f5fcab2aa4b9ec68e65a99f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:33c81bf709f084827a560e14415b1d7001a6d1d6fa4bec2cc2e60b84ecbc0e0a"
+  name = "github.com/prometheus/common"
+  packages = [
+    "expfmt",
+    "internal/bitbucket.org/ww/goautoneg",
+    "model",
+  ]
+  pruneopts = "UT"
+  revision = "67670fe90761d7ff18ec1d640135e53b9198328f"
+
+[[projects]]
+  branch = "master"
+  digest = "1:d39e7c7677b161c2dd4c635a2ac196460608c7d8ba5337cc8cae5825a2681f8f"
+  name = "github.com/prometheus/procfs"
+  packages = [
+    ".",
+    "internal/util",
+    "nfs",
+    "xfs",
+  ]
+  pruneopts = "UT"
+  revision = "1dc9a6cbc91aacc3e8b2d63db4d2e957a5394ac4"
 
 [[projects]]
   digest = "1:ad377bd8cc2628c57276e9f880e5211774c916edb8139716b3153092b028c58c"
@@ -537,6 +641,7 @@
     "github.com/cloudflare/cfssl/revoke",
     "github.com/cloudflare/cfssl/signer",
     "github.com/cloudflare/cfssl/signer/local",
+    "github.com/go-kit/kit/metrics/statsd",
     "github.com/go-sql-driver/mysql",
     "github.com/golang/protobuf/proto",
     "github.com/gorilla/mux",
@@ -552,6 +657,8 @@
     "github.com/hyperledger/fabric/common/metrics",
     "github.com/hyperledger/fabric/common/metrics/disabled",
     "github.com/hyperledger/fabric/common/metrics/metricsfakes",
+    "github.com/hyperledger/fabric/common/metrics/prometheus",
+    "github.com/hyperledger/fabric/common/metrics/statsd",
     "github.com/hyperledger/fabric/idemix",
     "github.com/jmoiron/sqlx",
     "github.com/kisielk/sqlstruct",
@@ -559,9 +666,11 @@
     "github.com/mattn/go-sqlite3",
     "github.com/mitchellh/mapstructure",
     "github.com/onsi/gomega",
+    "github.com/onsi/gomega/gbytes",
     "github.com/op/go-logging",
     "github.com/pkg/errors",
     "github.com/pkg/profile",
+    "github.com/prometheus/client_golang/prometheus",
     "github.com/spf13/cast",
     "github.com/spf13/cobra",
     "github.com/spf13/pflag",
