@@ -17,6 +17,8 @@ import (
 	"github.com/Knetic/govaluate"
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry"
+	causer "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/user"
 	"github.com/hyperledger/fabric-ca/lib/spi"
 	ctls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
@@ -162,7 +164,7 @@ type Client struct {
 
 // GetUser returns a user object for username and attribute values
 // for the requested attribute names
-func (lc *Client) GetUser(username string, attrNames []string) (spi.User, error) {
+func (lc *Client) GetUser(username string, attrNames []string) (userregistry.User, error) {
 
 	var sresp *ldap.SearchResult
 	var err error
@@ -234,17 +236,17 @@ func (lc *Client) GetUser(username string, attrNames []string) (spi.User, error)
 }
 
 // InsertUser inserts a user
-func (lc *Client) InsertUser(user *spi.UserInfo) error {
+func (lc *Client) InsertUser(user *causer.Info) error {
 	return errNotSupported
 }
 
 // UpdateUser updates a user
-func (lc *Client) UpdateUser(user *spi.UserInfo, updatePass bool) error {
+func (lc *Client) UpdateUser(user *causer.Info, updatePass bool) error {
 	return errNotSupported
 }
 
 // DeleteUser deletes a user
-func (lc *Client) DeleteUser(id string) (spi.User, error) {
+func (lc *Client) DeleteUser(id string) (userregistry.User, error) {
 	return nil, errNotSupported
 }
 
@@ -269,17 +271,17 @@ func (lc *Client) InsertAffiliation(name string, prekey string, version int) err
 }
 
 // DeleteAffiliation deletes an affiliation group
-func (lc *Client) DeleteAffiliation(name string, force, identityRemoval, isRegistrar bool) (*spi.DbTxResult, error) {
+func (lc *Client) DeleteAffiliation(name string, force, identityRemoval, isRegistrar bool) (*userregistry.DbTxResult, error) {
 	return nil, errNotSupported
 }
 
 // ModifyAffiliation renames the affiliation and updates all identities to use the new affiliation
-func (lc *Client) ModifyAffiliation(oldAffiliation, newAffiliation string, force, isRegistrar bool) (*spi.DbTxResult, error) {
+func (lc *Client) ModifyAffiliation(oldAffiliation, newAffiliation string, force, isRegistrar bool) (*userregistry.DbTxResult, error) {
 	return nil, errNotSupported
 }
 
 // GetUserLessThanLevel returns all identities that are less than the level specified
-func (lc *Client) GetUserLessThanLevel(version int) ([]spi.User, error) {
+func (lc *Client) GetUserLessThanLevel(version int) ([]userregistry.User, error) {
 	return nil, errNotSupported
 }
 
@@ -289,7 +291,7 @@ func (lc *Client) GetFilteredUsers(affiliation, types string) (*sqlx.Rows, error
 }
 
 // GetAffiliationTree returns the requested affiliations and all affiliations below it
-func (lc *Client) GetAffiliationTree(name string) (*spi.DbTxResult, error) {
+func (lc *Client) GetAffiliationTree(name string) (*userregistry.DbTxResult, error) {
 	return nil, errNotSupported
 }
 

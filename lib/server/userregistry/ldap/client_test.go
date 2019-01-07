@@ -1,23 +1,14 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-		 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package ldap
 
 import (
 	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -105,9 +96,10 @@ func TestLDAPTLS(t *testing.T) {
 		t.Errorf("ldap.NewClient failure: %s", err)
 		return
 	}
-	c.TLS.CertFiles = []string{"../../testdata/root.pem"}
-	c.TLS.Client.CertFile = "../../testdata/tls_client-cert.pem"
-	c.TLS.Client.KeyFile = "../../testdata/tls_client-key.pem"
+	testdata := "../../../../testdata"
+	c.TLS.CertFiles = []string{filepath.Join(testdata, "root.pem")}
+	c.TLS.Client.CertFile = filepath.Join(testdata, "tls_client-cert.pem")
+	c.TLS.Client.KeyFile = filepath.Join(testdata, "tls_client-key.pem")
 	user, err := c.GetUser("jsmith", []string{"mail"})
 	if err != nil {
 		t.Errorf("ldap.Client.GetUser failure: %s", err)
