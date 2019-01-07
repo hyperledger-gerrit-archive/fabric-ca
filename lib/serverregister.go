@@ -14,7 +14,8 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
-	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry"
+	cadbuser "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/user"
 	"github.com/hyperledger/fabric-ca/util"
 
 	"github.com/pkg/errors"
@@ -70,7 +71,7 @@ func register(ctx ServerRequestContext, ca *CA) (interface{}, error) {
 // RegisterUser will register a user and return the secret
 func registerUser(req *api.RegistrationRequest, registrar string, ca *CA, ctx ServerRequestContext) (string, error) {
 	var err error
-	var registrarUser spi.User
+	var registrarUser userregistry.User
 
 	registrarUser, err = ctx.GetCaller()
 	if err != nil {
@@ -95,9 +96,9 @@ func registerUser(req *api.RegistrationRequest, registrar string, ca *CA, ctx Se
 	return secret, nil
 }
 
-func normalizeRegistrationRequest(req *api.RegistrationRequest, registrar spi.User) {
+func normalizeRegistrationRequest(req *api.RegistrationRequest, registrar userregistry.User) {
 	if req.Affiliation == "" {
-		registrarAff := GetUserAffiliation(registrar)
+		registrarAff := cadbuser.GetUserAffiliation(registrar)
 		log.Debugf("No affiliation provided in registration request, will default to using registrar's affiliation of '%s'", registrarAff)
 		req.Affiliation = registrarAff
 	} else if req.Affiliation == "." {
@@ -151,7 +152,7 @@ func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 	addAttributeToRequest(attr.Type, req.Type, &req.Attributes)
 	addAttributeToRequest(attr.Affiliation, req.Affiliation, &req.Attributes)
 
-	insert := spi.UserInfo{
+	insert := cadbuser.Info{
 		Name:           req.Name,
 		Pass:           req.Secret,
 		Type:           req.Type,
@@ -176,7 +177,7 @@ func registerUserID(req *api.RegistrationRequest, ca *CA) (string, error) {
 	return req.Secret, nil
 }
 
-func canRegister(registrar spi.User, req *api.RegistrationRequest, ca *CA, ctx ServerRequestContext) error {
+func canRegister(registrar userregistry.User, req *api.RegistrationRequest, ca *CA, ctx ServerRequestContext) error {
 	log.Debugf("canRegister - Check to see if user '%s' can register", registrar.GetName())
 
 	err := ctx.CanActOnType(req.Type)

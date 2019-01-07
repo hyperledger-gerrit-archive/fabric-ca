@@ -20,9 +20,10 @@ import (
 
 	"github.com/cloudflare/cfssl/certdb"
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/server/certificaterequest"
-	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db"
+	cadbuser "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/user"
+	dbutil "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/util"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
@@ -173,7 +174,7 @@ func populateCertificatesTable(t *testing.T, ca *CA) {
 	util.FatalError(t, err, "Failed to parse duration '+100h'")
 	futureTime := time.Now().Add(dur).UTC()
 
-	ca.registry.InsertUser(&spi.UserInfo{
+	ca.registry.InsertUser(&cadbuser.Info{
 		Name:        "testCertificate1",
 		Affiliation: "dept1",
 	})
@@ -185,7 +186,7 @@ func populateCertificatesTable(t *testing.T, ca *CA) {
 	}, "testCertificate1", ca)
 	util.FatalError(t, err, "Failed to insert certificate with serial/AKI")
 
-	ca.registry.InsertUser(&spi.UserInfo{
+	ca.registry.InsertUser(&cadbuser.Info{
 		Name:        "testCertificate2",
 		Affiliation: "dept1",
 	})
@@ -262,7 +263,7 @@ func testInsertCertificate(req *certdb.CertificateRecord, id string, ca *CA) err
 
 	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
 
-	var record = new(CertRecord)
+	var record = &db.CertRecord{}
 	record.ID = id
 	record.Serial = req.Serial
 	record.AKI = req.AKI
