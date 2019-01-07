@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/log"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db"
 	"github.com/kisielk/sqlstruct"
 	"github.com/pkg/errors"
 )
@@ -66,7 +66,7 @@ type CredRecord struct {
 // CredDBAccessor is the accessor for credentials database table
 type CredDBAccessor interface {
 	// Sets reference to datastore object
-	SetDB(db dbutil.FabricCADB)
+	SetDB(db db.FabricCADB)
 	// InsertCredential inserts specified Idemix credential record into database
 	InsertCredential(cr CredRecord) error
 	// GetCredential returns Idemix credential associated with the specified revocation
@@ -82,11 +82,11 @@ type CredDBAccessor interface {
 // CredentialAccessor implements IdemixCredDBAccessor interface
 type CredentialAccessor struct {
 	level int
-	db    dbutil.FabricCADB
+	db    db.FabricCADB
 }
 
 // NewCredentialAccessor returns a new CredentialAccessor.
-func NewCredentialAccessor(db dbutil.FabricCADB, level int) CredDBAccessor {
+func NewCredentialAccessor(db db.FabricCADB, level int) CredDBAccessor {
 	ac := new(CredentialAccessor)
 	ac.db = db
 	ac.level = level
@@ -94,7 +94,7 @@ func NewCredentialAccessor(db dbutil.FabricCADB, level int) CredDBAccessor {
 }
 
 // SetDB changes the underlying sql.DB object Accessor is manipulating.
-func (ac *CredentialAccessor) SetDB(db dbutil.FabricCADB) {
+func (ac *CredentialAccessor) SetDB(db db.FabricCADB) {
 	ac.db = db
 }
 

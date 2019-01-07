@@ -31,11 +31,13 @@ import (
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/attr"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
-	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/sqlite"
+	cadbuser "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/user"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/common/attrmgr"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -52,7 +54,7 @@ const (
 	tlsClientCertExpired = "expiredcert.pem"
 	tlsClientKeyFile     = "tls_client-key.pem"
 	tdDir                = "../../../testdata"
-	db                   = "fabric-ca-server.db"
+	dbName               = "fabric-ca-server.db"
 	serverPort           = 7090
 	rootCertEnvVar       = "FABRIC_CA_CLIENT_TLS_CERTFILES"
 	clientKeyEnvVar      = "FABRIC_CA_CLIENT_TLS_CLIENT_KEYFILE"
@@ -112,7 +114,7 @@ const jsonConfig = `{
 
 var (
 	defYaml       string
-	fabricCADB    = path.Join(tdDir, db)
+	fabricCADB    = path.Join(tdDir, dbName)
 	srv           *lib.Server
 	serverURL     = fmt.Sprintf("http://localhost:%d", serverPort)
 	enrollURL     = fmt.Sprintf("http://admin:adminpw@localhost:%d", serverPort)
@@ -727,8 +729,8 @@ func TestIdentityCmd(t *testing.T) {
 	}
 	assert.Equal(t, userBforeModify.GetType(), userAfterModify.GetType(),
 		"User type must be same after user secret was modified")
-	assert.Equal(t, lib.GetUserAffiliation(userBforeModify),
-		lib.GetUserAffiliation(userAfterModify),
+	assert.Equal(t, cadbuser.GetUserAffiliation(userBforeModify),
+		cadbuser.GetUserAffiliation(userAfterModify),
 		"User affiliation must be same after user secret was modified")
 	assert.Equal(t, userBforeModify.GetMaxEnrollments(), userAfterModify.GetMaxEnrollments(),
 		"User max enrollments must be same after user secret was modified")
@@ -774,7 +776,7 @@ func TestIdentityCmd(t *testing.T) {
 	if user.GetType() != "peer" {
 		t.Error("Failed to correctly modify user 'testuser1'")
 	}
-	affPath := lib.GetUserAffiliation(user)
+	affPath := cadbuser.GetUserAffiliation(user)
 	if affPath != "" {
 		t.Error("Failed to correctly modify user 'testuser1'")
 	}
@@ -1502,7 +1504,7 @@ func testRegisterCommandLine(t *testing.T, srv *lib.Server) {
 		t.Errorf("client register failed: %s", err)
 	}
 
-	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	sqliteDB, err := getSqliteDb(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
 	db := lib.NewDBAccessor(sqliteDB)
@@ -1753,14 +1755,14 @@ func testAffiliation(t *testing.T) {
 		t.Errorf("client register failed: %s", err)
 	}
 
-	sqliteDB, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	sqliteDB, err := getSqliteDb(srv.CA.Config.DB.Datasource)
 	assert.NoError(t, err)
 
 	db := lib.NewDBAccessor(sqliteDB)
 	user, err := db.GetUser("testRegister6", nil)
 	assert.NoError(t, err)
 
-	userAff := lib.GetUserAffiliation(user)
+	userAff := cadbuser.GetUserAffiliation(user)
 	if userAff != "hyperledger" {
 		t.Errorf("Incorrectly set affiliation for user being registered when no affiliation was specified, expected 'hyperledger' got %s", userAff)
 	}
@@ -2337,8 +2339,8 @@ func setupIdentityCmdTest(t *testing.T, id lib.CAConfigIdentity) *lib.Server {
 	return srv
 }
 
-func getUser(id string, server *lib.Server) (spi.User, error) {
-	testdb, err := dbutil.NewUserRegistrySQLLite3(server.CA.Config.DB.Datasource)
+func getUser(id string, server *lib.Server) (userregistry.User, error) {
+	testdb, err := getSqliteDb(server.CA.Config.DB.Datasource)
 	if err != nil {
 		return nil, err
 	}
@@ -2347,7 +2349,7 @@ func getUser(id string, server *lib.Server) (spi.User, error) {
 }
 
 func getSerialAKIByID(id string) (serial, aki string, err error) {
-	testdb, err := dbutil.NewUserRegistrySQLLite3(srv.CA.Config.DB.Datasource)
+	testdb, err := getSqliteDb(srv.CA.Config.DB.Datasource)
 	if err != nil {
 		return "", "", err
 	}
@@ -2371,6 +2373,19 @@ func getSerialAKIByID(id string) (serial, aki string, err error) {
 	aki = hex.EncodeToString(x509Cert.AuthorityKeyId)
 
 	return
+}
+
+func getSqliteDb(datasource string) (*sqlx.DB, error) {
+	sqliteDB := sqlite.NewUserRegistry(datasource)
+	err := sqliteDB.Connect()
+	if err != nil {
+		return nil, err
+	}
+	testdb, err := sqliteDB.Create()
+	if err != nil {
+		return nil, err
+	}
+	return testdb, nil
 }
 
 func setupEnrollTest(t *testing.T) *lib.Server {

@@ -28,6 +28,7 @@ import (
 	"github.com/hyperledger/fabric-ca/cmd/fabric-ca-client/command"
 	"github.com/hyperledger/fabric-ca/lib"
 	"github.com/hyperledger/fabric-ca/lib/metadata"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
@@ -470,7 +471,7 @@ func testInsertCertificate(req *certdb.CertificateRecord, id string, srv *lib.Se
 	}
 
 	cert := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: derBytes})
-	var record = new(lib.CertRecord)
+	var record = new(db.CertRecord)
 	record.ID = id
 	record.Serial = req.Serial
 	record.AKI = req.AKI
