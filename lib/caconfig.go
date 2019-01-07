@@ -11,9 +11,9 @@ import (
 
 	"github.com/cloudflare/cfssl/config"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
-	"github.com/hyperledger/fabric-ca/lib/ldap"
 	"github.com/hyperledger/fabric-ca/lib/server/idemix"
+	dbutil "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/util"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/ldap"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp/factory"

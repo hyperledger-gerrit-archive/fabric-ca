@@ -21,8 +21,9 @@ import (
 	fp256bn "github.com/hyperledger/fabric-amcl/amcl/FP256BN"
 	"github.com/hyperledger/fabric-ca/api"
 	"github.com/hyperledger/fabric-ca/lib/common"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
-	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db"
+	dbutil "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/util"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/bccsp"
 	"github.com/hyperledger/fabric/idemix"
@@ -31,7 +32,7 @@ import (
 
 // Issuer is the interface to the Issuer for external components
 type Issuer interface {
-	Init(renew bool, db dbutil.FabricCADB, levels *dbutil.Levels) error
+	Init(renew bool, db db.FabricCADB, levels *dbutil.Levels) error
 	IssuerPublicKey() ([]byte, error)
 	RevocationPublicKey() ([]byte, error)
 	IssueCredential(ctx ServerRequestCtx) (*EnrollmentResponse, error)
@@ -45,7 +46,7 @@ type MyIssuer interface {
 	HomeDir() string
 	Config() *Config
 	IdemixLib() Lib
-	DB() dbutil.FabricCADB
+	DB() db.FabricCADB
 	IdemixRand() *amcl.RAND
 	IssuerCredential() IssuerCredential
 	RevocationAuthority() RevocationAuthority
@@ -58,7 +59,7 @@ type ServerRequestCtx interface {
 	IsBasicAuth() bool
 	BasicAuthentication() (string, error)
 	TokenAuthentication() (string, error)
-	GetCaller() (spi.User, error)
+	GetCaller() (userregistry.User, error)
 	ReadBody(body interface{}) error
 }
 
@@ -67,7 +68,7 @@ type issuer struct {
 	homeDir   string
 	cfg       *Config
 	idemixLib Lib
-	db        dbutil.FabricCADB
+	db        db.FabricCADB
 	csp       bccsp.BCCSP
 	// The Idemix credential DB accessor
 	credDBAccessor CredDBAccessor
@@ -87,7 +88,7 @@ func NewIssuer(name, homeDir string, config *Config, csp bccsp.BCCSP, idemixLib 
 	return &issuer
 }
 
-func (i *issuer) Init(renew bool, db dbutil.FabricCADB, levels *dbutil.Levels) error {
+func (i *issuer) Init(renew bool, db db.FabricCADB, levels *dbutil.Levels) error {
 
 	if i.isInitialized {
 		return nil
@@ -266,7 +267,7 @@ func (i *issuer) IdemixLib() Lib {
 
 // DB returns the FabricCADB object (which represents database handle
 // to the CA database) associated with this issuer
-func (i *issuer) DB() dbutil.FabricCADB {
+func (i *issuer) DB() db.FabricCADB {
 	return i.db
 }
 

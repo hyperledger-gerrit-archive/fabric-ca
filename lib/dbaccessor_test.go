@@ -1,17 +1,7 @@
 /*
-Copyright IBM Corp. 2016 All Rights Reserved.
+Copyright IBM Corp. All Rights Reserved.
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-		 http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+SPDX-License-Identifier: Apache-2.0
 */
 
 package lib_test
@@ -24,8 +14,9 @@ import (
 
 	"github.com/hyperledger/fabric-ca/api"
 	. "github.com/hyperledger/fabric-ca/lib"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
-	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/sqlite"
+	cadbuser "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/user"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +35,7 @@ DELETE FROM affiliations;
 
 type TestAccessor struct {
 	Accessor *Accessor
-	DB       *dbutil.DB
+	DB       *db.DB
 }
 
 func (ta *TestAccessor) Truncate() {
@@ -67,21 +58,21 @@ func TestSQLite(t *testing.T) {
 		os.MkdirAll(dbPath, 0755)
 	}
 	dataSource := dbPath + "/fabric-ca.db"
-	db, err := dbutil.NewUserRegistrySQLLite3(dataSource)
+	sqlitedb, err := getSqliteDb(dataSource)
 	if err != nil {
 		t.Error("Failed to open connection to DB")
 	}
-	accessor := NewDBAccessor(db)
+	accessor := NewDBAccessor(sqlitedb)
 
 	ta := TestAccessor{
 		Accessor: accessor,
-		DB:       db,
+		DB:       sqlitedb,
 	}
 	testEverything(ta, t)
 }
 
 // Truncate truncates the DB
-func Truncate(db *dbutil.DB) {
+func Truncate(db *db.DB) {
 	var sql []string
 	sql = []string{sqliteTruncateTables}
 
@@ -97,7 +88,7 @@ func Truncate(db *dbutil.DB) {
 
 func TestEmptyAccessor(t *testing.T) {
 	a := &Accessor{}
-	ui := spi.UserInfo{}
+	ui := cadbuser.Info{}
 	err := a.InsertUser(nil)
 	if err == nil {
 		t.Error("Passing in nil should have resulted in an error")
@@ -120,18 +111,19 @@ func TestDBCreation(t *testing.T) {
 	testWithExistingDb(t)
 }
 
-func createSQLiteDB(path string, t *testing.T) (*dbutil.DB, *TestAccessor) {
+func createSQLiteDB(path string, t *testing.T) (*db.DB, *TestAccessor) {
 	sqlxdb, err := sqlx.Open("sqlite3", path)
 	assert.NoError(t, err, "Failed to open SQLite database")
-	db := &dbutil.DB{DB: sqlxdb}
-	accessor := NewDBAccessor(db)
+
+	sqlitedb := db.New(sqlxdb)
+	accessor := NewDBAccessor(sqlitedb)
 
 	ta := &TestAccessor{
 		Accessor: accessor,
-		DB:       db,
+		DB:       sqlitedb,
 	}
 
-	return db, ta
+	return sqlitedb, ta
 }
 
 // Test that an already bootstrapped database properly get inspected and bootstrapped with any new identities on the
@@ -252,7 +244,7 @@ func testInsertAndGetUser(ta TestAccessor, t *testing.T) {
 	t.Log("TestInsertAndGetUser")
 	ta.Truncate()
 
-	insert := spi.UserInfo{
+	insert := cadbuser.Info{
 		Name: "testId",
 		Pass: "123456",
 		Type: "client",
@@ -344,7 +336,7 @@ func testDeleteUser(ta TestAccessor, t *testing.T) {
 	t.Log("TestDeleteUser")
 	ta.Truncate()
 
-	insert := spi.UserInfo{
+	insert := cadbuser.Info{
 		Name:       "testId",
 		Pass:       "123456",
 		Type:       "client",
@@ -371,7 +363,7 @@ func testUpdateUser(ta TestAccessor, t *testing.T) {
 	t.Log("TestUpdateUser")
 	ta.Truncate()
 
-	insert := spi.UserInfo{
+	insert := cadbuser.Info{
 		Name:           "testId",
 		Pass:           "123456",
 		Type:           "client",
@@ -465,16 +457,15 @@ func TestDBErrorMessages(t *testing.T) {
 	}
 
 	dataSource := dbPath + "/fabric-ca.db"
-	db, err := dbutil.NewUserRegistrySQLLite3(dataSource)
+	sqlitedb, err := getSqliteDb(dataSource)
 	if err != nil {
 		t.Error("Failed to open connection to DB")
 	}
-
-	accessor := NewDBAccessor(db)
+	accessor := NewDBAccessor(sqlitedb)
 
 	ta := TestAccessor{
 		Accessor: accessor,
-		DB:       db,
+		DB:       sqlitedb,
 	}
 
 	expectedErr := "Failed to get %s"
@@ -488,9 +479,22 @@ func TestDBErrorMessages(t *testing.T) {
 		assert.Contains(t, err.Error(), fmt.Sprintf(expectedErr, "User"))
 	}
 
-	newCertDBAcc := NewCertDBAccessor(db, 0)
+	newCertDBAcc := NewCertDBAccessor(sqlitedb, 0)
 	_, err = newCertDBAcc.GetCertificateWithID("serial", "aki")
 	if assert.Error(t, err, "Should have errored, and not returned any results") {
 		assert.Contains(t, err.Error(), fmt.Sprintf(expectedErr, "Certificate"))
 	}
+}
+
+func getSqliteDb(datasource string) (*db.DB, error) {
+	sqliteDB := sqlite.NewUserRegistry(datasource)
+	err := sqliteDB.Connect()
+	if err != nil {
+		return nil, err
+	}
+	testdb, err := sqliteDB.Create()
+	if err != nil {
+		return nil, err
+	}
+	return testdb, nil
 }
