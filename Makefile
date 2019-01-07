@@ -93,7 +93,7 @@ docker-fabric-ca: docker
 changelog:
 	./scripts/changelog.sh v$(PREV_VERSION) HEAD v$(BASE_VERSION)
 
-checks: license vet lint format imports
+checks: license vet format imports
 
 license: .FORCE
 	@scripts/check_license
