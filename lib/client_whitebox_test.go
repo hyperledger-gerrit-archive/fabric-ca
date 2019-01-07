@@ -484,6 +484,10 @@ func TestCWBCAConfig(t *testing.T) {
 	if err == nil {
 		t.Error("initDB postgres should have failed but passed")
 	}
+
+	ca = &CA{
+		Config: &CAConfig{},
+	}
 	ca.Config.DB.Type = "mysql"
 	err = ca.initDB()
 	t.Logf("initDB err: %v", err)
@@ -491,6 +495,9 @@ func TestCWBCAConfig(t *testing.T) {
 		t.Error("initDB mysql should have failed but passed")
 	}
 
+	ca = &CA{
+		Config: &CAConfig{},
+	}
 	ca.Config.DB.Type = "unknown"
 	err = ca.initDB()
 	t.Logf("initDB err: %v", err)

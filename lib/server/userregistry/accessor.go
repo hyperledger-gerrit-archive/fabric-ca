@@ -8,30 +8,19 @@ SPDX-License-Identifier: Apache-2.0
  * This file defines the user registry interface used by the fabric-ca server.
  */
 
-package spi
+package userregistry
 
 import (
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/user"
+	"github.com/hyperledger/fabric-ca/lib/spi"
 	"github.com/jmoiron/sqlx"
 )
-
-// UserInfo contains information about a user
-type UserInfo struct {
-	Name                      string
-	Pass                      string `mask:"password"`
-	Type                      string
-	Affiliation               string
-	Attributes                []api.Attribute
-	State                     int
-	MaxEnrollments            int
-	Level                     int
-	IncorrectPasswordAttempts int
-}
 
 // DbTxResult returns information on any affiliations and/or identities affected
 // during a database transaction
 type DbTxResult struct {
-	Affiliations []Affiliation
+	Affiliations []spi.Affiliation
 	Identities   []User
 }
 
@@ -72,10 +61,10 @@ type User interface {
 // UserRegistry is the API for retreiving users and groups
 type UserRegistry interface {
 	GetUser(id string, attrs []string) (User, error)
-	InsertUser(user *UserInfo) error
-	UpdateUser(user *UserInfo, updatePass bool) error
+	InsertUser(user *user.Info) error
+	UpdateUser(user *user.Info, updatePass bool) error
 	DeleteUser(id string) (User, error)
-	GetAffiliation(name string) (Affiliation, error)
+	GetAffiliation(name string) (spi.Affiliation, error)
 	GetAllAffiliations(name string) (*sqlx.Rows, error)
 	InsertAffiliation(name string, prekey string, level int) error
 	GetUserLessThanLevel(version int) ([]User, error)

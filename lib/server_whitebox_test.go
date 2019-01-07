@@ -79,13 +79,16 @@ func TestGetAffliation(t *testing.T) {
 		}
 	}()
 
-	afs := []AffiliationRecord{}
-	err = srv.db.Select(&afs, srv.db.Rebind(getAffiliationQuery), affiliationName)
-	t.Logf("Retrieved %+v for the affiliation %s", afs, affiliationName)
+	name := "org1.department1"
+	rows, err := srv.CA.registry.GetAllAffiliations(name)
 	if err != nil {
 		t.Fatalf("Failed to get affiliation %s: %v", affiliationName, err)
 	}
-	if len(afs) != 1 {
+	var count int
+	for rows.Next() {
+		count++
+	}
+	if count != 1 {
 		t.Fatalf("Found 0 or more than one record for the affiliation %s in the database, expected 1 record", affiliationName)
 	}
 }

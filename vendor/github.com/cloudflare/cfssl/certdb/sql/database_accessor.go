@@ -7,8 +7,8 @@ import (
 
 	"github.com/cloudflare/cfssl/certdb"
 	cferr "github.com/cloudflare/cfssl/errors"
-
 	"github.com/jmoiron/sqlx"
+
 	"github.com/kisielk/sqlstruct"
 )
 
