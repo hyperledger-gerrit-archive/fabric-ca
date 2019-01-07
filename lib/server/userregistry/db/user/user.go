@@ -4,7 +4,7 @@ Copyright IBM Corp. All Rights Reserved.
 SPDX-License-Identifier: Apache-2.0
 */
 
-package dbutil
+package user
 
 import (
 	"database/sql"
@@ -13,13 +13,13 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib/spi"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// UserRecord defines the properties of a user
-type UserRecord struct {
+// Record defines the properties of a user
+type Record struct {
 	Name                      string `db:"id"`
 	Pass                      []byte `db:"token"`
 	Type                      string `db:"type"`
@@ -31,16 +31,38 @@ type UserRecord struct {
 	IncorrectPasswordAttempts int    `db:"incorrect_password_attempts"`
 }
 
-// User is the databases representation of a user
-type User struct {
-	spi.UserInfo
-	pass  []byte
-	attrs map[string]api.Attribute
-	db    *DB
+// Info contains information about a user
+type Info struct {
+	Name                      string
+	Pass                      string `mask:"password"`
+	Type                      string
+	Affiliation               string
+	Attributes                []api.Attribute
+	State                     int
+	MaxEnrollments            int
+	Level                     int
+	IncorrectPasswordAttempts int
 }
 
-// NewDBUser creates a DBUser object from the DB user record
-func NewDBUser(userRec *UserRecord, db *DB) *User {
+//go:generate counterfeiter -o mocks/userDB.go -fake-name UserDB . userDB
+
+type userDB interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	Get(dest interface{}, query string, args ...interface{}) error
+	Rebind(query string) string
+	Queryx(query string, args ...interface{}) (*sqlx.Rows, error)
+}
+
+// User is the databases representation of a user
+type User struct {
+	Info
+	pass  []byte
+	attrs map[string]api.Attribute
+	db    userDB
+}
+
+// New creates a DBUser object from the DB user record
+func New(userRec *Record, db userDB) *User {
 	var user = new(User)
 	user.Name = userRec.Name
 	user.pass = userRec.Pass
@@ -98,12 +120,12 @@ func (u *User) SetLevel(level int) error {
 	return u.setLevel(nil, level)
 }
 
-// SetLevelTx sets the level of the user
-func (u *User) SetLevelTx(tx FabricCATx, level int) error {
-	return u.setLevel(tx, level)
-}
+// // SetLevelTx sets the level of the user
+// func (u *User) SetLevelTx(tx userDB, level int) error {
+// 	return u.setLevel(tx, level)
+// }
 
-func (u *User) setLevel(tx FabricCATx, level int) (err error) {
+func (u *User) setLevel(tx userDB, level int) (err error) {
 	query := "UPDATE users SET level = ? where (id = ?)"
 	id := u.GetName()
 	var res sql.Result
@@ -231,7 +253,7 @@ func (u *User) LoginComplete() error {
 
 	numRowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "db.RowsAffected failed")
+		return errors.Wrap(err, "Failed to get number of rows affected")
 	}
 
 	if numRowsAffected == 0 {
@@ -242,6 +264,7 @@ func (u *User) LoginComplete() error {
 		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, u.Name)
 	}
 
+	u.State = u.State + 1
 	log.Debugf("Successfully incremented state for identity %s to %d", u.Name, state)
 	return nil
 
@@ -294,7 +317,7 @@ func (u *User) Revoke() error {
 
 	numRowsAffected, err := res.RowsAffected()
 	if err != nil {
-		return errors.Wrap(err, "db.RowsAffected failed")
+		return errors.Wrap(err, "Failed to get number of rows affected")
 	}
 
 	if numRowsAffected == 0 {
@@ -305,8 +328,8 @@ func (u *User) Revoke() error {
 		return errors.Errorf("%d rows were affected when updating the state of identity %s", numRowsAffected, u.Name)
 	}
 
+	u.State = -1
 	log.Debugf("Successfully incremented state for identity %s to -1", u.Name)
-
 	return nil
 }
 
@@ -319,7 +342,7 @@ func (u *User) IsRevoked() bool {
 }
 
 // ModifyAttributesTx adds a new attribute, modifies existing attribute, or delete attribute
-func (u *User) ModifyAttributesTx(tx FabricCATx, newAttrs []api.Attribute) error {
+func (u *User) ModifyAttributesTx(tx userDB, newAttrs []api.Attribute) error {
 	return u.modifyAttributes(tx, newAttrs)
 }
 
@@ -328,7 +351,7 @@ func (u *User) ModifyAttributes(newAttrs []api.Attribute) error {
 	return u.modifyAttributes(nil, newAttrs)
 }
 
-func (u *User) modifyAttributes(tx FabricCATx, newAttrs []api.Attribute) error {
+func (u *User) modifyAttributes(tx userDB, newAttrs []api.Attribute) error {
 	log.Debugf("Modify Attributes: %+v", newAttrs)
 	currentAttrs, _ := u.GetAttributes(nil)
 	userAttrs := GetNewAttributes(currentAttrs, newAttrs)
@@ -427,4 +450,77 @@ func (u *User) IncrementIncorrectPasswordAttempts() error {
 // GetFailedLoginAttempts returns the number of times the user has entered an incorrect password
 func (u *User) GetFailedLoginAttempts() int {
 	return u.IncorrectPasswordAttempts
+}
+
+// Migrate will migrate the user to the latest version
+func (u *User) Migrate(tx userDB) error {
+	currentLevel := u.GetLevel()
+	if currentLevel < 1 {
+		err := u.migrateUserToLevel1(tx)
+		if err != nil {
+			return err
+		}
+		currentLevel++
+	}
+	return nil
+}
+
+func (u *User) migrateUserToLevel1(tx userDB) error {
+	log.Debugf("Migrating user '%s' to level 1", u.GetName())
+
+	// Update identity to level 1
+	_, err := u.GetAttribute("hf.Registrar.Roles") // Check if user is a registrar
+	if err == nil {
+		_, err := u.GetAttribute("hf.Registrar.Attributes") // Check if user already has "hf.Registrar.Attributes" attribute
+		if err != nil {
+			newAttr := api.Attribute{Name: "hf.Registrar.Attributes", Value: "*"}
+			err := u.ModifyAttributesTx(tx, []api.Attribute{newAttr})
+			if err != nil {
+				return errors.WithMessage(err, "Failed to set attribute")
+			}
+			u.attrs[newAttr.Name] = newAttr
+		}
+	}
+
+	err = u.setLevel(tx, 1)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to update level of user")
+	}
+
+	return nil
+}
+
+// Affilation is interface that defines functions needed to get a user's affiliation
+type Affilation interface {
+	GetAffiliationPath() []string
+}
+
+// GetAffiliation return a joined version version of the affiliation path with '.' as the seperator
+func GetAffiliation(user Affilation) string {
+	return strings.Join(user.GetAffiliationPath(), ".")
+}
+
+// GetUserLessThanLevel returns all identities that are less than the level specified
+// Otherwise, returns no users if requested level is zero
+func GetUserLessThanLevel(tx userDB, level int) ([]*User, error) {
+	if level == 0 {
+		return []*User{}, nil
+	}
+
+	rows, err := tx.Queryx(tx.Rebind("SELECT * FROM users WHERE (level < ?) OR (level IS NULL)"), level)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get identities that need to be updated")
+	}
+
+	allUsers := []*User{}
+	if rows != nil {
+		for rows.Next() {
+			var user Record
+			rows.StructScan(&user)
+			dbUser := New(&user, nil)
+			allUsers = append(allUsers, dbUser)
+		}
+	}
+
+	return allUsers, nil
 }

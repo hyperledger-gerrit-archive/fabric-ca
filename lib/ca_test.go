@@ -17,7 +17,8 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/hyperledger/fabric-ca/api"
-	"github.com/hyperledger/fabric-ca/lib/dbutil"
+	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/sqlite"
+	dbutil "github.com/hyperledger/fabric-ca/lib/server/userregistry/db/util"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/stretchr/testify/assert"
 )
@@ -483,7 +484,7 @@ func TestCAloadAffiliationsTableR(t *testing.T) {
 	}
 
 	//Failure to write to DB; non-valid accessor
-	dbAccessor := new(Accessor)
+	dbAccessor := &Accessor{}
 	ca.registry = dbAccessor
 
 	i := make([]interface{}, 3)
@@ -644,7 +645,13 @@ func TestServerMigration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create directory: %s", err.Error())
 	}
-	db, err := dbutil.NewUserRegistrySQLLite3(filepath.Join(dir, "fabric-ca-server.db"))
+
+	sqliteDB := sqlite.NewUserRegistry(filepath.Join(dir, "fabric-ca-server.db"))
+	err = sqliteDB.Connect()
+	assert.NoError(t, err, "failed to connect to database")
+	db, err := sqliteDB.Create()
+	assert.NoError(t, err, "failed to create database")
+
 	util.FatalError(t, err, "Failed to create db")
 	_, err = db.Exec("INSERT INTO users (id, token, type, affiliation, attributes, state, max_enrollments, level) VALUES ('registrar', '', 'user', 'org2', '[{\"name\":\"hf.Registrar.Roles\",\"value\":\"user,peer,client\"}]', '0', '-1', '0')")
 	assert.NoError(t, err, "Failed to insert user 'registrar' into database")

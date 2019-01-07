@@ -500,7 +500,7 @@ func TestCWBCAConfig(t *testing.T) {
 
 	ca.Config.LDAP.Enabled = true
 	ca.server = &Server{}
-	err = ca.initUserRegistry()
+	err = ca.initUserRegistry(nil)
 	t.Logf("initUserRegistry err: %v", err)
 	if err == nil {
 		t.Error("initConfig LDAP passed but should have failed")
