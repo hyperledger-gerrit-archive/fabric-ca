@@ -1,0 +1,8 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: Gari Singh <gari.r.singh@gmail.com>
+Code-Review+2: David Enyeart <enyeart@us.ibm.com>
+Submitted-by: David Enyeart <enyeart@us.ibm.com>
+Submitted-at: Thu, 10 Jan 2019 12:06:51 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/28611
+Project: fabric-ca
+Branch: refs/heads/release-1.4
