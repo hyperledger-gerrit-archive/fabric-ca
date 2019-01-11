@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
-	"time"
-
+	"github.com/hyperledger/fabric-ca/lib/server/operations"
 	"github.com/hyperledger/fabric-ca/lib/tls"
 )
 
@@ -53,20 +52,6 @@ type ServerConfig struct {
 	CRLSizeLimit int `def:"512000" help:"Size limit of an acceptable CRL in bytes"`
 	// CompMode1_3 determines if to run in comptability for version 1.3
 	CompMode1_3 bool `skip:"true"`
-	// Metrics contains metric related configuration
-	Metrics MetricsConfig `skip:"true"`
-}
-
-// MetricsConfig contains the information on providers
-type MetricsConfig struct {
-	Provider string
-	Statsd   *Statsd
-}
-
-// Statsd contains configuration of statsd
-type Statsd struct {
-	Network       string
-	Address       string
-	WriteInterval time.Duration
-	Prefix        string
+	// Operations contains the configuration for the operations servers
+	Operations operations.Config `skip:"true"`
 }
