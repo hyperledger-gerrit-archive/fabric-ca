@@ -7,6 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,15 +16,22 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/hyperledger/fabric-ca/api"
+	"github.com/hyperledger/fabric-ca/lib/server/operations"
 	"github.com/hyperledger/fabric/common/metrics/metricsfakes"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
+)
+
+const (
+	testdata = "../testdata"
 )
 
 func TestAPICountMetric(t *testing.T) {
@@ -88,9 +97,9 @@ func TestMetricsE2E(t *testing.T) {
 	datagramReader := NewDatagramReader(t)
 	go datagramReader.Start()
 
-	server.Config.Metrics = MetricsConfig{
+	server.Config.Operations.Metrics = operations.MetricsConfig{
 		Provider: "statsd",
-		Statsd: &Statsd{
+		Statsd: &operations.Statsd{
 			Network:       "udp",
 			Address:       datagramReader.Address(),
 			Prefix:        "server",
@@ -128,8 +137,16 @@ func TestMetricsE2E(t *testing.T) {
 	gt.Expect(err).NotTo(HaveOccurred())
 
 	// Prometheus
-	server.Config.Metrics.Provider = "prometheus"
-	metricsURL := fmt.Sprintf("http://localhost:%d/metrics", rootPort)
+	server.Config.Operations.Metrics.Provider = "prometheus"
+	server.Config.Operations.ListenAddress = "localhost:0"
+
+	server.Config.Operations.TLS = operations.TLS{
+		Enabled:            true,
+		CertFile:           filepath.Join(testdata, "tls_server-cert.pem"),
+		KeyFile:            filepath.Join(testdata, "tls_server-key.pem"),
+		ClientCertRequired: true,
+		ClientCACertFiles:  []string{"../testdata/root.pem"},
+	}
 	err = server.Start()
 	gt.Expect(err).NotTo(HaveOccurred())
 
@@ -145,8 +162,29 @@ func TestMetricsE2E(t *testing.T) {
 		Secret: "adminpw",
 	})
 
+	clientCert, err := tls.LoadX509KeyPair(
+		filepath.Join(testdata, "tls_client-cert.pem"),
+		filepath.Join(testdata, "tls_client-key.pem"),
+	)
+	gt.Expect(err).NotTo(HaveOccurred())
+
+	clientCertPool := x509.NewCertPool()
+	caCert, err := ioutil.ReadFile(filepath.Join(testdata, "root.pem"))
+	gt.Expect(err).NotTo(HaveOccurred())
+	clientCertPool.AppendCertsFromPEM(caCert)
+
 	// Prometheus client
-	c := &http.Client{}
+	c := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				Certificates: []tls.Certificate{clientCert},
+				RootCAs:      clientCertPool,
+			},
+		},
+	}
+
+	addr := strings.Split(server.operations.Addr(), ":")
+	metricsURL := fmt.Sprintf("https://localhost:%s/metrics", addr[1])
 	resp, err := c.Get(metricsURL)
 	gt.Expect(err).NotTo(HaveOccurred())
 	gt.Expect(resp.StatusCode).To(Equal(http.StatusOK))
