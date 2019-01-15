@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -117,6 +118,10 @@ func (s *Server) init(renew bool) (err error) {
 	return nil
 }
 
+func (s *Server) registerHealthChecker() {
+	s.operations.RegisterChecker("server", s)
+}
+
 func (s *Server) initMetrics() {
 	metricsProvider := s.operations.Provider
 	s.Metrics.APICounter = metricsProvider.NewCounter(apiCounterOpts)
@@ -165,6 +170,8 @@ func (s *Server) Start() (err error) {
 	if err != nil {
 		return err
 	}
+
+	s.registerHealthChecker()
 	s.initMetrics()
 
 	// Start listening and serving
@@ -184,13 +191,13 @@ func (s *Server) Start() (err error) {
 // requests in transit to fail, and so is only used for testing.
 // A graceful shutdown will be supported with golang 1.8.
 func (s *Server) Stop() error {
-	// Stop operations server
-	err := s.operations.Stop()
-	if err != nil {
-		return err
-	}
+	// // Stop operations server
+	// err := s.operations.Stop()
+	// if err != nil {
+	// 	return err
+	// }
 
-	err = s.closeListener()
+	err := s.closeListener()
 	if err != nil {
 		return err
 	}
@@ -679,6 +686,21 @@ func (s *Server) serve() error {
 		s.wait <- true
 	}
 	return s.serveError
+}
+
+func (s *Server) HealthCheck(ctx context.Context) error {
+	//	fmt.Println("server address: ", s.listener.Addr().String())
+	//	addr := strings.Split(s.listener.Addr().String(), ":")
+	//	fmt.Println("addr: ", addr)
+	//port := addr[1]
+	port := ":7075"
+
+	conn, err := net.Dial("tcp", port)
+	if err != nil {
+		return err
+	}
+	conn.Close()
+	return nil
 }
 
 // checkAndEnableProfiling checks for FABRIC_CA_SERVER_PROFILE_PORT env variable

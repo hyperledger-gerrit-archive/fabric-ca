@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/rand"
@@ -30,6 +31,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/metadata"
 	libtls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -2720,3 +2722,63 @@ func cleanTestSlateSRV(t *testing.T) {
 	}
 	cleanMultiCADir(t)
 }
+
+func TestServerHealthCheck(t *testing.T) {
+	server := TestGetRootServer(t)
+	if server == nil {
+		return
+	}
+	server.Config.Operations.ListenAddress = "localhost:7055"
+	err := server.Start()
+	assert.NoError(t, err)
+
+	c := &http.Client{}
+	healthURL := "http://localhost:7055/healthz"
+
+	respCode, _ := DoHealthCheck(t, c, healthURL)
+	assert.Equal(t, http.StatusOK, respCode)
+
+	server.Stop()
+	respCode, _ = DoHealthCheck(t, c, healthURL)
+	assert.Equal(t, http.StatusServiceUnavailable, respCode)
+
+	// CheckHealthEndpoint(t, c, healthURL)
+	//	server.listener.Close()
+
+}
+
+func DoHealthCheck(t *testing.T, client *http.Client, url string) (int, healthz.HealthStatus) {
+	resp, err := client.Get(url)
+	assert.NoError(t, err)
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	var healthStatus healthz.HealthStatus
+	err = json.Unmarshal(bodyBytes, &healthStatus)
+	assert.NoError(t, err)
+
+	return resp.StatusCode, healthStatus
+}
+
+// func CheckHealthEndpoint(t *testing.T, client *http.Client, url string) {
+// 	body := getBody(t, client, url)()
+
+// 	var healthStatus healthz.HealthStatus
+// 	err := json.Unmarshal([]byte(body), &healthStatus)
+// 	assert.NoError(t, err)
+// 	assert.Equal(t, healthStatus.Status, healthz.StatusOK)
+// }
+
+// func getBody(t *testing.T, client *http.Client, url string) func() string {
+// 	return func() string {
+// 		resp, err := client.Get(url)
+// 		assert.NoError(t, err)
+
+// 		assert.Equal(t, resp.StatusCode, http.StatusOK)
+// 		bodyBytes, err := ioutil.ReadAll(resp.Body)
+// 		assert.NoError(t, err)
+// 		resp.Body.Close()
+// 		return string(bodyBytes)
+// 	}
+// }
