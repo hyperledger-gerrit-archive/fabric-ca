@@ -28,12 +28,13 @@ import (
 type System struct {
 	metrics.Provider
 
-	config     *Config
-	statsd     *kitstatsd.Statsd
-	sendTicker *time.Ticker
-	httpServer *http.Server
-	mux        *mux.Router
-	addr       string
+	config        *Config
+	healthHandler *healthz.HealthHandler
+	statsd        *kitstatsd.Statsd
+	sendTicker    *time.Ticker
+	httpServer    *http.Server
+	mux           *mux.Router
+	addr          string
 }
 
 // Config contains configuration for the operations system
@@ -64,6 +65,7 @@ func NewSystem(c *Config) *System {
 	}
 
 	system.initializeServer()
+	system.initializeHealthCheckHandler()
 	system.initializeMetricsProvider()
 
 	return system
@@ -137,6 +139,11 @@ func (s *System) initializeMetricsProvider() {
 	}
 }
 
+func (s *System) initializeHealthCheckHandler() {
+	s.healthHandler = healthz.NewHealthHandler()
+	s.mux.Handle("/healthz", s.handlerChain(s.healthHandler, false))
+}
+
 func (s *System) startMetricsTickers() error {
 	m := s.config.Metrics
 	if s.statsd != nil {
@@ -161,6 +168,10 @@ func (s *System) startMetricsTickers() error {
 func (s *System) Log(keyvals ...interface{}) error {
 	log.Warning(keyvals...)
 	return nil
+}
+
+func (s *System) RegisterChecker(component string, checker healthz.HealthChecker) error {
+	return s.healthHandler.RegisterChecker(component, checker)
 }
 
 func (s *System) listen() (net.Listener, error) {
