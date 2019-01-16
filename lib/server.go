@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -90,6 +91,10 @@ type Server struct {
 	mutex sync.Mutex
 	// The server's current levels
 	levels *dbutil.Levels
+	// operations is responsible for the server's operation information
+	operations *operations.System
+	//The operations server listener port
+	addr string
 }
 
 // Init initializes a fabric-ca server
@@ -139,7 +144,7 @@ func (s *Server) initMetrics() {
 
 func (s *Server) startOperationsServer(config *operations.Config) error {
 	s.Operations = operations.NewSystem(config)
-
+	fmt.Printf("\n\n\nSTART\n\n\n")
 	err := s.Operations.Start()
 	if err != nil {
 		return err
@@ -189,6 +194,46 @@ func (s *Server) Start() (err error) {
 		}
 		return err
 	}
+
+	//Store the listeners address for future use, even if the listener is closed
+	s.addr = s.listener.Addr().String()
+
+	return nil
+}
+
+//StopCA shuts down the CA server. The operations server will continue to run
+func (s *Server) StopCA() error {
+	err := s.closeListener()
+	if err != nil {
+		return err
+	}
+	if s.wait == nil {
+		return nil
+	}
+	// Wait for message on wait channel from the http.serve thread. If message
+	// is not received in 10 seconds, return
+
+	addr := strings.Split(s.addr, ":")
+	port := addr[len(addr)-1]
+
+	for i := 0; i < 10; i++ {
+		select {
+		case <-s.wait:
+			log.Debugf("Stop: successful stop on port %s", port)
+			close(s.wait)
+			s.wait = nil
+			return nil
+		default:
+			log.Debugf("Stop: waiting for listener on port %s to stop", port)
+			time.Sleep(time.Second)
+		}
+	}
+	log.Debugf("Stop: timed out waiting for stop notification for port %s", port)
+	// make sure DB is closed
+	err = s.closeDB()
+	if err != nil {
+		log.Errorf("Close DB failed: %s", err)
+	}
 	return nil
 }
 
@@ -198,39 +243,16 @@ func (s *Server) Start() (err error) {
 // A graceful shutdown will be supported with golang 1.8.
 func (s *Server) Stop() error {
 	// Stop operations server
-	err := s.Operations.Stop()
+	err := s.operations.Stop()
 	if err != nil {
 		return err
 	}
 
-	err = s.closeListener()
+	err = s.StopCA()
 	if err != nil {
 		return err
 	}
-	if s.wait == nil {
-		return nil
-	}
-	// Wait for message on wait channel from the http.serve thread. If message
-	// is not received in 10 seconds, return
-	port := s.Config.Port
-	for i := 0; i < 10; i++ {
-		select {
-		case <-s.wait:
-			log.Debugf("Stop: successful stop on port %d", port)
-			close(s.wait)
-			s.wait = nil
-			return nil
-		default:
-			log.Debugf("Stop: waiting for listener on port %d to stop", port)
-			time.Sleep(time.Second)
-		}
-	}
-	log.Debugf("Stop: timed out waiting for stop notification for port %d", port)
-	// make sure DB is closed
-	err = s.closeDB()
-	if err != nil {
-		log.Errorf("Close DB failed: %s", err)
-	}
+
 	return nil
 }
 
@@ -253,7 +275,8 @@ func (s *Server) RegisterBootstrapUser(user, pass, affiliation string) error {
 			attr.Roles:          "*",
 			attr.DelegateRoles:  "*",
 			attr.Revoker:        "true",
-			attr.IntermediateCA: "true",
+			attr.IntermediateCA: "true",	//Store the listeners address for future use, even if the listener is closed
+			s.addr = s.listener.Addr().String()
 			attr.GenCRL:         "true",
 			attr.RegistrarAttr:  "*",
 			attr.AffiliationMgr: "true",
@@ -695,6 +718,21 @@ func (s *Server) serve() error {
 	return s.serveError
 }
 
+//HealthCheck connects to the CA endpoint to determine its responsiveness
+func (s *Server) HealthCheck(ctx context.Context) error {
+	addr := strings.Split(s.addr, ":")
+	port := addr[len(addr)-1]
+	port = fmt.Sprintf(":%s", port)
+
+	conn, err := net.Dial("tcp", port)
+	if err != nil {
+		return err
+	}
+	conn.Close()
+
+	return nil
+}
+
 // checkAndEnableProfiling checks for FABRIC_CA_SERVER_PROFILE_PORT env variable
 // if it is set, starts listening for profiling requests at the port specified
 // by the environment variable
@@ -737,19 +775,22 @@ func (s *Server) makeFileNamesAbsolute() error {
 func (s *Server) closeListener() error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	port := s.Config.Port
+
+	addr := strings.Split(s.addr, ":")
+	port := addr[len(addr)-1]
+
 	if s.listener == nil {
-		msg := fmt.Sprintf("Stop: listener was already closed on port %d", port)
+		msg := fmt.Sprintf("Stop: listener was already closed on port %s", port)
 		log.Debugf(msg)
 		return errors.New(msg)
 	}
 	err := s.listener.Close()
 	s.listener = nil
 	if err != nil {
-		log.Debugf("Stop: failed to close listener on port %d: %s", port, err)
+		log.Debugf("Stop: failed to close listener on port %s: %s", port, err)
 		return err
 	}
-	log.Debugf("Stop: successfully closed listener on port %d", port)
+	log.Debugf("Stop: successfully closed listener on port %s", port)
 	return nil
 }
 

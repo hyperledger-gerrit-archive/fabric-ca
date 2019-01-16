@@ -667,8 +667,9 @@ func TestServerMigration(t *testing.T) {
 	registrar, err := server.CA.registry.GetUser("registrar", nil)
 	assert.NoError(t, err, "Failed to get user")
 	registrarAttr, err := registrar.GetAttribute("hf.Registrar.Attributes")
+	fmt.Printf("test: %#v\n", registrarAttr)
 	assert.NoError(t, err, "Failed to get attribute")
-	t.Logf("registrarAttr: '%+v'", registrarAttr)
+	//t.Logf("registrarAttr: '%+v'", registrarAttr)
 	if registrarAttr.Value == "" {
 		t.Error("Failed to correctly migrate user 'registrar'")
 	}
