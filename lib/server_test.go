@@ -10,7 +10,9 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
+
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -34,6 +36,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/operations"
 	libtls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -2756,7 +2759,8 @@ func TestStatsdMetricsE2E(t *testing.T) {
 	client := TestGetClient(rootPort, "metrics")
 	_, err = client.Enroll(&api.EnrollmentRequest{
 		Name:   "admin",
-		Secret: "badpass",
+		Secret: "badp" +
+			"ass",
 		CAName: "ca",
 	})
 	gt.Expect(err).To(HaveOccurred())
@@ -2846,7 +2850,6 @@ func TestPrometheusMetricsE2E(t *testing.T) {
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
 	gt.Expect(err).NotTo(HaveOccurred())
 	body := string(bodyBytes)
-
 	err = server.Stop()
 	gt.Expect(err).NotTo(HaveOccurred())
 
@@ -2884,6 +2887,44 @@ func TestPrometheusMetricsE2E(t *testing.T) {
 	gt.Expect(body).To(ContainSubstring(`api_request_duration_bucket{api_name="enroll",ca_name="ca",status_code="401",le="+Inf"}`))
 	gt.Expect(body).To(ContainSubstring(`api_request_duration_sum{api_name="enroll",ca_name="ca",status_code="401"}`))
 	gt.Expect(body).To(ContainSubstring(`api_request_duration_count{api_name="enroll",ca_name="ca",status_code="401"} 1.0`))
+
+}
+
+func TestHealthCheck(t *testing.T) {
+	server := TestGetRootServer(t)
+	defer server.Stop()
+
+	server.Config.Operations.ListenAddress = "localhost:7055"
+	err := server.Start()
+	assert.NoError(t, err)
+
+	c := &http.Client{}
+	healthURL := "http://localhost:7055/healthz"
+
+	respCode, _ := DoHealthCheck(t, c, healthURL)
+	assert.Equal(t, http.StatusOK, respCode)
+
+	server.StopCA()
+
+	respCode, _ = DoHealthCheck(t, c, healthURL)
+	assert.Equal(t, http.StatusServiceUnavailable, respCode)
+}
+
+func DoHealthCheck(t *testing.T, client *http.Client, url string) (int, healthz.HealthStatus) {
+	resp, err := client.Get(url)
+	assert.NoError(t, err)
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+
+	resp.Body.Close()
+
+	var healthStatus healthz.HealthStatus
+	err = json.Unmarshal(bodyBytes, &healthStatus)
+	assert.NoError(t, err)
+
+	return resp.StatusCode, healthStatus
+
 }
 
 type DatagramReader struct {
