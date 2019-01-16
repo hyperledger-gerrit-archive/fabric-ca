@@ -9,6 +9,7 @@ package operations
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/hyperledger/fabric/common/metrics/disabled"
 	"github.com/hyperledger/fabric/common/metrics/prometheus"
+	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/hyperledger/fabric/common/metrics/statsd"
 	prom "github.com/prometheus/client_golang/prometheus"
 )
@@ -27,7 +29,7 @@ import (
 // System is an operations server that is responsible for metrics and health checks
 type System struct {
 	metrics.Provider
-
+	healthHandler *healthz.HealthHandler
 	config     *Config
 	statsd     *kitstatsd.Statsd
 	sendTicker *time.Ticker
@@ -71,7 +73,9 @@ func NewSystem(c *Config) *System {
 
 // Start starts the operations system server
 func (s *System) Start() error {
+	fmt.Printf("\n\n\nSTARTEDASWELL\n\n\n")
 	err := s.startMetricsTickers()
+
 	if err != nil {
 		return err
 	}
@@ -111,6 +115,7 @@ func (s *System) initializeServer() {
 }
 
 func (s *System) initializeMetricsProvider() {
+	fmt.Printf("\n\n\nProvider: %#v\n\n\n", s.config)
 	m := s.config.Metrics
 	providerType := m.Provider
 	switch providerType {
@@ -139,18 +144,23 @@ func (s *System) initializeMetricsProvider() {
 
 func (s *System) startMetricsTickers() error {
 	m := s.config.Metrics
+	fmt.Printf("\n\n\nSTATSD: %#v\n", s.statsd)
 	if s.statsd != nil {
 		network := m.Statsd.Network
 		address := m.Statsd.Address
 		c, err := net.Dial(network, address)
+
+		fmt.Printf("\n\n\nTEST3\n\n\n")
+
 		if err != nil {
 			return err
 		}
 		c.Close()
 
 		writeInterval := s.config.Metrics.Statsd.WriteInterval
-
+		fmt.Println("\n\n\nTEST4\n\n\n\n")
 		s.sendTicker = time.NewTicker(writeInterval)
+		fmt.Printf("TICKER: %#v:\n", s.sendTicker)
 		go s.statsd.SendLoop(s.sendTicker.C, network, address)
 	}
 
@@ -161,6 +171,11 @@ func (s *System) startMetricsTickers() error {
 func (s *System) Log(keyvals ...interface{}) error {
 	log.Warning(keyvals...)
 	return nil
+}
+
+//RegisterChecker registers the healthcheck endpoint with the operations server
+func (s *System) RegisterChecker(component string, checker healthz.HealthChecker) error {
+	return s.healthHandler.RegisterChecker(component, checker)
 }
 
 func (s *System) listen() (net.Listener, error) {
