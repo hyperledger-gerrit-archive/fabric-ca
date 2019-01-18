@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-// UniqueName generate a random string for a Docker containers name
+// UniqueName generates a random string for a Docker containers name
 func UniqueName() string {
 	rname := make([]byte, 16)
 	_, err := io.ReadFull(rand.Reader, rname)
