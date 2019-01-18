@@ -9,13 +9,14 @@ package runner
 import (
 	"context"
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"io"
 	"net"
 	"os"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -94,7 +95,7 @@ func (c *MySQL) Run(sigCh <-chan os.Signal, ready chan<- struct{}) error {
 	}
 
 	hostConfig := &container.HostConfig{
-		AutoRemove: true,
+		AutoRemove: false,
 		PortBindings: nat.PortMap{
 			"3306/tcp": []nat.PortBinding{
 				{
@@ -182,12 +183,14 @@ func (c *MySQL) Run(sigCh <-chan os.Signal, ready chan<- struct{}) error {
 }
 
 func (c *MySQL) endpointReady(ctx context.Context, db *sqlx.DB) bool {
-	_, err := db.Conn(ctx)
+	conn, err := db.Conn(ctx)
 	if err != nil {
 		return false
 	}
 
+	conn.QueryContext(ctx, "SET GLOBAL sql_mode = '';")
 	db.Close()
+
 	return true
 }
 
@@ -196,7 +199,6 @@ func (c *MySQL) ready(ctx context.Context, addr string) <-chan struct{} {
 
 	str := fmt.Sprintf("root:@(%s:%d)/mysql", c.HostIP, c.HostPort)
 	db, err := sqlx.Open("mysql", str)
-	db.SetConnMaxLifetime(time.Second * 5)
 	if err != nil {
 		ctx.Done()
 	}
