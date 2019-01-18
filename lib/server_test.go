@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -34,6 +35,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/operations"
 	libtls "github.com/hyperledger/fabric-ca/lib/tls"
 	"github.com/hyperledger/fabric-ca/util"
+	"github.com/hyperledger/fabric-lib-go/healthz"
 	"github.com/hyperledger/fabric/bccsp/factory"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gbytes"
@@ -2958,4 +2960,45 @@ func (dr *DatagramReader) Close() error {
 		}
 	})
 	return dr.err
+}
+
+func TestHealthCheck(t *testing.T) {
+	server := TestGetRootServer(t)
+	defer server.Stop()
+
+	server.Config.Operations.ListenAddress = "localhost:7055"
+	err := server.Start()
+	assert.NoError(t, err)
+
+	c := &http.Client{}
+	healthURL := "http://localhost:7055/healthz"
+
+	respCode, healthStatus := DoHealthCheck(t, c, healthURL)
+	assert.Equal(t, http.StatusOK, respCode)
+	assert.Equal(t, "OK", healthStatus.Status)
+
+	err = server.GetDB().Close()
+	assert.NoError(t, err)
+
+	respCode, healthStatus = DoHealthCheck(t, c, healthURL)
+	assert.Equal(t, http.StatusServiceUnavailable, respCode)
+	assert.Equal(t, "server", healthStatus.FailedChecks[0].Component)
+	assert.Equal(t, "sql: database is closed", healthStatus.FailedChecks[0].Reason)
+}
+
+func DoHealthCheck(t *testing.T, client *http.Client, url string) (int, healthz.HealthStatus) {
+	resp, err := client.Get(url)
+	assert.NoError(t, err)
+
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	assert.NoError(t, err)
+
+	resp.Body.Close()
+
+	var healthStatus healthz.HealthStatus
+	err = json.Unmarshal(bodyBytes, &healthStatus)
+	assert.NoError(t, err)
+
+	return resp.StatusCode, healthStatus
+
 }
