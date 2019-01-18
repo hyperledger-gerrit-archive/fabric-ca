@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hyperledger/fabric-lib-go/healthz"
+
 	"github.com/cloudflare/cfssl/log"
 	kitstatsd "github.com/go-kit/kit/metrics/statsd"
 	"github.com/gorilla/mux"
@@ -27,13 +29,13 @@ import (
 // System is an operations server that is responsible for metrics and health checks
 type System struct {
 	metrics.Provider
-
-	config     *Config
-	statsd     *kitstatsd.Statsd
-	sendTicker *time.Ticker
-	httpServer *http.Server
-	mux        *mux.Router
-	addr       string
+	config        *Config
+	healthHandler *healthz.HealthHandler
+	statsd        *kitstatsd.Statsd
+	sendTicker    *time.Ticker
+	httpServer    *http.Server
+	mux           *mux.Router
+	addr          string
 }
 
 // Config contains configuration for the operations system
@@ -64,6 +66,7 @@ func NewSystem(c *Config) *System {
 	}
 
 	system.initializeServer()
+	system.initializeHealthCheckHandler()
 	system.initializeMetricsProvider()
 
 	return system
@@ -137,6 +140,11 @@ func (s *System) initializeMetricsProvider() {
 	}
 }
 
+func (s *System) initializeHealthCheckHandler() {
+	s.healthHandler = healthz.NewHealthHandler()
+	s.mux.Handle("/healthz", s.healthHandler)
+}
+
 func (s *System) startMetricsTickers() error {
 	m := s.config.Metrics
 	if s.statsd != nil {
@@ -160,6 +168,15 @@ func (s *System) startMetricsTickers() error {
 // Log is a function required to meet the interface required by statsd
 func (s *System) Log(keyvals ...interface{}) error {
 	log.Warning(keyvals...)
+	return nil
+}
+
+//RegisterChecker registers the /healthz endpoint with the server
+func (s *System) RegisterChecker(component string, checker healthz.HealthChecker) error {
+	err := s.healthHandler.RegisterChecker(component, checker)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -16,9 +16,13 @@ limitations under the License.
 package lib
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/cloudflare/cfssl/log"
@@ -169,4 +173,23 @@ func TestServerMetrics(t *testing.T) {
 	gt.Expect(fakeHist.ObserveCallCount()).To(Equal(1))
 	gt.Expect(fakeHist.WithArgsForCall(0)).NotTo(BeZero())
 	gt.Expect(fakeHist.WithArgsForCall(0)).To(Equal([]string{"ca_name", "ca1", "api_name", "/test", "status_code", "405"}))
+}
+
+func TestServerHealthCheck(t *testing.T) {
+	srv := &Server{}
+	srv.listener, _ = net.Listen("tcp", ":7055")
+	srv.addr = "[::]:7055"
+
+	err := srv.HealthCheck(context.Background())
+	assert.NoError(t, err)
+
+	srv.listener.Close()
+	srv.listener = nil
+
+	addr := strings.Split(srv.addr, ":")
+	port := addr[len(addr)-1]
+	errorMsg := fmt.Sprintf("dial tcp :%s: connect: connection refused", port)
+
+	err = srv.HealthCheck(context.Background())
+	assert.EqualError(t, err, errorMsg)
 }

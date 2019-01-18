@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package lib
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -21,6 +22,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hyperledger/fabric-lib-go/healthz"
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/cloudflare/cfssl/revoke"
@@ -55,6 +58,7 @@ type OperationsServer interface {
 	Start() error
 	Stop() error
 	Addr() string
+	RegisterChecker(component string, checker healthz.HealthChecker) error
 }
 
 // Server is the fabric-ca server
@@ -90,6 +94,12 @@ type Server struct {
 	mutex sync.Mutex
 	// The server's current levels
 	levels *dbutil.Levels
+	//The operations server listener port
+	addr string
+}
+
+func (s *Server) registerHealthChecker() {
+	s.Operations.RegisterChecker("server", s)
 }
 
 // Init initializes a fabric-ca server
@@ -178,6 +188,8 @@ func (s *Server) Start() (err error) {
 	if err != nil {
 		return err
 	}
+
+	s.registerHealthChecker()
 	s.initMetrics()
 
 	// Start listening and serving
@@ -189,21 +201,16 @@ func (s *Server) Start() (err error) {
 		}
 		return err
 	}
+
+	//Store the listeners address for future use, even if the listener is closed
+	s.addr = s.listener.Addr().String()
+
 	return nil
 }
 
-// Stop the server
-// WARNING: This forcefully closes the listening socket and may cause
-// requests in transit to fail, and so is only used for testing.
-// A graceful shutdown will be supported with golang 1.8.
-func (s *Server) Stop() error {
-	// Stop operations server
-	err := s.Operations.Stop()
-	if err != nil {
-		return err
-	}
-
-	err = s.closeListener()
+//StopCA shuts down the CA server. The operations server will continue to run
+func (s *Server) StopCA() error {
+	err := s.closeListener()
 	if err != nil {
 		return err
 	}
@@ -231,6 +238,25 @@ func (s *Server) Stop() error {
 	if err != nil {
 		log.Errorf("Close DB failed: %s", err)
 	}
+	return nil
+}
+
+// Stop the server
+// WARNING: This forcefully closes the listening socket and may cause
+// requests in transit to fail, and so is only used for testing.
+// A graceful shutdown will be supported with golang 1.8.
+func (s *Server) Stop() error {
+	// Stop operations server
+	err := s.Operations.Stop()
+	if err != nil {
+		return err
+	}
+
+	err = s.StopCA()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -693,6 +719,21 @@ func (s *Server) serve() error {
 		s.wait <- true
 	}
 	return s.serveError
+}
+
+//HealthCheck connects to the CA endpoint to determine its responsiveness
+func (s *Server) HealthCheck(ctx context.Context) error {
+	addr := strings.Split(s.addr, ":")
+	port := addr[len(addr)-1]
+	port = fmt.Sprintf(":%s", port)
+
+	conn, err := net.Dial("tcp", port)
+	if err != nil {
+		return err
+	}
+	conn.Close()
+
+	return nil
 }
 
 // checkAndEnableProfiling checks for FABRIC_CA_SERVER_PROFILE_PORT env variable
