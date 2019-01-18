@@ -16,6 +16,7 @@ limitations under the License.
 package lib
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -169,4 +170,21 @@ func TestServerMetrics(t *testing.T) {
 	gt.Expect(fakeHist.ObserveCallCount()).To(Equal(1))
 	gt.Expect(fakeHist.WithArgsForCall(0)).NotTo(BeZero())
 	gt.Expect(fakeHist.WithArgsForCall(0)).To(Equal([]string{"ca_name", "ca1", "api_name", "/test", "status_code", "405"}))
+}
+
+func TestServerHealthCheck(t *testing.T) {
+	srv := TestGetRootServer(t)
+	defer srv.Stop()
+
+	err := srv.Start()
+	assert.NoError(t, err)
+
+	err = srv.HealthCheck(context.Background())
+	assert.NoError(t, err)
+
+	err = srv.db.Close()
+	assert.NoError(t, err)
+
+	err = srv.HealthCheck(context.Background())
+	assert.EqualError(t, err, "sql: database is closed")
 }
