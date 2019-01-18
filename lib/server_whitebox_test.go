@@ -16,6 +16,9 @@ limitations under the License.
 package lib
 
 import (
+	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -169,4 +172,22 @@ func TestServerMetrics(t *testing.T) {
 	gt.Expect(fakeHist.ObserveCallCount()).To(Equal(1))
 	gt.Expect(fakeHist.WithArgsForCall(0)).NotTo(BeZero())
 	gt.Expect(fakeHist.WithArgsForCall(0)).To(Equal([]string{"ca_name", "ca1", "api_name", "/test", "status_code", "405"}))
+}
+
+func TestServerHealthCheck(t *testing.T) {
+	srv := &Server{}
+	addr := fmt.Sprintf(":%d", serverPort)
+	srv.listener, _ = net.Listen("tcp", addr)
+	srv.addr = addr
+
+	err := srv.HealthCheck(context.Background())
+	assert.NoError(t, err)
+
+	srv.listener.Close()
+	srv.listener = nil
+
+	errorMsg := fmt.Sprintf("dial tcp :%d: connect: connection refused", serverPort)
+
+	err = srv.HealthCheck(context.Background())
+	assert.EqualError(t, err, errorMsg)
 }
