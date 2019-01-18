@@ -16,6 +16,8 @@ limitations under the License.
 package lib
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -23,9 +25,12 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/gorilla/mux"
+	"github.com/hyperledger/fabric-ca/integration/runner"
+	"github.com/hyperledger/fabric-ca/lib/dbutil"
 	"github.com/hyperledger/fabric-ca/lib/server/metrics"
 	"github.com/hyperledger/fabric-ca/util"
 	"github.com/hyperledger/fabric/common/metrics/metricsfakes"
+	"github.com/jmoiron/sqlx"
 	. "github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 )
@@ -169,4 +174,33 @@ func TestServerMetrics(t *testing.T) {
 	gt.Expect(fakeHist.ObserveCallCount()).To(Equal(1))
 	gt.Expect(fakeHist.WithArgsForCall(0)).NotTo(BeZero())
 	gt.Expect(fakeHist.WithArgsForCall(0)).To(Equal([]string{"ca_name", "ca1", "api_name", "/test", "status_code", "405"}))
+}
+
+func TestServerHealthCheck(t *testing.T) {
+	srv := TestGetRootServer(t)
+
+	postgresDB := &runner.PostgresDB{}
+	err := postgresDB.Start()
+	assert.NoError(t, err)
+	defer func() {
+		err = postgresDB.Stop()
+		assert.NoError(t, err)
+	}()
+
+	dataSource := fmt.Sprintf("host=%s port=%d user=postgres dbname=postgres sslmode=disable", postgresDB.HostIP, postgresDB.HostPort)
+	srv.CA.Config.DB.Datasource = dataSource
+
+	db, err := sqlx.Open("postgres", dataSource)
+	assert.NoError(t, err)
+
+	srv.CA.db = &dbutil.DB{DB: db, IsDBInitialized: false}
+
+	err = srv.HealthCheck(context.Background())
+	assert.NoError(t, err)
+
+	err = srv.db.Close()
+	assert.NoError(t, err)
+
+	err = srv.HealthCheck(context.Background())
+	assert.EqualError(t, err, "sql: database is closed")
 }
