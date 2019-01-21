@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
 
 	"github.com/cloudflare/cfssl/log"
@@ -177,8 +176,9 @@ func TestServerMetrics(t *testing.T) {
 
 func TestServerHealthCheck(t *testing.T) {
 	srv := &Server{}
-	srv.listener, _ = net.Listen("tcp", ":7055")
-	srv.addr = "[::]:7055"
+	addr := fmt.Sprintf(":%d", serverPort)
+	srv.listener, _ = net.Listen("tcp", addr)
+	srv.addr = addr
 
 	err := srv.HealthCheck(context.Background())
 	assert.NoError(t, err)
@@ -186,9 +186,7 @@ func TestServerHealthCheck(t *testing.T) {
 	srv.listener.Close()
 	srv.listener = nil
 
-	addr := strings.Split(srv.addr, ":")
-	port := addr[len(addr)-1]
-	errorMsg := fmt.Sprintf("dial tcp :%s: connect: connection refused", port)
+	errorMsg := fmt.Sprintf("dial tcp :%d: connect: connection refused", serverPort)
 
 	err = srv.HealthCheck(context.Background())
 	assert.EqualError(t, err, errorMsg)

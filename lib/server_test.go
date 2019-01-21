@@ -2974,13 +2974,18 @@ func TestHealthCheck(t *testing.T) {
 	c := &http.Client{}
 	healthURL := "http://localhost:7055/healthz"
 
-	respCode, _ := DoHealthCheck(t, c, healthURL)
+	respCode, healthStatus := DoHealthCheck(t, c, healthURL)
 	assert.Equal(t, http.StatusOK, respCode)
+	assert.Equal(t, "OK", healthStatus.Status)
 
 	server.StopCA()
 
-	respCode, _ = DoHealthCheck(t, c, healthURL)
+	errMsg := fmt.Sprintf("dial tcp :%d: connect: connection refused", rootPort)
+
+	respCode, healthStatus = DoHealthCheck(t, c, healthURL)
 	assert.Equal(t, http.StatusServiceUnavailable, respCode)
+	assert.Equal(t, "server", healthStatus.FailedChecks[0].Component)
+	assert.Equal(t, errMsg, healthStatus.FailedChecks[0].Reason)
 }
 
 func DoHealthCheck(t *testing.T, client *http.Client, url string) (int, healthz.HealthStatus) {
