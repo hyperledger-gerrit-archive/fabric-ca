@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/mysql"
 	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/mysql/mocks"
 	"github.com/hyperledger/fabric-ca/lib/tls"
+	"github.com/hyperledger/fabric/common/metrics/disabled"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -32,7 +33,7 @@ var _ = Describe("Mysql", func() {
 			Enabled:   true,
 			CertFiles: []string{filepath.Join(testdataDir, "root.pem")},
 		}
-		db = mysql.NewUserRegistry("root:rootpw@tcp(localhost:3306)/fabric_ca_db", tls, nil)
+		db = mysql.NewUserRegistry("root:rootpw@tcp(localhost:3306)/fabric_ca_db", "", tls, nil, &disabled.Provider{})
 		mockDB = &mocks.FabricCADB{}
 	})
 
