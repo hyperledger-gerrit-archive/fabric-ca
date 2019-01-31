@@ -47,10 +47,10 @@ type Info struct {
 //go:generate counterfeiter -o mocks/userDB.go -fake-name UserDB . userDB
 
 type userDB interface {
-	Exec(query string, args ...interface{}) (sql.Result, error)
-	Get(dest interface{}, query string, args ...interface{}) error
+	Exec(funcName, query string, args ...interface{}) (sql.Result, error)
+	Get(funcName string, dest interface{}, query string, args ...interface{}) error
 	Rebind(query string) string
-	Queryx(query string, args ...interface{}) (*sqlx.Rows, error)
+	Queryx(funcName, query string, args ...interface{}) (*sqlx.Rows, error)
 }
 
 // User is the databases representation of a user
@@ -130,12 +130,12 @@ func (u *User) setLevel(tx userDB, level int) (err error) {
 	id := u.GetName()
 	var res sql.Result
 	if tx != nil {
-		res, err = tx.Exec(tx.Rebind(query), level, id)
+		res, err = tx.Exec("SetLevel", tx.Rebind(query), level, id)
 		if err != nil {
 			return err
 		}
 	} else {
-		res, err = u.db.Exec(u.db.Rebind(query), level, id)
+		res, err = u.db.Exec("SetLevel", u.db.Rebind(query), level, id)
 		if err != nil {
 			return err
 		}
@@ -198,7 +198,7 @@ func (u *User) Login(pass string, caMaxEnrollments int) error {
 
 func (u *User) resetIncorrectLoginAttempts() error {
 	var passAttempts int
-	err := u.db.Get(&passAttempts, u.db.Rebind("Select incorrect_password_attempts FROM users WHERE (id = ?)"), u.GetName())
+	err := u.db.Get("ResetIncorrectLoginAttempts", &passAttempts, u.db.Rebind("Select incorrect_password_attempts FROM users WHERE (id = ?)"), u.GetName())
 	if err != nil {
 		return errors.Wrapf(err, "Failed to get incorrect password attempt for %s", u.Name)
 	}
@@ -209,7 +209,7 @@ func (u *User) resetIncorrectLoginAttempts() error {
 	}
 
 	resetSQL := "UPDATE users SET incorrect_password_attempts = 0 WHERE (id = ?)"
-	res, err := u.db.Exec(u.db.Rebind(resetSQL), u.GetName())
+	res, err := u.db.Exec("ResetIncorrectLoginAttempts", u.db.Rebind(resetSQL), u.GetName())
 	if err != nil {
 		return errors.Wrapf(err, "Failed to update incorrect password attempt count to 0 for %s", u.Name)
 	}
@@ -246,7 +246,7 @@ func (u *User) LoginComplete() error {
 		stateUpdateSQL = "UPDATE users SET state = state + 1 WHERE (id = ? AND state < ?)"
 		args = append(args, u.MaxEnrollments)
 	}
-	res, err := u.db.Exec(u.db.Rebind(stateUpdateSQL), args...)
+	res, err := u.db.Exec("LoginComplete", u.db.Rebind(stateUpdateSQL), args...)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to update state of identity %s to %d", u.Name, state)
 	}
@@ -310,7 +310,7 @@ func (u *User) GetAttributes(attrNames []string) ([]api.Attribute, error) {
 func (u *User) Revoke() error {
 	stateUpdateSQL := "UPDATE users SET state = -1 WHERE (id = ?)"
 
-	res, err := u.db.Exec(u.db.Rebind(stateUpdateSQL), u.GetName())
+	res, err := u.db.Exec("Revoke", u.db.Rebind(stateUpdateSQL), u.GetName())
 	if err != nil {
 		return errors.Wrapf(err, "Failed to update state of identity %s to -1", u.Name)
 	}
@@ -365,12 +365,12 @@ func (u *User) modifyAttributes(tx userDB, newAttrs []api.Attribute) error {
 	id := u.GetName()
 	var res sql.Result
 	if tx == nil {
-		res, err = u.db.Exec(u.db.Rebind(query), string(attrBytes), id)
+		res, err = u.db.Exec("ModifyAttributes", u.db.Rebind(query), string(attrBytes), id)
 		if err != nil {
 			return err
 		}
 	} else {
-		res, err = tx.Exec(tx.Rebind(query), string(attrBytes), id)
+		res, err = tx.Exec("ModifyAttributes", tx.Rebind(query), string(attrBytes), id)
 		if err != nil {
 			return err
 		}
@@ -428,7 +428,7 @@ func (u *User) IncrementIncorrectPasswordAttempts() error {
 	log.Debugf("Incorrect password entered by user '%s'", u.GetName())
 	query := "UPDATE users SET incorrect_password_attempts = incorrect_password_attempts + 1 where (id = ?)"
 	id := u.GetName()
-	res, err := u.db.Exec(u.db.Rebind(query), id)
+	res, err := u.db.Exec("IncrementIncorrectPasswordAttempts", u.db.Rebind(query), id)
 	if err != nil {
 		return err
 	}
@@ -507,7 +507,7 @@ func GetUserLessThanLevel(tx userDB, level int) ([]*User, error) {
 		return []*User{}, nil
 	}
 
-	rows, err := tx.Queryx(tx.Rebind("SELECT * FROM users WHERE (level < ?) OR (level IS NULL)"), level)
+	rows, err := tx.Queryx("GetUserLessThanLevel", tx.Rebind("SELECT * FROM users WHERE (level < ?) OR (level IS NULL)"), level)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get identities that need to be updated")
 	}

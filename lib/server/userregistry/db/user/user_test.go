@@ -21,14 +21,12 @@ var _ = Describe("user", func() {
 	var (
 		userRecord *user.Record
 		mockUserDB *mocks.UserDB
-		//	mockUserTx *mocks.UserTx
 		mockResult *mocks.Result
 		u          *user.User
 	)
 
 	BeforeEach(func() {
 		mockUserDB = &mocks.UserDB{}
-		//	mockUserTx = &mocks.UserTx{}
 		mockResult = &mocks.Result{}
 
 		pass, err := bcrypt.GenerateFromPassword([]byte("password"), 1)
