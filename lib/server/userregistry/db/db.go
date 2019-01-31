@@ -12,7 +12,7 @@ import (
 
 	"github.com/cloudflare/cfssl/certdb"
 	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/util"
-	"github.com/hyperledger/fabric/common/metrics/disabled"
+	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -84,10 +84,10 @@ type DB struct {
 }
 
 // New creates an instance of DB
-func New(db SqlxDB) *DB {
-	metricsProvider := &disabled.Provider{}
+func New(db SqlxDB, caName string, metricsProvider metrics.Provider) *DB {
 	return &DB{
-		DB: db,
+		DB:     db,
+		CAName: caName,
 		Metrics: Metrics{
 			APICounter:  metricsProvider.NewCounter(APICounterOpts),
 			APIDuration: metricsProvider.NewHistogram(APIDurationOpts),

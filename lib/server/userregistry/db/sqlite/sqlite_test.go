@@ -12,6 +12,7 @@ import (
 
 	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/sqlite"
 	"github.com/hyperledger/fabric-ca/lib/server/userregistry/db/sqlite/mocks"
+	"github.com/hyperledger/fabric/common/metrics/disabled"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -25,7 +26,7 @@ var _ = Describe("Sqlite", func() {
 	var db *sqlite.Sqlite
 
 	BeforeEach(func() {
-		db = sqlite.NewUserRegistry(dbName)
+		db = sqlite.NewUserRegistry(dbName, "", &disabled.Provider{})
 	})
 
 	AfterEach(func() {
