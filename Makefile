@@ -255,6 +255,7 @@ release/%/bin/fabric-ca-client: $(GO_SOURCE)
 .PHONY: docker-thirdparty
 docker-thirdparty:
 	docker pull postgres:9.6
+	docker pull mysql:5.7
 
 .PHONY: dist
 dist: dist-clean release
