@@ -74,6 +74,7 @@ Table of Contents
 
 8. `Troubleshooting`_
 
+9. `Operations Guide`_
 
 Overview
 --------
@@ -2484,6 +2485,10 @@ Troubleshooting
       Assuming that you can not recover the original CA signing key, the only way to recover from this scenario is to update the
       certificate in the `cacerts` (or `intermediatecerts`) of the appropriate MSPs to the new CA certificate.
 
+Operations Guide
+-----------------
+
+Go Here: :doc:`Operations Guide <operations_guide>`.
+
 .. Licensed under Creative Commons Attribution 4.0 International License
    https://creativecommons.org/licenses/by/4.0/
-ƒ
