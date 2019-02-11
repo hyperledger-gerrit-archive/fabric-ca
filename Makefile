@@ -177,7 +177,7 @@ bench-cpu: checks fabric-ca-server fabric-ca-client
 bench-mem: checks fabric-ca-server fabric-ca-client
 	@scripts/run_benchmarks -M -P $(pkg)
 
-# e.g. make benchcmp prev_rel=v1.0.0
+# e.g. make benchcmp prev_rel =v1.0.0
 benchcmp: guard-prev_rel bench
 	@scripts/compare_benchmarks $(prev_rel)
 
