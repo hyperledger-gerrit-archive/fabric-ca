@@ -40,7 +40,12 @@ ifneq ($(NO_PROXY),)
 DOCKER_BUILD_FLAGS+=--build-arg NO_PROXY=$(NO_PROXY)
 DOCKER_RUN_FLAGS+=-e NO_PROXY=$(NO_PROXY)
 endif
-
+#######
+#ifneq ($(NO_PROXY),)
+#DOCKER_BUILD_FLAGS+=--build-arg NO_PROXY=$(NO_PROXY)
+#DOCKER_RUN_FLAGS+=-e NO_PROXY=$(NO_PROXY)
+#endif
+######
 DRUN = docker run -i --rm $(DOCKER_RUN_FLAGS) \
 	-v $(abspath .):/opt/gopath/src/$(PKGNAME) \
 	-w /opt/gopath/src/$(PKGNAME)
@@ -85,7 +90,7 @@ endif
 #
 # As an aside, also note that we incorporate the version number in the .dummy
 # file to differentiate different tags to fix FAB-1145
-#
+#    
 DUMMY = .dummy-$(DOCKER_TAG)
 
 
