@@ -15,7 +15,7 @@
 ifneq ($(shell uname),Darwin)
 DOCKER_RUN_FLAGS=--user=$(shell id -u)
 endif
-
+     
 ifneq ($(http_proxy),)
 DOCKER_BUILD_FLAGS+=--build-arg http_proxy=$(http_proxy)
 DOCKER_RUN_FLAGS+=-e http_proxy=$(http_proxy)
@@ -40,7 +40,12 @@ ifneq ($(NO_PROXY),)
 DOCKER_BUILD_FLAGS+=--build-arg NO_PROXY=$(NO_PROXY)
 DOCKER_RUN_FLAGS+=-e NO_PROXY=$(NO_PROXY)
 endif
-
+#######
+#ifneq ($(NO_PROXY),)
+#DOCKER_BUILD_FLAGS+=--build-arg NO_PROXY=$(NO_PROXY)
+#DOCKER_RUN_FLAGS+=-e NO_PROXY=$(NO_PROXY)
+#endif
+######
 DRUN = docker run -i --rm $(DOCKER_RUN_FLAGS) \
 	-v $(abspath .):/opt/gopath/src/$(PKGNAME) \
 	-w /opt/gopath/src/$(PKGNAME)
