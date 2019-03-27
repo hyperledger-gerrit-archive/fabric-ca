@@ -21,7 +21,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
@@ -694,9 +693,13 @@ func NormalizeStringSlice(slice []string) []string {
 			}
 			// Split elements based on comma and add to normalized slice
 			if strings.Contains(item, ",") {
-				normalizedSlice = append(normalizedSlice, strings.Split(item, ",")...)
+				strings.Replace(item, ", ", ",", -1)
+				normalizedSlice = append(
+					normalizedSlice,
+					strings.Split(strings.Replace(item, ", ", ",", -1), ",")...,
+				)
 			} else {
-				normalizedSlice = append(normalizedSlice, item)
+				normalizedSlice = append(normalizedSlice, strings.TrimSpace(item))
 			}
 		}
 	}
@@ -721,8 +724,7 @@ func NormalizeFileList(files []string, homeDir string) ([]string, error) {
 }
 
 // CheckHostsInCert checks to see if host correctly inserted into certificate
-func CheckHostsInCert(certFile string, host string) error {
-	containsHost := false
+func CheckHostsInCert(certFile string, hosts ...string) error {
 	certBytes, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		return errors.Wrapf(err, "Failed to read certificate file at '%s'", certFile)
@@ -732,21 +734,26 @@ func CheckHostsInCert(certFile string, host string) error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to get certificate")
 	}
-	// Run through the extensions for the certificates
-	for _, ext := range cert.Extensions {
-		// asn1 identifier for 'Subject Alternative Name'
-		if ext.Id.Equal(asn1.ObjectIdentifier{2, 5, 29, 17}) {
-			if !strings.Contains(string(ext.Value), host) {
-				return errors.Errorf("Host '%s' was not found in the certificate in file '%s'", host, certFile)
+
+	contains := func(list []string, item string) bool {
+		for _, member := range list {
+			if member == item {
+				return true
 			}
-			containsHost = true
+		}
+		return false
+	}
+	// combine DNSNames and IPAddresses from cert
+	var sans []string
+	sans = append(sans, cert.DNSNames...)
+	for _, ip := range cert.IPAddresses {
+		sans = append(sans, ip.String())
+	}
+	for _, host := range hosts {
+		if !contains(sans, host) {
+			return errors.Errorf("Host '%s' was not found in the certificate in file '%s'", host, certFile)
 		}
 	}
-
-	if !containsHost {
-		return errors.New("Certificate contains no hosts")
-	}
-
 	return nil
 }
 
