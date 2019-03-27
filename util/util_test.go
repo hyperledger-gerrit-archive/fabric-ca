@@ -717,7 +717,7 @@ func TestCheckHostsInCert(t *testing.T) {
 	err = CheckHostsInCert("../testdata/tls_server-cert.pem", "localhost")
 	assert.NoError(t, err, fmt.Sprintf("Failed to find 'localhost' for host in certificate: %s", err))
 
-	err = CheckHostsInCert("../testdata/tls_server-cert.pem", "fakehost")
+	err = CheckHostsInCert("../testdata/tls_server-cert.pem", "localhost", "fakehost")
 	assert.Error(t, err, "Certificate does not contain 'fakehost', should have failed")
 
 	err = CheckHostsInCert("../testdata/root.pem", "x")
