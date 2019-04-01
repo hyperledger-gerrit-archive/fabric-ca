@@ -8,6 +8,8 @@ package lib
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -190,4 +192,100 @@ func TestServerHealthCheck(t *testing.T) {
 
 	err = srv.HealthCheck(context.Background())
 	assert.EqualError(t, err, "sql: database is closed")
+}
+
+func TestCORS(t *testing.T) {
+	tests := []struct {
+		cors         CORS
+		origin       string
+		expectHeader bool
+	}{
+		{
+			cors: CORS{
+				Enabled: false,
+			},
+			origin:       "badorigin.com",
+			expectHeader: false,
+		},
+		{
+			cors: CORS{
+				Enabled: true,
+				Origins: []string{"goodorigin.com"},
+			},
+			origin:       "goodorigin.com",
+			expectHeader: true,
+		},
+		{
+			cors: CORS{
+				Enabled: true,
+				Origins: []string{"goodorigin.com"},
+			},
+			origin:       "badorigin.com",
+			expectHeader: false,
+		},
+	}
+
+	fakeCounter := &metricsfakes.Counter{}
+	fakeCounter.WithReturns(fakeCounter)
+	fakeHist := &metricsfakes.Histogram{}
+	fakeHist.WithReturns(fakeHist)
+
+	for _, test := range tests {
+		_test := test
+		t.Run("", func(t *testing.T) {
+			lis, err := net.Listen("tcp", "localhost:0")
+			if err != nil {
+				t.Fatalf("Failed to create listener: %s", err)
+			}
+			fmt.Println(lis.Addr().String())
+			s := &Server{
+				CA: CA{
+					Config: &CAConfig{
+						CA: CAInfo{
+							Name: "ca1",
+						},
+					},
+				},
+				Config: &ServerConfig{
+					CORS: _test.cors,
+				},
+				Metrics: metrics.Metrics{
+					APICounter:  fakeCounter,
+					APIDuration: fakeHist,
+				},
+				listener: lis,
+			}
+			s.mux = mux.NewRouter()
+			s.mux.HandleFunc("/test", func(
+				rw http.ResponseWriter,
+				r *http.Request,
+			) {
+				rw.WriteHeader(http.StatusOK)
+			},
+			)
+			s.mux.Use(s.middleware)
+			go func() {
+				err = s.serve()
+				if err != nil {
+					t.Fatalf("Error starting server: %s", err)
+				}
+			}()
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/test", lis.Addr().String()), nil)
+			if err != nil {
+				t.Fatalf("Failed to create http request: %s", err)
+			}
+			req.Header.Set("Origin", _test.origin)
+			client := &http.Client{}
+			res, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("Request error: %s", err)
+			}
+			for k, v := range res.Header {
+				t.Logf("%s : %s", k, v)
+			}
+			_, ok := res.Header["Access-Control-Allow-Origin"]
+			assert.Equal(t, _test.expectHeader, ok)
+		})
+	}
+
 }

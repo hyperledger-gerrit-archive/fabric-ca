@@ -27,6 +27,7 @@ import (
 	"github.com/cloudflare/cfssl/revoke"
 	"github.com/cloudflare/cfssl/signer"
 	"github.com/felixge/httpsnoop"
+	ghandlers "github.com/gorilla/handlers"
 	gmux "github.com/gorilla/mux"
 	"github.com/hyperledger/fabric-ca/lib/attr"
 	"github.com/hyperledger/fabric-ca/lib/caerrors"
@@ -698,8 +699,13 @@ func (s *Server) serve() error {
 		// in https://jira.hyperledger.org/browse/FAB-3100.
 		return nil
 	}
+	if s.Config.CORS.Enabled {
+		origins := ghandlers.AllowedOrigins(s.Config.CORS.Origins)
+		s.serveError = http.Serve(listener, ghandlers.CORS(origins)(s.mux))
+	} else {
+		s.serveError = http.Serve(listener, s.mux)
+	}
 
-	s.serveError = http.Serve(listener, s.mux)
 	log.Errorf("Server has stopped serving: %s", s.serveError)
 	s.closeListener()
 	err := s.closeDB()
