@@ -74,12 +74,6 @@ version: <<<VERSION>>>
 # Server's listening port (default: 7054)
 port: 7054
 
-# Cross-Origin Resource Sharing (CORS)
-cors:
-    enabled: false
-    origins:
-      - "*"
-
 # Enables debug logging (default: false)
 debug: false
 
