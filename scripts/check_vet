@@ -13,7 +13,7 @@ function runvet {
           vendor|bin|testdata|scripts)
           ;;
         *)
-          go tool vet $dir
+          go vet $dir
           ;;
         esac
       fi
