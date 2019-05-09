@@ -714,7 +714,7 @@ func TestSRVRunningTLSServer(t *testing.T) {
 		})
 		t.Logf("Attempting TLS version [%d]", tlsVersion)
 		assert.Error(t, err, "Should not have been able to connect with TLS version < 1.2")
-		assert.Contains(t, err.Error(), "protocol version not supported")
+		assert.Contains(t, err.Error(), "tls: no supported versions satisfy MinVersion and MaxVersion")
 	}
 }
 
