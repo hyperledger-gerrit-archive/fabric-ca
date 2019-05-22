@@ -1,6 +1,5 @@
 #!/bin/bash
 RC=0
-export DEBIAN_FRONTEND=noninteractive
 
 # Avoid sysvinit errors
 cat > /usr/sbin/policy-rc.d <<EOF
@@ -22,7 +21,8 @@ echo "mysql-server mysql-server/root_password_again password mysql" | debconf-se
 apt-get -y install --no-install-recommends rsyslog bc vim lsof sqlite3 haproxy postgresql-$PGVER \
            postgresql-client-common postgresql-contrib-$PGVER isag jq git html2text \
            debconf-utils zsh htop python2.7-minimal libpython2.7-stdlib \
-           mysql-client  mysql-common mysql-server parallel || let RC+=1
+           mysql-client  mysql-common mysql-server parallel  wget libltdl-dev \
+           gcc net-tools libtool make || let RC+=1
 apt-get -y install ssl-cert || let RC+=1
 apt-get -y autoremove
 
