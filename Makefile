@@ -36,8 +36,6 @@ BASE_VERSION = 2.0.0
 PREV_VERSION = 2.0.0-alpha
 IS_RELEASE = false
 
-BASEIMAGE_RELEASE = 0.4.15
-
 ARCH=$(shell go env GOARCH)
 MARCH=$(shell go env GOOS)-$(shell go env GOARCH)
 STABLE_TAG ?= $(ARCH)-$(BASE_VERSION)-stable
@@ -144,7 +142,6 @@ build/image/fabric-ca-fvt/$(DUMMY):
 	$(eval TARGET = ${patsubst build/image/%/$(DUMMY),%,${@}})
 	@echo "Docker:  building $(TARGET) image"
 	$(DBUILD) -f images/$(TARGET)/Dockerfile \
-		--build-arg BASEIMAGE_RELEASE=${BASEIMAGE_RELEASE} \
 		--build-arg GO_TAGS=pkcs11 \
 		--build-arg GO_LDFLAGS="${DOCKER_GO_LDFLAGS}" \
 		--build-arg PG_VER=${PG_VER} \
