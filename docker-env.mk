@@ -48,7 +48,6 @@ DRUN = docker run -i --rm $(DOCKER_RUN_FLAGS) \
 DBUILD = docker build $(DOCKER_BUILD_FLAGS)
 
 BASE_DOCKER_NS ?= hyperledger
-BASE_DOCKER_TAG=$(ARCH)-$(BASEIMAGE_RELEASE)
 
 DOCKER_NS ?= hyperledger
 NEXUS_URL ?= nexus3.hyperledger.org:10001/hyperledger
