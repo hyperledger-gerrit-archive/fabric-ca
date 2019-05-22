@@ -1,6 +1,9 @@
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
 #!/bin/bash
 RC=0
-export DEBIAN_FRONTEND=noninteractive
 
 # Avoid sysvinit errors
 cat > /usr/sbin/policy-rc.d <<EOF
@@ -11,6 +14,7 @@ chmod +x /usr/sbin/policy-rc.d
 dpkg-divert --local --rename --add /sbin/initctl
 
 # Update system
+apt-get -y upgrade
 apt-get -y update && apt-get -y install --no-install-recommends locales
 sed -i -e 's/^[[:blank:]]*#[[:blank:]]*en_US.UTF-8[[:blank:]]*UTF-8/en_US.UTF-8 UTF-8/' /etc/locale.gen
 printf "LANG=en_US.UTF-8\nLANGUAGE=en_US.UTF-8\n" > /etc/default/locale
@@ -22,7 +26,8 @@ echo "mysql-server mysql-server/root_password_again password mysql" | debconf-se
 apt-get -y install --no-install-recommends rsyslog bc vim lsof sqlite3 haproxy postgresql-$PGVER \
            postgresql-client-common postgresql-contrib-$PGVER isag jq git html2text \
            debconf-utils zsh htop python2.7-minimal libpython2.7-stdlib \
-           mysql-client  mysql-common mysql-server parallel || let RC+=1
+           mysql-client  mysql-common mysql-server parallel  wget libltdl-dev \
+           gcc net-tools libtool make ca-certificates curl || let RC+=1
 apt-get -y install ssl-cert || let RC+=1
 apt-get -y autoremove
 
