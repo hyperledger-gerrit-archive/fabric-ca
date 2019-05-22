@@ -3,26 +3,34 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-ARG BASEIMAGE_RELEASE
-FROM hyperledger/fabric-baseimage:${BASEIMAGE_RELEASE} as fabric-ca-builder
+
+ARG FVT_BASE_IMAGE
+ARG FVT_BASE_IMAGE_TAG
 ARG GO_LDFLAGS
 ARG GO_TAGS
+ARG GO_VER
 
+FROM golang:${GO_VER} as fabric-ca-builder
+
+RUN apt-get update && apt-get install -qq -y libtool
 ADD . ${GOPATH}/src/github.com/hyperledger/fabric-ca
 RUN go build -tags "${GO_TAGS}" -ldflags "${GO_LDFLAGS}" \
-	-o /usr/local/bin/fabric-ca-server \
+	-o /opt/fabric-ca-server \
 	github.com/hyperledger/fabric-ca/cmd/fabric-ca-server \
 	&& go build -tags "${GO_TAGS}" -ldflags "${GO_LDFLAGS}" \
-	-o /usr/local/bin/fabric-ca-client \
+	-o /opt/fabric-ca-client \
 	github.com/hyperledger/fabric-ca/cmd/fabric-ca-client;
 
+FROM ${FVT_BASE_IMAGE}:${FVT_BASE_IMAGE_TAG}
 
-FROM hyperledger/fabric-baseimage:${BASEIMAGE_RELEASE}
 ARG PG_VER
+ARG GO_VER
 
-ENV PATH="/usr/local/go/bin/:${PATH}" \
+ENV PATH="/opt/go/bin:/opt/gopath/bin:/usr/local/bin/:${PATH}" \
     DEBIAN_FRONTEND="noninteractive" \
+    GOROOT="/opt/go" \
     GOPATH="/opt/gopath" \
+    GOVER="${GO_VER}" \
     PGDATA="/usr/local/pgsql/data/" \
     PGUSER="postgres" \
     PGPASSWORD="postgres" \
@@ -42,11 +50,11 @@ ENV PATH="/usr/local/go/bin/:${PATH}" \
     MYSQLDATA=/var/lib/mysql
 
 # setup scripts for slapd, postgres, mysql, and openssl
-COPY --from=fabric-ca-builder \
-	${GOPATH}/src/github.com/hyperledger/fabric-ca/images/fabric-ca-fvt/payload \
-	${FABRIC_CA_DATA}
+ADD ./images/fabric-ca-fvt/payload ${FABRIC_CA_DATA}
 RUN chmod +x ${FABRIC_CA_DATA}/*sh
 RUN cd ${FABRIC_CA_DATA}
+
+RUN apt-get update && apt-get install -qq -y openssl netcat
 RUN $FABRIC_CA_DATA/tls_pki.sh
 RUN chmod 600 ${FABRIC_CA_DATA}/${TLS_SERVER_KEY}
 RUN chmod 600 ${FABRIC_CA_DATA}/${TLS_CLIENT_KEY}
@@ -59,13 +67,15 @@ RUN ${FABRIC_CA_DATA}/system_update.sh
 RUN ${FABRIC_CA_DATA}/postgres_setup.sh
 RUN ${FABRIC_CA_DATA}/slapd_setup.sh
 RUN ${FABRIC_CA_DATA}/mysql_setup.sh
+RUN ${FABRIC_CA_DATA}/install_go.sh
 
 # Install fabric-ca dependencies
 RUN go get github.com/go-sql-driver/mysql
 RUN go get github.com/lib/pq
 
 # Add docker-built execs for (potentially) alternative architecture
-COPY --from=fabric-ca-builder /usr/local/bin /usr/local/bin
+COPY --from=fabric-ca-builder /opt/fabric-ca-server /usr/local/bin
+COPY --from=fabric-ca-builder /opt/fabric-ca-client /usr/local/bin
 
 WORKDIR ${GOPATH}/src/github.com/hyperledger/fabric-ca
 RUN cp ${FABRIC_CA_DATA}/start.sh /
