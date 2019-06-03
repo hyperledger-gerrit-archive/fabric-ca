@@ -759,13 +759,13 @@ server to connect to an LDAP server.
           #    maps:
           #       groups:
           #          - name: dn1
-          #            value: orderer
+          #            value: client
           #          - name: dn2
           #            value: peer
           # The value of the user's 'myAttr' attribute is then computed to be
-          # "orderer,peer,dn3".  This is because the value of 'attr("member")' is
+          # "client,peer,dn3".  This is because the value of 'attr("member")' is
           # "dn1,dn2,dn3", and the call to 'map' with a 2nd argument of
-          # "group" replaces "dn1" with "orderer" and "dn2" with "peer".
+          # "group" replaces "dn1" with "client" and "dn2" with "peer".
           converters:
             - name: <fcaAttrName>
               value: <fcaExpr>
@@ -1329,8 +1329,8 @@ during registration as follows:
 1. The registrar (i.e. the invoker) must have the "hf.Registrar.Roles" attribute with a
    comma-separated list of values where one of the values equals the type of
    identity being registered; for example, if the registrar has the
-   "hf.Registrar.Roles" attribute with a value of "peer,app,user", the registrar
-   can register identities of type peer, app, and user, but not orderer.
+   "hf.Registrar.Roles" attribute with a value of "peer,app", the registrar
+   can register identities of type peer, app, but not user.
 
 2. The affiliation of the registrar must be equal to or a prefix of
    the affiliation of the identity being registered.  For example, an registrar
@@ -1393,9 +1393,9 @@ Examples:
          'a.b.*'.
       4. If the registrar has the attribute 'hf.Registrar.Attributes = a.b.*, x.y.z' and
          is registering attribute 'x.y', it is invalid because 'x.y' is not contained by 'x.y.z'.
-      5. If the registrar has the attribute 'hf.Registrar.Roles = peer,client' and
-         the requested attribute value is 'peer,client,orderer', it is invalid because
-         the registrar does not have the orderer role in its value of hf.Registrar.Roles
+      5. If the registrar has the attribute 'hf.Registrar.Roles = peer' and
+         the requested attribute value is 'peer,client', it is invalid because
+         the registrar does not have the client role in its value of hf.Registrar.Roles
          attribute.
       6. If the registrar has the attribute 'hf.Revoker = false' and the requested attribute
          value is 'true', it is invalid because the hf.Revoker attribute is a boolean attribute
@@ -1863,8 +1863,8 @@ An authorization failure will occur if the client identity does not satisfy all 
 
  - The client identity must possess the "hf.Registrar.Roles" attribute with a comma-separated list of
    values where one of the values equals the type of identity being updated; for example, if the client's
-   identity has the "hf.Registrar.Roles" attribute with a value of "client,peer", the client can update
-   identities of type 'client' and 'peer', but not 'orderer'.
+   identity has the "hf.Registrar.Roles" attribute with a value of "client", the client can update
+   identities of type 'client', but not 'peer'.
 
  - The affiliation of the client's identity must be equal to or a prefix of the affiliation of the identity
    being updated.  For example, a client with an affiliation of "a.b" may update an identity with an affiliation
