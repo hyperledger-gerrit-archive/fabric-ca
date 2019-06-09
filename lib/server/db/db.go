@@ -12,8 +12,8 @@ import (
 	"time"
 
 	"github.com/cloudflare/cfssl/certdb"
+	"github.com/hyperledger/fabric-ca/lib/server/db/metrics"
 	"github.com/hyperledger/fabric-ca/lib/server/db/util"
-	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -82,18 +82,14 @@ type DB struct {
 
 	CAName string
 
-	Metrics Metrics
+	Metrics *metrics.Metrics
 }
 
 // New creates an instance of DB
-func New(db SqlxDB, caName string, metricsProvider metrics.Provider) *DB {
+func New(db SqlxDB, caName string) *DB {
 	return &DB{
 		DB:     db,
 		CAName: caName,
-		Metrics: Metrics{
-			APICounter:  metricsProvider.NewCounter(APICounterOpts),
-			APIDuration: metricsProvider.NewHistogram(APIDurationOpts),
-		},
 	}
 }
 
@@ -186,8 +182,10 @@ func (db *DB) PingContext(ctx context.Context) error {
 }
 
 func (db *DB) recordMetric(startTime time.Time, funcName, dbapiName string) {
-	db.Metrics.APICounter.With("ca_name", db.CAName, "func_name", funcName, "dbapi_name", dbapiName).Add(1)
-	db.Metrics.APIDuration.With("ca_name", db.CAName, "func_name", funcName, "dbapi_name", dbapiName).Observe(time.Since(startTime).Seconds())
+	if db.Metrics != nil {
+		db.Metrics.APICounter.With("ca_name", db.CAName, "func_name", funcName, "dbapi_name", dbapiName).Add(1)
+		db.Metrics.APIDuration.With("ca_name", db.CAName, "func_name", funcName, "dbapi_name", dbapiName).Observe(time.Since(startTime).Seconds())
+	}
 }
 
 // CurrentDBLevels returns current levels from the database
