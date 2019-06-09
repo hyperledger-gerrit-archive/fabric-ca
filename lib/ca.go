@@ -38,6 +38,7 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/db"
 	cadb "github.com/hyperledger/fabric-ca/lib/server/db"
 	cadbfactory "github.com/hyperledger/fabric-ca/lib/server/db/factory"
+	"github.com/hyperledger/fabric-ca/lib/server/db/metrics"
 	"github.com/hyperledger/fabric-ca/lib/server/db/mysql"
 	"github.com/hyperledger/fabric-ca/lib/server/db/postgres"
 	"github.com/hyperledger/fabric-ca/lib/server/db/sqlite"
@@ -170,7 +171,7 @@ func (ca *CA) init(renew bool) (err error) {
 	}
 
 	// Initialize the database
-	err = ca.initDB()
+	err = ca.initDB(ca.server.dbMetrics)
 	if err != nil {
 		log.Error("Error occurred initializing database: ", err)
 		// Return if a server configuration error encountered (e.g. Invalid max enrollment for a bootstrap user)
@@ -557,7 +558,7 @@ func (ca *CA) getVerifyOptions() (*x509.VerifyOptions, error) {
 }
 
 // Initialize the database for the CA
-func (ca *CA) initDB() error {
+func (ca *CA) initDB(metrics *metrics.Metrics) error {
 	log.Debug("Initializing DB")
 
 	// If DB is initialized, don't need to proceed further
@@ -596,7 +597,13 @@ func (ca *CA) initDB() error {
 	ds = dbutil.MaskDBCred(ds)
 
 	log.Debugf("Initializing '%s' database at '%s'", dbCfg.Type, ds)
-	caDB, err := cadbfactory.New(dbCfg.Type, dbCfg.Datasource, ca.Config.CA.Name, &dbCfg.TLS, ca.csp, ca.server.Operations)
+	caDB, err := cadbfactory.New(
+		dbCfg.Type,
+		dbCfg.Datasource,
+		ca.Config.CA.Name,
+		&dbCfg.TLS,
+		ca.csp,
+	)
 	if err != nil {
 		return err
 	}
@@ -608,6 +615,8 @@ func (ca *CA) initDB() error {
 	if err != nil {
 		return err
 	}
+
+	sqlxdb.Metrics = metrics
 
 	ca.db = sqlxdb
 	// Set the certificate DB accessor

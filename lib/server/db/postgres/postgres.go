@@ -16,7 +16,6 @@ import (
 	"github.com/hyperledger/fabric-ca/lib/server/db"
 	"github.com/hyperledger/fabric-ca/lib/server/db/util"
 	"github.com/hyperledger/fabric-ca/lib/tls"
-	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq" // import to support Postgres
 	"github.com/pkg/errors"
@@ -24,23 +23,20 @@ import (
 
 // Postgres defines PostgreSQL database
 type Postgres struct {
-	SqlxDB          db.FabricCADB
-	TLS             *tls.ClientTLSConfig
-	CAName          string
-	MetricsProvider metrics.Provider
-
+	SqlxDB     db.FabricCADB
+	TLS        *tls.ClientTLSConfig
+	CAName     string
 	datasource string
 	dbName     string
 }
 
 // NewDB create a PosgreSQL database
-func NewDB(datasource, caName string, clientTLSConfig *tls.ClientTLSConfig, metricsProvider metrics.Provider) *Postgres {
+func NewDB(datasource, caName string, clientTLSConfig *tls.ClientTLSConfig) *Postgres {
 	log.Debugf("Using postgres database, connecting to database...")
 	return &Postgres{
-		datasource:      datasource,
-		TLS:             clientTLSConfig,
-		CAName:          caName,
-		MetricsProvider: metricsProvider,
+		datasource: datasource,
+		TLS:        clientTLSConfig,
+		CAName:     caName,
 	}
 }
 
@@ -89,7 +85,7 @@ func (p *Postgres) Connect() error {
 		return errors.Errorf("Failed to connect to Postgres database. Postgres requires connecting to a specific database, the following databases were tried: %s. Please create one of these database before continuing", dbNames)
 	}
 
-	p.SqlxDB = db.New(sqlxdb, p.CAName, p.MetricsProvider)
+	p.SqlxDB = db.New(sqlxdb, p.CAName)
 	return nil
 }
 
@@ -129,7 +125,7 @@ func (p *Postgres) CreateDatabase() (*db.DB, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "Failed to open database '%s' in Postgres server", dbName)
 	}
-	p.SqlxDB = db.New(sqlxdb, p.CAName, p.MetricsProvider)
+	p.SqlxDB = db.New(sqlxdb, p.CAName)
 
 	return p.SqlxDB.(*db.DB), nil
 }

@@ -13,7 +13,6 @@ import (
 
 	"github.com/cloudflare/cfssl/log"
 	"github.com/hyperledger/fabric-ca/lib/server/db"
-	"github.com/hyperledger/fabric/common/metrics"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
@@ -30,21 +29,19 @@ type Create interface {
 
 // Sqlite defines SQLite database
 type Sqlite struct {
-	SqlxDB          db.FabricCADB
-	CreateTx        Create
-	CAName          string
-	MetricsProvider metrics.Provider
+	SqlxDB   db.FabricCADB
+	CreateTx Create
+	CAName   string
 
 	datasource string
 }
 
 // NewDB creates a SQLite database
-func NewDB(datasource, caName string, metricsProvider metrics.Provider) *Sqlite {
+func NewDB(datasource, caName string) *Sqlite {
 	log.Debugf("Using sqlite database, connect to database in home (%s) directory", datasource)
 	return &Sqlite{
-		datasource:      datasource,
-		CAName:          caName,
-		MetricsProvider: metricsProvider,
+		datasource: datasource,
+		CAName:     caName,
 	}
 }
 
@@ -56,7 +53,7 @@ func (s *Sqlite) Connect() error {
 	if err != nil {
 		return errors.Wrap(err, "Failed to open sqlite3 DB")
 	}
-	s.SqlxDB = db.New(sqlxDB, s.CAName, s.MetricsProvider)
+	s.SqlxDB = db.New(sqlxDB, s.CAName)
 	return nil
 }
 

@@ -8,6 +8,7 @@ package db_test
 
 import (
 	"github.com/hyperledger/fabric-ca/lib/server/db"
+	"github.com/hyperledger/fabric-ca/lib/server/db/metrics"
 	"github.com/hyperledger/fabric-ca/lib/server/db/mocks"
 	"github.com/hyperledger/fabric/common/metrics/metricsfakes"
 	. "github.com/onsi/ginkgo"
@@ -30,7 +31,7 @@ var _ = Describe("metrics", func() {
 
 		testDB = &db.DB{
 			DB: &mocks.SqlxDB{},
-			Metrics: db.Metrics{
+			Metrics: &metrics.Metrics{
 				APICounter:  fakeAPICounter,
 				APIDuration: fakeAPIHistogram,
 			},
