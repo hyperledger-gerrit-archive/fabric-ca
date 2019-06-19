@@ -8,6 +8,8 @@ package db
 
 import "github.com/hyperledger/fabric/common/metrics"
 
+//gendoc:APInames: affiliations/{affiliation} affiliations certificates enroll reenroll gencrl tcert
+// idemix/cri idemix/credential identities/{id} identities cainfo register revoke
 var (
 	// APICounterOpts define the counter opts for database APIs
 	APICounterOpts = metrics.CounterOpts{
