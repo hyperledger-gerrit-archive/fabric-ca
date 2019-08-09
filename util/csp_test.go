@@ -19,6 +19,7 @@ package util_test
 import (
 	"crypto/x509"
 	"errors"
+	"io/ioutil"
 	"os"
 	"testing"
 
@@ -32,15 +33,26 @@ import (
 
 var csp bccsp.BCCSP
 
-func TestGetBCCSPFromOpts(t *testing.T) {
+func TestMain(m *testing.M) {
+	err := factory.InitFactories(nil)
+	if err != nil {
+		Fatal("Could not initialize BCCSP factory interfaces [%s]", err)
+	}
+
+	tmpDir, err := ioutil.TempDir("", "keystore")
+	if err != nil {
+		Fatal("Could not create keystore directory [%s]", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
 	opts := factory.GetDefaultOpts()
-	opts.SwOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: os.TempDir()}
+	opts.SwOpts.FileKeystore = &factory.FileKeystoreOpts{KeyStorePath: tmpDir}
 	opts.SwOpts.Ephemeral = false
-	var err error
 	csp, err = factory.GetBCCSPFromOpts(opts)
 	if err != nil {
-		t.Errorf("Could not initialize BCCSP Factories [%s]", err)
+		Fatal("Could not initialize BCCSP Factories [%s]", err)
 	}
+	os.Exit(m.Run())
 }
 
 func testKeyGenerate(t *testing.T, kr csr.KeyRequest, mustFail bool) {
