@@ -1,0 +1,7 @@
+Verified+1: Hyperledger Jobbuilder <jobbuilder@jenkins.hyperledger.org>
+Code-Review+2: David Enyeart <enyeart@us.ibm.com>
+Submitted-by: David Enyeart <enyeart@us.ibm.com>
+Submitted-at: Tue, 20 Aug 2019 19:38:55 +0000
+Reviewed-on: https://gerrit.hyperledger.org/r/c/fabric-ca/+/32525
+Project: fabric-ca
+Branch: refs/heads/master
