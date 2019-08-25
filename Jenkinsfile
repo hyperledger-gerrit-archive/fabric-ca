@@ -42,19 +42,23 @@ def buildStages() {
     stage('Checkout SCM') {
       // Clone changes from gerrit
       fabBuildLibrary.cloneRefSpec('fabric-ca')
+       // Load properties from ci.properties file
+      props = fabBuildLibrary.loadProperties()
+      def goVer = props["GO_VER"]
       dir("$ROOTDIR/$BASE_DIR") {
         DOC_CHANGE = sh(returnStdout: true, script: "git diff-tree --no-commit-id --name-only -r HEAD | egrep '.md\$|.rst\$|.txt\$|conf.py\$|.png\$|.pptx\$|.css\$|.html\$|.ini\$' | wc -l").trim()
         println DOC_CHANGE
         CODE_CHANGE = sh(returnStdout: true, script: "git diff-tree --no-commit-id --name-only -r HEAD | egrep -v '.md\$|.rst\$|.txt\$|conf.py\$|.png\$|.pptx\$|.css\$|.html\$|.ini\$' | wc -l").trim()
-        println CODE_CHANGE 
+        println CODE_CHANGE
       }
-      // Load properties from ci.properties file
-      props = fabBuildLibrary.loadProperties()
       // Set PATH
       env.GOROOT = "/opt/go/go" + props["GO_VER"] + ".linux." + "$MARCH"
       env.GOPATH = "$WORKSPACE/gopath"
       env.PATH = "$GOROOT/bin:$GOPATH/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${nodeHome}/bin:$PATH"
     }
+
+       // install Go
+       sh 'curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | bash -s ${goVer} /opt/go'
 
       if (DOC_CHANGE > '0' && CODE_CHANGE == '0') {
         sh "echo -e \033[1m ONLY DOC BUILD\033[0m"
