@@ -37,6 +37,13 @@ def buildStages() {
       fabBuildLibrary.cleanupEnv()
       // Display jenkins environment details
       fabBuildLibrary.envOutput()
+      // Load properties from ci.properties file
+      props = fabBuildLibrary.loadProperties()
+      def goVer = props["GO_VER"]
+    }
+
+    stage('Install Go') {
+        sh 'curl -sL https://raw.githubusercontent.com/travis-ci/gimme/master/gimme | bash -s ${goVer} /opt/go'
     }
 
     stage('Checkout SCM') {
@@ -46,12 +53,10 @@ def buildStages() {
         DOC_CHANGE = sh(returnStdout: true, script: "git diff-tree --no-commit-id --name-only -r HEAD | egrep '.md\$|.rst\$|.txt\$|conf.py\$|.png\$|.pptx\$|.css\$|.html\$|.ini\$' | wc -l").trim()
         println DOC_CHANGE
         CODE_CHANGE = sh(returnStdout: true, script: "git diff-tree --no-commit-id --name-only -r HEAD | egrep -v '.md\$|.rst\$|.txt\$|conf.py\$|.png\$|.pptx\$|.css\$|.html\$|.ini\$' | wc -l").trim()
-        println CODE_CHANGE 
+        println CODE_CHANGE
       }
-      // Load properties from ci.properties file
-      props = fabBuildLibrary.loadProperties()
       // Set PATH
-      env.GOROOT = "/opt/go/go" + props["GO_VER"] + ".linux." + "$MARCH"
+      env.GOROOT = "/opt/go/go${goVer}.linux.${MARCH}"
       env.GOPATH = "$WORKSPACE/gopath"
       env.PATH = "$GOROOT/bin:$GOPATH/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${nodeHome}/bin:$PATH"
     }
