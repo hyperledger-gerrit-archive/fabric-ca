@@ -1150,12 +1150,10 @@ The CA server can be configurated in the ``operations`` section of server's conf
       enabled: true
 
       # path to PEM encoded server certificate for the operations server
-      cert:
-        file: tls/server.crt
+      certfile: tls/server.crt
 
       # path to PEM encoded server key for the operations server
-      key:
-        file: tls/server.key
+      keyfile: tls/server.key
 
       # require client certificate authentication to access all resources
       clientAuthRequired: false
