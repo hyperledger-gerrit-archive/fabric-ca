@@ -1,0 +1,13 @@
+# Copyright the Hyperledger Fabric contributors. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+- script: git clone -b $(Build.SourceBranchName) https://github.com/hyperledger/fabric-chaincode-java.git $(ORG_DIR)/fabric-chaincode-java
+  displayName: Download Fabric-Chaincode-Java
+- task: Gradle@2
+  inputs:
+    gradleWrapperFile: $(ORG_DIR)/fabric-chaincode-java/gradlew
+    workingDirectory: $(ORG_DIR)/fabric-chaincode-java
+    tasks: 'buildImage'
+  displayName: Build JavaEnv Docker Image
