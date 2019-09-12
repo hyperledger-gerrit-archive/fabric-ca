@@ -1,0 +1,12 @@
+# Copyright the Hyperledger Fabric contributors. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+- script: |
+    git clone -b $(Build.SourceBranchName) https://github.com/hyperledger/fabric-chaincode-node.git $(GIT_ORG_DIR)/fabric-chaincode-node
+    cd $(GIT_ORG_DIR)/fabric-chaincode-node
+    npm install -g gulp
+    npm install
+    gulp docker-image-build
+  displayName: Build NodeEnv Docker Image

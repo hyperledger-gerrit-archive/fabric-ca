@@ -1,0 +1,10 @@
+# Copyright the Hyperledger Fabric contributors. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+steps:
+- script: |
+    git clone -b $(Build.SourceBranchName) https://github.com/hyperledger/fabric-ca.git $(GIT_ORG_DIR)/fabric-ca
+    cd $(GIT_ORG_DIR)/fabric-ca
+    make docker
+  displayName: Build Fabric CA Docker Images
