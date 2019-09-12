@@ -1,0 +1,17 @@
+# Copyright the Hyperledger Fabric contributors. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+variables:
+- name: GOPATH
+  value: /home/vsts/work/1/go
+- name: GOROOT
+  value: /usr/local/bin/go
+- name: ORG_DIR
+  value: /home/vsts/work/1/go/src/github.com/hyperledger
+- name: PATH
+  value: /usr/local/bin/go/bin:/home/vsts/work/1/go/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+- name: GOVER
+  value: 1.11.5
+- name: NODE_VER
+  value: 8.14.0
