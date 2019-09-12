@@ -1,0 +1,80 @@
+# Copyright the Hyperledger Fabric contributors. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+name: $(SourceBranchName)-$(Date:yyyyMMdd)$(Rev:.rrr)
+trigger:
+- release-1.4
+pr: none
+
+variables:
+- template: variables.yml
+
+jobs:
+- job: E2ETests_Node
+  variables:
+    PKCS11_TESTS: false
+  pool:
+    vmImage: ubuntu-16.04
+  dependsOn: []
+  timeoutInMinutes: 60
+  steps:
+  - script: mkdir -p '$(ORG_DIR)'
+    displayName: Create Fabric Org Directory
+  - template: install_deps.yml
+  - template: build_fabric_images.yml
+  - template: build_fabric_ca_images.yml
+  - script: |
+      git clone -b $(Build.SourceBranchName) https://github.com/hyperledger/fabric-sdk-node.git $(ORG_DIR)/fabric-sdk-node
+      cd '$(ORG_DIR)/fabric-sdk-node'
+      npm install -g gulp
+      npm install
+      gulp install-and-generate-certs
+      gulp run-end-to-end
+    displayName: Run Node E2E Tests
+
+- job: E2ETests_Java
+  variables:
+    WD: '$(ORG_DIR)/fabric-sdk-java'
+  pool:
+    vmImage: ubuntu-16.04
+  dependsOn: []
+  timeoutInMinutes: 60
+  steps:
+  - template: install_deps.yml
+  - script: mkdir -p '$(ORG_DIR)'
+    displayName: Create Hyperledger Directory
+  - template: build_fabric_images.yml
+  - template: build_fabric_ca_images.yml
+  - script: git clone -b $(Build.SourceBranchName) https://github.com/hyperledger/fabric-sdk-java.git $(ORG_DIR)/fabric-sdk-java
+    displayName: Download Fabric-SDK-Java
+  - script: $(WD)/src/test/cirun.sh
+    displayName: Run Java E2E Tests
+
+- job: VerifyBuild
+  pool:
+    vmImage: ubuntu-16.04
+  dependsOn: []
+  timeoutInMinutes: 60
+  steps:
+  - template: install_deps.yml
+  - checkout: self
+    path: 'go/src/github.com/hyperledger/fabric-ca'
+    displayName: Checkout Fabric Code
+  - script: make dist-all unit-test int-tests docs
+    displayName: Run Unit and Integration Tests
+
+- job: FVTTests
+  pool:
+    vmImage: ubuntu-16.04
+  dependsOn: []
+  timeoutInMinutes: 60
+  steps:
+  - template: install_deps.yml
+  - checkout: self
+    path: 'go/src/github.com/hyperledger/fabric-ca'
+    displayName: Checkout Fabric CA Code
+  - script: make docker-clean docker-fvt
+    displayName: Build FVT Test Image
+  - script: docker run -v $(pwd):/opt/gopath/src/github.com/hyperledger/fabric-ca hyperledger/fabric-ca-fvt
+    displayName: Run FVT Tests
