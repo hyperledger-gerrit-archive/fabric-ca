@@ -1,0 +1,8 @@
+# Copyright the Hyperledger Fabric contributors. All rights reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+
+variables:
+  GOPATH: $(Agent.BuildDirectory)/go
+  PATH: /bin:/usr/bin:/sbin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+  GOVER: 1.12.5
